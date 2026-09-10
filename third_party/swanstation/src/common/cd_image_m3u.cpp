@@ -1,0 +1,177 @@
+#include "cd_image.h"
+#include "cd_subchannel_replacement.h"
+#include "error.h"
+#include "file_system.h"
+#include "log.h"
+#include <cerrno>
+#include <sstream>
+#include <map>
+Log_SetChannel(CDImageMemory);
+
+class CDImageM3u : public CDImage
+{
+public:
+  CDImageM3u(OpenFlags open_flags);
+  ~CDImageM3u() override;
+
+  bool Open(const char* path, Common::Error* Error);
+
+  bool ReadSubChannelQ(SubChannelQ* subq, const Index& index, LBA lba_in_index) override;
+  bool HasNonStandardSubchannel() const override;
+
+  bool HasSubImages() const override;
+  uint32_t GetSubImageCount() const override;
+  uint32_t GetCurrentSubImage() const override;
+  std::string GetSubImageMetadata(uint32_t index, const std::string_view& type) const override;
+  bool SwitchSubImage(uint32_t index, Common::Error* error) override;
+
+protected:
+  bool ReadSectorFromIndex(void* buffer, const Index& index, LBA lba_in_index) override;
+
+private:
+  struct Entry
+  {
+    // TODO: Worth storing any other data?
+    std::string filename;
+    std::string title;
+  };
+
+  std::vector<Entry> m_entries;
+  std::unique_ptr<CDImage> m_current_image;
+  uint32_t m_current_image_index = UINT32_C(0xFFFFFFFF);
+};
+
+CDImageM3u::CDImageM3u(OpenFlags open_flags) : CDImage(open_flags) {}
+
+CDImageM3u::~CDImageM3u() = default;
+
+bool CDImageM3u::Open(const char* path, Common::Error* error)
+{
+  RFILE* fp = FileSystem::OpenRFile(path, "rb");
+  if (!fp)
+    return false;
+
+  std::optional<std::string> m3u_file(FileSystem::ReadFileToString(fp));
+  rfclose(fp);
+  if (!m3u_file.has_value() || m3u_file->empty())
+  {
+    if (error)
+      error->SetMessage("Failed to read M3u file");
+    return false;
+  }
+
+  std::istringstream ifs(m3u_file.value());
+  m_filename = path;
+
+  std::vector<std::string> entries;
+  std::string line;
+  while (std::getline(ifs, line))
+  {
+    uint32_t start_offset = 0;
+    while (start_offset < line.size() && std::isspace(line[start_offset]))
+      start_offset++;
+
+    // skip comments
+    if (start_offset == line.size() || line[start_offset] == '#')
+      continue;
+
+    // strip ending whitespace
+    uint32_t end_offset = static_cast<uint32_t>(line.size()) - 1;
+    while (std::isspace(line[end_offset]) && end_offset > start_offset)
+      end_offset--;
+
+    // anything?
+    if (start_offset == end_offset)
+      continue;
+
+    Entry entry;
+    std::string entry_filename(line.begin() + start_offset, line.begin() + end_offset + 1);
+    entry.title = FileSystem::GetFileTitleFromPath(entry_filename);
+    if (!FileSystem::IsAbsolutePath(entry_filename))
+      entry.filename = FileSystem::BuildRelativePath(path, entry_filename);
+    else
+      entry.filename = std::move(entry_filename);
+
+    m_entries.push_back(std::move(entry));
+  }
+
+  Log_InfoPrintf("Loaded %zu paths from m3u '%s'", m_entries.size(), path);
+  return !m_entries.empty() && SwitchSubImage(0, error);
+}
+
+bool CDImageM3u::HasNonStandardSubchannel() const
+{
+  return m_current_image->HasNonStandardSubchannel();
+}
+
+bool CDImageM3u::HasSubImages() const
+{
+  return true;
+}
+
+uint32_t CDImageM3u::GetSubImageCount() const
+{
+  return static_cast<uint32_t>(m_entries.size());
+}
+
+uint32_t CDImageM3u::GetCurrentSubImage() const
+{
+  return m_current_image_index;
+}
+
+bool CDImageM3u::SwitchSubImage(uint32_t index, Common::Error* error)
+{
+  if (index >= m_entries.size())
+    return false;
+  else if (index == m_current_image_index)
+    return true;
+
+  const Entry& entry = m_entries[index];
+  std::unique_ptr<CDImage> new_image = CDImage::Open(entry.filename.c_str(), GetOpenFlags(), error);
+  if (!new_image)
+  {
+    Log_ErrorPrintf("Failed to load subimage %u (%s)", index, entry.filename.c_str());
+    return false;
+  }
+
+  CopyTOC(new_image.get());
+  m_current_image = std::move(new_image);
+  m_current_image_index = index;
+  Seek(1, Position{0, 0, 0});
+
+  return true;
+}
+
+std::string CDImageM3u::GetSubImageMetadata(uint32_t index, const std::string_view& type) const
+{
+  if (index > m_entries.size())
+    return {};
+
+  if (type == "title")
+    return m_entries[index].title;
+  else if (type == "file_title")
+    return std::string(FileSystem::GetFileTitleFromPath(m_entries[index].filename));
+  else if (type == "file_path")
+    return std::string(m_entries[index].filename);
+
+  return CDImage::GetSubImageMetadata(index, type);
+}
+
+bool CDImageM3u::ReadSectorFromIndex(void* buffer, const Index& index, LBA lba_in_index)
+{
+  return m_current_image->ReadSectorFromIndex(buffer, index, lba_in_index);
+}
+
+bool CDImageM3u::ReadSubChannelQ(SubChannelQ* subq, const Index& index, LBA lba_in_index)
+{
+  return m_current_image->ReadSubChannelQ(subq, index, lba_in_index);
+}
+
+std::unique_ptr<CDImage> CDImage::OpenM3uImage(const char* filename, OpenFlags open_flags, Common::Error* error)
+{
+  std::unique_ptr<CDImageM3u> image = std::make_unique<CDImageM3u>(open_flags);
+  if (!image->Open(filename, error))
+    return {};
+
+  return image;
+}

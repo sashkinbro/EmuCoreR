@@ -1,0 +1,728 @@
+# swanstation libretro core - static Makefile (Makefile.libretro)
+#
+# Modeled on the Beetle PSX libretro Makefile:
+# https://github.com/libretro/beetle-psx-libretro
+#
+# This Makefile is dedicated to building the libretro core only and
+# always assumes the libretro defines (__LIBRETRO__) are on.
+# It is intended to coexist with the existing CMake build system; the
+# CMake build continues to work and is unaffected by this Makefile.
+#
+# Invoke explicitly via -f:
+#   make -f Makefile.libretro                    # native build
+#   make -f Makefile.libretro platform=unix
+#   make -f Makefile.libretro platform=osx
+#   make -f Makefile.libretro platform=win
+#   make -f Makefile.libretro DEBUG=1
+#
+# Supported host platforms: Linux, macOS, Windows (MinGW / MSYS2).
+# Cross-compilation flavours are also accepted via the standard
+# libretro `platform=` knob (e.g. unix-armv7-neon-hardfloat, etc.).
+
+DEBUG                 ?= 0
+SILENT                ?= 0
+LINK_STATIC_LIBCPLUSPLUS ?= 1
+
+CORE_DIR  := .
+TARGET_NAME := swanstation
+
+# ---------------------------------------------------------------------
+# Helpers and version info
+# ---------------------------------------------------------------------
+SPACE :=
+SPACE := $(SPACE) $(SPACE)
+BACKSLASH :=
+BACKSLASH := \$(BACKSLASH)
+filter_out1 = $(filter-out $(firstword $1),$1)
+filter_out2 = $(call filter_out1,$(call filter_out1,$1))
+
+GIT_VERSION ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+GIT_HASH    ?= $(GIT_VERSION)
+BUILD_DATE  ?= $(shell date -u "+%Y-%m-%d %H:%M:%S")
+
+# ---------------------------------------------------------------------
+# Platform detection
+# ---------------------------------------------------------------------
+ifeq ($(platform),)
+   platform = unix
+   ifeq ($(shell uname -s),)
+      platform = win
+   else ifneq ($(findstring Darwin,$(shell uname -s)),)
+      platform = osx
+      arch     = intel
+      ifeq ($(shell uname -m),arm64)
+         arch = arm64
+      endif
+   else ifneq ($(findstring MINGW,$(shell uname -s)),)
+      platform = win
+   else ifneq ($(findstring MSYS,$(shell uname -s)),)
+      platform = win
+   endif
+else ifneq (,$(findstring armv,$(platform)))
+   override platform += unix
+endif
+
+ifneq ($(platform), osx)
+   ifeq ($(findstring Haiku,$(shell uname -s)),)
+      PTHREAD_FLAGS = -lpthread
+   endif
+endif
+
+# ---------------------------------------------------------------------
+# CPU architecture detection (mirrors CMakeLists.txt logic)
+# ---------------------------------------------------------------------
+# CPU_ARCH may be one of: x64, x86, aarch64, aarch32
+CPU_ARCH ?=
+
+ifeq ($(CPU_ARCH),)
+   ifeq ($(platform), osx)
+      ifeq ($(arch),arm64)
+         CPU_ARCH := aarch64
+      else
+         CPU_ARCH := x64
+      endif
+   else
+      UNAME_M := $(shell uname -m 2>/dev/null)
+      ifneq (,$(filter $(UNAME_M),x86_64 amd64 AMD64))
+         CPU_ARCH := x64
+      else ifneq (,$(filter $(UNAME_M),i386 i686 x86))
+         CPU_ARCH := x86
+      else ifneq (,$(filter $(UNAME_M),aarch64 arm64))
+         CPU_ARCH := aarch64
+      else ifneq (,$(findstring arm,$(UNAME_M)))
+         CPU_ARCH := aarch32
+      else
+         # Fall back to 64-bit on Windows where uname may be unavailable
+         CPU_ARCH := x64
+      endif
+   endif
+endif
+
+ifeq ($(CPU_ARCH),x64)
+   WITH_RECOMPILER     := 1
+   WITH_MMAP_FASTMEM   := 1
+endif
+ifeq ($(CPU_ARCH),aarch64)
+   WITH_RECOMPILER     := 1
+   WITH_MMAP_FASTMEM   := 1
+endif
+ifeq ($(CPU_ARCH),aarch32)
+   WITH_RECOMPILER     := 1
+endif
+
+# ---------------------------------------------------------------------
+# Per-platform target / shared-library / linker flags
+# ---------------------------------------------------------------------
+
+# Unix / Linux / *BSD
+ifneq (,$(findstring unix,$(platform)))
+   TARGET := $(TARGET_NAME)_libretro.so
+   fpic   := -fPIC
+   ifneq ($(findstring SunOS,$(shell uname -s)),)
+      SHARED := -shared -z defs
+   else
+      SHARED := -shared -Wl,--no-undefined -Wl,--version-script=link.T
+   endif
+   ifeq ($(LINK_STATIC_LIBCPLUSPLUS),1)
+      LDFLAGS += -static-libgcc -static-libstdc++
+   endif
+   LDFLAGS += $(PTHREAD_FLAGS) -ldl -lrt
+   ifneq ($(findstring Haiku,$(shell uname -s)),)
+      LDFLAGS := $(filter-out -ldl -lrt,$(LDFLAGS)) -lroot
+   endif
+   ifeq ($(CPU_ARCH),aarch32)
+      FLAGS += -marm -march=armv7-a
+   endif
+
+# macOS
+else ifeq ($(platform), osx)
+   TARGET  := $(TARGET_NAME)_libretro.dylib
+   fpic    := -fPIC
+   SHARED  := -dynamiclib -Wl,-exported_symbols_list,libretro.osx.def
+   LDFLAGS += $(PTHREAD_FLAGS)
+   FLAGS   += $(PTHREAD_FLAGS)
+   # Link the few macOS frameworks/libraries the core needs.
+   # `objc` is required by the Vulkan swap chain helper used on macOS.
+   LDFLAGS += -lobjc -framework CoreFoundation
+   ifeq ($(arch),arm64)
+      MINOS := -mmacosx-version-min=11.0
+   else
+      MINOS := -mmacosx-version-min=10.14
+   endif
+   FLAGS   += $(MINOS)
+   LDFLAGS += $(MINOS)
+   ifeq ($(CROSS_COMPILE),1)
+      TARGET_RULE := -target $(LIBRETRO_APPLE_PLATFORM) -isysroot $(LIBRETRO_APPLE_ISYSROOT)
+      CFLAGS   += $(TARGET_RULE)
+      CXXFLAGS += $(TARGET_RULE)
+      LDFLAGS  += $(TARGET_RULE)
+   endif
+
+# Windows (MinGW / MSYS2 / cross gcc)
+else ifeq ($(platform), win)
+   TARGET  := $(TARGET_NAME)_libretro.dll
+   CC      ?= gcc
+   CXX     ?= g++
+   SHARED  := -shared -Wl,--no-undefined -Wl,--version-script=link.T
+   LDFLAGS += -static-libgcc -static-libstdc++
+   # winmm: timeBeginPeriod (used by core), d3d11/dxgi for D3D11
+   # The bundled vulkan-loader resolves the Vulkan ICD at runtime through
+   # LoadLibrary, so no -lvulkan-1 is required at link time.
+   LDFLAGS += -lwinmm -ld3d11 -ldxgi -lopengl32 -lgdi32 -luser32 -lkernel32
+
+# Generic Windows fallback (covers e.g. `make platform=win-x86_64`)
+else ifneq (,$(findstring win,$(platform)))
+   TARGET  := $(TARGET_NAME)_libretro.dll
+   CC      ?= gcc
+   CXX     ?= g++
+   SHARED  := -shared -Wl,--no-undefined -Wl,--version-script=link.T
+   LDFLAGS += -static-libgcc -static-libstdc++
+   LDFLAGS += -lwinmm -ld3d11 -ldxgi -lopengl32 -lgdi32 -luser32 -lkernel32
+
+# Unrecognised platform - emit a clear error rather than silently building
+# something broken.
+else
+   $(error Unsupported platform '$(platform)'. Supported: unix, osx, win)
+endif
+
+# Detect Windows-ness of the *target* (used to gate D3D sources etc.)
+ifneq (,$(findstring win,$(platform)))
+   IS_WINDOWS := 1
+else
+   IS_WINDOWS := 0
+endif
+
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Source manifest
+# ---------------------------------------------------------------------
+# Every translation unit and every include path the libretro core
+# needs is listed here, in source order matching the corresponding
+# CMakeLists.txt files in src/ and dep/. When a file is added to a
+# CMakeLists.txt it must be added here too.
+
+SOURCES_C   :=
+SOURCES_CC  :=
+SOURCES_CXX :=
+
+CORE_DIR     ?= .
+DEPS_DIR     := $(CORE_DIR)/dep
+SRC_DIR      := $(CORE_DIR)/src
+
+LIBRETRO_COMM_DIR := $(DEPS_DIR)/libretro-common
+LIBCHDR_DIR       := $(DEPS_DIR)/libchdr
+GLAD_DIR          := $(DEPS_DIR)/glad
+VULKAN_LOADER_DIR := $(DEPS_DIR)/vulkan-loader
+STB_DIR           := $(DEPS_DIR)/stb
+XXHASH_DIR        := $(DEPS_DIR)/xxhash
+OPENBIOS_DIR      := $(DEPS_DIR)/openbios
+XBYAK_DIR         := $(DEPS_DIR)/xbyak
+VIXL_DIR          := $(DEPS_DIR)/vixl
+
+# Include paths.
+#
+# Notes:
+#  - We only add `-Isrc`. Source files inside src/{common,core,libretro}
+#    use forms like `#include "common/byte_stream.h"` and same-directory
+#    `#include "byte_stream.h"`; the latter resolves source-relative
+#    automatically. Adding `-Isrc/common` would shadow the system
+#    `<string.h>` with `src/common/string.h` and break `<cstring>`.
+INCFLAGS := \
+   -I$(SRC_DIR) \
+   -I$(LIBRETRO_COMM_DIR)/include \
+   -I$(LIBCHDR_DIR)/include \
+   -I$(LIBCHDR_DIR)/deps/lzma-25.01/include \
+   -I$(LIBCHDR_DIR)/deps/miniz-3.1.1 \
+   -I$(LIBCHDR_DIR)/deps/zstd-1.5.7 \
+   -I$(GLAD_DIR)/include \
+   -I$(VULKAN_LOADER_DIR)/include \
+   -I$(STB_DIR)/include \
+   -I$(XXHASH_DIR)/include \
+   -I$(OPENBIOS_DIR)
+
+ifeq ($(CPU_ARCH),x64)
+   INCFLAGS += -I$(XBYAK_DIR)/xbyak
+endif
+
+ifneq (,$(filter $(CPU_ARCH),aarch64 aarch32))
+   # vixl's own sources include their headers without the "vixl/" prefix
+   # (e.g. #include "code-buffer-vixl.h"), while consumers in src/core use
+   # the "vixl/..." prefix. vixl's CMake makes ${SRC}/include "PUBLIC" and
+   # ${SRC}/include/vixl plus the per-target subdir "PRIVATE". This single
+   # %.o pattern rule has no notion of PRIVATE/PUBLIC, so add all three to
+   # INCFLAGS - the per-target subdir is selected here so we don't pull in
+   # both aarch32 and aarch64 internal headers at once. The vixl bare-name
+   # headers (code-buffer-vixl.h, cpu-features.h, ...) do not collide with
+   # anything else in the tree (verified by name search).
+   INCFLAGS += -I$(VIXL_DIR)/include
+   INCFLAGS += -I$(VIXL_DIR)/include/vixl
+endif
+ifeq ($(CPU_ARCH),aarch64)
+   INCFLAGS += -I$(VIXL_DIR)/include/vixl/aarch64
+endif
+ifeq ($(CPU_ARCH),aarch32)
+   INCFLAGS += -I$(VIXL_DIR)/include/vixl/aarch32
+endif
+
+# ---------------------------------------------------------------------
+# src/common
+# ---------------------------------------------------------------------
+COMMON_DIR := $(SRC_DIR)/common
+SOURCES_CXX += \
+   $(COMMON_DIR)/byte_stream.cpp \
+   $(COMMON_DIR)/cd_image.cpp \
+   $(COMMON_DIR)/cd_image_bin.cpp \
+   $(COMMON_DIR)/cd_image_cue.cpp \
+   $(COMMON_DIR)/cd_image_chd.cpp \
+   $(COMMON_DIR)/cd_image_ecm.cpp \
+   $(COMMON_DIR)/cd_image_m3u.cpp \
+   $(COMMON_DIR)/cd_image_memory.cpp \
+   $(COMMON_DIR)/cd_image_mds.cpp \
+   $(COMMON_DIR)/cd_image_pbp.cpp \
+   $(COMMON_DIR)/cd_image_ppf.cpp \
+   $(COMMON_DIR)/cd_subchannel_replacement.cpp \
+   $(COMMON_DIR)/cd_xa.cpp \
+   $(COMMON_DIR)/cue_parser.cpp \
+   $(COMMON_DIR)/error.cpp \
+   $(COMMON_DIR)/event.cpp \
+   $(COMMON_DIR)/file_system.cpp \
+   $(COMMON_DIR)/image.cpp \
+   $(COMMON_DIR)/iso_reader.cpp \
+   $(COMMON_DIR)/jit_code_buffer.cpp \
+   $(COMMON_DIR)/log.cpp \
+   $(COMMON_DIR)/md5_digest.cpp \
+   $(COMMON_DIR)/memory_arena.cpp \
+   $(COMMON_DIR)/page_fault_handler.cpp \
+   $(COMMON_DIR)/progress_callback.cpp \
+   $(COMMON_DIR)/state_wrapper.cpp \
+   $(COMMON_DIR)/string.cpp \
+   $(COMMON_DIR)/string_util.cpp \
+   $(COMMON_DIR)/timer.cpp \
+   $(COMMON_DIR)/gl/program.cpp \
+   $(COMMON_DIR)/gl/shader_cache.cpp \
+   $(COMMON_DIR)/gl/stream_buffer.cpp \
+   $(COMMON_DIR)/gl/texture.cpp \
+   $(COMMON_DIR)/vulkan/builders.cpp \
+   $(COMMON_DIR)/vulkan/context.cpp \
+   $(COMMON_DIR)/vulkan/embedded_shaders.cpp \
+   $(COMMON_DIR)/vulkan/shader_cache.cpp \
+   $(COMMON_DIR)/vulkan/staging_buffer.cpp \
+   $(COMMON_DIR)/vulkan/staging_texture.cpp \
+   $(COMMON_DIR)/vulkan/stream_buffer.cpp \
+   $(COMMON_DIR)/vulkan/texture.cpp \
+   $(COMMON_DIR)/vulkan/util.cpp
+
+# Direct3D 11 backend - Windows only.
+ifeq ($(IS_WINDOWS),1)
+SOURCES_CXX += \
+   $(COMMON_DIR)/d3d11/shader_compiler.cpp \
+   $(COMMON_DIR)/d3d11/staging_texture.cpp \
+   $(COMMON_DIR)/d3d11/stream_buffer.cpp \
+   $(COMMON_DIR)/d3d11/texture.cpp \
+   $(COMMON_DIR)/d3d_common/embedded_shaders.cpp
+
+# Direct3D 12 backend - Windows only. d3d12 ships with Windows 10+ and
+# the libretro frontend exposes it via retro_hw_render_interface_d3d12.
+# Compiled in on every Windows build; the runtime requirement is just
+# that RetroArch was built with D3D12 support and the user has the
+# video driver set to d3d12 (or "Auto" with d3d12 preferred).
+CXXFLAGS += -DUSE_D3D12=1
+LDFLAGS  += -ld3d12
+SOURCES_CXX += \
+   $(COMMON_DIR)/d3d12/context.cpp \
+   $(COMMON_DIR)/d3d12/descriptor_heap_manager.cpp \
+   $(COMMON_DIR)/d3d12/shader_cache.cpp \
+   $(COMMON_DIR)/d3d12/staging_texture.cpp \
+   $(COMMON_DIR)/d3d12/stream_buffer.cpp \
+   $(COMMON_DIR)/d3d12/texture.cpp \
+   $(COMMON_DIR)/d3d12/util.cpp
+endif
+
+# ---------------------------------------------------------------------
+# src/core
+# ---------------------------------------------------------------------
+CORE_SRC_DIR := $(SRC_DIR)/core
+SOURCES_CXX += \
+   $(CORE_SRC_DIR)/analog_controller.cpp \
+   $(CORE_SRC_DIR)/analog_joystick.cpp \
+   $(CORE_SRC_DIR)/bios.cpp \
+   $(CORE_SRC_DIR)/bus.cpp \
+   $(CORE_SRC_DIR)/cdrom.cpp \
+   $(CORE_SRC_DIR)/cdrom_async_reader.cpp \
+   $(CORE_SRC_DIR)/cheats.cpp \
+   $(CORE_SRC_DIR)/controller.cpp \
+   $(CORE_SRC_DIR)/cpu_code_cache.cpp \
+   $(CORE_SRC_DIR)/cpu_core.cpp \
+   $(CORE_SRC_DIR)/cpu_types.cpp \
+   $(CORE_SRC_DIR)/digital_controller.cpp \
+   $(CORE_SRC_DIR)/dma.cpp \
+   $(CORE_SRC_DIR)/gpu.cpp \
+   $(CORE_SRC_DIR)/gpu_backend.cpp \
+   $(CORE_SRC_DIR)/gpu_commands.cpp \
+   $(CORE_SRC_DIR)/gpu_hw.cpp \
+   $(CORE_SRC_DIR)/gpu_hw_opengl.cpp \
+   $(CORE_SRC_DIR)/gpu_hw_shadergen.cpp \
+   $(CORE_SRC_DIR)/gpu_hw_vulkan.cpp \
+   $(CORE_SRC_DIR)/gpu_sw.cpp \
+   $(CORE_SRC_DIR)/gpu_sw_backend.cpp \
+   $(CORE_SRC_DIR)/gte.cpp \
+   $(CORE_SRC_DIR)/host_display.cpp \
+   $(CORE_SRC_DIR)/host_interface.cpp \
+   $(CORE_SRC_DIR)/host_interface_progress_callback.cpp \
+   $(CORE_SRC_DIR)/interrupt_controller.cpp \
+   $(CORE_SRC_DIR)/libcrypt_game_codes.cpp \
+   $(CORE_SRC_DIR)/mdec.cpp \
+   $(CORE_SRC_DIR)/memory_card.cpp \
+   $(CORE_SRC_DIR)/memory_card_image.cpp \
+   $(CORE_SRC_DIR)/multitap.cpp \
+   $(CORE_SRC_DIR)/namco_guncon.cpp \
+   $(CORE_SRC_DIR)/negcon.cpp \
+   $(CORE_SRC_DIR)/negcon_rumble.cpp \
+   $(CORE_SRC_DIR)/pad.cpp \
+   $(CORE_SRC_DIR)/pgxp.cpp \
+   $(CORE_SRC_DIR)/playstation_mouse.cpp \
+   $(CORE_SRC_DIR)/psf_loader.cpp \
+   $(CORE_SRC_DIR)/resources.cpp \
+   $(CORE_SRC_DIR)/settings.cpp \
+   $(CORE_SRC_DIR)/shadergen.cpp \
+   $(CORE_SRC_DIR)/sio.cpp \
+   $(CORE_SRC_DIR)/spu.cpp \
+   $(CORE_SRC_DIR)/system.cpp \
+   $(CORE_SRC_DIR)/texture_replacements.cpp \
+   $(CORE_SRC_DIR)/timers.cpp \
+   $(CORE_SRC_DIR)/timing_event.cpp
+
+# D3D11 hardware GPU backend - Windows only.
+ifeq ($(IS_WINDOWS),1)
+SOURCES_CXX += $(CORE_SRC_DIR)/gpu_hw_d3d11.cpp
+
+# D3D12 hardware GPU backend - Windows only (see common-section comment).
+SOURCES_CXX += $(CORE_SRC_DIR)/gpu_hw_d3d12.cpp
+endif
+
+# Recompiler back-ends: shared TUs + per-arch TU.
+ifeq ($(WITH_RECOMPILER),1)
+SOURCES_CXX += \
+   $(CORE_SRC_DIR)/cpu_recompiler_code_generator.cpp \
+   $(CORE_SRC_DIR)/cpu_recompiler_code_generator_generic.cpp \
+   $(CORE_SRC_DIR)/cpu_recompiler_register_cache.cpp
+
+ifeq ($(CPU_ARCH),x64)
+SOURCES_CXX += $(CORE_SRC_DIR)/cpu_recompiler_code_generator_x64.cpp
+endif
+ifeq ($(CPU_ARCH),aarch64)
+SOURCES_CXX += $(CORE_SRC_DIR)/cpu_recompiler_code_generator_aarch64.cpp
+endif
+ifeq ($(CPU_ARCH),aarch32)
+SOURCES_CXX += $(CORE_SRC_DIR)/cpu_recompiler_code_generator_aarch32.cpp
+endif
+endif
+
+# ---------------------------------------------------------------------
+# src/libretro
+# ---------------------------------------------------------------------
+LIBRETRO_SRC_DIR := $(SRC_DIR)/libretro
+SOURCES_CXX += \
+   $(LIBRETRO_SRC_DIR)/libretro_audio_stream.cpp \
+   $(LIBRETRO_SRC_DIR)/libretro_game_settings.cpp \
+   $(LIBRETRO_SRC_DIR)/libretro_host_display.cpp \
+   $(LIBRETRO_SRC_DIR)/libretro_host_interface.cpp \
+   $(LIBRETRO_SRC_DIR)/libretro_settings_interface.cpp
+
+# ---------------------------------------------------------------------
+# dep/libretro-common
+# ---------------------------------------------------------------------
+SOURCES_C += \
+   $(LIBRETRO_COMM_DIR)/compat/compat_posix_string.c \
+   $(LIBRETRO_COMM_DIR)/compat/compat_strl.c \
+   $(LIBRETRO_COMM_DIR)/compat/fopen_utf8.c \
+   $(LIBRETRO_COMM_DIR)/encodings/encoding_utf.c \
+   $(LIBRETRO_COMM_DIR)/file/file_path.c \
+   $(LIBRETRO_COMM_DIR)/file/file_path_io.c \
+   $(LIBRETRO_COMM_DIR)/file/retro_dirent.c \
+   $(LIBRETRO_COMM_DIR)/formats/data_transfer.c \
+   $(LIBRETRO_COMM_DIR)/memmap/memmap.c \
+   $(LIBRETRO_COMM_DIR)/streams/file_stream.c \
+   $(LIBRETRO_COMM_DIR)/string/stdstring.c \
+   $(LIBRETRO_COMM_DIR)/time/rtime.c \
+   $(LIBRETRO_COMM_DIR)/vfs/vfs_hybrid.c \
+   $(LIBRETRO_COMM_DIR)/vfs/vfs_implementation.c
+
+# ---------------------------------------------------------------------
+# dep/glad - OpenGL loader
+# ---------------------------------------------------------------------
+SOURCES_C += $(GLAD_DIR)/src/glad.c
+ifeq ($(IS_WINDOWS),1)
+SOURCES_C += $(GLAD_DIR)/src/glad_wgl.c
+endif
+
+# ---------------------------------------------------------------------
+# dep/stb
+# ---------------------------------------------------------------------
+SOURCES_C += \
+   $(STB_DIR)/src/stb_image.c \
+   $(STB_DIR)/src/stb_image_resize.c
+
+# ---------------------------------------------------------------------
+# dep/xxhash
+# ---------------------------------------------------------------------
+SOURCES_C += $(XXHASH_DIR)/src/xxhash.c
+ifneq (,$(filter $(CPU_ARCH),x86 x64))
+   SOURCES_C += $(XXHASH_DIR)/src/xxh_x86dispatch.c
+   FLAGS += -DXXH_X86DISPATCH_ALLOW_AVX
+endif
+
+# ---------------------------------------------------------------------
+# dep/libchdr (and bundled lzma / miniz / zstd)
+# ---------------------------------------------------------------------
+SOURCES_C += \
+   $(LIBCHDR_DIR)/deps/lzma-25.01/src/LzmaDec.c \
+   $(LIBCHDR_DIR)/deps/miniz-3.1.1/miniz.c \
+   $(LIBCHDR_DIR)/deps/zstd-1.5.7/zstddeclib.c \
+   $(LIBCHDR_DIR)/src/libchdr_bitstream.c \
+   $(LIBCHDR_DIR)/src/libchdr_cdrom.c \
+   $(LIBCHDR_DIR)/src/libchdr_chd.c \
+   $(LIBCHDR_DIR)/src/libchdr_codec_cdfl.c \
+   $(LIBCHDR_DIR)/src/libchdr_codec_cdlz.c \
+   $(LIBCHDR_DIR)/src/libchdr_codec_cdzl.c \
+   $(LIBCHDR_DIR)/src/libchdr_codec_cdzs.c \
+   $(LIBCHDR_DIR)/src/libchdr_codec_flac.c \
+   $(LIBCHDR_DIR)/src/libchdr_codec_huff.c \
+   $(LIBCHDR_DIR)/src/libchdr_codec_lzma.c \
+   $(LIBCHDR_DIR)/src/libchdr_codec_zlib.c \
+   $(LIBCHDR_DIR)/src/libchdr_codec_zstd.c \
+   $(LIBCHDR_DIR)/src/libchdr_flac.c \
+   $(LIBCHDR_DIR)/src/libchdr_huffman.c
+
+# ---------------------------------------------------------------------
+# dep/vulkan-loader
+# ---------------------------------------------------------------------
+SOURCES_CXX += $(VULKAN_LOADER_DIR)/src/vulkan_loader.cpp
+
+# ---------------------------------------------------------------------
+# dep/vixl - aarch32 / aarch64 only
+# ---------------------------------------------------------------------
+ifneq (,$(filter $(CPU_ARCH),aarch64 aarch32))
+SOURCES_CC += \
+   $(VIXL_DIR)/src/code-buffer-vixl.cc \
+   $(VIXL_DIR)/src/compiler-intrinsics-vixl.cc \
+   $(VIXL_DIR)/src/cpu-features.cc \
+   $(VIXL_DIR)/src/utils-vixl.cc
+endif
+
+ifeq ($(CPU_ARCH),aarch64)
+SOURCES_CC += \
+   $(VIXL_DIR)/src/aarch64/assembler-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/cpu-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/cpu-features-auditor-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/decoder-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/disasm-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/instructions-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/instrument-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/logic-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/macro-assembler-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/operands-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/pointer-auth-aarch64.cc \
+   $(VIXL_DIR)/src/aarch64/simulator-aarch64.cc
+endif
+
+ifeq ($(CPU_ARCH),aarch32)
+SOURCES_CC += \
+   $(VIXL_DIR)/src/aarch32/assembler-aarch32.cc \
+   $(VIXL_DIR)/src/aarch32/constants-aarch32.cc \
+   $(VIXL_DIR)/src/aarch32/disasm-aarch32.cc \
+   $(VIXL_DIR)/src/aarch32/instructions-aarch32.cc \
+   $(VIXL_DIR)/src/aarch32/location-aarch32.cc \
+   $(VIXL_DIR)/src/aarch32/macro-assembler-aarch32.cc \
+   $(VIXL_DIR)/src/aarch32/operands-aarch32.cc
+endif
+
+
+# ---------------------------------------------------------------------
+# Compile / link flags
+# ---------------------------------------------------------------------
+ifeq ($(DEBUG), 1)
+   CFLAGS   += -O0 -g -DDEBUG -D_DEBUG -MMD
+   CXXFLAGS += -O0 -g -DDEBUG -D_DEBUG -MMD
+else
+   CFLAGS   += -O3 -DNDEBUG -MMD
+   CXXFLAGS += -O3 -DNDEBUG -MMD
+endif
+
+# Position-independent code and shared-library/visibility plumbing.
+LDFLAGS += $(fpic) $(SHARED)
+FLAGS   += $(fpic)
+
+# Hide non-`retro_` symbols, matching what the CMake build does.
+FLAGS   += -fvisibility=hidden
+CXXFLAGS += -fvisibility-inlines-hidden
+
+# Always-on libretro defines (this Makefile is libretro-only).
+# Note: the MINIZ_NO_* configuration (NO_STDIO/NO_TIME/NO_DEFLATE_APIS/
+# NO_ARCHIVE_APIS) is defined unconditionally in the vendored
+# dep/libchdr/deps/miniz-3.1.1/miniz.h, which is the single source of truth.
+# Don't pass them again on the command line or the compiler warns about
+# redefinition.
+FLAGS += \
+   -D__LIBRETRO__ \
+   -D_FILE_OFFSET_BITS=64 \
+   -DVIXL_CODE_BUFFER_MALLOC \
+   -DGIT_VERSION='"$(GIT_VERSION)"' \
+   -DGIT_HASH='"$(GIT_HASH)"' \
+   -DBUILD_DATE='"$(BUILD_DATE)"'
+
+# File mapping backs RETRO_VFS_FILE_ACCESS_HINT_FREQUENT_ACCESS (and
+# filestream_get_mapped_ptr): mmap() on POSIX platforms, CreateFileMapping
+# on Windows (automatic under _WIN32, no define needed).  Mirrors the
+# `if(NOT WIN32)` block in dep/libretro-common/CMakeLists.txt.
+ifneq ($(IS_WINDOWS),1)
+   FLAGS += -DHAVE_MMAP
+endif
+
+# Recompiler / fastmem flags - only when the host CPU has a JIT backend.
+ifeq ($(WITH_RECOMPILER),1)
+   FLAGS += -DWITH_RECOMPILER=1
+endif
+ifeq ($(WITH_MMAP_FASTMEM),1)
+   FLAGS += -DWITH_MMAP_FASTMEM=1
+endif
+
+# vixl needs to know which target it is generating code for.
+ifeq ($(CPU_ARCH),aarch64)
+   FLAGS += -DVIXL_INCLUDE_TARGET_A64
+endif
+ifeq ($(CPU_ARCH),aarch32)
+   FLAGS += -DVIXL_INCLUDE_TARGET_A32
+endif
+
+FLAGS   += $(INCFLAGS)
+CFLAGS   += $(FLAGS) -std=gnu11
+CXXFLAGS += $(FLAGS) -std=gnu++17
+
+# NOTE: Unlike Beetle PSX, swanstation does NOT build with
+# -fno-exceptions. xbyak (the x64 recompiler backend) uses C++ throw to
+# signal bad operand sizes; building with -fno-exceptions would turn
+# every xbyak header inclusion into a hard error.
+
+# Use semantic interposition off everywhere except Apple, mirroring CMake.
+ifneq ($(platform), osx)
+   CFLAGS   += -fno-semantic-interposition
+   CXXFLAGS += -fno-semantic-interposition
+endif
+
+# Sanitizer hook (optional)
+ifneq ($(SANITIZER),)
+   CFLAGS   := -fsanitize=$(SANITIZER) $(CFLAGS)
+   CXXFLAGS := -fsanitize=$(SANITIZER) $(CXXFLAGS)
+   LDFLAGS  := -fsanitize=$(SANITIZER) $(LDFLAGS)
+endif
+
+# Host endianness opt-in.
+#
+# All currently-supported targets (x86, x64, AArch32 LE, AArch64 LE) are
+# little-endian. swanstation does not autodetect byte order and does
+# not define a positive marker for the LE case - little-endian is the
+# unmarked default. If you are porting to a big-endian host, build with
+# `make ... MSB_FIRST=1` and the code's `#ifdef MSB_FIRST` branches
+# will activate.
+ifeq ($(MSB_FIRST),1)
+   CFLAGS   += -DMSB_FIRST=1
+   CXXFLAGS += -DMSB_FIRST=1
+endif
+
+# ---------------------------------------------------------------------
+# Build rules
+# ---------------------------------------------------------------------
+OBJECTS := $(SOURCES_CXX:.cpp=.o) $(SOURCES_CC:.cc=.o) $(SOURCES_C:.c=.o)
+DEPS    := $(SOURCES_CXX:.cpp=.d) $(SOURCES_CC:.cc=.d) $(SOURCES_C:.c=.d)
+
+LD = $(CXX)
+
+.PHONY: all clean
+
+all: $(TARGET)
+
+-include $(DEPS)
+
+# config.h and version.h are normally generated by CMake during configure.
+# - config.h is generated from src/config.h.cmake; it carries the
+#   HAVE_MKSTEMP / HAVE_ALLOCA_H / HAVE_MALLOC_H autoconf-style flags
+#   used by src/common/{byte_stream,file_system}.cpp.
+# - version.h is generated from src/libretro/version.h.in; the real
+#   GIT_* / BUILD_DATE strings are baked in via -D in $(FLAGS), so the
+#   stub just needs to exist and provide fallbacks if those defines are
+#   absent.
+SRC_LIBRETRO_DIR := $(CORE_DIR)/src/libretro
+
+# Pick the platform-appropriate alloca header. CMake checks for these
+# at configure time via check_symbol_exists(); we can answer at make
+# time because the host alloca header location is well-known.
+ifeq ($(IS_WINDOWS),1)
+   CONFIG_HAVE_ALLOCA := /* Windows: alloca() lives in <malloc.h> */
+   CONFIG_HAVE_MALLOC := \#define HAVE_MALLOC_H
+   CONFIG_HAVE_ALLOCA_H :=
+else ifeq ($(platform),osx)
+   # macOS provides <alloca.h>.
+   CONFIG_HAVE_ALLOCA_H := \#define HAVE_ALLOCA_H
+   CONFIG_HAVE_MALLOC :=
+else
+   # Linux, *BSD, etc. provide <alloca.h>.
+   CONFIG_HAVE_ALLOCA_H := \#define HAVE_ALLOCA_H
+   CONFIG_HAVE_MALLOC :=
+endif
+
+# mkstemp() is available everywhere except Windows (MinGW does not
+# expose it).
+ifeq ($(IS_WINDOWS),1)
+   CONFIG_HAVE_MKSTEMP :=
+else
+   CONFIG_HAVE_MKSTEMP := \#define HAVE_MKSTEMP
+endif
+
+$(SRC_DIR)/config.h:
+	@echo "GEN $@"
+	@printf '%s\n' \
+	   '/* Auto-generated by static Makefile, do not edit. */' \
+	   '#pragma once' \
+	   '$(CONFIG_HAVE_MKSTEMP)' \
+	   '$(CONFIG_HAVE_ALLOCA_H)' \
+	   '$(CONFIG_HAVE_MALLOC)' > $@
+
+$(SRC_LIBRETRO_DIR)/version.h:
+	@echo "GEN $@"
+	@printf '%s\n' \
+	   '#pragma once' \
+	   '#ifndef GIT_VERSION' \
+	   '#define GIT_VERSION "unknown"' \
+	   '#endif' \
+	   '#ifndef GIT_HASH' \
+	   '#define GIT_HASH "unknown"' \
+	   '#endif' \
+	   '#ifndef BUILD_DATE' \
+	   '#define BUILD_DATE __DATE__ " " __TIME__' \
+	   '#endif' > $@
+
+# Order-only dependency: every object needs the generated headers in
+# place but does not need to be rebuilt when their contents change.
+$(OBJECTS): | $(SRC_DIR)/config.h $(SRC_LIBRETRO_DIR)/version.h
+
+$(TARGET): $(OBJECTS)
+	@echo "LD $@"
+	$(LD) -o $@ $(OBJECTS) $(LDFLAGS)
+
+%.o: %.cpp
+	@if [ "$(SILENT)" != "1" ]; then echo "CXX $<"; fi
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
+%.o: %.cc
+	@if [ "$(SILENT)" != "1" ]; then echo "CXX $<"; fi
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
+%.o: %.c
+	@if [ "$(SILENT)" != "1" ]; then echo "CC $<"; fi
+	$(CC) -c -o $@ $< $(CFLAGS)
+
+clean:
+	@echo "Cleaning $(TARGET)"
+	@rm -f $(OBJECTS) $(DEPS) $(TARGET) \
+	       $(SRC_DIR)/config.h $(SRC_LIBRETRO_DIR)/version.h

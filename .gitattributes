@@ -1,0 +1,25 @@
+# Normalize line endings
+* text=auto eol=lf
+
+# C++ source
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.h text eol=lf
+*.c text eol=lf
+
+# Kotlin
+*.kt text eol=lf
+*.kts text eol=lf
+
+# Build / config
+*.xml text eol=lf
+*.properties text eol=lf
+*.gradle text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+
+# Binary
+*.webp binary
+*.png binary
+*.jpg binary
+*.jar binary

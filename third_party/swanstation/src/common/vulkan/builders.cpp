@@ -1,0 +1,646 @@
+#include "builders.h"
+#include "util.h"
+#include <cstring>
+#include <limits>
+
+namespace Vulkan {
+
+DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder()
+{
+  Clear();
+}
+
+void DescriptorSetLayoutBuilder::Clear()
+{
+  m_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  m_ci.pNext = nullptr;
+  m_ci.flags = 0;
+  m_ci.pBindings = nullptr;
+  m_ci.bindingCount = 0;
+}
+
+VkDescriptorSetLayout DescriptorSetLayoutBuilder::Create(VkDevice device)
+{
+  VkDescriptorSetLayout layout;
+  VkResult res = vkCreateDescriptorSetLayout(device, &m_ci, nullptr, &layout);
+  if (res != VK_SUCCESS)
+  {
+    LOG_VULKAN_ERROR(res, "vkCreateDescriptorSetLayout() failed: ");
+    return VK_NULL_HANDLE;
+  }
+
+  Clear();
+  return layout;
+}
+
+void DescriptorSetLayoutBuilder::AddBinding(uint32_t binding, VkDescriptorType dtype, uint32_t dcount, VkShaderStageFlags stages)
+{
+  VkDescriptorSetLayoutBinding& b = m_bindings[m_ci.bindingCount];
+  b.binding = binding;
+  b.descriptorType = dtype;
+  b.descriptorCount = dcount;
+  b.stageFlags = stages;
+  b.pImmutableSamplers = nullptr;
+
+  m_ci.pBindings = m_bindings.data();
+  m_ci.bindingCount++;
+}
+
+PipelineLayoutBuilder::PipelineLayoutBuilder()
+{
+  Clear();
+}
+
+void PipelineLayoutBuilder::Clear()
+{
+  m_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  m_ci.pNext = nullptr;
+  m_ci.flags = 0;
+  m_ci.pSetLayouts = nullptr;
+  m_ci.setLayoutCount = 0;
+  m_ci.pPushConstantRanges = nullptr;
+  m_ci.pushConstantRangeCount = 0;
+}
+
+VkPipelineLayout PipelineLayoutBuilder::Create(VkDevice device)
+{
+  VkPipelineLayout layout;
+  VkResult res = vkCreatePipelineLayout(device, &m_ci, nullptr, &layout);
+  if (res != VK_SUCCESS)
+  {
+    LOG_VULKAN_ERROR(res, "vkCreatePipelineLayout() failed: ");
+    return VK_NULL_HANDLE;
+  }
+
+  Clear();
+  return layout;
+}
+
+void PipelineLayoutBuilder::AddDescriptorSet(VkDescriptorSetLayout layout)
+{
+  m_sets[m_ci.setLayoutCount] = layout;
+
+  m_ci.setLayoutCount++;
+  m_ci.pSetLayouts = m_sets.data();
+}
+
+void PipelineLayoutBuilder::AddPushConstants(VkShaderStageFlags stages, uint32_t offset, uint32_t size)
+{
+  VkPushConstantRange& r = m_push_constants[m_ci.pushConstantRangeCount];
+  r.stageFlags = stages;
+  r.offset = offset;
+  r.size = size;
+
+  m_ci.pushConstantRangeCount++;
+  m_ci.pPushConstantRanges = m_push_constants.data();
+}
+
+GraphicsPipelineBuilder::GraphicsPipelineBuilder()
+{
+  Clear();
+}
+
+void GraphicsPipelineBuilder::Clear()
+{
+  m_ci = {};
+  m_ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+  m_shader_stages = {};
+
+  m_vertex_input_state = {};
+  m_vertex_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  m_ci.pVertexInputState = &m_vertex_input_state;
+  m_vertex_attributes = {};
+  m_vertex_buffers = {};
+
+  m_input_assembly = {};
+  m_input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+
+  m_rasterization_state = {};
+  m_rasterization_state.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+  m_rasterization_state.lineWidth = 1.0f;
+  m_depth_state = {};
+  m_depth_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  m_blend_state = {};
+  m_blend_state.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+  m_blend_attachments = {};
+
+  m_viewport_state = {};
+  m_viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+  m_viewport = {};
+  m_scissor = {};
+
+  m_dynamic_state = {};
+  m_dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+  m_dynamic_state_values = {};
+
+  m_multisample_state = {};
+  m_multisample_state.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+
+  // set defaults
+  SetNoCullRasterizationState();
+  SetNoDepthTestState();
+  SetNoBlendingState();
+  SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+  // have to be specified even if dynamic
+  SetViewport(0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f);
+  SetScissorRect(0, 0, 1, 1);
+  SetMultisamples(VK_SAMPLE_COUNT_1_BIT);
+}
+
+VkPipeline GraphicsPipelineBuilder::Create(VkDevice device, VkPipelineCache pipeline_cache, bool clear /* = true */)
+{
+  VkPipeline pipeline;
+  VkResult res = vkCreateGraphicsPipelines(device, pipeline_cache, 1, &m_ci, nullptr, &pipeline);
+  if (res != VK_SUCCESS)
+  {
+    LOG_VULKAN_ERROR(res, "vkCreateGraphicsPipelines() failed: ");
+    return VK_NULL_HANDLE;
+  }
+
+  if (clear)
+    Clear();
+
+  return pipeline;
+}
+
+void GraphicsPipelineBuilder::SetShaderStage(VkShaderStageFlagBits stage, VkShaderModule module,
+                                             const char* entry_point,
+                                             const VkSpecializationInfo* spec_info /* = nullptr */)
+{
+  uint32_t index = 0;
+  for (; index < m_ci.stageCount; index++)
+  {
+    if (m_shader_stages[index].stage == stage)
+      break;
+  }
+  if (index == m_ci.stageCount)
+  {
+    m_ci.stageCount++;
+    m_ci.pStages = m_shader_stages.data();
+  }
+
+  VkPipelineShaderStageCreateInfo& s = m_shader_stages[index];
+  s.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  // Always clear pNext / flags / pSpecializationInfo here. The slot may
+  // already hold values from a previous Set* call on this stage (callers
+  // sometimes reuse the builder across pipelines without an intervening
+  // Clear()), so without explicit reset a stale spec_info pointer or flags
+  // bit could leak into the next vkCreateGraphicsPipelines call.
+  s.pNext = nullptr;
+  s.flags = 0;
+  s.stage = stage;
+  s.module = module;
+  s.pName = entry_point;
+  s.pSpecializationInfo = spec_info;
+}
+
+void GraphicsPipelineBuilder::AddVertexBuffer(uint32_t binding, uint32_t stride,
+                                              VkVertexInputRate input_rate /*= VK_VERTEX_INPUT_RATE_VERTEX*/)
+{
+  VkVertexInputBindingDescription& b = m_vertex_buffers[m_vertex_input_state.vertexBindingDescriptionCount];
+  b.binding = binding;
+  b.stride = stride;
+  b.inputRate = input_rate;
+
+  m_vertex_input_state.vertexBindingDescriptionCount++;
+  m_vertex_input_state.pVertexBindingDescriptions = m_vertex_buffers.data();
+  m_ci.pVertexInputState = &m_vertex_input_state;
+}
+
+void GraphicsPipelineBuilder::AddVertexAttribute(uint32_t location, uint32_t binding, VkFormat format, uint32_t offset)
+{
+  VkVertexInputAttributeDescription& a = m_vertex_attributes[m_vertex_input_state.vertexAttributeDescriptionCount];
+  a.location = location;
+  a.binding = binding;
+  a.format = format;
+  a.offset = offset;
+
+  m_vertex_input_state.vertexAttributeDescriptionCount++;
+  m_vertex_input_state.pVertexAttributeDescriptions = m_vertex_attributes.data();
+  m_ci.pVertexInputState = &m_vertex_input_state;
+}
+
+void GraphicsPipelineBuilder::SetPrimitiveTopology(VkPrimitiveTopology topology,
+                                                   bool enable_primitive_restart /*= false*/)
+{
+  m_input_assembly.topology = topology;
+  m_input_assembly.primitiveRestartEnable = enable_primitive_restart;
+
+  m_ci.pInputAssemblyState = &m_input_assembly;
+}
+
+void GraphicsPipelineBuilder::SetRasterizationState(VkPolygonMode polygon_mode, VkCullModeFlags cull_mode,
+                                                    VkFrontFace front_face)
+{
+  m_rasterization_state.polygonMode = polygon_mode;
+  m_rasterization_state.cullMode = cull_mode;
+  m_rasterization_state.frontFace = front_face;
+
+  m_ci.pRasterizationState = &m_rasterization_state;
+}
+
+void GraphicsPipelineBuilder::SetMultisamples(uint32_t multisamples, bool per_sample_shading)
+{
+  m_multisample_state.rasterizationSamples = static_cast<VkSampleCountFlagBits>(multisamples);
+  m_multisample_state.sampleShadingEnable = per_sample_shading;
+  m_multisample_state.minSampleShading = (multisamples > 1) ? 1.0f : 0.0f;
+}
+
+void GraphicsPipelineBuilder::SetNoCullRasterizationState()
+{
+  SetRasterizationState(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+}
+
+void GraphicsPipelineBuilder::SetDepthState(bool depth_test, bool depth_write, VkCompareOp compare_op)
+{
+  m_depth_state.depthTestEnable = depth_test;
+  m_depth_state.depthWriteEnable = depth_write;
+  m_depth_state.depthCompareOp = compare_op;
+
+  m_ci.pDepthStencilState = &m_depth_state;
+}
+
+void GraphicsPipelineBuilder::SetNoDepthTestState()
+{
+  SetDepthState(false, false, VK_COMPARE_OP_ALWAYS);
+}
+
+void GraphicsPipelineBuilder::SetBlendConstants(float r, float g, float b, float a)
+{
+  m_blend_state.blendConstants[0] = r;
+  m_blend_state.blendConstants[1] = g;
+  m_blend_state.blendConstants[2] = b;
+  m_blend_state.blendConstants[3] = a;
+  m_ci.pColorBlendState = &m_blend_state;
+}
+
+void GraphicsPipelineBuilder::SetBlendAttachment(
+  uint32_t attachment, bool blend_enable, VkBlendFactor src_factor, VkBlendFactor dst_factor, VkBlendOp op,
+  VkBlendFactor alpha_src_factor, VkBlendFactor alpha_dst_factor, VkBlendOp alpha_op, VkColorComponentFlags write_mask /*= VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT*/)
+{
+  VkPipelineColorBlendAttachmentState& bs = m_blend_attachments[attachment];
+  bs.blendEnable = blend_enable;
+  bs.srcColorBlendFactor = src_factor;
+  bs.dstColorBlendFactor = dst_factor;
+  bs.colorBlendOp = op;
+  bs.srcAlphaBlendFactor = alpha_src_factor;
+  bs.dstAlphaBlendFactor = alpha_dst_factor;
+  bs.alphaBlendOp = alpha_op;
+  bs.colorWriteMask = write_mask;
+
+  if (attachment >= m_blend_state.attachmentCount)
+  {
+    m_blend_state.attachmentCount = attachment + 1u;
+    m_blend_state.pAttachments = m_blend_attachments.data();
+    m_ci.pColorBlendState = &m_blend_state;
+  }
+}
+
+void GraphicsPipelineBuilder::ClearBlendAttachments()
+{
+  m_blend_attachments = {};
+  m_blend_state.attachmentCount = 0;
+}
+
+void GraphicsPipelineBuilder::SetNoBlendingState()
+{
+  ClearBlendAttachments();
+  SetBlendAttachment(0, false, VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ONE,
+                     VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD,
+                     VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+                       VK_COLOR_COMPONENT_A_BIT);
+}
+
+void GraphicsPipelineBuilder::AddDynamicState(VkDynamicState state)
+{
+  m_dynamic_state_values[m_dynamic_state.dynamicStateCount] = state;
+  m_dynamic_state.dynamicStateCount++;
+  m_dynamic_state.pDynamicStates = m_dynamic_state_values.data();
+  m_ci.pDynamicState = &m_dynamic_state;
+}
+
+void GraphicsPipelineBuilder::SetDynamicViewportAndScissorState()
+{
+  AddDynamicState(VK_DYNAMIC_STATE_VIEWPORT);
+  AddDynamicState(VK_DYNAMIC_STATE_SCISSOR);
+}
+
+void GraphicsPipelineBuilder::SetViewport(float x, float y, float width, float height, float min_depth, float max_depth)
+{
+  m_viewport.x = x;
+  m_viewport.y = y;
+  m_viewport.width = width;
+  m_viewport.height = height;
+  m_viewport.minDepth = min_depth;
+  m_viewport.maxDepth = max_depth;
+
+  m_viewport_state.pViewports = &m_viewport;
+  m_viewport_state.viewportCount = 1u;
+  m_ci.pViewportState = &m_viewport_state;
+}
+
+void GraphicsPipelineBuilder::SetScissorRect(int32_t x, int32_t y, uint32_t width, uint32_t height)
+{
+  m_scissor.offset.x = x;
+  m_scissor.offset.y = y;
+  m_scissor.extent.width = width;
+  m_scissor.extent.height = height;
+
+  m_viewport_state.pScissors = &m_scissor;
+  m_viewport_state.scissorCount = 1u;
+  m_ci.pViewportState = &m_viewport_state;
+}
+
+void GraphicsPipelineBuilder::SetMultisamples(VkSampleCountFlagBits samples)
+{
+  m_multisample_state.rasterizationSamples = samples;
+  m_ci.pMultisampleState = &m_multisample_state;
+}
+
+void GraphicsPipelineBuilder::SetPipelineLayout(VkPipelineLayout layout)
+{
+  m_ci.layout = layout;
+}
+
+void GraphicsPipelineBuilder::SetRenderPass(VkRenderPass render_pass, uint32_t subpass)
+{
+  m_ci.renderPass = render_pass;
+  m_ci.subpass = subpass;
+}
+
+SamplerBuilder::SamplerBuilder()
+{
+  Clear();
+}
+
+void SamplerBuilder::Clear()
+{
+  m_ci = {};
+  m_ci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+}
+
+VkSampler SamplerBuilder::Create(VkDevice device, bool clear /* = true */)
+{
+  VkSampler sampler;
+  VkResult res = vkCreateSampler(device, &m_ci, nullptr, &sampler);
+  if (res != VK_SUCCESS)
+  {
+    LOG_VULKAN_ERROR(res, "vkCreateSampler() failed: ");
+    return VK_NULL_HANDLE;
+  }
+
+  return sampler;
+}
+
+void SamplerBuilder::SetFilter(VkFilter mag_filter, VkFilter min_filter, VkSamplerMipmapMode mip_filter)
+{
+  m_ci.magFilter = mag_filter;
+  m_ci.minFilter = min_filter;
+  m_ci.mipmapMode = mip_filter;
+}
+
+void SamplerBuilder::SetAddressMode(VkSamplerAddressMode u, VkSamplerAddressMode v, VkSamplerAddressMode w)
+{
+  m_ci.addressModeU = u;
+  m_ci.addressModeV = v;
+  m_ci.addressModeW = w;
+}
+
+void SamplerBuilder::SetPointSampler(VkSamplerAddressMode address_mode /* = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER */)
+{
+  Clear();
+  SetFilter(VK_FILTER_NEAREST, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST);
+  SetAddressMode(address_mode, address_mode, address_mode);
+}
+
+void SamplerBuilder::SetLinearSampler(bool mipmaps,
+                                      VkSamplerAddressMode address_mode /* = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER */)
+{
+  Clear();
+  SetFilter(VK_FILTER_LINEAR, VK_FILTER_LINEAR,
+            mipmaps ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST);
+  SetAddressMode(address_mode, address_mode, address_mode);
+
+  if (mipmaps)
+  {
+    m_ci.minLod = std::numeric_limits<float>::min();
+    m_ci.maxLod = std::numeric_limits<float>::max();
+  }
+}
+
+DescriptorSetUpdateBuilder::DescriptorSetUpdateBuilder()
+{
+  Clear();
+}
+
+void DescriptorSetUpdateBuilder::Clear()
+{
+  m_writes = {};
+  m_num_writes = 0;
+}
+
+void DescriptorSetUpdateBuilder::Update(VkDevice device, bool clear /*= true*/)
+{
+  vkUpdateDescriptorSets(device, m_num_writes, (m_num_writes > 0) ? m_writes.data() : nullptr, 0, nullptr);
+
+  if (clear)
+    Clear();
+}
+
+void DescriptorSetUpdateBuilder::AddCombinedImageSamplerDescriptorWrite(
+  VkDescriptorSet set, uint32_t binding, VkImageView view, VkSampler sampler,
+  VkImageLayout layout /*= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL*/)
+{
+  VkDescriptorImageInfo& ii = m_infos[m_num_infos++].image;
+  ii.imageView = view;
+  ii.imageLayout = layout;
+  ii.sampler = sampler;
+
+  VkWriteDescriptorSet& dw = m_writes[m_num_writes++];
+  dw.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  dw.dstSet = set;
+  dw.dstBinding = binding;
+  dw.descriptorCount = 1;
+  dw.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  dw.pImageInfo = &ii;
+}
+
+void DescriptorSetUpdateBuilder::AddBufferDescriptorWrite(VkDescriptorSet set, uint32_t binding, VkDescriptorType dtype,
+                                                          VkBuffer buffer, uint32_t offset, uint32_t size)
+{
+  VkDescriptorBufferInfo& bi = m_infos[m_num_infos++].buffer;
+  bi.buffer = buffer;
+  bi.offset = offset;
+  bi.range = size;
+
+  VkWriteDescriptorSet& dw = m_writes[m_num_writes++];
+  dw.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  dw.dstSet = set;
+  dw.dstBinding = binding;
+  dw.descriptorCount = 1;
+  dw.descriptorType = dtype;
+  dw.pBufferInfo = &bi;
+}
+
+void DescriptorSetUpdateBuilder::AddBufferViewDescriptorWrite(VkDescriptorSet set, uint32_t binding, VkDescriptorType dtype,
+                                                              VkBufferView view)
+{
+  VkBufferView& bi = m_infos[m_num_infos++].buffer_view;
+  bi = view;
+
+  VkWriteDescriptorSet& dw = m_writes[m_num_writes++];
+  dw.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  dw.dstSet = set;
+  dw.dstBinding = binding;
+  dw.descriptorCount = 1;
+  dw.descriptorType = dtype;
+  dw.pTexelBufferView = &bi;
+}
+
+FramebufferBuilder::FramebufferBuilder()
+{
+  Clear();
+}
+
+void FramebufferBuilder::Clear()
+{
+  m_ci = {};
+  m_ci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+  m_images = {};
+}
+
+VkFramebuffer FramebufferBuilder::Create(VkDevice device, bool clear /*= true*/)
+{
+  VkFramebuffer fb;
+  VkResult res = vkCreateFramebuffer(device, &m_ci, nullptr, &fb);
+  if (res != VK_SUCCESS)
+  {
+    LOG_VULKAN_ERROR(res, "vkCreateFramebuffer() failed: ");
+    return VK_NULL_HANDLE;
+  }
+
+  if (clear)
+    Clear();
+
+  return fb;
+}
+
+void FramebufferBuilder::AddAttachment(VkImageView image)
+{
+  m_images[m_ci.attachmentCount] = image;
+
+  m_ci.attachmentCount++;
+  m_ci.pAttachments = m_images.data();
+}
+
+void FramebufferBuilder::SetSize(uint32_t width, uint32_t height, uint32_t layers)
+{
+  m_ci.width = width;
+  m_ci.height = height;
+  m_ci.layers = layers;
+}
+
+void FramebufferBuilder::SetRenderPass(VkRenderPass render_pass)
+{
+  m_ci.renderPass = render_pass;
+}
+
+
+BufferViewBuilder::BufferViewBuilder()
+{
+  Clear();
+}
+
+void BufferViewBuilder::Clear()
+{
+  m_ci = {};
+  m_ci.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+}
+
+VkBufferView BufferViewBuilder::Create(VkDevice device, bool clear /*= true*/)
+{
+  VkBufferView bv;
+  VkResult res = vkCreateBufferView(device, &m_ci, nullptr, &bv);
+  if (res != VK_SUCCESS)
+  {
+    LOG_VULKAN_ERROR(res, "vkCreateBufferView() failed: ");
+    return VK_NULL_HANDLE;
+  }
+
+  return bv;
+}
+
+void BufferViewBuilder::Set(VkBuffer buffer, VkFormat format, uint32_t offset, uint32_t size)
+{
+  m_ci.buffer = buffer;
+  m_ci.format = format;
+  m_ci.offset = offset;
+  m_ci.range = size;
+}
+
+void SpecConstants::Clear()
+{
+  m_entries = {};
+  m_data = {};
+  m_count = 0;
+  m_info = {};
+}
+
+void SpecConstants::Add(uint32_t constant_id, uint32_t bits)
+{
+  if (m_count >= MAX_ENTRIES)
+  {
+    // Bumping MAX_ENTRIES is safe; this only triggers if a shader uses
+    // more spec constants than any existing consumer (16 today). Silent
+    // no-op rather than log spam - the resulting pipeline will visibly
+    // misbehave and lead the developer to this check.
+    return;
+  }
+  m_data[m_count] = bits;
+  VkSpecializationMapEntry& e = m_entries[m_count];
+  e.constantID = constant_id;
+  e.offset = m_count * SLOT_SIZE;
+  e.size = SLOT_SIZE;
+  m_count++;
+}
+
+void SpecConstants::AddBool(uint32_t constant_id, bool value)
+{
+  // SPIR-V represents OpSpecConstantTrue/False but the matching client API
+  // payload for a 'bool' spec constant is a 4-byte word, zero == false.
+  Add(constant_id, value ? 1u : 0u);
+}
+
+void SpecConstants::AddUInt(uint32_t constant_id, uint32_t value)
+{
+  Add(constant_id, value);
+}
+
+void SpecConstants::AddInt(uint32_t constant_id, int32_t value)
+{
+  uint32_t bits;
+  std::memcpy(&bits, &value, sizeof(bits));
+  Add(constant_id, bits);
+}
+
+void SpecConstants::AddFloat(uint32_t constant_id, float value)
+{
+  uint32_t bits;
+  std::memcpy(&bits, &value, sizeof(bits));
+  Add(constant_id, bits);
+}
+
+const VkSpecializationInfo* SpecConstants::GetInfo()
+{
+  if (m_count == 0)
+    return nullptr;
+  m_info.mapEntryCount = m_count;
+  m_info.pMapEntries = m_entries.data();
+  m_info.dataSize = static_cast<size_t>(m_count) * SLOT_SIZE;
+  m_info.pData = m_data.data();
+  return &m_info;
+}
+
+} // namespace Vulkan

@@ -1,0 +1,4 @@
+List of things to be done, in no particular order:
+- Implement touchscreen support for Namco GunCon (currently only works with mouse)
+- Implement Mouse "Ball Only" mode, like with FBNeo, allowing clicks to be mapped to controller buttons (useful for trackers and spinners)
+- Allow booting into the BIOS when either a non-PSX disc or no disc is inserted

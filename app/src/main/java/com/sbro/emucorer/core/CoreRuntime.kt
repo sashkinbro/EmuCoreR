@@ -1,0 +1,626 @@
+// SPDX-FileCopyrightText: 2026 SBRO
+// SPDX-License-Identifier: LicenseRef-EmuCoreR-Proprietary
+package com.sbro.emucorer.core
+
+import android.content.Context
+import android.graphics.Rect
+import android.net.Uri
+import android.util.Log
+import android.view.Surface
+import java.io.File
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicIntegerArray
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.thread
+import kotlin.concurrent.withLock
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/**
+ * Process-wide owner of the native libretro session.
+ *
+ * The bundled SwanStation core is a libretro singleton; [sessionLock] serialises
+ * every call that touches it. The Kotlin layer keeps the same per-frame PCM and
+ * pad contract as before, so the rest of the app is unchanged.
+ */
+internal object CoreRuntime {
+    private const val TAG = "CoreRuntime"
+    private const val DEFAULT_FRAME_WIDTH = 320
+    private const val DEFAULT_FRAME_HEIGHT = 240
+
+    val bridge: NativeCoreBridge by lazy { NativeCoreBridge() }
+    val settings = ConcurrentHashMap<String, String>()
+    private val _failure = MutableStateFlow<RuntimeFailure?>(null)
+    val failure = _failure.asStateFlow()
+
+    private val lifecycleLock = ReentrantLock()
+    private val sessionLock = ReentrantLock()
+    private var context: Context? = null
+    private var session = 0L
+    private var worker: Thread? = null
+    private var audioOutput: FrameAudioOutput? = null
+
+    private var systemDirectory = ""
+    private var saveDirectory = ""
+    private var coreAssetsDirectory = ""
+
+    @Volatile private var running = false
+    @Volatile private var paused = false
+    @Volatile private var surface: Surface? = null
+    @Volatile private var surfaceWidth = 0
+    @Volatile private var surfaceHeight = 0
+    @Volatile private var renderedFirstFrame = false
+    @Volatile private var sessionStartedAtNanos = 0L
+    @Volatile private var frameWidth = DEFAULT_FRAME_WIDTH
+    @Volatile private var frameHeight = DEFAULT_FRAME_HEIGHT
+    @Volatile private var requestedRenderer = RendererDefaults.defaultForHardware()
+    @Volatile private var activeCoreRenderer = RendererDefaults.toCoreRenderer(requestedRenderer)
+    @Volatile private var performanceMetricsEnabled = false
+    @Volatile private var detailedPerformanceMetrics = false
+    @Volatile private var performanceMetricsSnapshot: String? = null
+
+    private val pendingPadButtons = AtomicIntegerArray(IntArray(2) { -1 })
+    private val pendingPadAnalog = AtomicIntegerArray(IntArray(2) { 0x80808080.toInt() })
+
+    fun initialize(context: Context) {
+        this.context = context.applicationContext
+        val root = File(context.filesDir, "swanstation")
+        systemDirectory = File(root, "system").apply { mkdirs() }.absolutePath
+        saveDirectory = File(root, "save").apply { mkdirs() }.absolutePath
+        coreAssetsDirectory = File(root, "assets").apply { mkdirs() }.absolutePath
+        SwanStationOptions.initialize(context.applicationContext)
+        runCatching {
+            bridge.nativeInit(systemDirectory, saveDirectory, coreAssetsDirectory)
+            bridge.apiVersion()
+        }.onFailure { Log.e(TAG, "Unable to initialise libretro frontend", it) }
+    }
+
+    fun isRunning(): Boolean = running && failure.value == null && sessionLock.withLock { session != 0L }
+    fun hasSession(): Boolean = sessionLock.withLock { session != 0L }
+
+    fun setPerformanceMetricsEnabled(visible: Boolean, detailed: Boolean) {
+        performanceMetricsEnabled = visible
+        detailedPerformanceMetrics = visible && detailed
+        if (!visible) performanceMetricsSnapshot = null
+    }
+
+    fun performanceMetricsSnapshot(): String? = performanceMetricsSnapshot
+
+    fun setAudioGain(@Suppress("UNUSED_PARAMETER") volume: Int, @Suppress("UNUSED_PARAMETER") muted: Boolean) {
+        // Frontend volume/mute is handled by the app audio pipeline before
+        // PCM reaches the AAudio sink.
+    }
+
+    fun start(gamePath: String, biosOnly: Boolean): Boolean = lifecycleLock.withLock {
+        startSession(gamePath, biosOnly)
+    }
+
+    private fun startSession(gamePath: String, biosOnly: Boolean): Boolean {
+        val startupStartedAtNanos = System.nanoTime()
+        if (!biosOnly && !isSupportedDiscPath(gamePath)) {
+            Log.e(TAG, "Unsupported PS1 image: $gamePath")
+            return false
+        }
+        val biosPath = resolveConfiguredBiosPath()
+            ?: run {
+                Log.e(TAG, "Cannot start: a valid PS1 BIOS was not configured")
+                return false
+            }
+        val stagedBios = stageBios(biosPath) ?: return false
+        // The frontend Vulkan device/swapchain layer is not implemented yet, so
+        // a Vulkan request uses the working OpenGL ES hardware path instead of
+        // silently dropping to software.
+        val requestedCore = RendererDefaults.toCoreRenderer(requestedRenderer)
+        val coreRenderer = if (requestedCore == RendererDefaults.CORE_VULKAN)
+            RendererDefaults.CORE_OPENGL else requestedCore
+
+        shutdownSession()
+        val created = sessionLock.withLock {
+            // Publish core options before retro_init so the core's initial
+            // settings load already sees them.
+            applyStartOptions(coreRenderer)
+            val handle = bridge.createSession()
+            if (handle == 0L) return@withLock false
+            // Attach the surface before loading content: SET_HW_RENDER fires
+            // inside retro_load_game and needs a window to build the EGL context.
+            if (bridge.setSurface(handle, surface, coreRenderer) != 0) {
+                Log.e(TAG, "Failed to initialize ${RendererDefaults.coreRendererName(coreRenderer)} renderer")
+                bridge.destroySession(handle)
+                return@withLock false
+            }
+            if (bridge.loadBios(handle, stagedBios) != 0) {
+                bridge.destroySession(handle)
+                return@withLock false
+            }
+            if (!biosOnly && loadDisc(handle, gamePath) != 0) {
+                bridge.destroySession(handle)
+                return@withLock false
+            }
+            session = handle
+            activeCoreRenderer = coreRenderer
+            true
+        }
+        if (!created) return false
+
+        running = true
+        paused = false
+        renderedFirstFrame = false
+        sessionStartedAtNanos = startupStartedAtNanos
+        var started = false
+        try {
+            val output = FrameAudioOutput(createPcmSink())
+            audioOutput = output
+            output.resume()
+            worker = thread(name = "EmuCoreR-Frame", isDaemon = true, start = true) { runLoop(output) }
+            Log.i(TAG, String.format(Locale.US, "Startup setup %.1f ms",
+                (System.nanoTime() - startupStartedAtNanos) / 1_000_000.0))
+            started = true
+            return true
+        } catch (error: Exception) {
+            Log.e(TAG, "Failed to start frame/audio runtime", error)
+            return false
+        } finally {
+            if (!started) shutdownSession()
+        }
+    }
+
+    private fun applyStartOptions(coreRenderer: Int) {
+        // The libretro GPU renderer option is read while the core boots. Until
+        // the frontend provides a Vulkan context the core falls back to its
+        // software renderer, but the option is still forwarded faithfully.
+        bridge.nativeSetOption("swanstation_GPU_Renderer", rendererOptionName(coreRenderer))
+        val upscale = settings["EmuCoreR/Display:Upscale"]?.toFloatOrNull()
+            ?: settings["EmuCoreR:UpscaleMultiplier"]?.toFloatOrNull()
+        upscale?.let {
+            val scale = Math.round(it).coerceIn(1, 16)
+            bridge.nativeSetOption("swanstation_GPU_ResolutionScale", scale.toString())
+        }
+        settings["EmuCoreR/GPU:PGXP"]?.toBooleanStrictOrNull()?.let { pgxp ->
+            bridge.nativeSetOption("swanstation_GPU_PGXPEnable", pgxp.toString())
+        }
+        settings["EmuCore:EnableFastBoot"]?.toBooleanStrictOrNull()?.let { fastBoot ->
+            bridge.nativeSetOption("swanstation_BIOS_PatchFastBoot", fastBoot.toString())
+        }
+        settings["EmuCore:EnableWideScreenPatches"]?.toBooleanStrictOrNull()?.let { widescreen ->
+            bridge.nativeSetOption("swanstation_GPU_WidescreenHack", widescreen.toString())
+        }
+        settings["InputSources:PadVibration"]?.toBooleanStrictOrNull()?.let { rumble ->
+            bridge.nativeSetOption("swanstation_Controller_EnableRumble", rumble.toString())
+        }
+        // Shader-based upscaling. The libretro core does not expose DuckStation
+        // post-processing chains, but its texture filters (JINC2/xBR) are the
+        // equivalent GPU shaders. A selected shader preset selects the closest
+        // filter; otherwise the app's texture filtering mode is translated.
+        bridge.nativeSetOption("swanstation_GPU_TextureFilter", swanStationTextureFilter())
+        bridge.nativeSetOption("swanstation_GPU_ShaderPrecompile", "true")
+        settings["EmuCore/GS:LoadTextureReplacements"]?.toBooleanStrictOrNull()?.let { replacements ->
+            bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements",
+                replacements.toString())
+        }
+        settings["EmuCore/GS:PrecacheTextureReplacements"]?.toBooleanStrictOrNull()?.let { preload ->
+            bridge.nativeSetOption("swanstation_TextureReplacements_PreloadTextures", preload.toString())
+        }
+        // Sensible defaults for a handheld.
+        bridge.nativeSetOption("swanstation_GPU_UseThread", "true")
+        bridge.nativeSetOption("swanstation_CDROM_ReadThread", "true")
+        bridge.nativeSetOption("swanstation_Main_ApplyGameSettings", "true")
+        // Explicit user choices from the settings / game manager / in-game menu
+        // win over every derived default.
+        SwanStationOptions.all.forEach { option ->
+            SwanStationOptions.value(option.key)?.let { bridge.nativeSetOption(option.key, it) }
+        }
+    }
+
+    private fun swanStationTextureFilter(): String {
+        val filter = settings["EmuCore/GS:filter"]?.toIntOrNull() ?: 0
+        val enabled = settings["EmuCore/GS:ShaderChainEnabled"]?.toBooleanStrictOrNull() == true
+        val preset = settings["EmuCore/GS:ShaderChainPreset"].orEmpty().lowercase()
+        return when {
+            enabled && preset.contains("xbr") -> "xBR"
+            enabled && preset.contains("jinc") -> "JINC2"
+            filter <= 0 -> "Nearest"
+            filter == 1 -> "Bilinear"
+            filter == 2 -> "BilinearBinAlpha"
+            else -> "xBR"
+        }
+    }
+
+    private fun rendererOptionName(coreRenderer: Int): String = when (coreRenderer) {
+        RendererDefaults.CORE_VULKAN -> "Vulkan"
+        RendererDefaults.CORE_OPENGL -> "OpenGL"
+        else -> "Software"
+    }
+
+    private fun stageBios(biosPath: String): String? {
+        val source = File(biosPath)
+        if (!source.isFile || source.length() != BIOS_BYTES) {
+            Log.e(TAG, "BIOS is missing or not 512 KiB: $biosPath")
+            return null
+        }
+        val target = File(systemDirectory, source.name)
+        if (target.absolutePath != source.absolutePath) {
+            runCatching { source.copyTo(target, overwrite = true) }
+                .onFailure { Log.e(TAG, "Unable to stage BIOS into ${systemDirectory}", it) }
+                .getOrNull() ?: return null
+        }
+        return target.absolutePath
+    }
+
+    fun pause() = lifecycleLock.withLock {
+        paused = true
+        audioOutput?.pause()
+    }
+
+    fun resume() = lifecycleLock.withLock {
+        if (!running) return@withLock
+        audioOutput?.resume()
+        paused = false
+    }
+
+    fun shutdown() = lifecycleLock.withLock {
+        shutdownSession()
+    }
+
+    private fun shutdownSession() {
+        val activeWorker = worker
+        check(activeWorker !== Thread.currentThread()) {
+            "The frame worker cannot synchronously shut itself down"
+        }
+        running = false
+        audioOutput?.let { output -> runCatching { output.pause() } }
+        activeWorker?.interrupt()
+        var callerInterrupted = false
+        try {
+            if (activeWorker != null) {
+                while (activeWorker.isAlive) {
+                    try {
+                        activeWorker.join()
+                    } catch (_: InterruptedException) {
+                        callerInterrupted = true
+                    }
+                }
+            }
+            worker = null
+            audioOutput?.let { output -> runCatching { output.close() } }
+            audioOutput = null
+            sessionLock.withLock {
+                if (session != 0L) {
+                    bridge.destroySession(session)
+                    session = 0L
+                }
+            }
+            paused = false
+            renderedFirstFrame = false
+            sessionStartedAtNanos = 0L
+            performanceMetricsSnapshot = null
+            _failure.value = null
+        } finally {
+            if (callerInterrupted) Thread.currentThread().interrupt()
+        }
+    }
+
+    fun changeDisc(path: String): Boolean {
+        if (!isSupportedDiscPath(path)) return false
+        return sessionLock.withLock { session != 0L && loadDisc(session, path) == 0 }
+    }
+
+    fun saveState(path: String): Boolean = sessionLock.withLock {
+        if (session == 0L) return@withLock false
+        File(path).parentFile?.mkdirs()
+        bridge.saveState(session, path) == 0
+    }
+
+    fun loadState(path: String): Boolean = lifecycleLock.withLock lifecycle@{
+        if (!File(path).isFile) return@lifecycle false
+        val wasPaused = paused
+        paused = true
+        try {
+            audioOutput?.pause()
+            sessionLock.withLock {
+                val loaded = session != 0L && bridge.loadState(session, path) == 0
+                if (loaded) {
+                    audioOutput?.discardTimeline()
+                    renderedFirstFrame = false
+                }
+                loaded
+            }
+        } finally {
+            if (!wasPaused && running) audioOutput?.resume()
+            paused = wasPaused
+        }
+    }
+
+    fun setPadButtons(port: Int, buttons: Int): Boolean {
+        if (port !in 0..1) return false
+        pendingPadButtons.set(port, buttons and 0xFFFF)
+        return true
+    }
+
+    fun setPadAnalog(port: Int, lx: Int, ly: Int, rx: Int, ry: Int): Boolean {
+        if (port !in 0..1) return false
+        val packed = lx.coerceIn(0, 255) or
+            (ly.coerceIn(0, 255) shl 8) or
+            (rx.coerceIn(0, 255) shl 16) or
+            (ry.coerceIn(0, 255) shl 24)
+        pendingPadAnalog.set(port, packed)
+        return true
+    }
+
+    fun setPadAnalogMode(port: Int, enabled: Boolean): Boolean = sessionLock.withLock {
+        if (session == 0L) return@withLock false
+        bridge.setPadAnalogMode(session, port, enabled)
+        true
+    }
+
+    fun togglePadAnalogMode(port: Int): Boolean = sessionLock.withLock {
+        if (session == 0L) return@withLock false
+        val state = bridge.getPadState(session, port)
+        bridge.setPadAnalogMode(session, port, (state >= 0) && (state and PAD_ANALOG_MODE_BIT) == 0)
+        true
+    }
+
+    fun attachSurface(value: Surface, width: Int, height: Int) {
+        surface = value
+        surfaceWidth = width
+        surfaceHeight = height
+        sessionLock.withLock {
+            if (session != 0L && bridge.setSurface(session, value, activeCoreRenderer) != 0)
+                Log.e(TAG, "Failed to attach ${RendererDefaults.coreRendererName(activeCoreRenderer)} presentation surface")
+        }
+    }
+
+    fun detachSurface() {
+        sessionLock.withLock {
+            if (session != 0L && bridge.setSurface(session, null, activeCoreRenderer) != 0)
+                Log.w(TAG, "Failed to detach presentation surface")
+        }
+        surface = null
+        surfaceWidth = 0
+        surfaceHeight = 0
+        renderedFirstFrame = false
+    }
+
+    fun displayRect(): FloatArray? {
+        if (!renderedFirstFrame || surfaceWidth <= 0 || surfaceHeight <= 0) return null
+        val rect = fitRect(surfaceWidth, surfaceHeight, frameWidth, frameHeight)
+        return floatArrayOf(rect.left.toFloat(), rect.top.toFloat(), rect.right.toFloat(), rect.bottom.toFloat())
+    }
+
+    fun diagnostics(): String = sessionLock.withLock { bridge.getDiagnostics() }
+
+    fun gpuBackendSubmissions(): Long = 0L
+
+    fun updateSetting(section: String, key: String, value: String): Boolean {
+        if ((section == "EmuCoreR" || section == "EmuCore/GS") && key == "Renderer") {
+            val renderer = value.toIntOrNull() ?: return false
+            requestedRenderer = RendererDefaults.normalizeAndroidRenderer(renderer)
+            settings["$section:$key"] = value
+            return true
+        }
+        settings["$section:$key"] = value
+        return true
+    }
+
+    private fun publishPerformanceMetrics(fps: Double, frames: Int, frameNanos: Long, coreNanos: Long,
+                                          audioStats: LongArray?) {
+        if (frames <= 0 || !performanceMetricsEnabled) return
+        val hardwareActive = activeCoreRenderer == RendererDefaults.CORE_OPENGL
+        val targetFps = 59.94
+        val speed = fps / targetFps * 100.0
+        val renderer = RendererDefaults.coreRendererName(activeCoreRenderer)
+        val overlay = buildString {
+            append(String.format(Locale.US, "FPS:%.1f | Speed:%.1f%% | Target:%.2f", fps, speed, targetFps))
+            if (detailedPerformanceMetrics) {
+                // The renderer line must end with " HW |" / " SW |" so the
+                // overlay recognises it as the active backend.
+                append('\n').append(renderer).append(if (hardwareActive) " HW |" else " SW |")
+                append('\n').append("CPU:Host")
+                append('\n').append("GPU Core:").append(renderer)
+                append('\n').append("Res:").append(frameWidth).append('x').append(frameHeight)
+                append('\n').append(String.format(Locale.US, "Frame:%.1f ms", frameNanos / frames / 1_000_000.0))
+                append('\n').append(String.format(Locale.US, "Core:%.1f ms/frame", coreNanos / frames / 1_000_000.0))
+                if (audioStats != null && audioStats.size >= 8) {
+                    append('\n').append(String.format(Locale.US, "Audio:%d Hz | queue %d", audioStats[2], audioStats[4]))
+                }
+            }
+        }
+        performanceMetricsSnapshot = String.format(Locale.US, "%.3f\n%.3f\n%s", fps, speed, overlay)
+    }
+
+    private fun runLoop(output: FrameAudioOutput) {
+        var lastLogNanos = System.nanoTime()
+        var framesSinceLog = 0
+        var metricsStartNanos = lastLogNanos
+        var metricsFrames = 0
+        var metricsFrameTotalNanos = 0L
+        var metricsCoreTotalNanos = 0L
+        var frameNumber = 0L
+        try {
+            while (running) {
+                if (paused) {
+                    Thread.sleep(8)
+                    continue
+                }
+                val t0 = System.nanoTime()
+                var skippedPausedFrame = false
+                val frame = sessionLock.withLock {
+                    if (!running || session == 0L) null else if (paused) {
+                        skippedPausedFrame = true
+                        null
+                    } else {
+                        for (port in 0..1) {
+                            val buttons = pendingPadButtons.getAndSet(port, -1)
+                            if (buttons >= 0) bridge.setPadButtons(session, port, buttons)
+                            val analog = pendingPadAnalog.get(port)
+                            bridge.setPadAnalog(
+                                session,
+                                port,
+                                analog and 0xFF,
+                                (analog ushr 8) and 0xFF,
+                                (analog ushr 16) and 0xFF,
+                                (analog ushr 24) and 0xFF
+                            )
+                        }
+                        val coreStartNanos = System.nanoTime()
+                        val pcm = bridge.runFrame(session)
+                        val coreNanos = System.nanoTime() - coreStartNanos
+                        if (pcm == null && !renderedFirstFrame) {
+                            // The first frame can legitimately emit no audio.
+                        }
+                        bridge.getDisplayRect(session)
+                            ?.takeIf { it.size == 4 && it[2] > 0 && it[3] > 0 }
+                            ?.let {
+                                frameWidth = it[2]
+                                frameHeight = it[3]
+                            }
+                        if (!renderedFirstFrame) {
+                            renderedFirstFrame = true
+                            val startedAt = sessionStartedAtNanos
+                            if (startedAt != 0L) {
+                                Log.i(TAG, String.format(Locale.US,
+                                    "First emulated frame after %.1f ms (core %.1f ms)",
+                                    (System.nanoTime() - startedAt) / 1_000_000.0,
+                                    coreNanos / 1_000_000.0))
+                            }
+                        }
+                        FrameOutput(pcm ?: EMPTY_PCM, output.timeline, coreNanos)
+                    }
+                } ?: if (skippedPausedFrame) continue else break
+                val audioStartNanos = System.nanoTime()
+                if (!output.writeFrame(frame.pcm, frame.audioTimeline)) continue
+                val audioNanos = System.nanoTime() - audioStartNanos
+                val frameNanos = System.nanoTime() - t0
+
+                frameNumber++
+                framesSinceLog++
+                metricsFrames++
+                metricsFrameTotalNanos += frameNanos
+                metricsCoreTotalNanos += frame.coreNanos
+                val now = System.nanoTime()
+                if (now - lastLogNanos >= 5_000_000_000L) {
+                    val fps = framesSinceLog * 1000.0 / ((now - lastLogNanos) / 1_000_000.0)
+                    Log.i(TAG, String.format(Locale.US, "Perf: %.1f fps, #%d", fps, frameNumber))
+                    lastLogNanos = now
+                    framesSinceLog = 0
+                }
+                if (!performanceMetricsEnabled) {
+                    metricsStartNanos = now
+                    metricsFrames = 0
+                    metricsFrameTotalNanos = 0L
+                    metricsCoreTotalNanos = 0L
+                } else if (now - metricsStartNanos >= 1_000_000_000L) {
+                    val elapsed = now - metricsStartNanos
+                    val fps = metricsFrames * 1_000_000_000.0 / elapsed
+                    publishPerformanceMetrics(fps, metricsFrames, metricsFrameTotalNanos,
+                        metricsCoreTotalNanos, output.stats())
+                    metricsStartNanos = now
+                    metricsFrames = 0
+                    metricsFrameTotalNanos = 0L
+                    metricsCoreTotalNanos = 0L
+                }
+                if (audioNanos < 0) break
+            }
+        } catch (error: InterruptedException) {
+            if (running) reportFailure("Emulation worker was interrupted unexpectedly")
+            Thread.currentThread().interrupt()
+        } catch (error: Throwable) {
+            Log.e(TAG, "Emulation frame loop stopped", error)
+            reportFailure("Emulation frame loop stopped: ${error.javaClass.simpleName}: ${error.message.orEmpty()}")
+        } finally {
+            running = false
+        }
+    }
+
+    private fun reportFailure(detail: String) {
+        if (_failure.compareAndSet(null, RuntimeFailure(detail))) Log.e(TAG, detail)
+    }
+
+    private fun loadDisc(handle: Long, gamePath: String): Int {
+        if (!gamePath.startsWith("content://")) return bridge.loadDisc(handle, gamePath)
+        val cacheDir = context?.cacheDir
+        if (cacheDir != null) {
+            val directory = File(cacheDir, "swanstation-cue/${gamePath.hashCode()}")
+            DocumentPathResolver.materializePreparedCue(gamePath, directory)?.let { cuePath ->
+                return bridge.loadDisc(handle, cuePath)
+            }
+        }
+        val resolver = context?.contentResolver ?: return -1
+        return runCatching {
+            resolver.openFileDescriptor(Uri.parse(gamePath), "r")?.use { descriptor ->
+                val size = descriptor.statSize.coerceAtLeast(0L)
+                bridge.loadDiscFd(handle, descriptor.fd, 0L, size)
+            } ?: -1
+        }.onFailure { error ->
+            Log.e(TAG, "Unable to open PS1 disc image through SAF: $gamePath", error)
+        }.getOrDefault(-1)
+    }
+
+    private fun resolveConfiguredBiosPath(): String? {
+        findBiosInDirectory(settings["Folders:Bios"], settings["Filenames:BIOS"])
+            ?.let { return it }
+
+        val source = settings["EmuCoreR:BiosSource"]
+        val appContext = context
+        if (appContext != null && !source.isNullOrBlank()) {
+            val prepared = DocumentPathResolver.prepareBiosSelection(appContext, source)
+            findBiosInDirectory(prepared?.directoryPath, prepared?.fileName)?.let { return it }
+        }
+
+        return resolveLocalBiosPath(source)
+    }
+
+    private fun resolveLocalBiosPath(value: String?): String? {
+        if (value.isNullOrBlank()) return null
+        val selected = File(value)
+        if (selected.isFile && selected.length() == BIOS_BYTES) return selected.absolutePath
+        return findBiosInDirectory(selected.takeIf(File::isDirectory)?.absolutePath, null)
+    }
+
+    private fun findBiosInDirectory(directoryPath: String?, preferredFileName: String?): String? {
+        if (directoryPath.isNullOrBlank()) return null
+        val directory = File(directoryPath)
+        if (!directory.isDirectory) return null
+
+        if (!preferredFileName.isNullOrBlank()) {
+            val preferred = File(directory, preferredFileName)
+            if (preferred.isFile && preferred.length() == BIOS_BYTES) return preferred.absolutePath
+        }
+
+        return directory.listFiles()
+            .orEmpty()
+            .filter { it.isFile && it.length() == BIOS_BYTES }
+            .sortedBy { it.name.lowercase() }
+            .firstOrNull()
+            ?.absolutePath
+    }
+
+    internal fun createPcmSink(): PcmSink = NativeAudioPcmSink()
+
+    private fun isSupportedDiscPath(path: String): Boolean {
+        val extension = path.substringAfterLast('.', "").lowercase()
+        return extension == "cue" || extension == "bin" || extension == "img" ||
+            extension == "iso" || extension == "chd" || extension == "pbp" || extension == "m3u" ||
+            extension == "ecm" || extension == "mds" || extension == "psf"
+    }
+
+    private fun fitRect(containerWidth: Int, containerHeight: Int, contentWidth: Int, contentHeight: Int): Rect {
+        val scale = minOf(containerWidth.toFloat() / contentWidth, containerHeight.toFloat() / contentHeight)
+        val width = (contentWidth * scale).toInt().coerceAtLeast(1)
+        val height = (contentHeight * scale).toInt().coerceAtLeast(1)
+        val left = (containerWidth - width) / 2
+        val top = (containerHeight - height) / 2
+        return Rect(left, top, left + width, top + height)
+    }
+
+    private data class FrameOutput(
+        val pcm: ShortArray,
+        val audioTimeline: Long,
+        val coreNanos: Long
+    )
+
+    private val EMPTY_PCM = ShortArray(0)
+
+    private const val BIOS_BYTES = 512L * 1024L
+    private const val PAD_ANALOG_MODE_BIT = 1 shl 16
+}

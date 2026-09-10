@@ -1,0 +1,96 @@
+# Build outputs
+/build/
+/build_android/
+/build_android_release/
+/build_android_test/
+/app/build/
+/app/release/
+app/.cxx/
+app/.externalNativeBuild/
+/core/build/
+core/.cxx/
+tools/build/
+tests/build/
+/.cxx/
+/.externalNativeBuild/
+/out/
+
+# Gradle
+/.gradle/
+local.properties
+
+# Local IGDB catalog builder and credentials
+/IGDB/
+
+# IDE
+/.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# NDK / SDK local paths
+local.properties
+*.so
+*.dylib
+*.dll
+
+# BIOS — never commit (user dumps at repo root only)
+# C:\Users\SBRO\AndroidStudioProjects\EmuCoreR\bios
+/bios/
+*.bin
+*.rom
+!tests/fixtures/**/*.bin
+
+# Commercial game images — never commit
+*.iso
+*.bin
+*.cue
+*.chd
+*.img
+!tests/fixtures/**/*.bin
+
+# Native build artifacts
+*.o
+*.obj
+*.a
+*.dSYM/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Third-party build
+third_party/*/build/
+third_party/*/install/
+
+# OS
+.DS_Store
+ehthumbs.db
+Desktop.ini
+
+# Fuzz corpus
+tests/fuzz/corpus/
+tests/fuzz/artifacts/
+
+# Deterministic snapshots (local debugging)
+*.snapshot
+
+# Local emulator captures and diagnostic dumps
+*.rstate
+*.psxgpu
+/*.ppm
+/*.pgm
+/*-projections.tsv
+/extract.txt
+/temp_translations/
+/add_translations.ps1
+
+# Local release tooling (parallel builds + apktool)
+/tools/apktool.jar
+/tools/*.ps1
+
+# Legacy PCSX-ReARMed trees replaced by third_party/swanstation
+/deps/
+/.github/
+/.gitlab-ci.yml
