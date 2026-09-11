@@ -622,6 +622,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">La recherche de mises à jour est temporairement indisponible. Réessayez dans %1$d minutes.</string>
     <string name="settings_fast_boot_desc">Ignore le démarrage du disque BIOS - désactiver pour les jeux qui plantent avant le début</string>
+    <string name="settings_help_fast_boot">Ignore la séquence de démarrage du BIOS PlayStation et lance le disque directement. Désactivez si un jeu reste sur un écran noir au démarrage ou dépend de l\'animation du BIOS.</string>
     <string name="settings_fast_boot">Démarrage rapide</string>
     <string name="onboarding_status_custom_folder">Dossier personnalisé sélectionné</string>
     <string name="settings_emulator_data_path">Dossier de l\'émulateur</string>

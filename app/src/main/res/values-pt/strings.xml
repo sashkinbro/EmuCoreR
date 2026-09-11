@@ -622,6 +622,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">A verificação de atualizações está temporariamente indisponível. Tente novamente em %1$d minutos.</string>
     <string name="settings_fast_boot_desc">Pula a inicialização do disco da BIOS - desative para jogos que travam antes de iniciar</string>
+    <string name="settings_help_fast_boot">Ignora a sequência de inicialização do BIOS do PlayStation e inicia o disco diretamente. Desative se um jogo travar numa tela preta ao iniciar ou depender da animação do BIOS.</string>
     <string name="settings_fast_boot">Inicialização Rápida</string>
     <string name="onboarding_status_custom_folder">Pasta personalizada selecionada</string>
     <string name="settings_emulator_data_path">Pasta do Emulador</string>

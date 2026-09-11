@@ -620,6 +620,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">अपडेट की जांच अस्थायी रूप से अनुपलब्ध है। %1$d मिनट में फिर से प्रयास करें।</string>
     <string name="settings_fast_boot_desc">BIOS डिस्क बूट को छोड़ देता है - उन खेलों के लिए अक्षम करें जो शुरू होने से पहले हैंग होते हैं</string>
+    <string name="settings_help_fast_boot">PlayStation BIOS की स्टार्टअप प्रक्रिया छोड़कर सीधे डिस्क बूट करता है। अगर कोई गेम शुरू में काली स्क्रीन पर अटक जाए या BIOS एनिमेशन पर निर्भर हो तो इसे बंद करें।</string>
     <string name="settings_fast_boot">फ़ास्ट बूट</string>
     <string name="onboarding_status_custom_folder">कस्टम फ़ोल्डर चुना गया</string>
     <string name="settings_emulator_data_path">एमुलेटर फ़ोल्डर</string>

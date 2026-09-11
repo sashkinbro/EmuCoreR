@@ -620,6 +620,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">Controllo degli aggiornamenti temporaneamente non disponibile. Riprova tra %1$d minuti.</string>
     <string name="settings_fast_boot_desc">Salta l\'avvio del disco del BIOS: disabilita per i giochi che si bloccano prima dell\'avvio</string>
+    <string name="settings_help_fast_boot">Salta la sequenza di avvio del BIOS PlayStation e avvia direttamente il disco. Disattivalo se un gioco si blocca su schermo nero all\'avvio o dipende dall\'animazione del BIOS.</string>
     <string name="settings_fast_boot">Avvio rapido</string>
     <string name="onboarding_status_custom_folder">Cartella personalizzata selezionata</string>
     <string name="settings_emulator_data_path">Cartella dell\'emulatore</string>

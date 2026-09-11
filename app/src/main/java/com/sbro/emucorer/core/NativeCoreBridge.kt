@@ -77,10 +77,18 @@ class NativeCoreBridge {
     fun coreVersion(): String? = getSystemInfo().removePrefix("SwanStation ").trim()
 
     // Compatibility surface used by the app layer. The libretro frontend owns
-    // AAudio buffering and cheats are applied through retro_cheat_set.
+    // AAudio buffering; cheats go through retro_cheat_set in the native bridge.
     fun setAudioBufferMs(@Suppress("UNUSED_PARAMETER") milliseconds: Int) = Unit
-    fun loadCheats(@Suppress("UNUSED_PARAMETER") path: String) = Unit
-    fun clearCheats() = Unit
+
+    /** Loads active GameShark-style codes from a PCSX `.cht` container. */
+    external fun loadCheats(path: String)
+    external fun clearCheats()
+
+    /** Binds an explicit memory-card image to a slot (null or blank disables it). */
+    external fun setMemoryCardPath(slot: Int, path: String?)
+
+    /** True when the running session has a disc image mounted. */
+    external fun hasDiscMedia(handle: Long): Boolean
 
     // ---------------------------------------------------------------------
     // AAudio output tuning (applied when the next stream is opened).

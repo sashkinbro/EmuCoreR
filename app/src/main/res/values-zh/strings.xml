@@ -622,6 +622,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">暂时无法检查更新。请在 %1$d 分钟后重试。</string>
     <string name="settings_fast_boot_desc">跳过 BIOS 光盘启动 - 针对启动前挂起的游戏禁用</string>
+    <string name="settings_help_fast_boot">跳过 PlayStation BIOS 启动画面并直接启动光盘。如果游戏在启动时卡在黑屏或依赖 BIOS 动画，请关闭此选项。</string>
     <string name="settings_fast_boot">快速启动</string>
     <string name="onboarding_status_custom_folder">已选择自定义文件夹</string>
     <string name="settings_emulator_data_path">模拟器文件夹</string>

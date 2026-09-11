@@ -523,6 +523,7 @@
     <string name="settings_ee_cycle_moderate">Umiarkowane</string>
     <string name="settings_ee_cycle_maximum">Maksymalne</string>
     <string name="settings_fast_boot_desc">Omija bios podczas startu gry - wyłącz tę funkcję jeśli gra zapętli Ci się i nie wczyta</string>
+    <string name="settings_help_fast_boot">Pomija sekwencję startową BIOS-u PlayStation i uruchamia płytę bezpośrednio. Wyłącz, jeśli gra zawiesza się na czarnym ekranie przy starcie lub korzysta z animacji BIOS-u.</string>
     <string name="emulation_transport_fast_forward">Szybkie przewijanie do przodu</string>
     <string name="settings_texture_preloading">Wstępne ładowanie tekstur</string>
     <string name="settings_hw_mipmapping">Mipmapping</string>

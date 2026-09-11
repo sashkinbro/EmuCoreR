@@ -941,7 +941,7 @@ private fun GameSettingsTabContent(
                         title = stringResource(R.string.settings_fast_boot),
                         checked = draft.enableFastBoot,
                         onCheckedChange = { onDraftChange(draft.copy(enableFastBoot = it)) },
-                        helpText = stringResource(R.string.settings_fast_boot_desc),
+                        helpText = stringResource(R.string.settings_help_fast_boot),
                         onResetToDefault = {
                             onDraftChange(draft.copy(enableFastBoot = defaultProfile.enableFastBoot))
                         }

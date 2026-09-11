@@ -622,6 +622,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">Suche nach Updates vorübergehend nicht verfügbar. Versuchen Sie es in %1$d Minuten erneut.</string>
     <string name="settings_fast_boot_desc">Überspringt den BIOS-Disc-Start – deaktivieren für Spiele, die sich vor dem Start aufhängen</string>
+    <string name="settings_help_fast_boot">Überspringt die BIOS-Startsequenz der PlayStation und lädt die Disc direkt. Deaktivieren, wenn ein Spiel beim Start auf einem schwarzen Bildschirm hängt oder die BIOS-Animation benötigt.</string>
     <string name="settings_fast_boot">Schnellstart</string>
     <string name="onboarding_status_custom_folder">Benutzerdefinierter Ordner ausgewählt</string>
     <string name="settings_emulator_data_path">Emulator-Ordner</string>

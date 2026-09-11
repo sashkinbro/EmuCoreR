@@ -351,7 +351,7 @@ class AppPreferences(private val context: Context) {
         const val OVERLAY_OPACITY_MIN = 0
         const val OVERLAY_OPACITY_MAX = 100
         const val DEFAULT_OVERLAY_OPACITY = 80
-        const val DEFAULT_TOUCHSCREEN_RIGHT_STICK = true
+        const val DEFAULT_TOUCHSCREEN_RIGHT_STICK = false
         const val TOUCHSCREEN_RIGHT_STICK_SENSITIVITY_MIN = 50
         const val TOUCHSCREEN_RIGHT_STICK_SENSITIVITY_MAX = 200
         const val DEFAULT_TOUCHSCREEN_RIGHT_STICK_SENSITIVITY = 100
@@ -411,7 +411,7 @@ class AppPreferences(private val context: Context) {
             "cross" to OverlayControlLayout(),
             "square" to OverlayControlLayout(),
             "circle" to OverlayControlLayout(),
-            "right_stick" to OverlayControlLayout(scale = stickScale, widthScale = 160, visible = true),
+            "right_stick" to OverlayControlLayout(scale = stickScale, widthScale = 160, visible = false),
             "select" to OverlayControlLayout(scale = 80),
             "left_input_toggle" to OverlayControlLayout(scale = 80, visible = true),
             "start" to OverlayControlLayout(scale = 80),

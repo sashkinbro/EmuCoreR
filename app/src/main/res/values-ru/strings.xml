@@ -622,6 +622,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">Проверка обновлений временно недоступна. Повторите попытку через %1$d мин.</string>
     <string name="settings_fast_boot_desc">Пропускает загрузку диска BIOS — отключите для игр, которые зависают перед запуском</string>
+    <string name="settings_help_fast_boot">Пропускает экран загрузки BIOS PlayStation и запускает диск напрямую. Отключите, если игра зависает на чёрном экране при запуске или использует анимацию BIOS.</string>
     <string name="settings_fast_boot">Быстрая загрузка</string>
     <string name="onboarding_status_custom_folder">Выбрана пользовательская папка</string>
     <string name="settings_emulator_data_path">Папка эмулятора</string>

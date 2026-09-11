@@ -526,6 +526,7 @@
     <string name="settings_ee_cycle_moderate">Střední</string>
     <string name="settings_ee_cycle_maximum">Maximální</string>
     <string name="settings_fast_boot_desc">Přeskočí bootování disku v BIOSu - zakažte u her, které se před startem zaseknou</string>
+    <string name="settings_help_fast_boot">Přeskočí spouštěcí sekvenci BIOSu PlayStation a načte disk přímo. Vypněte, pokud hra při spuštění zamrzne na černé obrazovce nebo spoléhá na animaci BIOSu.</string>
     <string name="emulation_transport_fast_forward">Zrychlit (Fast-forward)</string>
     <string name="settings_texture_preloading">Předběžné načítání textur</string>
     <string name="settings_hw_mipmapping">Mipmapping</string>

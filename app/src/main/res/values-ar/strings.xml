@@ -620,6 +620,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">التحقق من التحديثات غير متاح مؤقتًا. حاول مرة أخرى خلال %1$d دقيقة.</string>
     <string name="settings_fast_boot_desc">يتخطى تمهيد قرص BIOS - قم بتعطيله للألعاب التي تتوقف قبل البدء</string>
+    <string name="settings_help_fast_boot">يتخطى تسلسل بدء تشغيل BIOS في PlayStation ويشغّل القرص مباشرة. عطّله إذا تعلقت لعبة على شاشة سوداء عند البدء أو اعتمدت على رسوم BIOS.</string>
     <string name="settings_fast_boot">إقلاع سريع</string>
     <string name="onboarding_status_custom_folder">تم تحديد مجلد مخصص</string>
     <string name="settings_emulator_data_path">مجلد المحاكي</string>

@@ -505,6 +505,7 @@
     <string name="settings_ee_cycle_moderate">Sedang</string>
     <string name="settings_ee_cycle_maximum">Maksimum</string>
     <string name="settings_fast_boot_desc">Melewati boot disk BIOS - nonaktifkan untuk game yang hang sebelum memulai</string>
+    <string name="settings_help_fast_boot">Melewati urutan boot BIOS PlayStation dan mem-boot disk secara langsung. Nonaktifkan jika game macet di layar hitam saat mulai atau bergantung pada animasi BIOS.</string>
     <string name="emulation_transport_fast_forward">Maju cepat</string>
     <string name="settings_texture_preloading">Pemuatan Awal Tekstur (Preload)</string>
     <string name="settings_hw_mipmapping">Mipmapping</string>

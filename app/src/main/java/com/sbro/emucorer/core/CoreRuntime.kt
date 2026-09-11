@@ -5,6 +5,8 @@ package com.sbro.emucorer.core
 import android.content.Context
 import android.graphics.Rect
 import android.net.Uri
+import android.os.ParcelFileDescriptor
+import android.system.Os
 import android.util.Log
 import android.view.Surface
 import com.sbro.emucorer.data.RetroArchShaderEffects
@@ -29,6 +31,9 @@ internal object CoreRuntime {
     private const val TAG = "CoreRuntime"
     private const val DEFAULT_FRAME_WIDTH = 320
     private const val DEFAULT_FRAME_HEIGHT = 240
+    private const val SAVE_STATE_MAGIC = 0x54534345
+    private const val SAVE_STATE_VERSION = 1
+    private const val SAVE_STATE_HEADER_BYTES = 8
 
     val bridge: NativeCoreBridge by lazy { NativeCoreBridge() }
     val settings = ConcurrentHashMap<String, String>()
@@ -63,6 +68,8 @@ internal object CoreRuntime {
     @Volatile private var detailedPerformanceMetrics = false
     @Volatile private var performanceMetricsSnapshot: String? = null
     @Volatile private var audioGain: Float = 1f
+    private var discDescriptor: ParcelFileDescriptor? = null
+    private var discLink: File? = null
 
     private val pendingPadButtons = AtomicIntegerArray(IntArray(2) { -1 })
     private val pendingPadAnalog = AtomicIntegerArray(IntArray(2) { 0x80808080.toInt() })
@@ -443,6 +450,7 @@ internal object CoreRuntime {
                     session = 0L
                 }
             }
+            releaseDiscDescriptor()
             paused = false
             renderedFirstFrame = false
             sessionStartedAtNanos = 0L
@@ -460,18 +468,40 @@ internal object CoreRuntime {
 
     fun saveState(path: String): Boolean = sessionLock.withLock {
         if (session == 0L) return@withLock false
-        File(path).parentFile?.mkdirs()
-        bridge.saveState(session, path) == 0
+        val target = File(path)
+        target.parentFile?.mkdirs()
+        val temporary = File(target.parentFile, ".${target.name}.saving")
+        try {
+            if (bridge.saveState(session, temporary.absolutePath) != 0) return@withLock false
+            writeSaveStateFile(temporary, target)
+        } finally {
+            temporary.delete()
+        }
     }
 
     fun loadState(path: String): Boolean = lifecycleLock.withLock lifecycle@{
-        if (!File(path).isFile) return@lifecycle false
+        val file = File(path)
+        if (!file.isFile) return@lifecycle false
         val wasPaused = paused
         paused = true
         try {
             audioOutput?.pause()
             sessionLock.withLock {
-                val loaded = session != 0L && bridge.loadState(session, path) == 0
+                val raw = File(file.parentFile, ".${file.name}.loading")
+                val prepared = runCatching {
+                    val bytes = file.readBytes()
+                    val payload = if (
+                        bytes.size > SAVE_STATE_HEADER_BYTES &&
+                        readSaveStateMagic(bytes) == SAVE_STATE_MAGIC
+                    ) {
+                        bytes.copyOfRange(SAVE_STATE_HEADER_BYTES, bytes.size)
+                    } else {
+                        bytes
+                    }
+                    raw.writeBytes(payload)
+                }.isSuccess
+                val loaded = prepared && session != 0L && bridge.loadState(session, raw.absolutePath) == 0
+                raw.delete()
                 if (loaded) {
                     audioOutput?.discardTimeline()
                     renderedFirstFrame = false
@@ -482,6 +512,51 @@ internal object CoreRuntime {
             if (!wasPaused && running) audioOutput?.resume()
             paused = wasPaused
         }
+    }
+
+    /** Writes the EmuCoreR state container (magic + version + libretro payload). */
+    private fun writeSaveStateFile(rawFile: File, target: File): Boolean {
+        val payload = runCatching { rawFile.readBytes() }.getOrNull() ?: return false
+        val staging = File(target.parentFile, ".${target.name}.tmp")
+        return try {
+            staging.outputStream().use { output ->
+                val header = ByteArray(SAVE_STATE_HEADER_BYTES)
+                for (index in 0 until 4) {
+                    header[index] = (SAVE_STATE_MAGIC ushr (index * 8)).toByte()
+                    header[4 + index] = (SAVE_STATE_VERSION ushr (index * 8)).toByte()
+                }
+                output.write(header)
+                output.write(payload)
+            }
+            if (staging.renameTo(target)) {
+                true
+            } else {
+                staging.delete()
+                false
+            }
+        } catch (_: Exception) {
+            staging.delete()
+            false
+        }
+    }
+
+    private fun readSaveStateMagic(bytes: ByteArray): Int {
+        var value = 0
+        for (index in 0 until 4) value = value or ((bytes[index].toInt() and 0xFF) shl (index * 8))
+        return value
+    }
+
+    fun loadCheats(path: String) {
+        sessionLock.withLock { runCatching { bridge.loadCheats(path) } }
+    }
+
+    fun clearCheats() {
+        sessionLock.withLock { runCatching { bridge.clearCheats() } }
+    }
+
+    fun setMemoryCardPath(slot: Int, path: String?) {
+        if (slot !in 0..1) return
+        runCatching { bridge.setMemoryCardPath(slot, path) }
     }
 
     fun setPadButtons(port: Int, buttons: Int): Boolean {
@@ -506,11 +581,12 @@ internal object CoreRuntime {
         true
     }
 
-    fun togglePadAnalogMode(port: Int): Boolean = sessionLock.withLock {
-        if (session == 0L) return@withLock false
+    fun togglePadAnalogMode(port: Int): Boolean? = sessionLock.withLock {
+        if (session == 0L) return@withLock null
         val state = bridge.getPadState(session, port)
-        bridge.setPadAnalogMode(session, port, (state >= 0) && (state and PAD_ANALOG_MODE_BIT) == 0)
-        true
+        val analog = (state >= 0) && (state and PAD_ANALOG_MODE_BIT) == 0
+        bridge.setPadAnalogMode(session, port, analog)
+        analog
     }
 
     fun attachSurface(value: Surface, width: Int, height: Int) {
@@ -773,14 +849,54 @@ internal object CoreRuntime {
             }
         }
         val resolver = context?.contentResolver ?: return -1
+        val descriptor = runCatching {
+            resolver.openFileDescriptor(Uri.parse(gamePath), "r")
+        }.getOrNull() ?: return -1
+        releaseDiscDescriptor()
+        discDescriptor = descriptor
+        // The core picks its disc container by file extension, so expose the
+        // live SAF descriptor through a cache symlink that keeps the original
+        // extension ("/proc/self/fd/N" alone would be rejected as unknown).
+        val extension = discExtensionFor(gamePath)
+        val link = cacheDir?.let { File(it, "swanstation-disc/disc-${gamePath.hashCode()}.$extension") }
+        if (link != null && createDiscSymlink(link, descriptor.fd)) {
+            discLink = link
+            val linked = bridge.loadDisc(handle, link.absolutePath)
+            if (linked == 0) return 0
+            releaseDiscDescriptor()
+        }
         return runCatching {
-            resolver.openFileDescriptor(Uri.parse(gamePath), "r")?.use { descriptor ->
-                val size = descriptor.statSize.coerceAtLeast(0L)
-                bridge.loadDiscFd(handle, descriptor.fd, 0L, size)
-            } ?: -1
+            bridge.loadDiscFd(handle, descriptor.fd, 0L, descriptor.statSize.coerceAtLeast(0L))
         }.onFailure { error ->
             Log.e(TAG, "Unable to open PS1 disc image through SAF: $gamePath", error)
         }.getOrDefault(-1)
+    }
+
+    private fun discExtensionFor(gamePath: String): String {
+        val name = runCatching {
+            context?.let { DocumentPathResolver.getDisplayName(it, gamePath) }
+        }.getOrNull().orEmpty()
+        return name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+            .takeIf { it.isNotBlank() && it.length <= 4 }
+            ?: "bin"
+    }
+
+    private fun createDiscSymlink(link: File, fd: Int): Boolean = runCatching {
+        link.parentFile?.mkdirs()
+        if (link.exists()) link.delete()
+        Os.symlink("/proc/self/fd/$fd", link.absolutePath)
+        true
+    }.getOrDefault(false)
+
+    private fun releaseDiscDescriptor() {
+        discLink?.let { link -> runCatching { link.delete() } }
+        discLink = null
+        discDescriptor?.let { descriptor -> runCatching { descriptor.close() } }
+        discDescriptor = null
+    }
+
+    fun hasDiscMedia(): Boolean = sessionLock.withLock {
+        session != 0L && runCatching { bridge.hasDiscMedia(session) }.getOrDefault(false)
     }
 
     private fun resolveConfiguredBiosPath(): String? {

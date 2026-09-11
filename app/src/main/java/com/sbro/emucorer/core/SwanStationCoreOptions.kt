@@ -4242,7 +4242,15 @@ object SwanStationCoreOptions {
 
     /** Controls tab: controller ports and memory cards. */
     fun controlsOptions(): List<Option> =
-        forCategory("port").filterNot { it.key in managedKeys }
+        forCategory("port").filterNot { it.key in managedKeys || it.isUnsupportedControllerPort() }
+
+    /**
+     * The frontend feeds two libretro ports, so controller 3-8 options have no
+     * input source and must not be offered in the UI.
+     */
+    private fun Option.isUnsupportedControllerPort(): Boolean =
+        key.startsWith("swanstation_Controller") &&
+            key.removePrefix("swanstation_Controller").firstOrNull()?.let { it in '3'..'8' } == true
 
     /** Audio tab: SPU/CD audio options. */
     fun audioOptions(): List<Option> = optionList.filter { it.key in audioKeys }

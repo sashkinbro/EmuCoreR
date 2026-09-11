@@ -206,6 +206,24 @@ object EmulatorBridge {
     )
 
     /**
+     * Resolves a memory-card file name stored in preferences to the absolute
+     * path inside the app's emulator data root, so the core opens the same
+     * image the memory card manager shows.
+     */
+    private fun resolveMemoryCardPath(fileName: String): String? {
+        val name = fileName.trim()
+        if (name.isEmpty()) return null
+        val direct = File(name)
+        if (direct.isAbsolute) return direct.absolutePath
+        val context = getContext() ?: return null
+        val root = EmulatorStorage.memoryCardsDir(
+            context,
+            AppPreferences(context).getEmulatorDataPathSync()
+        )
+        return File(root, name).absolutePath
+    }
+
+    /**
      * Keep the frontend renderer name honest: Vulkan/OpenGL execute GP0 work on
      * that backend, while Software remains the exact PGXP-capable reference.
      * Hardware execution and PGXP are deliberately mutually exclusive in the
@@ -278,6 +296,16 @@ object EmulatorBridge {
                                 succeeded = false
                             if (!NativeApp.setSetting("MemoryCards", "Slot${slotIndex}_Filename", "string", fileName))
                                 succeeded = false
+                            // The bundled SwanStation core opens memory cards through
+                            // the libretro host interface, so translate the app's slot
+                            // assignment into an explicit image path plus the matching
+                            // shared-card type option.
+                            val resolvedPath = resolveMemoryCardPath(fileName)
+                            NativeApp.setMemoryCardPath(slotIndex - 1, resolvedPath)
+                            NativeApp.setCoreOption(
+                                "swanstation_MemoryCards_Card${slotIndex}Type",
+                                if (resolvedPath != null) "Shared" else "None"
+                            )
                         }
                     }
                 }
@@ -867,7 +895,7 @@ object EmulatorBridge {
         return runSerial {
             isVmActive = true
             shutdownRequested = false
-            val result = try {
+            var result = try {
                 NativeApp.logCrashBreadcrumb(
                     "startEmulation entering native ${
                         when {
@@ -888,6 +916,17 @@ object EmulatorBridge {
                 NativeApp.logCrashBreadcrumb("startEmulation exception before native start returned")
                 Log.e(TAG, "startEmulation native call failed", error)
                 false
+            }
+            if (result && !bootSmokeProbe && !allowBiosBoot && !isElf && !isIrx && !path.isBlank()) {
+                // The bundled core silently boots the BIOS when a disc image
+                // cannot be opened. Surface that as a failed launch instead of
+                // leaving the user on a misleading BIOS screen.
+                if (!NativeApp.hasDiscMedia()) {
+                    NativeApp.logCrashBreadcrumb("disc image failed to mount; aborting launch")
+                    Log.w(TAG, "Disc image could not be mounted; aborting $pathType launch")
+                    runCatching { NativeApp.shutdown() }
+                    result = false
+                }
             }
             if (result) {
                 startAutoProgressiveScanHoldIfEnabled(shouldAutoProgressiveScanHold)

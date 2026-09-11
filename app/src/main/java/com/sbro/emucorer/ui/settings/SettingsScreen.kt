@@ -2101,6 +2101,15 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setEnableIcacheEmulation,
                             onResetToDefault = { viewModel.setEnableIcacheEmulation(defaults.enableIcacheEmulation) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.FlashOn,
+                            title = stringResource(R.string.settings_fast_boot),
+                            subtitle = stringResource(R.string.settings_fast_boot_desc),
+                            checked = uiState.enableFastBoot,
+                            onCheckedChange = viewModel::setEnableFastBoot,
+                            helpText = stringResource(R.string.settings_help_fast_boot),
+                            onResetToDefault = { viewModel.setEnableFastBoot(defaults.enableFastBoot) }
+                        )
                         var coreEmulationVersion by remember { mutableIntStateOf(0) }
                         CoreOptionSettingsRows(
                             options = remember { SwanStationCoreOptions.emulationOptions() },
@@ -3853,6 +3862,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Graphics, R.string.ss_core_gpu_resolutionscale),
         entry(SettingsTab.Graphics, R.string.settings_aspect_ratio),
         entry(SettingsTab.Emulation, R.string.settings_show_fps),
+        entry(SettingsTab.Emulation, R.string.settings_fast_boot),
         entry(SettingsTab.Emulation, R.string.settings_fps_overlay_mode),
         entry(SettingsTab.Emulation, R.string.settings_fps_overlay_position),
         entry(SettingsTab.Emulation, R.string.settings_fps_overlay_scale),

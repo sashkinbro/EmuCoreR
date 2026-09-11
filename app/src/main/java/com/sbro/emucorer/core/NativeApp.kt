@@ -39,6 +39,9 @@ object NativeApp {
 
     @Volatile private var currentGamePath: String = ""
     private val padButtons = intArrayOf(0xFFFF, 0xFFFF)
+    private val derivedDpadButtons = intArrayOf(0xFFFF, 0xFFFF)
+    private val padAnalogMode = booleanArrayOf(false, false)
+    private val analogDpadOptionCache = arrayOfNulls<Boolean>(2)
     private val padAnalogHalfAxes = Array(2) { IntArray(8) }
     private var profilerActive = false
     private var hangTraceActive = false
@@ -133,7 +136,16 @@ object NativeApp {
     @JvmStatic @Synchronized fun setPadButton(padIndex: Int, index: Int, range: Int, pressed: Boolean) {
         if (padIndex !in 0..1) return
         if (index == PAD_ANALOG_TOGGLE) {
-            if (pressed) CoreRuntime.togglePadAnalogMode(padIndex)
+            if (pressed) {
+                val analog = CoreRuntime.togglePadAnalogMode(padIndex)
+                if (analog != null) {
+                    padAnalogMode[padIndex] = analog
+                    if (analog && derivedDpadButtons[padIndex] != 0xFFFF) {
+                        derivedDpadButtons[padIndex] = 0xFFFF
+                        CoreRuntime.setPadButtons(padIndex, effectivePadButtons(padIndex))
+                    }
+                }
+            }
             return
         }
         val halfAxis = analogHalfAxisIndex(index)
@@ -145,7 +157,7 @@ object NativeApp {
         val bit = ps1ButtonBit(index) ?: return
         padButtons[padIndex] = if (pressed) padButtons[padIndex] and (1 shl bit).inv()
         else padButtons[padIndex] or (1 shl bit)
-        CoreRuntime.setPadButtons(padIndex, padButtons[padIndex])
+        CoreRuntime.setPadButtons(padIndex, effectivePadButtons(padIndex))
     }
     @JvmStatic fun setInternetLinkTransportReady(ready: Boolean) = Unit
     @JvmStatic fun resetInternetLinkTransport() = Unit
@@ -162,13 +174,24 @@ object NativeApp {
     @JvmStatic @Synchronized fun resetPadState(padIndex: Int) {
         if (padIndex !in 0..1) return
         padButtons[padIndex] = 0xFFFF
+        derivedDpadButtons[padIndex] = 0xFFFF
         padAnalogHalfAxes[padIndex].fill(0)
         CoreRuntime.setPadButtons(padIndex, 0xFFFF)
         CoreRuntime.setPadAnalog(padIndex, 128, 128, 128, 128)
     }
 
-    @JvmStatic fun setPadAnalogMode(padIndex: Int, enabled: Boolean): Boolean =
-        padIndex in 0..1 && CoreRuntime.setPadAnalogMode(padIndex, enabled)
+    @JvmStatic fun setPadAnalogMode(padIndex: Int, enabled: Boolean): Boolean {
+        if (padIndex !in 0..1) return false
+        val applied = CoreRuntime.setPadAnalogMode(padIndex, enabled)
+        if (applied) {
+            padAnalogMode[padIndex] = enabled
+            if (enabled && derivedDpadButtons[padIndex] != 0xFFFF) {
+                derivedDpadButtons[padIndex] = 0xFFFF
+                CoreRuntime.setPadButtons(padIndex, effectivePadButtons(padIndex))
+            }
+        }
+        return applied
+    }
     @JvmStatic fun setAspectRatio(type: Int) { CoreRuntime.setDisplayAspectRatio(type) }
     @JvmStatic fun renderUpscalemultiplier(value: Float) { setSetting("EmuCoreR/Display", "Upscale", "float", value.toString()) }
     // PCSX-ReARMed is a CPU rasterizer: the only real internal resolution
@@ -184,19 +207,23 @@ object NativeApp {
     @JvmStatic fun setSetting(section: String, key: String, type: String, value: String): Boolean =
         CoreRuntime.updateSetting(section, key, value)
     @JvmStatic fun getSetting(section: String, key: String, type: String): String? = CoreRuntime.settings["$section:$key"]
-    @JvmStatic fun setCoreOption(key: String, value: String) = CoreRuntime.setCoreOption(key, value)
+    @JvmStatic fun setCoreOption(key: String, value: String) {
+        invalidateAnalogDpadOptionCache(key, value)
+        CoreRuntime.setCoreOption(key, value)
+    }
     @JvmStatic fun getCoreOption(key: String): String? = CoreRuntime.coreOptionValue(key)
-    @JvmStatic fun applyCoreOption(key: String, value: String) = CoreRuntime.applyCoreOption(key, value)
+    @JvmStatic fun applyCoreOption(key: String, value: String) {
+        invalidateAnalogDpadOptionCache(key, value)
+        CoreRuntime.applyCoreOption(key, value)
+    }
     @JvmStatic fun setFrameSkip(frames: Int) = Unit
     @JvmStatic fun setFrameLimitEnabled(enabled: Boolean) = Unit
     @JvmStatic fun setTurboModeEnabled(enabled: Boolean) = Unit
     @JvmStatic fun reloadPatches() = Unit
-    @JvmStatic fun loadCheats(path: String) {
-        runCatching { CoreRuntime.bridge.loadCheats(path) }
-    }
-    @JvmStatic fun clearCheats() {
-        runCatching { CoreRuntime.bridge.clearCheats() }
-    }
+    @JvmStatic fun loadCheats(path: String) = CoreRuntime.loadCheats(path)
+    @JvmStatic fun clearCheats() = CoreRuntime.clearCheats()
+    @JvmStatic fun setMemoryCardPath(slot: Int, path: String?) = CoreRuntime.setMemoryCardPath(slot, path)
+    @JvmStatic fun hasDiscMedia(): Boolean = CoreRuntime.hasDiscMedia()
     @JvmStatic fun onNativeSurfaceCreated() = Unit
     @JvmStatic fun onNativeSurfaceChanged(surface: Surface, width: Int, height: Int) = CoreRuntime.attachSurface(surface, width, height)
     @JvmStatic fun onNativeSurfaceDestroyed() = CoreRuntime.detachSurface()
@@ -432,13 +459,57 @@ object NativeApp {
 
     private fun dispatchPadAnalog(padIndex: Int) {
         val axes = padAnalogHalfAxes[padIndex]
-        CoreRuntime.setPadAnalog(
-            padIndex,
-            mergeHalfAxes(axes[3], axes[1]),
-            mergeHalfAxes(axes[0], axes[2]),
-            mergeHalfAxes(axes[7], axes[5]),
-            mergeHalfAxes(axes[4], axes[6])
-        )
+        val lx = mergeHalfAxes(axes[3], axes[1])
+        val ly = mergeHalfAxes(axes[0], axes[2])
+        val rx = mergeHalfAxes(axes[7], axes[5])
+        val ry = mergeHalfAxes(axes[4], axes[6])
+        CoreRuntime.setPadAnalog(padIndex, lx, ly, rx, ry)
+        updateDerivedDpadButtons(padIndex, lx, ly)
+    }
+
+    /**
+     * Mirrors the SwanStation "Use Analog Sticks for D-Pad in Digital Mode"
+     * option in the frontend input layer. The core option only applies to an
+     * emulated DualShock in digital mode, while the app attaches a plain
+     * digital pad unless analog mode is requested, so the left stick needs to
+     * drive the D-pad buttons here for the setting to have any effect.
+     */
+    private fun updateDerivedDpadButtons(padIndex: Int, lx: Int, ly: Int) {
+        var derived = DPAD_ALL_RELEASED
+        if (isAnalogDpadInDigitalModeEnabled(padIndex)) {
+            when {
+                ly < 128 - ANALOG_DPAD_THRESHOLD -> derived = derived and (1 shl PS1_BUTTON_UP).inv()
+                ly > 128 + ANALOG_DPAD_THRESHOLD -> derived = derived and (1 shl PS1_BUTTON_DOWN).inv()
+            }
+            when {
+                lx < 128 - ANALOG_DPAD_THRESHOLD -> derived = derived and (1 shl PS1_BUTTON_LEFT).inv()
+                lx > 128 + ANALOG_DPAD_THRESHOLD -> derived = derived and (1 shl PS1_BUTTON_RIGHT).inv()
+            }
+        }
+        if (derivedDpadButtons[padIndex] != derived) {
+            derivedDpadButtons[padIndex] = derived
+            CoreRuntime.setPadButtons(padIndex, effectivePadButtons(padIndex))
+        }
+    }
+
+    private fun effectivePadButtons(padIndex: Int): Int =
+        padButtons[padIndex] and derivedDpadButtons[padIndex]
+
+    private fun isAnalogDpadInDigitalModeEnabled(padIndex: Int): Boolean {
+        if (padAnalogMode[padIndex]) return false
+        analogDpadOptionCache[padIndex]?.let { return it }
+        val key = "swanstation_Controller${padIndex + 1}_AnalogDPadInDigitalMode"
+        val enabled = CoreRuntime.coreOptionValue(key)?.toBooleanStrictOrNull() ?: true
+        analogDpadOptionCache[padIndex] = enabled
+        return enabled
+    }
+
+    private fun invalidateAnalogDpadOptionCache(key: String, value: String) {
+        for (index in 0..1) {
+            if (key == "swanstation_Controller${index + 1}_AnalogDPadInDigitalMode") {
+                analogDpadOptionCache[index] = value.toBooleanStrictOrNull()
+            }
+        }
     }
 
     private fun extractPs1Serial(value: String): String? {
@@ -459,6 +530,12 @@ object NativeApp {
     private const val BIOS_SIZE_BYTES = 512L * 1024L
     private const val PAD_ANALOG_TOGGLE = 125
     private const val PS1_MEMORY_CARD_SIZE_BYTES = 128L * 1024L
+    private const val DPAD_ALL_RELEASED = 0xFFFF
+    private const val ANALOG_DPAD_THRESHOLD = 64
+    private const val PS1_BUTTON_UP = 4
+    private const val PS1_BUTTON_RIGHT = 5
+    private const val PS1_BUTTON_DOWN = 6
+    private const val PS1_BUTTON_LEFT = 7
 }
 
 data class NativeMemoryCardInfo(

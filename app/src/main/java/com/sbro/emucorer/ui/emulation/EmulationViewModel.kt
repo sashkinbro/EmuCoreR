@@ -1989,6 +1989,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 pendingPerGameCoreOptions.forEach { (coreKey, coreValue) ->
                     NativeApp.applyCoreOption(coreKey, coreValue)
                 }
+                syncPadAnalogModeForLaunch()
             }
             if (started && gsDumpFrames != null && gsDumpFrames > 0) {
                 val delayMs = gsDumpDelayMs?.coerceAtLeast(0) ?: 0
@@ -2617,11 +2618,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setEnableCheats(enabled)
             }
             EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", enabled.toString())
-            if (enabled) {
-                syncCheatsForCurrentGame()
-                EmulatorBridge.reloadPatches()
-            } else {
-                NativeApp.clearCheats()
+            withContext(Dispatchers.IO) {
+                if (enabled) {
+                    syncCheatsForCurrentGame()
+                    EmulatorBridge.reloadPatches()
+                } else {
+                    NativeApp.clearCheats()
+                }
             }
             updateCrashContext()
         }
@@ -4899,8 +4902,24 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    private fun syncCheatsForCurrentGame(gameKeyOverride: String? = null) {
-        val gameKey = gameKeyOverride ?: _uiState.value.cheatsGameKey ?: return
+    /**
+     * Attaches a DualShock to a port when the user asked for an analog input
+     * path: the "force analog" core option, a visible on-screen left stick, or
+     * the right-stick gesture. Without this the emulated port stays a plain
+     * digital pad and those controls are silently ignored.
+     */
+    private fun syncPadAnalogModeForLaunch() {
+        val state = _uiState.value
+        val leftStickVisible = state.controlLayouts["left_stick"]?.visible == true
+        val forceAnalog0 = NativeApp.getCoreOption("swanstation_Controller1_ForceAnalog")
+            ?.toBooleanStrictOrNull() ?: false
+        val forceAnalog1 = NativeApp.getCoreOption("swanstation_Controller2_ForceAnalog")
+            ?.toBooleanStrictOrNull() ?: false
+        NativeApp.setPadAnalogMode(0, forceAnalog0 || leftStickVisible || state.touchscreenRightStick)
+        NativeApp.setPadAnalogMode(1, forceAnalog1)
+    }
+
+    private fun syncCheatsForCurrentGame(gameKeyOverride: String? = null) {        val gameKey = gameKeyOverride ?: _uiState.value.cheatsGameKey ?: return
         val serial = currentGameSerial.takeIf { it.isNotBlank() }
         val crc = currentGameCrc.takeIf { it.isNotBlank() }
         cheatRepository.syncActiveCheats(

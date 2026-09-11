@@ -620,6 +620,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">Güncelleme kontrolü geçici olarak kullanılamıyor. %1$d dakika sonra tekrar deneyin.</string>
     <string name="settings_fast_boot_desc">BIOS disk önyüklemesini atlar - başlamadan önce takılan oyunlar için devre dışı bırakın</string>
+    <string name="settings_help_fast_boot">PlayStation BIOS başlangıç dizisini atlar ve diski doğrudan başlatır. Bir oyun başlangıçta siyah ekranda takılıyorsa veya BIOS animasyonuna bağlıysa devre dışı bırakın.</string>
     <string name="settings_fast_boot">Hızlı Başlatma</string>
     <string name="onboarding_status_custom_folder">Özel klasör seçildi</string>
     <string name="settings_emulator_data_path">Emülatör Klasörü</string>

@@ -622,6 +622,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">La búsqueda de actualizaciones no está disponible temporalmente. Vuelve a intentarlo en %1$d minutos.</string>
     <string name="settings_fast_boot_desc">Omite el arranque del disco BIOS; desactívalo para juegos que se cuelgan antes de comenzar</string>
+    <string name="settings_help_fast_boot">Omite la secuencia de arranque del BIOS de PlayStation y carga el disco directamente. Desactívalo si un juego se queda en una pantalla negra al inicio o depende de la animación del BIOS.</string>
     <string name="settings_fast_boot">Arranque rápido</string>
     <string name="onboarding_status_custom_folder">Carpeta personalizada seleccionada</string>
     <string name="settings_emulator_data_path">Carpeta del emulador</string>

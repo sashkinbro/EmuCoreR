@@ -620,6 +620,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">업데이트 확인을 일시적으로 사용할 수 없습니다. %1$d분 후에 다시 시도해 주세요.</string>
     <string name="settings_fast_boot_desc">BIOS 디스크 부팅을 건너뜁니다 - 시작하기 전에 멈추는 게임의 경우 비활성화하세요</string>
+    <string name="settings_help_fast_boot">PlayStation BIOS 시작 시퀀스를 건너뛰고 디스크를 바로 부팅합니다. 게임이 시작 시 검은 화면에서 멈추거나 BIOS 애니메이션에 의존한다면 끄세요.</string>
     <string name="settings_fast_boot">빠른 부팅</string>
     <string name="onboarding_status_custom_folder">사용자 지정 폴더가 선택되었습니다</string>
     <string name="settings_emulator_data_path">에뮬레이터 폴더</string>

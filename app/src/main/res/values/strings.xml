@@ -522,6 +522,7 @@
     <string name="settings_ee_cycle_moderate">Moderate</string>
     <string name="settings_ee_cycle_maximum">Maximum</string>
     <string name="settings_fast_boot_desc">Skips the BIOS disc boot - disable for games that hang before starting</string>
+    <string name="settings_help_fast_boot">Skips the PlayStation BIOS startup sequence and boots the disc directly. Disable it if a game hangs on a black screen at startup or relies on the BIOS animation.</string>
     <string name="emulation_transport_fast_forward">Fast-forward</string>
     <string name="settings_texture_preloading">Texture Preloading</string>
     <string name="settings_hw_mipmapping">Mipmapping</string>

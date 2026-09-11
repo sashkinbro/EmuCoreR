@@ -505,6 +505,7 @@
     <string name="settings_ee_cycle_moderate">متوسط</string>
     <string name="settings_ee_cycle_maximum">حداکثر</string>
     <string name="settings_fast_boot_desc">پرش از بوت دیسک BIOS - برای بازی‌هایی که قبل از شروع هنگ می‌کنند غیرفعال کنید</string>
+    <string name="settings_help_fast_boot">دنباله راه‌اندازی BIOS پلی‌استیشن را رد می‌کند و دیسک را مستقیم اجرا می‌کند. اگر بازی هنگام شروع روی صفحه سیاه می‌ماند یا به انیمیشن BIOS وابسته است، آن را غیرفعال کنید.</string>
     <string name="emulation_transport_fast_forward">Fast-forward</string>
     <string name="settings_texture_preloading">پیش‌بارگذاری بافت</string>
     <string name="settings_hw_mipmapping">Mipmapping</string>

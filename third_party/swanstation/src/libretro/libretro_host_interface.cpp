@@ -8,6 +8,7 @@
 #include "core/analog_controller.h"
 #include "core/analog_joystick.h"
 #include "core/bus.h"
+#include "core/cdrom.h"
 #include "core/cheats.h"
 #include "core/digital_controller.h"
 #include "core/gpu.h"
@@ -35,6 +36,40 @@
 #include <vfs/vfs_hybrid.h>
 
 Log_SetChannel(HostInterface);
+
+// EmuCoreR Android frontend hook: lets the app bind an explicit memory-card
+// image to each slot instead of the generic save-directory filenames.
+namespace {
+std::mutex g_memory_card_path_override_mutex;
+std::string g_memory_card_path_overrides[2];
+}  // namespace
+
+extern "C" __attribute__((visibility("default"))) void EmuCoreRSetMemoryCardPathOverride(
+  unsigned slot, const char* path)
+{
+  if (slot >= 2)
+    return;
+
+  std::lock_guard<std::mutex> lock(g_memory_card_path_override_mutex);
+  g_memory_card_path_overrides[slot] = path ? path : "";
+}
+
+static std::string GetMemoryCardPathOverride(unsigned slot)
+{
+  if (slot >= 2)
+    return {};
+
+  std::lock_guard<std::mutex> lock(g_memory_card_path_override_mutex);
+  return g_memory_card_path_overrides[slot];
+}
+
+// Reports whether a disc image is actually mounted. The core deliberately
+// boots the BIOS with no media when a supplied image cannot be opened, so the
+// frontend needs this to turn that silent fallback into a launch failure.
+extern "C" __attribute__((visibility("default"))) bool EmuCoreRHasDiscMedia()
+{
+  return System::IsValid() && g_cdrom.HasMedia();
+}
 
 #ifdef WIN32
 #include "core/gpu_hw_d3d11.h"
@@ -428,6 +463,10 @@ static const char* GetSaveDirectory()
 
 std::string HostInterface::GetSharedMemoryCardPath(uint32_t slot) const
 {
+  const std::string override_path = GetMemoryCardPathOverride(slot);
+  if (!override_path.empty())
+    return override_path;
+
   return StringUtil::StdStringFromFormat("%s" FS_OSPATH_SEPARATOR_STR "duckstation_shared_card_%d.mcd",
                                          GetSaveDirectory(), slot + 1);
 }

@@ -620,6 +620,7 @@
     <string name="settings_language_native_turkish">Türkçe</string>
     <string name="settings_updates_rate_limit_error">アップデートの確認は一時的に利用できません。%1$d分後にもう一度お試しください。</string>
     <string name="settings_fast_boot_desc">BIOSディスクの起動をスキップします - 起動前にハングするゲームでは無効にしてください</string>
+    <string name="settings_help_fast_boot">PlayStation BIOS の起動シーケンスをスキップしてディスクを直接起動します。ゲームが起動時に黒画面で止まる場合や BIOS アニメーションが必要な場合は無効にしてください。</string>
     <string name="settings_fast_boot">ファストブート</string>
     <string name="onboarding_status_custom_folder">カスタムフォルダが選択されました</string>
     <string name="settings_emulator_data_path">エミュレータフォルダ</string>

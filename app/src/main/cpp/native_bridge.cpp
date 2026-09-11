@@ -32,11 +32,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
-
 #include "libretro.h"
 #include "shader_chain.h"
 #include "vulkan_frontend.h"
@@ -65,6 +65,10 @@ constexpr const char* kBiosNtscU = "swanstation_BIOS_PathNTSCU";
 constexpr const char* kBiosPal = "swanstation_BIOS_PathPAL";
 }  // namespace option_key
 
+// The core only recognizes the DualShock subclass of RETRO_DEVICE_ANALOG; the
+// bare RETRO_DEVICE_ANALOG value is unknown to it and disconnects the port.
+#define RETRO_DEVICE_PS_DUALSHOCK RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_ANALOG, 0)
+
 // GTK/desktop style renderer integer used by the Kotlin layer.
 namespace core_renderer {
 constexpr int kSoftware = 0;
@@ -75,6 +79,53 @@ constexpr int kOpenGl = 2;
 namespace {
 
 constexpr size_t kAudioRingCapacityFrames = 48000;  // ~1s at 48 kHz stereo.
+
+// PlayStation memory card image geometry (128 KiB = 1024 frames of 128 bytes).
+constexpr size_t kMemoryCardSize = 128 * 1024;
+constexpr size_t kMemoryCardFrameSize = 128;
+
+uint8_t MemoryCardFrameChecksum(const uint8_t* frame) {
+    uint8_t checksum = frame[0];
+    for (size_t i = 1; i < kMemoryCardFrameSize - 1; i++) checksum ^= frame[i];
+    return checksum;
+}
+
+/** Builds a formatted card identical to the core's MemoryCardImage::Format. */
+std::vector<uint8_t> BuildFormattedMemoryCard() {
+    std::vector<uint8_t> data(kMemoryCardSize, 0xFF);
+    // First block: header, directory and broken-sector list (16 frames).
+    for (size_t frame = 0; frame < 16; frame++) {
+        uint8_t* fptr = data.data() + frame * kMemoryCardFrameSize;
+        std::fill_n(fptr, kMemoryCardFrameSize, uint8_t(0x00));
+        if (frame == 0) {
+            fptr[0] = 'M';
+            fptr[1] = 'C';
+        } else {
+            fptr[0] = 0xA0;  // free directory entry
+            fptr[8] = 0xFF;
+            fptr[9] = 0xFF;
+        }
+        fptr[0x7F] = MemoryCardFrameChecksum(fptr);
+    }
+    for (size_t frame = 16; frame < 36; frame++) {
+        uint8_t* fptr = data.data() + frame * kMemoryCardFrameSize;
+        std::fill_n(fptr, kMemoryCardFrameSize, uint8_t(0x00));
+        fptr[0] = 0xFF;
+        fptr[1] = 0xFF;
+        fptr[2] = 0xFF;
+        fptr[3] = 0xFF;
+        fptr[8] = 0xFF;
+        fptr[9] = 0xFF;
+        fptr[0x7F] = MemoryCardFrameChecksum(fptr);
+    }
+    for (size_t frame = 36; frame < 63; frame++) {
+        uint8_t* fptr = data.data() + frame * kMemoryCardFrameSize;
+        std::fill_n(fptr, kMemoryCardFrameSize, uint8_t(0x00));
+    }
+    // Write test frame mirrors the header frame.
+    std::memcpy(data.data() + 63 * kMemoryCardFrameSize, data.data(), kMemoryCardFrameSize);
+    return data;
+}
 
 // ---------------------------------------------------------------------------
 // Frontend state. The libretro core is a process singleton, so this state is
@@ -1344,6 +1395,13 @@ std::string RendererOptionForInteger(int renderer) {
 
 extern "C" {
 
+// Implemented by the bundled SwanStation core (libretro_host_interface.cpp);
+// lets the app bind explicit memory-card images to the emulated slots.
+extern void EmuCoreRSetMemoryCardPathOverride(unsigned slot, const char* path);
+
+// Implemented by the core: reports whether a disc image is mounted.
+extern bool EmuCoreRHasDiscMedia();
+
 // ---------------------------------------------------------------------------
 // JNI: lifecycle.
 // ---------------------------------------------------------------------------
@@ -1680,7 +1738,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_setPadAnalogMode(JNIEnv*, jobject, 
     if (handle == 0 || port < 0 || port > 1) return;
     g_frontend.pad_analog_mode[port].store(enabled == JNI_TRUE);
     retro_set_controller_port_device(static_cast<unsigned>(port),
-                                     enabled == JNI_TRUE ? RETRO_DEVICE_ANALOG : RETRO_DEVICE_JOYPAD);
+                                     enabled == JNI_TRUE ? RETRO_DEVICE_PS_DUALSHOCK : RETRO_DEVICE_JOYPAD);
 }
 
 JNIEXPORT jint JNICALL
@@ -1758,15 +1816,88 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createMemoryCard(JNIEnv* env, jobje
         } else {
             file = fopen(chars, "wb");
             if (file != nullptr) {
-                std::vector<uint8_t> blank(128 * 1024, 0);
-                fwrite(blank.data(), 1, blank.size(), file);
+                const std::vector<uint8_t> formatted = BuildFormattedMemoryCard();
+                const size_t written = fwrite(formatted.data(), 1, formatted.size(), file);
                 fclose(file);
-                result = 0;
+                result = written == formatted.size() ? 0 : -3;
             }
         }
         env->ReleaseStringUTFChars(path, chars);
     }
     return result;
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_setMemoryCardPath(JNIEnv* env, jobject, jint slot,
+                                                                jstring path) {
+    if (slot < 0 || slot > 1) return;
+    std::string value;
+    if (path != nullptr) {
+        const char* chars = env->GetStringUTFChars(path, nullptr);
+        if (chars != nullptr) {
+            value = chars;
+            env->ReleaseStringUTFChars(path, chars);
+        }
+    }
+    EmuCoreRSetMemoryCardPathOverride(static_cast<unsigned>(slot),
+                                      value.empty() ? nullptr : value.c_str());
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_hasDiscMedia(JNIEnv*, jobject, jlong handle) {
+    if (handle == 0 || !g_frontend.game_loaded) return JNI_FALSE;
+    return EmuCoreRHasDiscMedia() ? JNI_TRUE : JNI_FALSE;
+}
+
+// ---------------------------------------------------------------------------
+// JNI: cheats. The Kotlin layer writes the active GameShark-style codes into a
+// PCSX .cht container; each [*Section] becomes one libretro cheat whose
+// instructions are applied every emulated frame by the core.
+// ---------------------------------------------------------------------------
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_loadCheats(JNIEnv* env, jobject, jstring path) {
+    retro_cheat_reset();
+    if (path == nullptr) return;
+    const char* chars = env->GetStringUTFChars(path, nullptr);
+    if (chars == nullptr) return;
+    std::ifstream file(chars);
+    env->ReleaseStringUTFChars(path, chars);
+    if (!file.is_open()) return;
+
+    std::string line;
+    std::string code;
+    unsigned index = 0;
+    auto flush = [&]() {
+        if (!code.empty()) {
+            retro_cheat_set(index++, true, code.c_str());
+            code.clear();
+        }
+    };
+    while (std::getline(file, line)) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' ' || line.back() == '\t'))
+            line.pop_back();
+        const size_t start = line.find_first_not_of(" \t");
+        if (start == std::string::npos) continue;
+        const std::string trimmed = line.substr(start);
+        if (trimmed[0] == '[') {
+            flush();
+            continue;
+        }
+        if (trimmed[0] == '/' && trimmed.size() > 1 && trimmed[1] == '/') continue;
+        if (code.empty()) {
+            code = trimmed;
+        } else {
+            code += ' ';
+            code += trimmed;
+        }
+    }
+    flush();
+    LOGI("Loaded %u cheats", index);
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_clearCheats(JNIEnv*, jobject) {
+    retro_cheat_reset();
 }
 
 // ---------------------------------------------------------------------------
