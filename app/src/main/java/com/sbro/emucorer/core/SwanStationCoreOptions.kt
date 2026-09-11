@@ -330,7 +330,7 @@ object SwanStationCoreOptions {
                 Choice("true", "Enabled"),
                 Choice("false", "Disabled"),
             ),
-            defaultValue = "false",
+            defaultValue = "true",
         ),
         Option(
             key = "swanstation_GPU_ScaledDithering",
