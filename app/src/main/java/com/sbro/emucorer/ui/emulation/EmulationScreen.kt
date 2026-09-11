@@ -4591,20 +4591,30 @@ private fun CoreOptionRows(
         // Equal-width chips clip long labels; fall back to a horizontally
         // scrollable row whenever the labels cannot fit their share of the row.
         val labelsOverflow = choiceLabels.any { it.length > 30 / option.choices.size }
-        LiveSelectionRow(
-            title = title,
-            options = option.choices.mapIndexed { index, _ ->
-                LiveSelectionOption(index, choiceLabels[index])
-            },
-            currentValue = currentIndex,
-            onValueChange = { index ->
-                values.getOrNull(index)?.let { onValueChange(option.key, it) }
-            },
-            allowWrap = false,
-            horizontalScrolling = option.choices.size > 4 || labelsOverflow,
-            helpText = help,
-            onResetToDefault = { onValueChange(option.key, option.defaultValue) }
-        )
+        if (option.isBooleanToggle) {
+            SettingsToggle(
+                title = title,
+                checked = current.equals("true", ignoreCase = true),
+                onCheckedChange = { enabled -> onValueChange(option.key, enabled.toString()) },
+                helpText = help,
+                onResetToDefault = { onValueChange(option.key, option.defaultValue) }
+            )
+        } else {
+            LiveSelectionRow(
+                title = title,
+                options = option.choices.mapIndexed { index, _ ->
+                    LiveSelectionOption(index, choiceLabels[index])
+                },
+                currentValue = currentIndex,
+                onValueChange = { index ->
+                    values.getOrNull(index)?.let { onValueChange(option.key, it) }
+                },
+                allowWrap = false,
+                horizontalScrolling = option.choices.size > 4 || labelsOverflow,
+                helpText = help,
+                onResetToDefault = { onValueChange(option.key, option.defaultValue) }
+            )
+        }
     }
 }
 

@@ -89,6 +89,13 @@ private val PER_GAME_GPU_DRIVER_KEYS = setOf(
     "mediatekAngleOpenGl"
 )
 
+private val PER_GAME_AUDIO_KEYS = setOf(
+    "audioVolume",
+    "audioMuted",
+    "audioOutputLatencyMs",
+    "audioMinimalOutputLatency"
+)
+
 private fun buildPerformanceOverlayHeader(application: Application): String {
     val packageInfo = runCatching {
         application.packageManager.getPackageInfo(application.packageName, 0)
@@ -3952,10 +3959,19 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 if (visualStyleOverride != null) add("touchControlVisualStyle")
                 if (pressEffectOverride != null) add("touchControlPressEffect")
             }
+            val audioOverrideKeys = existingProfile?.let { profile ->
+                if (profile.providedKeys == null) {
+                    PER_GAME_AUDIO_KEYS
+                } else {
+                    profile.providedKeys.intersect(PER_GAME_AUDIO_KEYS)
+                }
+            }.orEmpty()
             val providedKeys = when {
                 runtimeProfile.providedKeys == null -> null
-                touchControlsLayout == null -> runtimeProfile.providedKeys + visualOverrideKeys + driverOverrideKeys
-                else -> runtimeProfile.providedKeys + visualOverrideKeys + driverOverrideKeys + PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY
+                touchControlsLayout == null ->
+                    runtimeProfile.providedKeys + visualOverrideKeys + driverOverrideKeys + audioOverrideKeys
+                else -> runtimeProfile.providedKeys + visualOverrideKeys + driverOverrideKeys +
+                    audioOverrideKeys + PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY
             }
             perGameSettingsRepository.save(
                 runtimeProfile.copy(
@@ -3967,6 +3983,26 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     mediatekAngleOpenGl = existingProfile?.mediatekAngleOpenGl ?: runtimeProfile.mediatekAngleOpenGl,
                     shaderChainOverrideEnabled = existingProfile?.shaderChainOverrideEnabled,
                     shaderChainPreset = existingProfile?.shaderChainPreset.orEmpty(),
+                    audioVolume = if ("audioVolume" in audioOverrideKeys) {
+                        existingProfile?.audioVolume ?: runtimeProfile.audioVolume
+                    } else {
+                        runtimeProfile.audioVolume
+                    },
+                    audioMuted = if ("audioMuted" in audioOverrideKeys) {
+                        existingProfile?.audioMuted ?: runtimeProfile.audioMuted
+                    } else {
+                        runtimeProfile.audioMuted
+                    },
+                    audioOutputLatencyMs = if ("audioOutputLatencyMs" in audioOverrideKeys) {
+                        existingProfile?.audioOutputLatencyMs ?: runtimeProfile.audioOutputLatencyMs
+                    } else {
+                        runtimeProfile.audioOutputLatencyMs
+                    },
+                    audioMinimalOutputLatency = if ("audioMinimalOutputLatency" in audioOverrideKeys) {
+                        existingProfile?.audioMinimalOutputLatency ?: runtimeProfile.audioMinimalOutputLatency
+                    } else {
+                        runtimeProfile.audioMinimalOutputLatency
+                    },
                     providedKeys = providedKeys
                 )
             )
@@ -4401,6 +4437,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             mergeSprite = pick("mergeSprite", mergeSprite) { mergeSprite },
             forceEvenSpritePosition = pick("forceEvenSpritePosition", forceEvenSpritePosition) { forceEvenSpritePosition },
             pressureModifierAmount = pick("pressureModifierAmount", pressureModifierAmount) { pressureModifierAmount },
+            audioVolume = pick("audioVolume", audioVolume) { audioVolume },
+            audioMuted = pick("audioMuted", audioMuted) { audioMuted },
+            audioOutputLatencyMs = pick("audioOutputLatencyMs", audioOutputLatencyMs) { audioOutputLatencyMs },
+            audioMinimalOutputLatency = pick("audioMinimalOutputLatency", audioMinimalOutputLatency) { audioMinimalOutputLatency },
             enableIcacheEmulation = pick("enableIcacheEmulation", enableIcacheEmulation) { enableIcacheEmulation },
             enableDisableStalls = pick("enableDisableStalls", enableDisableStalls) { enableDisableStalls },
             enablePreciseExceptions = pick("enablePreciseExceptions", enablePreciseExceptions) { enablePreciseExceptions },

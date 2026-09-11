@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Save
+import com.sbro.emucorer.core.AudioDefaults
 import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.core.GpuHardwareProfiles
 import com.sbro.emucorer.core.RendererDefaults
@@ -102,10 +103,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.graphics.drawable.toDrawable
 import com.sbro.emucorer.R
-import com.sbro.emucorer.core.buildUpscaleOptions
-import com.sbro.emucorer.core.formatUpscaleLabel
-import com.sbro.emucorer.core.upscaleKeyToMultiplier
-import com.sbro.emucorer.core.upscaleMultiplierValue
 import com.sbro.emucorer.data.AppPreferences
 import com.sbro.emucorer.data.DisplayCrop
 import com.sbro.emucorer.data.GameLibraryCacheRepository
@@ -985,6 +982,59 @@ private fun GameSettingsTabContent(
 
             }
             GameSettingsManagerTab.Audio -> {
+                EditorSection(title = stringResource(R.string.settings_audio_control)) {
+                    ToggleRow(
+                        title = stringResource(R.string.settings_audio_mute),
+                        checked = draft.audioMuted,
+                        onCheckedChange = { onDraftChange(draft.copy(audioMuted = it)) },
+                        helpText = stringResource(R.string.settings_help_audio_mute),
+                        onResetToDefault = {
+                            onDraftChange(draft.copy(audioMuted = defaultProfile.audioMuted))
+                        }
+                    )
+                    SliderRow(
+                        title = stringResource(R.string.settings_audio_volume),
+                        value = draft.audioVolume.toFloat(),
+                        valueLabel = "${draft.audioVolume}%",
+                        range = AudioDefaults.VOLUME_MIN.toFloat()..AudioDefaults.VOLUME_MAX.toFloat(),
+                        steps = 0,
+                        onValueChange = { onDraftChange(draft.copy(audioVolume = it.roundToInt())) },
+                        helpText = stringResource(R.string.settings_help_audio_volume),
+                        onResetToDefault = {
+                            onDraftChange(draft.copy(audioVolume = defaultProfile.audioVolume))
+                        }
+                    )
+                }
+                EditorSection(title = stringResource(R.string.settings_audio_output)) {
+                    SliderRow(
+                        title = stringResource(R.string.settings_audio_output_latency),
+                        value = draft.audioOutputLatencyMs.toFloat(),
+                        valueLabel = "${draft.audioOutputLatencyMs} ms",
+                        range = AudioDefaults.OUTPUT_LATENCY_MS_MIN.toFloat()..
+                            AudioDefaults.OUTPUT_LATENCY_MS_MAX.toFloat(),
+                        steps = 0,
+                        onValueChange = { onDraftChange(draft.copy(audioOutputLatencyMs = it.roundToInt())) },
+                        helpText = stringResource(R.string.settings_help_audio_output_latency),
+                        onResetToDefault = {
+                            onDraftChange(
+                                draft.copy(audioOutputLatencyMs = defaultProfile.audioOutputLatencyMs)
+                            )
+                        }
+                    )
+                    ToggleRow(
+                        title = stringResource(R.string.settings_audio_minimal_latency),
+                        checked = draft.audioMinimalOutputLatency,
+                        onCheckedChange = { onDraftChange(draft.copy(audioMinimalOutputLatency = it)) },
+                        helpText = stringResource(R.string.settings_help_audio_minimal_latency),
+                        onResetToDefault = {
+                            onDraftChange(
+                                draft.copy(
+                                    audioMinimalOutputLatency = defaultProfile.audioMinimalOutputLatency
+                                )
+                            )
+                        }
+                    )
+                }
                 EditorSection(title = stringResource(R.string.settings_core_audio)) {
                     ToggleRow(
                         title = stringResource(R.string.settings_enable_cdda_audio),
@@ -1241,23 +1291,37 @@ private fun CoreOptionManagerRows(
         } else {
             option.description.takeIf { it.isNotBlank() }
         }
-        SelectionRow(
-            title = title,
-            options = option.choices.mapIndexed { choiceIndex, choice ->
-                val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
-                choiceIndex to (if (choiceRes != null) stringResource(choiceRes) else choice.label)
-            },
-            selectedValue = index,
-            onSelected = { selected ->
-                values.getOrNull(selected)?.let { value ->
-                    onDraftChange(draft.copy(coreOptions = draft.coreOptions + (option.key to value)))
+        if (option.isBooleanToggle) {
+            ToggleRow(
+                title = title,
+                checked = current.equals("true", ignoreCase = true),
+                onCheckedChange = { enabled ->
+                    onDraftChange(draft.copy(coreOptions = draft.coreOptions + (option.key to enabled.toString())))
+                },
+                helpText = help,
+                onResetToDefault = {
+                    onDraftChange(draft.copy(coreOptions = draft.coreOptions - option.key))
                 }
-            },
-            helpText = help,
-            onResetToDefault = {
-                onDraftChange(draft.copy(coreOptions = draft.coreOptions - option.key))
-            }
-        )
+            )
+        } else {
+            SelectionRow(
+                title = title,
+                options = option.choices.mapIndexed { choiceIndex, choice ->
+                    val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
+                    choiceIndex to (if (choiceRes != null) stringResource(choiceRes) else choice.label)
+                },
+                selectedValue = index,
+                onSelected = { selected ->
+                    values.getOrNull(selected)?.let { value ->
+                        onDraftChange(draft.copy(coreOptions = draft.coreOptions + (option.key to value)))
+                    }
+                },
+                helpText = help,
+                onResetToDefault = {
+                    onDraftChange(draft.copy(coreOptions = draft.coreOptions - option.key))
+                }
+            )
+        }
     }
 }
 
@@ -1607,6 +1671,10 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         gamepadRightStickDownToL2 = gamepadRightStickDownToL2,
         gamepadButtonHaptics = gamepadButtonHaptics,
         pressureModifierAmount = pressureModifierAmount,
+        audioVolume = audioVolume,
+        audioMuted = audioMuted,
+        audioOutputLatencyMs = audioOutputLatencyMs,
+        audioMinimalOutputLatency = audioMinimalOutputLatency,
         autoSaveOnExit = false,
         autoLoadOnStart = false,
         enableFastBoot = enableFastBoot,
@@ -1849,6 +1917,14 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         analogAxisModifier = pick("analogAxisModifier", analogAxisModifier, defaultProfile.analogAxisModifier),
         dualshockToggleCombo = pick("dualshockToggleCombo", dualshockToggleCombo, defaultProfile.dualshockToggleCombo),
         cdReadAhead = pick("cdReadAhead", cdReadAhead, defaultProfile.cdReadAhead),
+        audioVolume = pick("audioVolume", audioVolume, defaultProfile.audioVolume),
+        audioMuted = pick("audioMuted", audioMuted, defaultProfile.audioMuted),
+        audioOutputLatencyMs = pick("audioOutputLatencyMs", audioOutputLatencyMs, defaultProfile.audioOutputLatencyMs),
+        audioMinimalOutputLatency = pick(
+            "audioMinimalOutputLatency",
+            audioMinimalOutputLatency,
+            defaultProfile.audioMinimalOutputLatency
+        ),
         coreOptions = coreOptions,
         touchControlVisualStyle = pick("touchControlVisualStyle", touchControlVisualStyle, defaultProfile.touchControlVisualStyle),
         touchControlPressEffect = pick("touchControlPressEffect", touchControlPressEffect, defaultProfile.touchControlPressEffect),

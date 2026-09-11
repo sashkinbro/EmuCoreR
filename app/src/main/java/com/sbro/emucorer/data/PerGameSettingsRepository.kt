@@ -1,6 +1,7 @@
 package com.sbro.emucorer.data
 
 import android.content.Context
+import com.sbro.emucorer.core.AudioDefaults
 import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.core.EmulatorStorage
 import com.sbro.emucorer.core.GsHackDefaults
@@ -120,6 +121,10 @@ data class PerGameSettings(
     val touchControlVisualStyle: TouchControlVisualStyle? = null,
     val touchControlPressEffect: TouchControlPressEffect? = null,
     val touchControlsLayout: TouchControlsLayoutProfile? = null,
+    val audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,
+    val audioMuted: Boolean = false,
+    val audioOutputLatencyMs: Int = AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT,
+    val audioMinimalOutputLatency: Boolean = AudioDefaults.MINIMAL_OUTPUT_LATENCY_DEFAULT,
     val enableIcacheEmulation: Boolean = false,
     val enableDisableStalls: Boolean = false,
     val enablePreciseExceptions: Boolean = false,
@@ -449,6 +454,17 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         mergeSprite = optBoolean("mergeSprite", false),
         forceEvenSpritePosition = optBoolean("forceEvenSpritePosition", false),
         nativePaletteDraw = optBoolean("nativePaletteDraw", false),
+        audioVolume = AudioDefaults.coerceVolume(
+            optInt("audioVolume", AudioDefaults.VOLUME_DEFAULT)
+        ),
+        audioMuted = optBoolean("audioMuted", false),
+        audioOutputLatencyMs = AudioDefaults.coerceOutputLatencyMs(
+            optInt("audioOutputLatencyMs", AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT)
+        ),
+        audioMinimalOutputLatency = optBoolean(
+            "audioMinimalOutputLatency",
+            AudioDefaults.MINIMAL_OUTPUT_LATENCY_DEFAULT
+        ),
         enableIcacheEmulation = optBoolean("enableIcacheEmulation", false),
         enableDisableStalls = optBoolean("enableDisableStalls", false),
         enablePreciseExceptions = optBoolean("enablePreciseExceptions", false),
@@ -623,6 +639,10 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("mergeSprite")) put("mergeSprite", mergeSprite)
         if (shouldWrite("forceEvenSpritePosition")) put("forceEvenSpritePosition", forceEvenSpritePosition)
         if (shouldWrite("nativePaletteDraw")) put("nativePaletteDraw", nativePaletteDraw)
+        if (shouldWrite("audioVolume")) put("audioVolume", audioVolume)
+        if (shouldWrite("audioMuted")) put("audioMuted", audioMuted)
+        if (shouldWrite("audioOutputLatencyMs")) put("audioOutputLatencyMs", audioOutputLatencyMs)
+        if (shouldWrite("audioMinimalOutputLatency")) put("audioMinimalOutputLatency", audioMinimalOutputLatency)
         if (shouldWrite("enableIcacheEmulation")) put("enableIcacheEmulation", enableIcacheEmulation)
         if (shouldWrite("enableDisableStalls")) put("enableDisableStalls", enableDisableStalls)
         if (shouldWrite("enablePreciseExceptions")) put("enablePreciseExceptions", enablePreciseExceptions)

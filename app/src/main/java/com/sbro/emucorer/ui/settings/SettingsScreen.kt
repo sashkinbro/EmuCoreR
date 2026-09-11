@@ -190,9 +190,6 @@ import com.sbro.emucorer.core.PerformanceProfiles
 import com.sbro.emucorer.core.RendererDefaults
 import com.sbro.emucorer.core.TvInterfaceMode
 import com.sbro.emucorer.core.TvUiPolicy
-import com.sbro.emucorer.core.buildUpscaleOptions
-import com.sbro.emucorer.core.upscaleKeyToMultiplier
-import com.sbro.emucorer.core.upscaleMultiplierValue
 import com.sbro.emucorer.data.AppFontChoice
 import com.sbro.emucorer.data.AppPreferences
 import com.sbro.emucorer.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
@@ -3853,7 +3850,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Library, R.string.settings_backup_export_title),
         entry(SettingsTab.Library, R.string.settings_backup_restore_title),
         entry(SettingsTab.Graphics, R.string.settings_renderer),
-        entry(SettingsTab.Graphics, R.string.settings_upscale),
+        entry(SettingsTab.Graphics, R.string.ss_core_gpu_resolutionscale),
         entry(SettingsTab.Graphics, R.string.settings_aspect_ratio),
         entry(SettingsTab.Emulation, R.string.settings_show_fps),
         entry(SettingsTab.Emulation, R.string.settings_fps_overlay_mode),
@@ -4080,11 +4077,13 @@ internal fun ToggleItem(
                         )
                     }
                 }
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             Switch(
                 checked = checked,
@@ -5042,17 +5041,29 @@ internal fun CoreOptionSettingsRows(
         } else {
             option.description.takeIf { it.isNotBlank() }
         }
-        CoreStringChoiceSection(
-            title = title,
-            options = option.choices.map { choice ->
-                val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
-                choice.value to (if (choiceRes != null) stringResource(choiceRes) else choice.label)
-            },
-            selectedValue = current,
-            onSelect = { value -> onValueChange(option.key, value) },
-            helpText = help,
-            onResetToDefault = { onValueChange(option.key, option.defaultValue) }
-        )
+        if (option.isBooleanToggle) {
+            ToggleItem(
+                icon = Icons.Rounded.Tune,
+                title = title,
+                subtitle = "",
+                checked = current.equals("true", ignoreCase = true),
+                onCheckedChange = { enabled -> onValueChange(option.key, enabled.toString()) },
+                helpText = help,
+                onResetToDefault = { onValueChange(option.key, option.defaultValue) }
+            )
+        } else {
+            CoreStringChoiceSection(
+                title = title,
+                options = option.choices.map { choice ->
+                    val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
+                    choice.value to (if (choiceRes != null) stringResource(choiceRes) else choice.label)
+                },
+                selectedValue = current,
+                onSelect = { value -> onValueChange(option.key, value) },
+                helpText = help,
+                onResetToDefault = { onValueChange(option.key, option.defaultValue) }
+            )
+        }
     }
 }
 

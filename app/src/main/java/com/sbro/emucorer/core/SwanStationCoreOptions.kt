@@ -22,6 +22,10 @@ object SwanStationCoreOptions {
     ) {
         /** The option's short key without the `swanstation_` prefix. */
         val shortKey: String get() = key.removePrefix("swanstation_")
+
+        /** True for plain on/off options whose only values are `true` and `false`. */
+        val isBooleanToggle: Boolean
+            get() = choices.map { it.value.lowercase() }.toSet() == setOf("true", "false")
     }
 
     data class Category(val key: String, val label: String, val description: String)

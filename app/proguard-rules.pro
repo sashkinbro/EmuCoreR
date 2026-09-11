@@ -38,6 +38,14 @@
 # JniZeroJni is provided by WebRTC's own native build, not by the Java AAR.
 -dontwarn org.jni_zero.JniZeroJni
 
+# --- Persisted enums --------------------------------------------------------
+# Enum constant names are written to DataStore/JSON (drawer items, game menu
+# tabs/sections, texture download status) and matched by name on the next
+# launch, so they must not be renamed by R8.
+-keepclassmembers enum com.sbro.emucorer.** {
+    *;
+}
+
 # --- kotlinx.serialization --------------------------------------------------
 # Persisted JSON models and typed Navigation routes decode through generated
 # serializers/companions that R8 cannot see statically.
