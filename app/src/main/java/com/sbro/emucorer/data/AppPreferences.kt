@@ -69,7 +69,7 @@ data class SettingsSnapshot(
     val gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO,
     val renderer: Int = RendererDefaults.defaultForHardware(),
     val upscaleMultiplier: Float = 1f,
-    val aspectRatio: Int = 1,
+    val aspectRatio: Int = 2,
     val displayCrop: DisplayCrop = DisplayCrop.None,
     val shaderChainEnabled: Boolean = false,
     val shaderChainPreset: String = "",
@@ -1867,7 +1867,7 @@ class AppPreferences(private val context: Context) {
     private fun normalizeAspectRatioPreference(value: Int?): Int {
         return when (value) {
             0, 1, 2, 3, 4 -> value
-            else -> 1
+            else -> 2
         }
     }
 

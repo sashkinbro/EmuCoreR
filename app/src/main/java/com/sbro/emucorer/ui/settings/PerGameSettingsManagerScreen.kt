@@ -48,6 +48,8 @@ import androidx.compose.material.icons.rounded.Save
 import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.core.GpuHardwareProfiles
 import com.sbro.emucorer.core.RendererDefaults
+import com.sbro.emucorer.core.SwanStationCoreOptions
+import com.sbro.emucorer.core.SwanStationCoreOptionStrings
 import androidx.compose.material.icons.rounded.Tune
 import com.sbro.emucorer.ui.common.AppAlertDialog as AlertDialog
 import androidx.compose.material3.Button
@@ -859,17 +861,10 @@ private fun GameSettingsTabContent(
                             onDraftChange(draft.copy(renderer = normalizeManagerRenderer(defaultProfile.renderer)))
                         }
                     )
-                    SelectionRow(
-                        title = stringResource(R.string.settings_upscale),
-                        options = buildUpscaleOptions(nativeUpscaleLabel, maxUpscaleMultiplier),
-                        selectedValue = upscaleMultiplierValue(draft.upscaleMultiplier),
-                        onSelected = {
-                            onDraftChange(draft.copy(upscaleMultiplier = upscaleKeyToMultiplier(it)))
-                        },
-                        helpText = stringResource(R.string.settings_help_upscale),
-                        onResetToDefault = {
-                            onDraftChange(draft.copy(upscaleMultiplier = defaultProfile.upscaleMultiplier))
-                        }
+                    CoreOptionManagerRows(
+                        options = listOfNotNull(SwanStationCoreOptions.option("swanstation_GPU_ResolutionScale")),
+                        draft = draft,
+                        onDraftChange = onDraftChange
                     )
                     SelectionRow(
                         title = stringResource(R.string.settings_aspect_ratio),
@@ -887,26 +882,15 @@ private fun GameSettingsTabContent(
                             onDraftChange(draft.copy(aspectRatio = defaultProfile.aspectRatio))
                         }
                     )
-                    SelectionRow(
-                        title = stringResource(R.string.settings_display_crop),
-                        options = listOf(
-                            0 to stringResource(R.string.settings_display_crop_off),
-                            2 to stringResource(R.string.settings_display_crop_thin),
-                            4 to stringResource(R.string.settings_display_crop_safe)
-                        ),
-                        selectedValue = draft.displayCrop.left,
-                        onSelected = { pixels ->
-                            onDraftChange(
-                                draft.copy(
-                                    displayCrop = if (pixels <= 0) DisplayCrop.None
-                                    else DisplayCrop(pixels, pixels, pixels, pixels)
-                                )
-                            )
-                        },
-                        helpText = stringResource(R.string.settings_help_display_crop),
-                        onResetToDefault = {
-                            onDraftChange(draft.copy(displayCrop = DisplayCrop.None))
-                        }
+                    CoreOptionManagerRows(
+                        options = listOfNotNull(SwanStationCoreOptions.option("swanstation_Display_CropMode")),
+                        draft = draft,
+                        onDraftChange = onDraftChange
+                    )
+                    CoreOptionManagerRows(
+                        options = SwanStationCoreOptions.graphicsOptions(),
+                        draft = draft,
+                        onDraftChange = onDraftChange
                     )
                     ShaderPresetSelector(
                         title = stringResource(R.string.settings_shader_preset),
@@ -942,198 +926,7 @@ private fun GameSettingsTabContent(
                     )
                 }
 
-                EditorSection(title = stringResource(R.string.settings_core_gpu)) {
-                    ToggleRow(
-                        title = stringResource(R.string.settings_neon_enhancement),
-                        checked = draft.neonEnhancement,
-                        onCheckedChange = { onDraftChange(draft.copy(neonEnhancement = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(neonEnhancement = defaultProfile.neonEnhancement)) }
-                    )
-                    if (draft.neonEnhancement) {
-                        ToggleRow(
-                            title = stringResource(R.string.settings_neon_enhancement_speed_hack),
-                            checked = draft.neonEnhancementSpeedHack,
-                            onCheckedChange = { onDraftChange(draft.copy(neonEnhancementSpeedHack = it)) },
-                            onResetToDefault = { onDraftChange(draft.copy(neonEnhancementSpeedHack = defaultProfile.neonEnhancementSpeedHack)) }
-                        )
-                        ToggleRow(
-                            title = stringResource(R.string.settings_neon_enhancement_tex_adj),
-                            checked = draft.neonEnhancementTexAdj,
-                            onCheckedChange = { onDraftChange(draft.copy(neonEnhancementTexAdj = it)) },
-                            onResetToDefault = { onDraftChange(draft.copy(neonEnhancementTexAdj = defaultProfile.neonEnhancementTexAdj)) }
-                        )
-                    }
-                    SelectionRow(
-                        title = stringResource(R.string.settings_neon_interlace),
-                        options = listOf(
-                            -1 to stringResource(R.string.settings_neon_interlace_auto),
-                            0 to stringResource(R.string.settings_neon_interlace_off),
-                            1 to stringResource(R.string.settings_neon_interlace_on)
-                        ),
-                        selectedValue = draft.neonInterlace,
-                        onSelected = { onDraftChange(draft.copy(neonInterlace = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(neonInterlace = defaultProfile.neonInterlace)) }
-                    )
-                    SelectionRow(
-                        title = stringResource(R.string.settings_gpu_thread_rendering),
-                        options = listOf(
-                            -1 to stringResource(R.string.settings_gpu_thread_rendering_auto),
-                            0 to stringResource(R.string.settings_gpu_thread_rendering_off),
-                            1 to stringResource(R.string.settings_gpu_thread_rendering_on)
-                        ),
-                        selectedValue = draft.gpuThreadRendering,
-                        onSelected = { onDraftChange(draft.copy(gpuThreadRendering = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(gpuThreadRendering = defaultProfile.gpuThreadRendering)) }
-                    )
-                    ToggleRow(
-                        title = stringResource(R.string.settings_show_overscan),
-                        checked = draft.showOverscan,
-                        onCheckedChange = { onDraftChange(draft.copy(showOverscan = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(showOverscan = defaultProfile.showOverscan)) }
-                    )
-                    SelectionRow(
-                        title = stringResource(R.string.settings_screen_centering),
-                        options = listOf(
-                            0 to stringResource(R.string.settings_screen_centering_auto),
-                            1 to stringResource(R.string.settings_screen_centering_game),
-                            2 to stringResource(R.string.settings_screen_centering_borderless),
-                            3 to stringResource(R.string.settings_screen_centering_manual)
-                        ),
-                        selectedValue = draft.screenCentering,
-                        onSelected = { onDraftChange(draft.copy(screenCentering = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(screenCentering = defaultProfile.screenCentering)) }
-                    )
-                    if (draft.screenCentering == 3) {
-                        SliderRow(
-                            title = stringResource(R.string.settings_screen_centering_x),
-                            value = draft.screenCenteringX.toFloat(),
-                            valueLabel = "${draft.screenCenteringX}",
-                            range = -16f..16f,
-                            steps = 31,
-                            onValueChange = { onDraftChange(draft.copy(screenCenteringX = it.roundToInt())) },
-                            valueLabelForValue = { "${it.roundToInt()}" },
-                            onResetToDefault = { onDraftChange(draft.copy(screenCenteringX = defaultProfile.screenCenteringX)) }
-                        )
-                        SliderRow(
-                            title = stringResource(R.string.settings_screen_centering_y),
-                            value = draft.screenCenteringY.toFloat(),
-                            valueLabel = "${draft.screenCenteringY}",
-                            range = -16f..16f,
-                            steps = 31,
-                            onValueChange = { onDraftChange(draft.copy(screenCenteringY = it.roundToInt())) },
-                            valueLabelForValue = { "${it.roundToInt()}" },
-                            onResetToDefault = { onDraftChange(draft.copy(screenCenteringY = defaultProfile.screenCenteringY)) }
-                        )
-                        SliderRow(
-                            title = stringResource(R.string.settings_screen_centering_h_adj),
-                            value = draft.screenCenteringHAdj.toFloat(),
-                            valueLabel = "${draft.screenCenteringHAdj}",
-                            range = -64f..0f,
-                            steps = 63,
-                            onValueChange = { onDraftChange(draft.copy(screenCenteringHAdj = it.roundToInt())) },
-                            valueLabelForValue = { "${it.roundToInt()}" },
-                            onResetToDefault = { onDraftChange(draft.copy(screenCenteringHAdj = defaultProfile.screenCenteringHAdj)) }
-                        )
-                    }
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_fractional_framerate),
-                        checked = draft.enableFractionalFramerate,
-                        onCheckedChange = { onDraftChange(draft.copy(enableFractionalFramerate = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enableFractionalFramerate = defaultProfile.enableFractionalFramerate)) }
-                    )
-                    SelectionRow(
-                        title = stringResource(R.string.settings_alt_flip_mode),
-                        options = listOf(
-                            0 to stringResource(R.string.settings_alt_flip_auto),
-                            1 to stringResource(R.string.settings_alt_flip_early),
-                            2 to stringResource(R.string.settings_alt_flip_late)
-                        ),
-                        selectedValue = draft.altFlipMode,
-                        onSelected = { onDraftChange(draft.copy(altFlipMode = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(altFlipMode = defaultProfile.altFlipMode)) }
-                    )
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_rgb32_output),
-                        checked = draft.enableRgb32Output,
-                        onCheckedChange = { onDraftChange(draft.copy(enableRgb32Output = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enableRgb32Output = defaultProfile.enableRgb32Output)) }
-                    )
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_scale_hires),
-                        checked = draft.enableScaleHires,
-                        onCheckedChange = { onDraftChange(draft.copy(enableScaleHires = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enableScaleHires = defaultProfile.enableScaleHires)) }
-                    )
-                }
 
-                EditorSection(title = stringResource(R.string.settings_core_cpu)) {
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_icache_emulation),
-                        checked = draft.enableIcacheEmulation,
-                        onCheckedChange = { onDraftChange(draft.copy(enableIcacheEmulation = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enableIcacheEmulation = defaultProfile.enableIcacheEmulation)) }
-                    )
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_disable_stalls),
-                        checked = draft.enableDisableStalls,
-                        onCheckedChange = { onDraftChange(draft.copy(enableDisableStalls = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enableDisableStalls = defaultProfile.enableDisableStalls)) }
-                    )
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_precise_exceptions),
-                        checked = draft.enablePreciseExceptions,
-                        onCheckedChange = { onDraftChange(draft.copy(enablePreciseExceptions = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enablePreciseExceptions = defaultProfile.enablePreciseExceptions)) }
-                    )
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_turbo_cd),
-                        checked = draft.enableTurboCd,
-                        onCheckedChange = { onDraftChange(draft.copy(enableTurboCd = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enableTurboCd = defaultProfile.enableTurboCd)) }
-                    )
-                }
-
-                EditorSection(title = stringResource(R.string.settings_core_input)) {
-                    SelectionRow(
-                        title = stringResource(R.string.settings_multitap_mode),
-                        options = listOf(
-                            0 to stringResource(R.string.settings_multitap_off),
-                            1 to stringResource(R.string.settings_multitap_port1),
-                            2 to stringResource(R.string.settings_multitap_port2),
-                            3 to stringResource(R.string.settings_multitap_both)
-                        ),
-                        selectedValue = draft.multitapMode,
-                        onSelected = { onDraftChange(draft.copy(multitapMode = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(multitapMode = defaultProfile.multitapMode)) }
-                    )
-                }
-
-                EditorSection(title = stringResource(R.string.settings_core_audio)) {
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_cdda_audio),
-                        checked = draft.enableCddaAudio,
-                        onCheckedChange = { onDraftChange(draft.copy(enableCddaAudio = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enableCddaAudio = defaultProfile.enableCddaAudio)) }
-                    )
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_xa_decoding),
-                        checked = draft.enableXaDecoding,
-                        onCheckedChange = { onDraftChange(draft.copy(enableXaDecoding = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enableXaDecoding = defaultProfile.enableXaDecoding)) }
-                    )
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_spu_reverb),
-                        checked = draft.enableSpuReverb,
-                        onCheckedChange = { onDraftChange(draft.copy(enableSpuReverb = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enableSpuReverb = defaultProfile.enableSpuReverb)) }
-                    )
-                    ToggleRow(
-                        title = stringResource(R.string.settings_enable_spu_thread),
-                        checked = draft.enableSpuThread,
-                        onCheckedChange = { onDraftChange(draft.copy(enableSpuThread = it)) },
-                        onResetToDefault = { onDraftChange(draft.copy(enableSpuThread = defaultProfile.enableSpuThread)) }
-                    )
-                }
             }
             GameSettingsManagerTab.Runtime -> {
                 EditorSection(title = stringResource(R.string.game_settings_manager_section_runtime)) {
@@ -1170,6 +963,29 @@ private fun GameSettingsTabContent(
                         onResetToDefault = {
                             onDraftChange(draft.copy(autoLoadOnStart = defaultProfile.autoLoadOnStart))
                         }
+                    )
+                }
+
+                EditorSection(title = stringResource(R.string.settings_core_cpu)) {
+                    ToggleRow(
+                        title = stringResource(R.string.settings_enable_icache_emulation),
+                        checked = draft.enableIcacheEmulation,
+                        onCheckedChange = { onDraftChange(draft.copy(enableIcacheEmulation = it)) },
+                        onResetToDefault = { onDraftChange(draft.copy(enableIcacheEmulation = defaultProfile.enableIcacheEmulation)) }
+                    )
+                    CoreOptionManagerRows(
+                        options = SwanStationCoreOptions.emulationOptions(),
+                        draft = draft,
+                        onDraftChange = onDraftChange
+                    )
+                }
+
+                EditorSection(title = stringResource(R.string.settings_core_audio)) {
+                    ToggleRow(
+                        title = stringResource(R.string.settings_enable_cdda_audio),
+                        checked = draft.enableCddaAudio,
+                        onCheckedChange = { onDraftChange(draft.copy(enableCddaAudio = it)) },
+                        onResetToDefault = { onDraftChange(draft.copy(enableCddaAudio = defaultProfile.enableCddaAudio)) }
                     )
                 }
             }
@@ -1339,6 +1155,26 @@ private fun GameSettingsTabContent(
                         onResetToDefault = { onDraftChange(draft.copy(gamepadRightStickSensitivity = defaultProfile.gamepadRightStickSensitivity)) }
                     )
                 }
+
+                EditorSection(title = stringResource(R.string.settings_core_input)) {
+                    SelectionRow(
+                        title = stringResource(R.string.settings_multitap_mode),
+                        options = listOf(
+                            0 to stringResource(R.string.settings_multitap_off),
+                            1 to stringResource(R.string.settings_multitap_port1),
+                            2 to stringResource(R.string.settings_multitap_port2),
+                            3 to stringResource(R.string.settings_multitap_both)
+                        ),
+                        selectedValue = draft.multitapMode,
+                        onSelected = { onDraftChange(draft.copy(multitapMode = it)) },
+                        onResetToDefault = { onDraftChange(draft.copy(multitapMode = defaultProfile.multitapMode)) }
+                    )
+                    CoreOptionManagerRows(
+                        options = SwanStationCoreOptions.controlsOptions(),
+                        draft = draft,
+                        onDraftChange = onDraftChange
+                    )
+                }
             }
         }
     }
@@ -1374,6 +1210,44 @@ private fun EditorSection(
                 content()
             }
         }
+    }
+}
+
+@Composable
+private fun CoreOptionManagerRows(
+    options: List<SwanStationCoreOptions.Option>,
+    draft: PerGameSettings,
+    onDraftChange: (PerGameSettings) -> Unit
+) {
+    options.forEach { option ->
+        val values = option.choices.map { it.value }
+        val current = draft.coreOptions[option.key] ?: option.defaultValue
+        val index = values.indexOf(current).let { if (it >= 0) it else 0 }
+        val titleRes = SwanStationCoreOptionStrings.optionLabelRes[option.key]
+        val title = if (titleRes != null) stringResource(titleRes) else option.label
+        val descRes = SwanStationCoreOptionStrings.optionDescriptionRes[option.key]
+        val help = if (descRes != null) {
+            stringResource(descRes)
+        } else {
+            option.description.takeIf { it.isNotBlank() }
+        }
+        SelectionRow(
+            title = title,
+            options = option.choices.mapIndexed { choiceIndex, choice ->
+                val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
+                choiceIndex to (if (choiceRes != null) stringResource(choiceRes) else choice.label)
+            },
+            selectedValue = index,
+            onSelected = { selected ->
+                values.getOrNull(selected)?.let { value ->
+                    onDraftChange(draft.copy(coreOptions = draft.coreOptions + (option.key to value)))
+                }
+            },
+            helpText = help,
+            onResetToDefault = {
+                onDraftChange(draft.copy(coreOptions = draft.coreOptions - option.key))
+            }
+        )
     }
 }
 

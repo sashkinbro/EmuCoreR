@@ -19,7 +19,7 @@ data class PerGameSettings(
     val customDriverPath: String? = null,
     val mediatekAngleOpenGl: Boolean = false,
     val upscaleMultiplier: Float = 1f,
-    val aspectRatio: Int = 1,
+    val aspectRatio: Int = 2,
     val localMultiplayerMode: Int = AppPreferences.LOCAL_MULTIPLAYER_OFF,
     val displayCrop: DisplayCrop = DisplayCrop.None,
     val showFps: Boolean = false,
@@ -147,6 +147,8 @@ data class PerGameSettings(
     val analogAxisModifier: Int = 0,
     val dualshockToggleCombo: Int = 0,
     val cdReadAhead: Int = 0,
+    /** Per-game SwanStation libretro core option overrides (key -> value). */
+    val coreOptions: Map<String, String> = emptyMap(),
     val providedKeys: Set<String>? = null,
     val updatedAt: Long = System.currentTimeMillis()
 )
@@ -293,7 +295,7 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         customDriverPath = optString("customDriverPath").takeIf { it.isNotBlank() },
         mediatekAngleOpenGl = optBoolean("mediatekAngleOpenGl", false),
         upscaleMultiplier = readUpscaleMultiplier(),
-        aspectRatio = optInt("aspectRatio", 1).let(::sanitizeAspectRatioValue),
+        aspectRatio = optInt("aspectRatio", 2).let(::sanitizeAspectRatioValue),
         localMultiplayerMode = optInt(
             "localMultiplayerMode",
             AppPreferences.LOCAL_MULTIPLAYER_OFF
@@ -485,6 +487,13 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
             null
         },
         touchControlsLayout = optJSONObject("touchControlsLayout")?.toTouchControlsLayoutProfile(),
+        coreOptions = optJSONObject("coreOptions")?.let { obj ->
+            buildMap {
+                obj.keys().forEach { optionKey ->
+                    obj.optString(optionKey).takeIf { it.isNotBlank() }?.let { put(optionKey, it) }
+                }
+            }
+        } ?: emptyMap(),
         providedKeys = providedKeys,
         updatedAt = optLong("updatedAt", System.currentTimeMillis())
     )
@@ -641,6 +650,11 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("analogAxisModifier")) put("analogAxisModifier", analogAxisModifier)
         if (shouldWrite("dualshockToggleCombo")) put("dualshockToggleCombo", dualshockToggleCombo)
         if (shouldWrite("cdReadAhead")) put("cdReadAhead", cdReadAhead)
+        if (shouldWrite("coreOptions") && coreOptions.isNotEmpty()) {
+            put("coreOptions", JSONObject().apply {
+                coreOptions.forEach { (optionKey, optionValue) -> put(optionKey, optionValue) }
+            })
+        }
         if (shouldWrite("touchControlVisualStyle")) {
             touchControlVisualStyle?.let { put("touchControlVisualStyle", it.preferenceValue) }
         }
@@ -755,7 +769,7 @@ private fun sanitizeRendererValue(value: Int): Int {
 }
 
 private fun sanitizeAspectRatioValue(value: Int): Int {
-    return if (value in 0..4) value else 1
+    return if (value in 0..4) value else 2
 }
 
 private fun sanitizeLocalMultiplayerMode(value: Int): Int {

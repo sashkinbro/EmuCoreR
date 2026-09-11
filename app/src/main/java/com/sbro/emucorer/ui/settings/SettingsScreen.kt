@@ -182,6 +182,9 @@ import com.sbro.emucorer.core.AudioDefaults
 import com.sbro.emucorer.core.DocumentPathResolver
 import com.sbro.emucorer.core.EmulatorStorage
 import com.sbro.emucorer.core.GamepadManager
+import com.sbro.emucorer.core.NativeApp
+import com.sbro.emucorer.core.SwanStationCoreOptions
+import com.sbro.emucorer.core.SwanStationCoreOptionStrings
 import com.sbro.emucorer.core.LocalTvUiEnvironment
 import com.sbro.emucorer.core.PerformanceProfiles
 import com.sbro.emucorer.core.RendererDefaults
@@ -1308,30 +1311,6 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setEnableCddaAudio,
                             onResetToDefault = { viewModel.setEnableCddaAudio(defaults.enableCddaAudio) }
                         )
-                        ToggleItem(
-                            icon = Icons.Rounded.GraphicEq,
-                            title = stringResource(R.string.settings_enable_xa_decoding),
-                            subtitle = stringResource(R.string.settings_enable_xa_decoding_desc),
-                            checked = uiState.enableXaDecoding,
-                            onCheckedChange = viewModel::setEnableXaDecoding,
-                            onResetToDefault = { viewModel.setEnableXaDecoding(defaults.enableXaDecoding) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.Waves,
-                            title = stringResource(R.string.settings_enable_spu_reverb),
-                            subtitle = stringResource(R.string.settings_enable_spu_reverb_desc),
-                            checked = uiState.enableSpuReverb,
-                            onCheckedChange = viewModel::setEnableSpuReverb,
-                            onResetToDefault = { viewModel.setEnableSpuReverb(defaults.enableSpuReverb) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.SyncAlt,
-                            title = stringResource(R.string.settings_enable_spu_thread),
-                            subtitle = stringResource(R.string.settings_enable_spu_thread_desc),
-                            checked = uiState.enableSpuThread,
-                            onCheckedChange = viewModel::setEnableSpuThread,
-                            onResetToDefault = { viewModel.setEnableSpuThread(defaults.enableSpuThread) }
-                        )
                     }
 
                 }
@@ -1779,6 +1758,15 @@ private fun SettingsContent(
                             onSelect = viewModel::setMultitapMode,
                             onResetToDefault = { viewModel.setMultitapMode(defaults.multitapMode) }
                         )
+                        var coreControlsVersion by remember { mutableIntStateOf(0) }
+                        CoreOptionSettingsRows(
+                            options = remember { SwanStationCoreOptions.controlsOptions() },
+                            version = coreControlsVersion,
+                            onValueChange = { key, value ->
+                                NativeApp.setCoreOption(key, value)
+                                coreControlsVersion++
+                            }
+                        )
                     }
                 }
 
@@ -1946,6 +1934,20 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_aspect_ratio),
                             onResetToDefault = { viewModel.setAspectRatio(defaults.aspectRatio) }
                         )
+                        var coreGraphicsVersion by remember { mutableIntStateOf(0) }
+                        CoreOptionSettingsRows(
+                            options = remember {
+                                listOfNotNull(
+                                    SwanStationCoreOptions.option("swanstation_GPU_ResolutionScale"),
+                                    SwanStationCoreOptions.option("swanstation_Display_CropMode")
+                                )
+                            },
+                            version = coreGraphicsVersion,
+                            onValueChange = { key, value ->
+                                NativeApp.setCoreOption(key, value)
+                                coreGraphicsVersion++
+                            }
+                        )
                         ToggleItem(
                             icon = Icons.Rounded.AutoFixHigh,
                             title = stringResource(R.string.settings_retroarch_shaders),
@@ -1988,148 +1990,16 @@ private fun SettingsContent(
                             value = stringResource(R.string.settings_shader_pack_import_desc),
                             onClick = launchShaderPackPicker
                         )
+                        CoreOptionSettingsRows(
+                            options = remember { SwanStationCoreOptions.graphicsOptions() },
+                            version = coreGraphicsVersion,
+                            onValueChange = { key, value ->
+                                NativeApp.setCoreOption(key, value)
+                                coreGraphicsVersion++
+                            }
+                        )
                     }
 
-                    SettingsSection(title = stringResource(R.string.settings_core_gpu)) {
-                        ToggleItem(
-                            icon = Icons.Rounded.HighQuality,
-                            title = stringResource(R.string.settings_neon_enhancement),
-                            subtitle = stringResource(R.string.settings_neon_enhancement_desc),
-                            checked = uiState.neonEnhancement,
-                            onCheckedChange = viewModel::setNeonEnhancement,
-                            onResetToDefault = { viewModel.setNeonEnhancement(defaults.neonEnhancement) }
-                        )
-                        if (uiState.neonEnhancement) {
-                            ToggleItem(
-                                icon = Icons.Rounded.FlashOn,
-                                title = stringResource(R.string.settings_neon_enhancement_speed_hack),
-                                subtitle = stringResource(R.string.settings_neon_enhancement_speed_hack_desc),
-                                checked = uiState.neonEnhancementSpeedHack,
-                                onCheckedChange = viewModel::setNeonEnhancementSpeedHack,
-                                onResetToDefault = { viewModel.setNeonEnhancementSpeedHack(defaults.neonEnhancementSpeedHack) }
-                            )
-                            ToggleItem(
-                                icon = Icons.Rounded.Texture,
-                                title = stringResource(R.string.settings_neon_enhancement_tex_adj),
-                                subtitle = stringResource(R.string.settings_neon_enhancement_tex_adj_desc),
-                                checked = uiState.neonEnhancementTexAdj,
-                                onCheckedChange = viewModel::setNeonEnhancementTexAdj,
-                                onResetToDefault = { viewModel.setNeonEnhancementTexAdj(defaults.neonEnhancementTexAdj) }
-                            )
-                        }
-                        ChoiceSection(
-                            title = stringResource(R.string.settings_neon_interlace),
-                            options = listOf(
-                                -1 to stringResource(R.string.settings_neon_interlace_auto),
-                                0 to stringResource(R.string.settings_neon_interlace_off),
-                                1 to stringResource(R.string.settings_neon_interlace_on)
-                            ),
-                            selectedValue = uiState.neonInterlace,
-                            onSelect = viewModel::setNeonInterlace,
-                            onResetToDefault = { viewModel.setNeonInterlace(defaults.neonInterlace) }
-                        )
-                        ChoiceSection(
-                            title = stringResource(R.string.settings_gpu_thread_rendering),
-                            options = listOf(
-                                -1 to stringResource(R.string.settings_gpu_thread_rendering_auto),
-                                0 to stringResource(R.string.settings_gpu_thread_rendering_off),
-                                1 to stringResource(R.string.settings_gpu_thread_rendering_on)
-                            ),
-                            selectedValue = uiState.gpuThreadRendering,
-                            onSelect = viewModel::setGpuThreadRendering,
-                            onResetToDefault = { viewModel.setGpuThreadRendering(defaults.gpuThreadRendering) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.CropFree,
-                            title = stringResource(R.string.settings_show_overscan),
-                            subtitle = stringResource(R.string.settings_show_overscan_desc),
-                            checked = uiState.showOverscan,
-                            onCheckedChange = viewModel::setShowOverscan,
-                            onResetToDefault = { viewModel.setShowOverscan(defaults.showOverscan) }
-                        )
-                        ChoiceSection(
-                            title = stringResource(R.string.settings_screen_centering),
-                            options = listOf(
-                                0 to stringResource(R.string.settings_screen_centering_auto),
-                                1 to stringResource(R.string.settings_screen_centering_game),
-                                2 to stringResource(R.string.settings_screen_centering_borderless),
-                                3 to stringResource(R.string.settings_screen_centering_manual)
-                            ),
-                            selectedValue = uiState.screenCentering,
-                            onSelect = viewModel::setScreenCentering,
-                            onResetToDefault = { viewModel.setScreenCentering(defaults.screenCentering) }
-                        )
-                        if (uiState.screenCentering == 3) {
-                            SliderItem(
-                                icon = Icons.Rounded.ArrowLeft,
-                                title = stringResource(R.string.settings_screen_centering_x),
-                                subtitle = stringResource(R.string.settings_screen_centering_x),
-                                value = uiState.screenCenteringX.toFloat(),
-                                range = -16f..16f,
-                                steps = 31,
-                                onValueChange = { viewModel.setScreenCenteringX(it.roundToInt()) },
-                                valueLabel = { "${it.roundToInt()}" },
-                                onResetToDefault = { viewModel.setScreenCenteringX(defaults.screenCenteringX) }
-                            )
-                            SliderItem(
-                                icon = Icons.Rounded.ArrowDropDown,
-                                title = stringResource(R.string.settings_screen_centering_y),
-                                subtitle = stringResource(R.string.settings_screen_centering_y),
-                                value = uiState.screenCenteringY.toFloat(),
-                                range = -16f..16f,
-                                steps = 31,
-                                onValueChange = { viewModel.setScreenCenteringY(it.roundToInt()) },
-                                valueLabel = { "${it.roundToInt()}" },
-                                onResetToDefault = { viewModel.setScreenCenteringY(defaults.screenCenteringY) }
-                            )
-                            SliderItem(
-                                icon = Icons.Rounded.Straighten,
-                                title = stringResource(R.string.settings_screen_centering_h_adj),
-                                subtitle = stringResource(R.string.settings_screen_centering_h_adj),
-                                value = uiState.screenCenteringHAdj.toFloat(),
-                                range = -64f..0f,
-                                steps = 63,
-                                onValueChange = { viewModel.setScreenCenteringHAdj(it.roundToInt()) },
-                                valueLabel = { "${it.roundToInt()}" },
-                                onResetToDefault = { viewModel.setScreenCenteringHAdj(defaults.screenCenteringHAdj) }
-                            )
-                        }
-                        ToggleItem(
-                            icon = Icons.Rounded.OndemandVideo,
-                            title = stringResource(R.string.settings_enable_fractional_framerate),
-                            subtitle = stringResource(R.string.settings_enable_fractional_framerate_desc),
-                            checked = uiState.enableFractionalFramerate,
-                            onCheckedChange = viewModel::setEnableFractionalFramerate,
-                            onResetToDefault = { viewModel.setEnableFractionalFramerate(defaults.enableFractionalFramerate) }
-                        )
-                        ChoiceSection(
-                            title = stringResource(R.string.settings_alt_flip_mode),
-                            options = listOf(
-                                0 to stringResource(R.string.settings_alt_flip_auto),
-                                1 to stringResource(R.string.settings_alt_flip_early),
-                                2 to stringResource(R.string.settings_alt_flip_late)
-                            ),
-                            selectedValue = uiState.altFlipMode,
-                            onSelect = viewModel::setAltFlipMode,
-                            onResetToDefault = { viewModel.setAltFlipMode(defaults.altFlipMode) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.ColorLens,
-                            title = stringResource(R.string.settings_enable_rgb32_output),
-                            subtitle = stringResource(R.string.settings_enable_rgb32_output_desc),
-                            checked = uiState.enableRgb32Output,
-                            onCheckedChange = viewModel::setEnableRgb32Output,
-                            onResetToDefault = { viewModel.setEnableRgb32Output(defaults.enableRgb32Output) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.ZoomOutMap,
-                            title = stringResource(R.string.settings_enable_scale_hires),
-                            subtitle = stringResource(R.string.settings_enable_scale_hires_desc),
-                            checked = uiState.enableScaleHires,
-                            onCheckedChange = viewModel::setEnableScaleHires,
-                            onResetToDefault = { viewModel.setEnableScaleHires(defaults.enableScaleHires) }
-                        )
-                    }
                 }
 
                 SettingsTab.Emulation -> {
@@ -2197,29 +2067,14 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setEnableIcacheEmulation,
                             onResetToDefault = { viewModel.setEnableIcacheEmulation(defaults.enableIcacheEmulation) }
                         )
-                        ToggleItem(
-                            icon = Icons.Rounded.FastForward,
-                            title = stringResource(R.string.settings_enable_disable_stalls),
-                            subtitle = stringResource(R.string.settings_enable_disable_stalls_desc),
-                            checked = uiState.enableDisableStalls,
-                            onCheckedChange = viewModel::setEnableDisableStalls,
-                            onResetToDefault = { viewModel.setEnableDisableStalls(defaults.enableDisableStalls) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.BugReport,
-                            title = stringResource(R.string.settings_enable_precise_exceptions),
-                            subtitle = stringResource(R.string.settings_enable_precise_exceptions_desc),
-                            checked = uiState.enablePreciseExceptions,
-                            onCheckedChange = viewModel::setEnablePreciseExceptions,
-                            onResetToDefault = { viewModel.setEnablePreciseExceptions(defaults.enablePreciseExceptions) }
-                        )
-                        ToggleItem(
-                            icon = Icons.Rounded.FastForward,
-                            title = stringResource(R.string.settings_enable_turbo_cd),
-                            subtitle = stringResource(R.string.settings_enable_turbo_cd_desc),
-                            checked = uiState.enableTurboCd,
-                            onCheckedChange = viewModel::setEnableTurboCd,
-                            onResetToDefault = { viewModel.setEnableTurboCd(defaults.enableTurboCd) }
+                        var coreEmulationVersion by remember { mutableIntStateOf(0) }
+                        CoreOptionSettingsRows(
+                            options = remember { SwanStationCoreOptions.emulationOptions() },
+                            version = coreEmulationVersion,
+                            onValueChange = { key, value ->
+                                NativeApp.setCoreOption(key, value)
+                                coreEmulationVersion++
+                            }
                         )
                     }
                 }
@@ -5128,6 +4983,122 @@ internal fun ChoiceSection(
     }
 }
 
+@Suppress("UNUSED_EXPRESSION")
+@Composable
+internal fun CoreOptionSettingsRows(
+    options: List<SwanStationCoreOptions.Option>,
+    version: Int,
+    onValueChange: (String, String) -> Unit
+) {
+    version
+    options.forEach { option ->
+        val current = NativeApp.getCoreOption(option.key) ?: option.defaultValue
+        val titleRes = SwanStationCoreOptionStrings.optionLabelRes[option.key]
+        val title = if (titleRes != null) stringResource(titleRes) else option.label
+        val descRes = SwanStationCoreOptionStrings.optionDescriptionRes[option.key]
+        val help = if (descRes != null) {
+            stringResource(descRes)
+        } else {
+            option.description.takeIf { it.isNotBlank() }
+        }
+        CoreStringChoiceSection(
+            title = title,
+            options = option.choices.map { choice ->
+                val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
+                choice.value to (if (choiceRes != null) stringResource(choiceRes) else choice.label)
+            },
+            selectedValue = current,
+            onSelect = { value -> onValueChange(option.key, value) },
+            helpText = help,
+            onResetToDefault = { onValueChange(option.key, option.defaultValue) }
+        )
+    }
+}
+
+@Composable
+private fun CoreStringChoiceSection(
+    title: String,
+    options: List<Pair<String, String>>,
+    selectedValue: String,
+    onSelect: (String) -> Unit,
+    helpText: String? = null,
+    onResetToDefault: (() -> Unit)? = null
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val context = LocalContext.current
+    val tvUiEnabled = LocalTvUiEnvironment.current.enabled
+    val titleFocusRequester = remember { FocusRequester() }
+    val helpFocusRequester = remember { FocusRequester() }
+    val resetToast = stringResource(R.string.settings_reset_to_default_toast)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .then(
+                    if (tvUiEnabled && helpText != null) {
+                        Modifier
+                            .focusRequester(titleFocusRequester)
+                            .focusProperties { right = helpFocusRequester }
+                    } else {
+                        Modifier
+                    }
+                )
+                .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = {},
+                    onLongClick = onResetToDefault?.let {
+                        {
+                            it()
+                            Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            helpText?.let {
+                SettingHelpButton(
+                    title = title,
+                    description = it,
+                    focusRequester = helpFocusRequester,
+                    returnFocusRequester = titleFocusRequester
+                )
+            }
+        }
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .tvFocusGroup(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(options) { (value, label) ->
+                val optionInteractionSource = remember { MutableInteractionSource() }
+                FilterChip(
+                    modifier = Modifier.tvGamepadFocusableCard(
+                        shape = neonShape(16.dp),
+                        interactionSource = optionInteractionSource,
+                        addFocusTarget = false
+                    ),
+                    shape = neonChipShape(),
+                    selected = selectedValue == value,
+                    onClick = { onSelect(value) },
+                    interactionSource = optionInteractionSource,
+                    colors = premiumFilterChipColors(),
+                    label = { Text(text = label) }
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun BitmaskChoiceSection(
     title: String,
@@ -5234,16 +5205,6 @@ internal fun SettingsInlineNote(text: String) {
 }
 
 @Composable
-private fun hwDownloadModeOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_hw_download_mode_accurate),
-    1 to stringResource(R.string.settings_hw_download_mode_force_full),
-    2 to stringResource(R.string.settings_hw_download_mode_no_readbacks),
-    3 to stringResource(R.string.settings_hw_download_mode_unsynchronized),
-    4 to stringResource(R.string.settings_hw_download_mode_disabled),
-    5 to stringResource(R.string.settings_hw_download_mode_asynchronous)
-)
-
-@Composable
 private fun touchHapticsPresetOptions(): List<Pair<Int, String>> = listOf(
     AppPreferences.TOUCH_HAPTICS_PRESET_SOFT to stringResource(R.string.settings_touch_haptics_preset_soft),
     AppPreferences.TOUCH_HAPTICS_PRESET_BALANCED to stringResource(R.string.settings_touch_haptics_preset_balanced),
@@ -5256,66 +5217,6 @@ private fun gyroModeOptions(): List<Pair<Int, String>> = listOf(
     AppPreferences.GYRO_MODE_OFF to stringResource(R.string.settings_gyro_off),
     AppPreferences.GYRO_MODE_AIM to stringResource(R.string.settings_gyro_aim),
     AppPreferences.GYRO_MODE_STEERING to stringResource(R.string.settings_gyro_steering)
-)
-
-@Composable
-private fun audioBackendOptions(): List<Pair<Int, String>> = listOf(
-    AudioDefaults.BACKEND_AAUDIO to stringResource(R.string.settings_audio_backend_aaudio),
-    AudioDefaults.BACKEND_OPENSLES to stringResource(R.string.settings_audio_backend_opensles)
-)
-
-@Composable
-private fun audioInterpolationOptions(): List<Pair<Int, String>> = listOf(
-    AudioDefaults.INTERPOLATION_NEAREST to stringResource(R.string.settings_audio_interpolation_nearest),
-    AudioDefaults.INTERPOLATION_LINEAR to stringResource(R.string.settings_audio_interpolation_linear),
-    AudioDefaults.INTERPOLATION_GAUSSIAN to stringResource(R.string.settings_audio_interpolation_gaussian),
-    AudioDefaults.INTERPOLATION_CUBIC to stringResource(R.string.settings_audio_interpolation_cubic)
-)
-
-@Composable
-private fun audioSyncModeOptions(): List<Pair<Int, String>> = listOf(
-    AudioDefaults.SYNC_TIME_STRETCH to stringResource(R.string.settings_audio_sync_time_stretch),
-    AudioDefaults.SYNC_DISABLED to stringResource(R.string.settings_audio_sync_disabled)
-)
-
-@Composable
-private fun floatRoundModeOptions(): List<Pair<Int, String>> = listOf(
-    AppPreferences.FLOAT_ROUND_NEAREST to stringResource(R.string.settings_float_round_nearest),
-    AppPreferences.FLOAT_ROUND_NEGATIVE to stringResource(R.string.settings_float_round_negative),
-    AppPreferences.FLOAT_ROUND_POSITIVE to stringResource(R.string.settings_float_round_positive),
-    AppPreferences.FLOAT_ROUND_CHOP to stringResource(R.string.settings_float_round_chop)
-)
-
-@Composable
-private fun eeFpuClampingModeOptions(): List<Pair<Int, String>> = listOf(
-    AppPreferences.CLAMPING_NONE to stringResource(R.string.settings_clamping_none),
-    AppPreferences.CLAMPING_NORMAL to stringResource(R.string.settings_clamping_normal),
-    AppPreferences.CLAMPING_EXTRA to stringResource(R.string.settings_clamping_extra),
-    AppPreferences.CLAMPING_FULL to stringResource(R.string.settings_clamping_full)
-)
-
-@Composable
-private fun vuClampingModeOptions(): List<Pair<Int, String>> = listOf(
-    AppPreferences.CLAMPING_NONE to stringResource(R.string.settings_clamping_none),
-    AppPreferences.CLAMPING_NORMAL to stringResource(R.string.settings_clamping_normal),
-    AppPreferences.CLAMPING_EXTRA to stringResource(R.string.settings_clamping_extra),
-    AppPreferences.CLAMPING_FULL to stringResource(R.string.settings_clamping_extra_sign)
-)
-
-@Composable
-private fun bilinearFilteringOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_bilinear_filtering_nearest),
-    1 to stringResource(R.string.settings_bilinear_filtering_forced),
-    2 to stringResource(R.string.settings_bilinear_filtering_ps2),
-    3 to stringResource(R.string.settings_bilinear_filtering_no_sprite)
-)
-
-@Composable
-private fun trilinearFilteringOptions(): List<Pair<Int, String>> = listOf(
-    -1 to stringResource(R.string.settings_trilinear_filtering_auto),
-    0 to stringResource(R.string.settings_trilinear_filtering_off),
-    1 to stringResource(R.string.settings_trilinear_filtering_ps2),
-    2 to stringResource(R.string.settings_trilinear_filtering_forced)
 )
 
 private fun resolveManualTargetFps(currentTargetFps: Int, defaultTargetFps: Int): Int {
@@ -5341,72 +5242,6 @@ private fun formatSpeedMultiplier(value: Float): String {
 }
 
 @Composable
-private fun blendingAccuracyOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_blending_accuracy_minimum),
-    1 to stringResource(R.string.settings_blending_accuracy_basic),
-    2 to stringResource(R.string.settings_blending_accuracy_medium),
-    3 to stringResource(R.string.settings_blending_accuracy_high),
-    4 to stringResource(R.string.settings_blending_accuracy_full),
-    5 to stringResource(R.string.settings_blending_accuracy_maximum)
-)
-
-@Composable
-private fun texturePreloadingOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_texture_preloading_none),
-    1 to stringResource(R.string.settings_texture_preloading_partial),
-    2 to stringResource(R.string.settings_texture_preloading_full)
-)
-
-@Composable
-private fun casModeOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_cas_mode_off),
-    1 to stringResource(R.string.settings_cas_mode_sharpen_only),
-    2 to stringResource(R.string.settings_cas_mode_sharpen_resize)
-)
-
-@Composable
-private fun sgsrModeOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_sgsr_off),
-    1 to stringResource(R.string.settings_sgsr_quality),
-    2 to stringResource(R.string.settings_sgsr_balanced),
-    3 to stringResource(R.string.settings_sgsr_performance)
-)
-
-@Composable
-private fun tvShaderOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_tv_shader_none),
-    1 to stringResource(R.string.settings_tv_shader_scanline),
-    2 to stringResource(R.string.settings_tv_shader_diagonal),
-    3 to stringResource(R.string.settings_tv_shader_triangular),
-    4 to stringResource(R.string.settings_tv_shader_wave),
-    5 to stringResource(R.string.settings_tv_shader_lottes_crt),
-    6 to stringResource(R.string.settings_tv_shader_4x_rgss),
-    7 to stringResource(R.string.settings_tv_shader_nx_agss)
-)
-
-@Composable
-private fun deinterlacingOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_deinterlacing_automatic),
-    1 to stringResource(R.string.settings_deinterlacing_off),
-    2 to stringResource(R.string.settings_deinterlacing_weave_tff),
-    3 to stringResource(R.string.settings_deinterlacing_weave_bff),
-    4 to stringResource(R.string.settings_deinterlacing_bob_tff),
-    5 to stringResource(R.string.settings_deinterlacing_bob_bff),
-    6 to stringResource(R.string.settings_deinterlacing_blend_tff),
-    7 to stringResource(R.string.settings_deinterlacing_blend_bff),
-    8 to stringResource(R.string.settings_deinterlacing_adaptive_tff),
-    9 to stringResource(R.string.settings_deinterlacing_adaptive_bff)
-)
-
-@Composable
-private fun ditheringOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_dithering_off),
-    1 to stringResource(R.string.settings_dithering_scaled),
-    2 to stringResource(R.string.settings_dithering_unscaled),
-    3 to stringResource(R.string.settings_dithering_force_32bit)
-)
-
-@Composable
 private fun fpsOverlayCornerOptions(): List<Pair<Int, String>> = listOf(
     AppPreferences.FPS_OVERLAY_CORNER_TOP_LEFT to stringResource(R.string.settings_fps_overlay_corner_top_left),
     AppPreferences.FPS_OVERLAY_CORNER_TOP_RIGHT to stringResource(R.string.settings_fps_overlay_corner_top_right),
@@ -5420,60 +5255,6 @@ private fun cpuSpriteRenderSizeOptions(): List<Pair<Int, String>> = (0..10).map 
 }
 
 @Composable
-private fun cpuSpriteRenderLevelOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_cpu_sprite_render_level_sprites),
-    1 to stringResource(R.string.settings_cpu_sprite_render_level_triangles),
-    2 to stringResource(R.string.settings_cpu_sprite_render_level_blended)
-)
-
-@Composable
-private fun softwareClutRenderOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_disabled_short),
-    1 to stringResource(R.string.settings_normal_short),
-    2 to stringResource(R.string.settings_aggressive_short)
-)
-
-@Composable
-private fun gpuTargetClutOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_hw_download_mode_disabled),
-    1 to stringResource(R.string.settings_gpu_target_clut_exact),
-    2 to stringResource(R.string.settings_gpu_target_clut_inside)
-)
-
-@Composable
-private fun autoFlushHardwareOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_hw_download_mode_disabled),
-    1 to stringResource(R.string.settings_auto_flush_sprites),
-    2 to stringResource(R.string.settings_auto_flush_all)
-)
-
-@Composable
-private fun textureInsideRtOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_hw_download_mode_disabled),
-    1 to stringResource(R.string.settings_texture_inside_rt_inside),
-    2 to stringResource(R.string.settings_texture_inside_rt_merge)
-)
-
-@Composable
-private fun halfPixelOffsetOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_half_pixel_off),
-    1 to stringResource(R.string.settings_half_pixel_normal),
-    2 to stringResource(R.string.settings_half_pixel_special),
-    3 to stringResource(R.string.settings_half_pixel_special_aggressive),
-    4 to stringResource(R.string.settings_half_pixel_native),
-    5 to stringResource(R.string.settings_half_pixel_native_tex)
-)
-
-@Composable
-private fun nativeScalingOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_native_scaling_off),
-    1 to stringResource(R.string.settings_native_scaling_normal),
-    2 to stringResource(R.string.settings_native_scaling_aggressive),
-    3 to stringResource(R.string.settings_native_scaling_normal_maintain_upscale),
-    4 to stringResource(R.string.settings_native_scaling_aggressive_maintain_upscale)
-)
-
-@Composable
 private fun fpsOverlayMetricOptions(): List<Pair<Int, String>> = listOf(
     PerformanceOverlayMetrics.FPS to stringResource(R.string.settings_fps_metric_fps),
     PerformanceOverlayMetrics.SPEED to stringResource(R.string.settings_fps_metric_speed),
@@ -5483,20 +5264,6 @@ private fun fpsOverlayMetricOptions(): List<Pair<Int, String>> = listOf(
     PerformanceOverlayMetrics.HOST_CPU to stringResource(R.string.settings_fps_metric_host_cpu),
     PerformanceOverlayMetrics.CORE to stringResource(R.string.settings_fps_metric_core),
     PerformanceOverlayMetrics.AUDIO to stringResource(R.string.settings_fps_metric_audio)
-)
-
-@Composable
-private fun roundSpriteOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_half_pixel_off),
-    1 to stringResource(R.string.settings_round_sprite_half),
-    2 to stringResource(R.string.settings_round_sprite_full)
-)
-
-@Composable
-private fun bilinearUpscaleOptions(): List<Pair<Int, String>> = listOf(
-    0 to stringResource(R.string.settings_trilinear_filtering_auto),
-    1 to stringResource(R.string.settings_bilinear_upscale_force_bilinear),
-    2 to stringResource(R.string.settings_bilinear_upscale_force_nearest)
 )
 
 @StringRes

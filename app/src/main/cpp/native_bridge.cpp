@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -48,10 +49,7 @@
 // ---------------------------------------------------------------------------
 namespace option_key {
 constexpr const char* kRenderer = "swanstation_GPU_Renderer";
-constexpr const char* kResolutionScale = "swanstation_GPU_ResolutionScale";
-constexpr const char* kPgxp = "swanstation_GPU_PGXPEnable";
-constexpr const char* kFastBoot = "swanstation_BIOS_PatchFastBoot";
-constexpr const char* kConsoleRegion = "swanstation_Console_Region";
+constexpr const char* kAspectRatio = "swanstation_Display_AspectRatio";
 constexpr const char* kBiosNtscJ = "swanstation_BIOS_PathNTSCJ";
 constexpr const char* kBiosNtscU = "swanstation_BIOS_PathNTSCU";
 constexpr const char* kBiosPal = "swanstation_BIOS_PathPAL";
@@ -96,6 +94,9 @@ struct FrontendState {
     // Core options (overrides only). GET_VARIABLE falls back to the core default
     // when a key is absent, which is what we want for untouched settings.
     std::unordered_map<std::string, std::string> options;
+    // Set whenever an option changes after boot so the core re-reads them
+    // through GET_VARIABLE_UPDATE on its next frame.
+    std::atomic<bool> options_dirty{false};
 
     // Last frame geometry reported by the core.
     unsigned frame_width = 0;
@@ -151,6 +152,48 @@ struct GlRenderState {
 
 GlRenderState g_gl;
 
+// True when the user selected the frontend "Stretch" (fill) mode. The
+// SwanStation core does not understand this value and falls back to Auto, so
+// the presenter honours it directly by disabling aspect correction.
+bool AspectRatioStretchRequested() {
+    std::lock_guard<std::mutex> lock(g_frontend.mutex);
+    const auto it = g_frontend.options.find(option_key::kAspectRatio);
+    return it != g_frontend.options.end() && it->second == "Stretch";
+}
+
+struct PresentRect {
+    int x;
+    int y;
+    int width;
+    int height;
+};
+
+// Aspect-corrected fit of a display of [display_aspect] inside [win_width] x
+// [win_height], letterboxed or pillarboxed and centred.
+PresentRect FitDisplayRect(int win_width, int win_height, double display_aspect) {
+    if (display_aspect <= 0.0 || !std::isfinite(display_aspect)) display_aspect = 4.0 / 3.0;
+    const double window_aspect = static_cast<double>(win_width) / static_cast<double>(win_height);
+    int width;
+    int height;
+    if (window_aspect > display_aspect) {
+        height = win_height;
+        width = static_cast<int>(win_height * display_aspect + 0.5);
+    } else {
+        width = win_width;
+        height = static_cast<int>(win_width / display_aspect + 0.5);
+    }
+    if (width < 1) width = 1;
+    if (height < 1) height = 1;
+    if (width > win_width) width = win_width;
+    if (height > win_height) height = win_height;
+    PresentRect rect{};
+    rect.x = (win_width - width) / 2;
+    rect.y = (win_height - height) / 2;
+    rect.width = width;
+    rect.height = height;
+    return rect;
+}
+
 bool CreatePresentFramebuffer() {
     retro_system_av_info info{};
     retro_get_system_av_info(&info);
@@ -186,7 +229,10 @@ bool CreatePresentFramebuffer() {
     }
     g_gl.fbo_width = width;
     g_gl.fbo_height = height;
-    LOGI("Present framebuffer %dx%d", width, height);
+    retro_system_av_info avi{};
+    retro_get_system_av_info(&avi);
+    LOGI("Present framebuffer %dx%d (internal render %ux%u)", width, height,
+         avi.geometry.base_width, avi.geometry.base_height);
     return true;
 }
 
@@ -209,12 +255,9 @@ void PresentHardwareFrame() {
     if (src_width > g_gl.fbo_width) src_width = g_gl.fbo_width;
     if (src_height > g_gl.fbo_height) src_height = g_gl.fbo_height;
 
-    const double scale = std::min(static_cast<double>(win_width) / src_width,
-                                  static_cast<double>(win_height) / src_height);
-    const int dst_width = static_cast<int>(src_width * scale);
-    const int dst_height = static_cast<int>(src_height * scale);
-    const int dst_x = (win_width - dst_width) / 2;
-    const int dst_y = (win_height - dst_height) / 2;
+    const PresentRect dst = AspectRatioStretchRequested()
+        ? PresentRect{0, 0, win_width, win_height}
+        : FitDisplayRect(win_width, win_height, info.geometry.aspect_ratio);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, g_gl.fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -222,7 +265,7 @@ void PresentHardwareFrame() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glBlitFramebuffer(0, 0, src_width, src_height,
-                      dst_x, dst_y, dst_x + dst_width, dst_y + dst_height,
+                      dst.x, dst.y, dst.x + dst.width, dst.y + dst.height,
                       GL_COLOR_BUFFER_BIT, GL_LINEAR);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -300,8 +343,7 @@ bool EnsureHardwareContext() {
     return true;
 }
 
-void DestroyHardwareContext() {
-    if (g_gl.display != EGL_NO_DISPLAY) {
+void DestroyHardwareContext() {    if (g_gl.display != EGL_NO_DISPLAY) {
         if (g_gl.surface != EGL_NO_SURFACE && g_gl.context != EGL_NO_CONTEXT)
             eglMakeCurrent(g_gl.display, g_gl.surface, g_gl.surface, g_gl.context);
         if (g_gl.fbo != 0) glDeleteFramebuffers(1, &g_gl.fbo);
@@ -336,6 +378,16 @@ void RetroLogCallback(enum retro_log_level level, const char* fmt, ...) {
 // ---------------------------------------------------------------------------
 // Environment callback.
 // ---------------------------------------------------------------------------
+// The core changes geometry.max_width/max_height when the internal resolution
+// scale changes and announces it through SET_SYSTEM_AV_INFO. The core queries
+// get_current_framebuffer() every frame, so resizing our backing FBO here makes
+// the new resolution take effect at runtime without a full context reset.
+void ResizePresentFramebufferIfCurrent() {
+    if (g_gl.display == EGL_NO_DISPLAY || g_gl.context == EGL_NO_CONTEXT) return;
+    if (eglGetCurrentContext() != g_gl.context) return;
+    CreatePresentFramebuffer();
+}
+
 bool HandleHardwareRender(void* data) {
     auto* cb = static_cast<retro_hw_render_callback*>(data);
     if (cb == nullptr) return false;
@@ -411,7 +463,9 @@ bool EnvironmentCallback(unsigned cmd, void* data) {
 
         case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE: {
             if (data == nullptr) return false;
-            *static_cast<bool*>(data) = false;
+            // Report "changed" exactly once after a runtime option write so the
+            // core's UpdateSettings() re-reads the options, then clear it.
+            *static_cast<bool*>(data) = g_frontend.options_dirty.exchange(false);
             return true;
         }
 
@@ -484,6 +538,9 @@ bool EnvironmentCallback(unsigned cmd, void* data) {
 
         case RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO:
         case RETRO_ENVIRONMENT_SET_GEOMETRY:
+            ResizePresentFramebufferIfCurrent();
+            return true;
+
         case RETRO_ENVIRONMENT_SET_MESSAGE:
         case RETRO_ENVIRONMENT_SET_MESSAGE_EXT:
             return true;
@@ -532,20 +589,18 @@ void PresentSoftwareFrame(const void* data, unsigned width, unsigned height, siz
     const int dst_width = buffer.width;
     const int dst_height = buffer.height;
 
-    // Integer aspect-preserving fit with letterboxing.
-    const int64_t scale_x_num = static_cast<int64_t>(dst_width) * height;
-    const int64_t scale_y_num = static_cast<int64_t>(dst_height) * width;
-    int fit_w;
-    int fit_h;
-    if (scale_x_num <= scale_y_num) {
-        fit_w = dst_width;
-        fit_h = static_cast<int>((scale_x_num / width) > 0 ? (scale_x_num / width) : 1);
-    } else {
-        fit_h = dst_height;
-        fit_w = static_cast<int>((scale_y_num / height) > 0 ? (scale_y_num / height) : 1);
-    }
-    const int offset_x = (dst_width - fit_w) / 2;
-    const int offset_y = (dst_height - fit_h) / 2;
+    // Aspect-preserving fit with letterboxing/pillarboxing. The core reports
+    // the intended display aspect ratio separately from the raw pixel size.
+    retro_system_av_info av_info{};
+    retro_get_system_av_info(&av_info);
+    const double display_aspect = AspectRatioStretchRequested()
+        ? static_cast<double>(dst_width) / static_cast<double>(dst_height)
+        : av_info.geometry.aspect_ratio;
+    const PresentRect fit = FitDisplayRect(dst_width, dst_height, display_aspect);
+    const int fit_w = fit.width;
+    const int fit_h = fit.height;
+    const int offset_x = fit.x;
+    const int offset_y = fit.y;
 
     // Clear to black.
     for (int y = 0; y < dst_height; ++y) {
@@ -812,6 +867,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_nativeSetOption(JNIEnv* env, jobjec
     if (key_chars != nullptr && value_chars != nullptr) {
         std::lock_guard<std::mutex> lock(g_frontend.mutex);
         g_frontend.options[key_chars] = value_chars;
+        g_frontend.options_dirty.store(true);
     }
     if (value_chars != nullptr) env->ReleaseStringUTFChars(value, value_chars);
     if (key_chars != nullptr) env->ReleaseStringUTFChars(key, key_chars);
@@ -854,6 +910,32 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_loadBios(JNIEnv* env, jobject, jlon
     g_frontend.options[option_key::kBiosNtscJ] = name;
     g_frontend.options[option_key::kBiosPal] = name;
     LOGI("BIOS configured: %s", bios_path.c_str());
+    return 0;
+}
+
+// Boots the core with no content. SwanStation treats an empty/none path as a
+// BIOS-only boot (System::Boot handles an empty filename), which creates the
+// GPU and display so retro_run() is safe. Without this the frame loop runs
+// before retro_load_game and segfaults on the null GPU.
+JNIEXPORT jint JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_loadBiosOnly(JNIEnv*, jobject, jlong handle) {
+    if (handle == 0) return -1;
+    std::lock_guard<std::mutex> lock(g_frontend.core_mutex);
+    if (g_frontend.game_loaded) {
+        retro_unload_game();
+        g_frontend.game_loaded = false;
+    }
+    retro_game_info info{};
+    info.path = nullptr;
+    info.data = nullptr;
+    info.size = 0;
+    info.meta = nullptr;
+    if (!retro_load_game(&info)) {
+        LOGE("retro_load_game (BIOS only) failed");
+        return -3;
+    }
+    g_frontend.game_loaded = true;
+    LOGI("BIOS-only boot ok");
     return 0;
 }
 

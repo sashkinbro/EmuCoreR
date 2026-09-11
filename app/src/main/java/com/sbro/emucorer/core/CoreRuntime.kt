@@ -70,6 +70,7 @@ internal object CoreRuntime {
         saveDirectory = File(root, "save").apply { mkdirs() }.absolutePath
         coreAssetsDirectory = File(root, "assets").apply { mkdirs() }.absolutePath
         SwanStationOptions.initialize(context.applicationContext)
+        SwanStationCoreOptions.load(context.applicationContext)
         runCatching {
             bridge.nativeInit(systemDirectory, saveDirectory, coreAssetsDirectory)
             bridge.apiVersion()
@@ -133,7 +134,14 @@ internal object CoreRuntime {
                 bridge.destroySession(handle)
                 return@withLock false
             }
-            if (!biosOnly && loadDisc(handle, gamePath) != 0) {
+            if (biosOnly) {
+                // Boot the core with no content so the GPU/display are created
+                // before the frame worker calls retro_run().
+                if (bridge.loadBiosOnly(handle) != 0) {
+                    bridge.destroySession(handle)
+                    return@withLock false
+                }
+            } else if (loadDisc(handle, gamePath) != 0) {
                 bridge.destroySession(handle)
                 return@withLock false
             }
@@ -210,6 +218,62 @@ internal object CoreRuntime {
         SwanStationOptions.all.forEach { option ->
             SwanStationOptions.value(option.key)?.let { bridge.nativeSetOption(option.key, it) }
         }
+        // Full catalogue overrides (settings screen / game manager / in-game
+        // menu) win over the curated defaults.
+        SwanStationOptions.persistedEntries().forEach { (key, value) ->
+            bridge.nativeSetOption(key, value)
+        }
+        // Aspect ratio is owned by the app's display setting, so push it last so
+        // it cannot be overridden by a stale SwanStationOptions entry.
+        displayAspectRatioPreference()?.let { pushAspectRatio(it) }
+    }
+
+    /** Persists and forwards a single SwanStation core option. */
+    fun setCoreOption(key: String, value: String) {
+        SwanStationOptions.set(key, value)
+        bridge.nativeSetOption(key, value)
+    }
+
+    /** Effective value of a core option (user override or core default). */
+    fun coreOptionValue(key: String): String? =
+        SwanStationOptions.value(key) ?: SwanStationCoreOptions.option(key)?.defaultValue
+
+    /**
+     * Forwards a core option without persisting it. Used for per-game overrides
+     * that must not pollute the global option store.
+     */
+    fun applyCoreOption(key: String, value: String) {
+        bridge.nativeSetOption(key, value)
+    }
+
+    /** Persists and forwards the app's aspect-ratio selection (0..4). */
+    fun setDisplayAspectRatio(type: Int) {
+        val normalized = if (type in ASPECT_RATIO_STRETCH..ASPECT_RATIO_CUSTOM) type else ASPECT_RATIO_4_3
+        settings["EmuCoreR/Display:AspectRatio"] = normalized.toString()
+        pushAspectRatio(normalized)
+    }
+
+    private fun displayAspectRatioPreference(): Int? {
+        return settings["EmuCoreR/Display:AspectRatio"]?.toIntOrNull()
+            ?: settings["EmuCore/GS:AspectRatio"]?.toIntOrNull()
+    }
+
+    private fun pushAspectRatio(type: Int) {
+        val normalized = if (type in ASPECT_RATIO_STRETCH..ASPECT_RATIO_CUSTOM) type else ASPECT_RATIO_4_3
+        bridge.nativeSetOption(
+            "swanstation_Display_AspectRatio",
+            when (normalized) {
+                ASPECT_RATIO_STRETCH -> "Stretch"
+                ASPECT_RATIO_AUTO -> "Auto"
+                ASPECT_RATIO_4_3 -> "4:3"
+                ASPECT_RATIO_16_9 -> "16:9"
+                else -> "Custom"
+            }
+        )
+        if (normalized == ASPECT_RATIO_CUSTOM) {
+            bridge.nativeSetOption("swanstation_Display_CustomAspectRatioNumerator", "10")
+            bridge.nativeSetOption("swanstation_Display_CustomAspectRatioDenominator", "7")
+        }
     }
 
     private fun swanStationTextureFilter(): String {
@@ -219,6 +283,9 @@ internal object CoreRuntime {
         return when {
             enabled && preset.contains("xbr") -> "xBR"
             enabled && preset.contains("jinc") -> "JINC2"
+            enabled && (preset.contains("nearest") || preset.contains("pixel")) -> "Nearest"
+            enabled && (preset.contains("smooth") || preset.contains("bilinear") || preset.contains("linear")) ->
+                "Bilinear"
             filter <= 0 -> "Nearest"
             filter == 1 -> "Bilinear"
             filter == 2 -> "BilinearBinAlpha"
@@ -399,27 +466,86 @@ internal object CoreRuntime {
             return true
         }
         settings["$section:$key"] = value
+        forwardCoreSetting(section, key, value)
         return true
     }
 
+    /**
+     * Translates the app's existing settings into the real SwanStation
+     * libretro option keys and forwards them to the core at runtime. Options the
+     * PS1 core does not understand are simply ignored.
+     */
+    private fun forwardCoreSetting(section: String, key: String, value: String) {
+        val bool = value.toBooleanStrictOrNull()
+        val target: Pair<String, String>? = when ("$section:$key") {
+            "EmuCore/GS:filter" -> value.toIntOrNull()?.let {
+                "swanstation_GPU_TextureFilter" to textureFilterName(it)
+            }
+            // The selected RetroArch shader preset is applied through the core's
+            // GPU texture filter (its real hardware "shader" stage), at runtime.
+            "EmuCore/GS:ShaderChainEnabled", "EmuCore/GS:ShaderChainPreset" ->
+                "swanstation_GPU_TextureFilter" to swanStationTextureFilter()
+            "EmuCoreR/GPU:PGXP" -> bool?.let { "swanstation_GPU_PGXPEnable" to it.toString() }
+            "EmuCore:EnableFastBoot" -> bool?.let { "swanstation_BIOS_PatchFastBoot" to it.toString() }
+            "EmuCore:EnableWideScreenPatches" ->
+                bool?.let { "swanstation_GPU_WidescreenHack" to it.toString() }
+            "InputSources:PadVibration" ->
+                bool?.let { "swanstation_Controller_EnableRumble" to it.toString() }
+            "EmuCoreR/CPU:enableIcacheEmulation" ->
+                bool?.let { "swanstation_CPU_RecompilerICache" to it.toString() }
+            "EmuCoreR/CPU:cdReadAhead" -> value.toIntOrNull()?.let {
+                "swanstation_CDROM_ReadaheadSectors" to it.coerceAtLeast(0).toString()
+            }
+            "EmuCoreR/Audio:enableCddaAudio" ->
+                bool?.let { "swanstation_CDROM_MuteCDAudio" to (!it).toString() }
+            "EmuCoreR/Display:Upscale" -> value.toFloatOrNull()?.let {
+                "swanstation_GPU_ResolutionScale" to Math.round(it).coerceIn(1, 16).toString()
+            }
+            "EmuCoreR/Input:multitapMode" -> value.toIntOrNull()?.let {
+                val modes = listOf("Disabled", "Port1Only", "Port2Only", "BothPorts")
+                "swanstation_ControllerPorts_MultitapMode" to modes[it.coerceIn(0, modes.lastIndex)]
+            }
+            "EmuCore/GS:LoadTextureReplacements" ->
+                bool?.let { "swanstation_TextureReplacements_EnableVRAMWriteReplacements" to it.toString() }
+            "EmuCore/GS:PrecacheTextureReplacements" ->
+                bool?.let { "swanstation_TextureReplacements_PreloadTextures" to it.toString() }
+            "EmuCoreR/Display:AspectRatio" -> value.toIntOrNull()?.let { type ->
+                setDisplayAspectRatio(type)
+                null
+            }
+            else -> null
+        }
+        target?.let { (coreKey, coreValue) -> bridge.nativeSetOption(coreKey, coreValue) }
+    }
+
+    private fun textureFilterName(filter: Int): String = when (filter) {
+        1 -> "Bilinear"
+        2 -> "BilinearBinAlpha"
+        else -> if (filter <= 0) "Nearest" else "xBR"
+    }
+
     private fun publishPerformanceMetrics(fps: Double, frames: Int, frameNanos: Long, coreNanos: Long,
-                                          audioStats: LongArray?) {
+                                          audioStats: LongArray?, cpuLoadPercent: Double) {
         if (frames <= 0 || !performanceMetricsEnabled) return
-        val hardwareActive = activeCoreRenderer == RendererDefaults.CORE_OPENGL
+        val softwareRenderer = activeCoreRenderer == RendererDefaults.CORE_SOFTWARE
         val targetFps = 59.94
         val speed = fps / targetFps * 100.0
         val renderer = RendererDefaults.coreRendererName(activeCoreRenderer)
+        val frameMs = frameNanos / frames / 1_000_000.0
+        val coreMs = coreNanos / frames / 1_000_000.0
+        val coreLoad = if (frameNanos > 0) coreNanos * 100.0 / frameNanos else 0.0
         val overlay = buildString {
             append(String.format(Locale.US, "FPS:%.1f | Speed:%.1f%% | Target:%.2f", fps, speed, targetFps))
             if (detailedPerformanceMetrics) {
                 // The renderer line must end with " HW |" / " SW |" so the
-                // overlay recognises it as the active backend.
-                append('\n').append(renderer).append(if (hardwareActive) " HW |" else " SW |")
-                append('\n').append("CPU:Host")
-                append('\n').append("GPU Core:").append(renderer)
+                // overlay recognises it as the active backend and keeps it on
+                // its own bottom line instead of duplicating it inline.
+                append('\n').append(renderer).append(if (softwareRenderer) " SW |" else " HW |")
+                append('\n').append("CPU:Host | ").append(String.format(Locale.US, "%.1f%%", cpuLoadPercent))
+                append('\n').append("GPU:Unknown")
+                append('\n').append(String.format(Locale.US, "Core:%.1f%% (%.2f ms)", coreLoad, coreMs))
                 append('\n').append("Res:").append(frameWidth).append('x').append(frameHeight)
-                append('\n').append(String.format(Locale.US, "Frame:%.1f ms", frameNanos / frames / 1_000_000.0))
-                append('\n').append(String.format(Locale.US, "Core:%.1f ms/frame", coreNanos / frames / 1_000_000.0))
+                append('\n').append(String.format(Locale.US, "Frame:%.1f ms", frameMs))
                 if (audioStats != null && audioStats.size >= 8) {
                     append('\n').append(String.format(Locale.US, "Audio:%d Hz | queue %d", audioStats[2], audioStats[4]))
                 }
@@ -435,6 +561,7 @@ internal object CoreRuntime {
         var metricsFrames = 0
         var metricsFrameTotalNanos = 0L
         var metricsCoreTotalNanos = 0L
+        var metricsStartCpuMs = android.os.Process.getElapsedCpuTime()
         var frameNumber = 0L
         try {
             while (running) {
@@ -509,12 +636,22 @@ internal object CoreRuntime {
                     metricsFrames = 0
                     metricsFrameTotalNanos = 0L
                     metricsCoreTotalNanos = 0L
+                    metricsStartCpuMs = android.os.Process.getElapsedCpuTime()
                 } else if (now - metricsStartNanos >= 1_000_000_000L) {
                     val elapsed = now - metricsStartNanos
                     val fps = metricsFrames * 1_000_000_000.0 / elapsed
+                    val cpuNowMs = android.os.Process.getElapsedCpuTime()
+                    val cpuDeltaMs = (cpuNowMs - metricsStartCpuMs).coerceAtLeast(0L)
+                    val cores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+                    val cpuLoad = if (elapsed > 0L) {
+                        cpuDeltaMs.toDouble() / (elapsed / 1_000_000.0) / cores * 100.0
+                    } else {
+                        0.0
+                    }
                     publishPerformanceMetrics(fps, metricsFrames, metricsFrameTotalNanos,
-                        metricsCoreTotalNanos, output.stats())
+                        metricsCoreTotalNanos, output.stats(), cpuLoad)
                     metricsStartNanos = now
+                    metricsStartCpuMs = cpuNowMs
                     metricsFrames = 0
                     metricsFrameTotalNanos = 0L
                     metricsCoreTotalNanos = 0L
@@ -623,4 +760,11 @@ internal object CoreRuntime {
 
     private const val BIOS_BYTES = 512L * 1024L
     private const val PAD_ANALOG_MODE_BIT = 1 shl 16
+
+    // App aspect-ratio preference values (mirrors the display settings UI).
+    private const val ASPECT_RATIO_STRETCH = 0
+    private const val ASPECT_RATIO_AUTO = 1
+    private const val ASPECT_RATIO_4_3 = 2
+    private const val ASPECT_RATIO_16_9 = 3
+    private const val ASPECT_RATIO_CUSTOM = 4
 }

@@ -17,6 +17,7 @@ tests/build/
 
 # Gradle
 /.gradle/
+/.kotlin/
 local.properties
 
 # Local IGDB catalog builder and credentials

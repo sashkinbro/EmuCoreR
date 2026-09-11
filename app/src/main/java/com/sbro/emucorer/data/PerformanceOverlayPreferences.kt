@@ -26,7 +26,7 @@ object PerformanceOverlayMetrics {
     // Audio remains opt-in; the default mask only contains metrics the runtime
     // currently publishes (FPS/Speed, renderer+resolution, frame time+load,
     // host CPU/GPU names).
-    const val DEFAULT = FPS or SPEED or RENDERER or FRAME_TIME or RESOLUTION or CORE or HOST_CPU
+    const val DEFAULT = FPS or SPEED or RENDERER or FRAME_TIME or RESOLUTION or CORE or HOST_CPU or HOST_GPU
 
     fun sanitize(mask: Int): Int = mask and ALL
 

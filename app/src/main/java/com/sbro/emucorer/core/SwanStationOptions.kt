@@ -197,6 +197,9 @@ object SwanStationOptions {
 
     fun value(key: String): String? = cache[key]
 
+    /** All persisted core option overrides (curated + full catalogue). */
+    fun persistedEntries(): Map<String, String> = HashMap(cache)
+
     fun set(key: String, value: String) {
         cache[key] = value
         prefs?.edit()?.putString(key, value)?.apply()

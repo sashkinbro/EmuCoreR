@@ -187,8 +187,7 @@ val SupportedGameMenuSections: List<GameMenuSectionId> = listOf(
     GameMenuSectionId.EMULATION_PERFORMANCE,
     GameMenuSectionId.EMULATION_CPU,
     GameMenuSectionId.EMULATION_AUDIO,
-    GameMenuSectionId.GRAPHICS_DISPLAY,
-    GameMenuSectionId.GRAPHICS_SCREEN
+    GameMenuSectionId.GRAPHICS_DISPLAY
 )
 
 val DefaultGameMenuTabOrder: List<GameMenuTabId> = SupportedGameMenuTabs

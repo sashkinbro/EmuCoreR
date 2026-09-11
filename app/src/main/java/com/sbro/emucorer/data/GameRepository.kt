@@ -28,9 +28,8 @@ class GameRepository {
 
     companion object {
         private const val TAG = "GameRepository"
-        // Keep the library honest: the core currently mounts raw BIN and CUE
-        // images. Other PS1 containers are added only with a real loader.
-        private val SUPPORTED_EXTENSIONS = setOf("bin", "cue", "iso", "img", "chd", "pbp")
+        // Keep the library honest with what the bundled SwanStation core mounts.
+        private val SUPPORTED_EXTENSIONS = setOf("bin", "cue", "iso", "img", "chd", "pbp", "ecm", "mds")
         private val COVER_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp")
         private val COVER_DIRECTORY_NAMES = setOf("covers", "cover", "art", "artwork", "boxart", "box art")
         private const val MAX_DOCUMENT_SCAN_DEPTH = 32
@@ -166,9 +165,11 @@ class GameRepository {
             }
         }
 
-        return game.serial?.let { serial ->
+        return game.serial?.takeIf { it.isNotBlank() }?.let { serial ->
             CoverArtRepository(context).downloadCover(serial)
-        }
+        } ?: Ps1TitleIndexRepository(context)
+            .serialForTitle(game.title)
+            ?.let { serial -> CoverArtRepository(context).downloadCover(serial) }
     }
 
     private fun scanLocalDirectory(
@@ -186,7 +187,7 @@ class GameRepository {
         val coverCandidates = buildLocalCoverCandidates(children)
         val coverRepository = CoverArtRepository(context)
         val customCoverRepository = CustomGameCoverRepository(context)
-        val titleIndex = if (preferEnglishTitles) Ps1TitleIndexRepository(context) else null
+        val titleIndex = Ps1TitleIndexRepository(context)
 
         children.forEach { file ->
             if (shouldAbort()) return items
@@ -233,8 +234,9 @@ class GameRepository {
 
                     val cleanTitle = EmulatorBridge.cleanGameDisplayTitle(metadata.title, file.name)
                     val serial = metadata.serial
+                        ?: titleIndex.serialForTitle(cleanTitle, regionHintForName(file.name))
                     val title = if (preferEnglishTitles) {
-                        titleIndex?.titleForSerial(serial) ?: cleanTitle
+                        titleIndex.titleForSerial(serial) ?: cleanTitle
                     } else {
                         cleanTitle
                     }
@@ -278,7 +280,7 @@ class GameRepository {
         val coverCandidates = buildDocumentCoverCandidates(children)
         val coverRepository = CoverArtRepository(context)
         val customCoverRepository = CustomGameCoverRepository(context)
-        val titleIndex = if (preferEnglishTitles) Ps1TitleIndexRepository(context) else null
+        val titleIndex = Ps1TitleIndexRepository(context)
 
         for (file in children) {
             if (shouldAbort() || !budget.tryVisitEntry()) return items
@@ -336,8 +338,9 @@ class GameRepository {
 
                     val cleanTitle = cleanScannedTitle(metadata.title, name)
                     val serial = metadata.serial
+                        ?: titleIndex.serialForTitle(cleanTitle, regionHintForName(name))
                     val title = if (preferEnglishTitles) {
-                        titleIndex?.titleForSerial(serial) ?: cleanTitle
+                        titleIndex.titleForSerial(serial) ?: cleanTitle
                     } else {
                         cleanTitle
                     }
@@ -532,6 +535,17 @@ class GameRepository {
         return value.substringBeforeLast('.')
             .replace(Regex("""\s+"""), " ")
             .trim()
+    }
+
+    /** Region hint parsed from a dump filename, used to disambiguate serials. */
+    private fun regionHintForName(name: String): Char? {
+        val lower = name.lowercase()
+        return when {
+            "usa" in lower || "(u)" in lower || "ntsc-u" in lower || "us " in lower -> 'U'
+            "europe" in lower || "(e)" in lower || "ntsc-e" in lower || "eur" in lower || "pal " in lower -> 'E'
+            "japan" in lower || "(j)" in lower || "ntsc-j" in lower || "jpn" in lower -> 'J'
+            else -> null
+        }
     }
 
     private fun cleanScannedTitle(rawTitle: String, displayName: String): String {

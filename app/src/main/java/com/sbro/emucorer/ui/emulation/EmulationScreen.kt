@@ -201,6 +201,8 @@ import com.sbro.emucorer.ui.common.rememberDebouncedClick
 import com.sbro.emucorer.ui.common.tvFocusGroup
 import com.sbro.emucorer.ui.settings.ControlsEditorScreen
 import com.sbro.emucorer.ui.settings.toControlsEditorState
+import com.sbro.emucorer.core.SwanStationCoreOptions
+import com.sbro.emucorer.core.SwanStationCoreOptionStrings
 import com.sbro.emucorer.ui.theme.GradientEnd
 import com.sbro.emucorer.ui.theme.GradientStart
 import kotlinx.coroutines.Dispatchers
@@ -2858,6 +2860,12 @@ private fun EmulationSidebarMenu(
                     }
                 }
 
+                var coreOptionsVersion by remember { mutableIntStateOf(0) }
+                val onCoreOptionChange: (String, String) -> Unit = { key, value ->
+                    NativeApp.setCoreOption(key, value)
+                    coreOptionsVersion++
+                }
+
                 when (selectedMenuTab) {
                     EmulationMenuTab.Session -> {
                         Row(
@@ -3215,6 +3223,12 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetKeepScreenOn(globalDefaults.keepScreenOn) }
                         )
 
+                        CoreOptionRows(
+                            options = SwanStationCoreOptions.controlsOptions(),
+                            version = coreOptionsVersion,
+                            onValueChange = onCoreOptionChange
+                        )
+
                                     }
 
                                     GameMenuSectionId.CONTROLS_TOUCH -> {
@@ -3531,25 +3545,10 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetEnableIcacheEmulation(globalDefaults.enableIcacheEmulation) }
                         )
 
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_disable_stalls),
-                            checked = uiState.enableDisableStalls,
-                            onCheckedChange = onSetEnableDisableStalls,
-                            onResetToDefault = { onSetEnableDisableStalls(globalDefaults.enableDisableStalls) }
-                        )
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_precise_exceptions),
-                            checked = uiState.enablePreciseExceptions,
-                            onCheckedChange = onSetEnablePreciseExceptions,
-                            onResetToDefault = { onSetEnablePreciseExceptions(globalDefaults.enablePreciseExceptions) }
-                        )
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_turbo_cd),
-                            checked = uiState.enableTurboCd,
-                            onCheckedChange = onSetEnableTurboCd,
-                            onResetToDefault = { onSetEnableTurboCd(globalDefaults.enableTurboCd) }
+                        CoreOptionRows(
+                            options = SwanStationCoreOptions.emulationOptions(),
+                            version = coreOptionsVersion,
+                            onValueChange = onCoreOptionChange
                         )
 
                         }
@@ -3587,27 +3586,6 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetEnableCddaAudio(globalDefaults.enableCddaAudio) }
                         )
 
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_xa_decoding),
-                            checked = uiState.enableXaDecoding,
-                            onCheckedChange = onSetEnableXaDecoding,
-                            onResetToDefault = { onSetEnableXaDecoding(globalDefaults.enableXaDecoding) }
-                        )
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_spu_reverb),
-                            checked = uiState.enableSpuReverb,
-                            onCheckedChange = onSetEnableSpuReverb,
-                            onResetToDefault = { onSetEnableSpuReverb(globalDefaults.enableSpuReverb) }
-                        )
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_spu_thread),
-                            checked = uiState.enableSpuThread,
-                            onCheckedChange = onSetEnableSpuThread,
-                            onResetToDefault = { onSetEnableSpuThread(globalDefaults.enableSpuThread) }
-                        )
-
                         }
                                     }
 
@@ -3643,18 +3621,13 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetRenderer(globalDefaults.renderer) }
                         )
 
-                        val maxUpscaleMultiplier = remember(uiState.renderer) {
-                            EmulatorBridge.getMaxUpscaleMultiplier(uiState.renderer)
+                        SwanStationCoreOptions.option("swanstation_GPU_ResolutionScale")?.let { option ->
+                            CoreOptionRows(
+                                options = listOf(option),
+                                version = coreOptionsVersion,
+                                onValueChange = onCoreOptionChange
+                            )
                         }
-                        val nativeUpscaleLabel = stringResource(R.string.settings_upscale_native)
-                        LiveChipsSelectionRow(
-                            title = stringResource(R.string.settings_upscale),
-                            options = buildUpscaleOptions(nativeUpscaleLabel, maxUpscaleMultiplier),
-                            currentValue = upscaleMultiplierValue(uiState.upscale),
-                            onValueChange = { onSetUpscale(upscaleKeyToMultiplier(it)) },
-                            helpText = stringResource(R.string.settings_help_upscale),
-                            onResetToDefault = { onSetUpscale(globalDefaults.upscaleMultiplier) }
-                        )
 
                         LiveSelectionRow(
                             title = stringResource(R.string.settings_aspect_ratio).replace(":", ""),
@@ -3676,223 +3649,20 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetAspectRatio(globalDefaults.aspectRatio) }
                         )
 
-                        LiveSelectionRow(
-                            title = stringResource(R.string.settings_display_crop),
-                            options = listOf(
-                                LiveSelectionOption(0, stringResource(R.string.settings_display_crop_off)),
-                                LiveSelectionOption(2, stringResource(R.string.settings_display_crop_thin)),
-                                LiveSelectionOption(4, stringResource(R.string.settings_display_crop_safe))
-                            ),
-                            currentValue = uiState.displayCrop.left,
-                            onValueChange = { pixels ->
-                                onSetDisplayCrop(
-                                    if (pixels <= 0) DisplayCrop.None
-                                    else DisplayCrop(pixels, pixels, pixels, pixels)
-                                )
-                            },
-                            allowWrap = false,
-                            helpText = stringResource(R.string.settings_help_display_crop),
-                            onResetToDefault = { onSetDisplayCrop(DisplayCrop.None) }
-                        )
-
-                        LiveSelectionRow(
-                            title = stringResource(R.string.emulation_local_multiplayer_title),
-                            options = listOf(
-                                LiveSelectionOption(
-                                    AppPreferences.LOCAL_MULTIPLAYER_OFF,
-                                    stringResource(R.string.emulation_local_multiplayer_off)
-                                ),
-                                LiveSelectionOption(
-                                    AppPreferences.LOCAL_MULTIPLAYER_SIDE_BY_SIDE,
-                                    stringResource(R.string.emulation_local_multiplayer_side_by_side)
-                                ),
-                                LiveSelectionOption(
-                                    AppPreferences.LOCAL_MULTIPLAYER_STACKED,
-                                    stringResource(R.string.emulation_local_multiplayer_stacked)
-                                ),
-                                LiveSelectionOption(
-                                    AppPreferences.LOCAL_MULTIPLAYER_HORIZONTAL_CROP,
-                                    stringResource(R.string.emulation_local_multiplayer_crop)
-                                ),
-                                LiveSelectionOption(
-                                    AppPreferences.LOCAL_MULTIPLAYER_HORIZONTAL_CROP_SWAPPED,
-                                    stringResource(R.string.emulation_local_multiplayer_crop_swapped)
-                                )
-                            ),
-                            currentValue = uiState.localMultiplayerMode,
-                            onValueChange = onSetLocalMultiplayerMode,
-                            allowWrap = false,
-                            horizontalScrolling = true,
-                            helpText = stringResource(R.string.emulation_local_multiplayer_help),
-                            onResetToDefault = {
-                                onSetLocalMultiplayerMode(AppPreferences.LOCAL_MULTIPLAYER_OFF)
-                            }
-                        )
-
-                                    }
-
-                                    GameMenuSectionId.GRAPHICS_SCREEN -> {
-
-                        SidebarSectionTitle(
-                            text = stringResource(R.string.emulation_screen_tab).uppercase(),
-                            color = sectionTitleColor,
-                            topPadding = sectionLabelTopPadding,
-                            horizontalInset = sectionLabelInset
-                        )
-
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = neonShape(18.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.screen_settings_menu_desc),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        SwanStationCoreOptions.option("swanstation_Display_CropMode")?.let { option ->
+                            CoreOptionRows(
+                                options = listOf(option),
+                                version = coreOptionsVersion,
+                                onValueChange = onCoreOptionChange
                             )
                         }
 
-                        SidebarSectionTitle(
-                            text = stringResource(R.string.settings_core_gpu).uppercase(),
-                            color = sectionTitleColor,
-                            topPadding = sectionLabelTopPadding,
-                            horizontalInset = sectionLabelInset
+                        CoreOptionRows(
+                            options = SwanStationCoreOptions.graphicsOptions(),
+                            version = coreOptionsVersion,
+                            onValueChange = onCoreOptionChange
                         )
 
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_neon_enhancement),
-                            checked = uiState.neonEnhancement,
-                            onCheckedChange = onSetNeonEnhancement,
-                            onResetToDefault = { onSetNeonEnhancement(globalDefaults.neonEnhancement) }
-                        )
-
-                        if (uiState.neonEnhancement) {
-                            SettingsToggle(
-                                title = stringResource(R.string.settings_neon_enhancement_speed_hack),
-                                checked = uiState.neonEnhancementSpeedHack,
-                                onCheckedChange = onSetNeonEnhancementSpeedHack,
-                                onResetToDefault = { onSetNeonEnhancementSpeedHack(globalDefaults.neonEnhancementSpeedHack) }
-                            )
-
-                            SettingsToggle(
-                                title = stringResource(R.string.settings_neon_enhancement_tex_adj),
-                                checked = uiState.neonEnhancementTexAdj,
-                                onCheckedChange = onSetNeonEnhancementTexAdj,
-                                onResetToDefault = { onSetNeonEnhancementTexAdj(globalDefaults.neonEnhancementTexAdj) }
-                            )
-                        }
-
-                        LiveChipsSelectionRow(
-                            title = stringResource(R.string.settings_neon_interlace),
-                            options = listOf(
-                                -1 to stringResource(R.string.settings_neon_interlace_auto),
-                                0 to stringResource(R.string.settings_neon_interlace_off),
-                                1 to stringResource(R.string.settings_neon_interlace_on)
-                            ),
-                            currentValue = uiState.neonInterlace,
-                            onValueChange = onSetNeonInterlace,
-                            onResetToDefault = { onSetNeonInterlace(globalDefaults.neonInterlace) }
-                        )
-
-                        LiveChipsSelectionRow(
-                            title = stringResource(R.string.settings_gpu_thread_rendering),
-                            options = listOf(
-                                -1 to stringResource(R.string.settings_gpu_thread_rendering_auto),
-                                0 to stringResource(R.string.settings_gpu_thread_rendering_off),
-                                1 to stringResource(R.string.settings_gpu_thread_rendering_on)
-                            ),
-                            currentValue = uiState.gpuThreadRendering,
-                            onValueChange = onSetGpuThreadRendering,
-                            onResetToDefault = { onSetGpuThreadRendering(globalDefaults.gpuThreadRendering) }
-                        )
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_show_overscan),
-                            checked = uiState.showOverscan,
-                            onCheckedChange = onSetShowOverscan,
-                            onResetToDefault = { onSetShowOverscan(globalDefaults.showOverscan) }
-                        )
-
-                        LiveChipsSelectionRow(
-                            title = stringResource(R.string.settings_screen_centering),
-                            options = listOf(
-                                0 to stringResource(R.string.settings_screen_centering_auto),
-                                1 to stringResource(R.string.settings_screen_centering_game),
-                                2 to stringResource(R.string.settings_screen_centering_borderless),
-                                3 to stringResource(R.string.settings_screen_centering_manual)
-                            ),
-                            currentValue = uiState.screenCentering,
-                            onValueChange = onSetScreenCentering,
-                            onResetToDefault = { onSetScreenCentering(globalDefaults.screenCentering) }
-                        )
-
-                        if (uiState.screenCentering == 3) {
-                            LiveSliderRow(
-                                title = stringResource(R.string.settings_screen_centering_x),
-                                valueLabelForValue = { "$it" },
-                                value = uiState.screenCenteringX.toFloat(),
-                                range = -16f..16f,
-                                steps = 31,
-                                onValueChange = { onSetScreenCenteringX(it.toInt()) },
-                                onResetToDefault = { onSetScreenCenteringX(globalDefaults.screenCenteringX) }
-                            )
-
-                            LiveSliderRow(
-                                title = stringResource(R.string.settings_screen_centering_y),
-                                valueLabelForValue = { "$it" },
-                                value = uiState.screenCenteringY.toFloat(),
-                                range = -16f..16f,
-                                steps = 31,
-                                onValueChange = { onSetScreenCenteringY(it.toInt()) },
-                                onResetToDefault = { onSetScreenCenteringY(globalDefaults.screenCenteringY) }
-                            )
-
-                            LiveSliderRow(
-                                title = stringResource(R.string.settings_screen_centering_h_adj),
-                                valueLabelForValue = { "$it" },
-                                value = uiState.screenCenteringHAdj.toFloat(),
-                                range = -64f..0f,
-                                steps = 63,
-                                onValueChange = { onSetScreenCenteringHAdj(it.toInt()) },
-                                onResetToDefault = { onSetScreenCenteringHAdj(globalDefaults.screenCenteringHAdj) }
-                            )
-                        }
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_fractional_framerate),
-                            checked = uiState.enableFractionalFramerate,
-                            onCheckedChange = onSetEnableFractionalFramerate,
-                            onResetToDefault = { onSetEnableFractionalFramerate(globalDefaults.enableFractionalFramerate) }
-                        )
-
-                        LiveChipsSelectionRow(
-                            title = stringResource(R.string.settings_alt_flip_mode),
-                            options = listOf(
-                                0 to stringResource(R.string.settings_alt_flip_auto),
-                                1 to stringResource(R.string.settings_alt_flip_early),
-                                2 to stringResource(R.string.settings_alt_flip_late)
-                            ),
-                            currentValue = uiState.altFlipMode,
-                            onValueChange = onSetAltFlipMode,
-                            onResetToDefault = { onSetAltFlipMode(globalDefaults.altFlipMode) }
-                        )
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_rgb32_output),
-                            checked = uiState.enableRgb32Output,
-                            onCheckedChange = onSetEnableRgb32Output,
-                            onResetToDefault = { onSetEnableRgb32Output(globalDefaults.enableRgb32Output) }
-                        )
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_scale_hires),
-                            checked = uiState.enableScaleHires,
-                            onCheckedChange = onSetEnableScaleHires,
-                            onResetToDefault = { onSetEnableScaleHires(globalDefaults.enableScaleHires) }
-                        )
                                     }
 
                                     else -> Unit
@@ -4762,6 +4532,47 @@ private fun LiveSelectionRow(
                 }
             }
         }
+    }
+}
+
+@Suppress("UNUSED_EXPRESSION")
+@Composable
+private fun CoreOptionRows(
+    options: List<SwanStationCoreOptions.Option>,
+    version: Int,
+    onValueChange: (String, String) -> Unit
+) {
+    version
+    options.forEach { option ->
+        val values = option.choices.map { it.value }
+        val current = NativeApp.getCoreOption(option.key) ?: option.defaultValue
+        val currentIndex = values.indexOf(current).let { if (it >= 0) it else 0 }
+        val titleRes = SwanStationCoreOptionStrings.optionLabelRes[option.key]
+        val title = if (titleRes != null) stringResource(titleRes) else option.label
+        val descRes = SwanStationCoreOptionStrings.optionDescriptionRes[option.key]
+        val help = if (descRes != null) {
+            stringResource(descRes)
+        } else {
+            option.description.takeIf { it.isNotBlank() }
+        }
+        LiveSelectionRow(
+            title = title,
+            options = option.choices.mapIndexed { index, choice ->
+                val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
+                LiveSelectionOption(
+                    index,
+                    if (choiceRes != null) stringResource(choiceRes) else choice.label
+                )
+            },
+            currentValue = currentIndex,
+            onValueChange = { index ->
+                values.getOrNull(index)?.let { onValueChange(option.key, it) }
+            },
+            allowWrap = false,
+            horizontalScrolling = option.choices.size > 4,
+            helpText = help,
+            onResetToDefault = { onValueChange(option.key, option.defaultValue) }
+        )
     }
 }
 

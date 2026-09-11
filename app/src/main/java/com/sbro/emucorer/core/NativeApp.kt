@@ -163,7 +163,7 @@ object NativeApp {
 
     @JvmStatic fun setPadAnalogMode(padIndex: Int, enabled: Boolean): Boolean =
         padIndex in 0..1 && CoreRuntime.setPadAnalogMode(padIndex, enabled)
-    @JvmStatic fun setAspectRatio(type: Int) { setSetting("EmuCoreR/Display", "AspectRatio", "int", type.toString()) }
+    @JvmStatic fun setAspectRatio(type: Int) { CoreRuntime.setDisplayAspectRatio(type) }
     @JvmStatic fun renderUpscalemultiplier(value: Float) { setSetting("EmuCoreR/Display", "Upscale", "float", value.toString()) }
     // PCSX-ReARMed is a CPU rasterizer: the only real internal resolution
     // increase is the 2x "enhanced resolution" buffer.
@@ -178,6 +178,9 @@ object NativeApp {
     @JvmStatic fun setSetting(section: String, key: String, type: String, value: String): Boolean =
         CoreRuntime.updateSetting(section, key, value)
     @JvmStatic fun getSetting(section: String, key: String, type: String): String? = CoreRuntime.settings["$section:$key"]
+    @JvmStatic fun setCoreOption(key: String, value: String) = CoreRuntime.setCoreOption(key, value)
+    @JvmStatic fun getCoreOption(key: String): String? = CoreRuntime.coreOptionValue(key)
+    @JvmStatic fun applyCoreOption(key: String, value: String) = CoreRuntime.applyCoreOption(key, value)
     @JvmStatic fun setFrameSkip(frames: Int) = Unit
     @JvmStatic fun setFrameLimitEnabled(enabled: Boolean) = Unit
     @JvmStatic fun setTurboModeEnabled(enabled: Boolean) = Unit

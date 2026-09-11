@@ -120,7 +120,7 @@ object EmulatorBridge {
     private fun frameSkipOp(value: Int) = RuntimeOp("frame_skip", listOf(value.coerceIn(0, 4).toString()))
 
     private fun normalizeAspectRatio(type: Int): Int {
-        return if (type in aspectRatioSettingValues.keys) type else 1
+        return if (type in aspectRatioSettingValues.keys) type else 2
     }
 
     private fun aspectOp(type: Int) = RuntimeOp(
@@ -379,7 +379,7 @@ object EmulatorBridge {
         customDriverPath: String? = null,
         gpuHardwareProfile: Int = GpuHardwareProfiles.ADRENO,
         mediatekAngleOpenGl: Boolean = false,
-        aspectRatio: Int = 1,
+        aspectRatio: Int = 2,
         localMultiplayerMode: Int = AppPreferences.LOCAL_MULTIPLAYER_OFF,
         displayCrop: DisplayCrop = DisplayCrop.None,
         audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,

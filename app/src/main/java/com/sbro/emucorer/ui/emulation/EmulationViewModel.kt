@@ -38,6 +38,7 @@ import com.sbro.emucorer.data.DisplayCrop
 import com.sbro.emucorer.data.OverlayControlLayout
 import com.sbro.emucorer.data.CheatRepository
 import com.sbro.emucorer.data.GameRepository
+import com.sbro.emucorer.data.ps1.Ps1TitleIndexRepository
 import com.sbro.emucorer.data.MemoryCardRepository
 import com.sbro.emucorer.data.OverlayLayoutSnapshot
 import com.sbro.emucorer.data.PerGameSettings
@@ -196,7 +197,7 @@ data class EmulationUiState(
     val currentSlot: Int = 1,
     val renderer: Int = RendererDefaults.defaultForHardware(),
     val upscale: Float = 1f,
-    val aspectRatio: Int = 1,
+    val aspectRatio: Int = 2,
     val localMultiplayerMode: Int = AppPreferences.LOCAL_MULTIPLAYER_OFF,
     val displayCrop: DisplayCrop = DisplayCrop.None,
     val performancePreset: Int = PerformancePresets.CUSTOM,
@@ -619,11 +620,15 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     @Volatile
     private var currentGameSerial: String = ""
     @Volatile
+    private var currentGameRegionLabel: String = ""
+    @Volatile
     private var currentGameCoverArtPath: String? = null
     @Volatile
     private var currentGameCrc: String = ""
     @Volatile
     private var currentGameSource: String = ""
+    /** Per-game core option overrides resolved at launch, applied after boot. */
+    private var pendingPerGameCoreOptions: Map<String, String> = emptyMap()
     private var currentTouchControlsLayoutProfile: TouchControlsLayoutProfile? = null
     private var lastAutoSavePlayTimeMs: Long = 0L
     init {
@@ -1644,6 +1649,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     currentGameTitle = "PlayStation BIOS"
                     currentGamePath = null
                     currentGameSerial = ""
+                    currentGameRegionLabel = ""
                     currentGameCoverArtPath = null
                     currentGameCrc = ""
                     currentGameSource = "bios_only"
@@ -1658,6 +1664,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     val safePath = path.orEmpty()
                     currentGameTitle = File(safePath).nameWithoutExtension.ifBlank { "Autotest ELF" }
                     currentGameSerial = ""
+                    currentGameRegionLabel = ""
                     currentGameCoverArtPath = null
                     currentGameCrc = ""
                     currentGameSource = "autotest_elf"
@@ -1674,7 +1681,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     currentTouchControlsLayoutProfile = existingProfile?.touchControlsLayout
                     val metadata = EmulatorBridge.getGameMetadata(safePath)
                     currentGameTitle = EmulatorBridge.cleanGameDisplayTitle(metadata.title, safePath)
-                    currentGameSerial = metadata.serial.orEmpty()
+                    currentGameSerial = metadata.serial?.takeIf { it.isNotBlank() }
+                        ?: resolveSerialFromTitle(currentGameTitle, safePath).orEmpty()
+                    currentGameRegionLabel = resolveRegionLabel(currentGameSerial, safePath)
                     currentGameCoverArtPath = gameRepository.findCoverForGame(
                         path = safePath,
                         context = getApplication(),
@@ -1687,6 +1696,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         launchPath?.startsWith("/") == true -> "file"
                         else -> "unknown"
                     }
+                    pendingPerGameCoreOptions = (
+                        existingProfile
+                            ?: safePath.takeIf { it.isNotBlank() }?.let(perGameSettingsRepository::get)
+                        )?.coreOptions.orEmpty()
                     refreshCurrentGameCheats(metadata, config.enableCheats)
                     _uiState.value = _uiState.value.copy(
                         currentGameTitle = currentGameTitle,
@@ -1961,6 +1974,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             Log.i(TAG, "EmulatorBridge.startEmulation returned $started path=$pathToLaunch")
             if (started) {
                 syncCheatsForCurrentGame()
+                // Per-game core options win over the global store.
+                pendingPerGameCoreOptions.forEach { (coreKey, coreValue) ->
+                    NativeApp.applyCoreOption(coreKey, coreValue)
+                }
             }
             if (started && gsDumpFrames != null && gsDumpFrames > 0) {
                 val delayMs = gsDumpDelayMs?.coerceAtLeast(0) ?: 0
@@ -3786,20 +3803,56 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun currentGameSubtitle(): String = buildList {
-        currentGameSerial.takeIf { it.isNotBlank() }?.let { serial ->
-            add(serial)
-            serialRegionStandardLabel()?.let(::add)
-        }
+        currentGameSerial.takeIf { it.isNotBlank() }?.let(::add)
+        currentGameRegionLabel.takeIf { it.isNotBlank() }?.let(::add)
         currentGameCrc.takeIf { it.isNotBlank() }?.let(::add)
     }.joinToString("  /  ")
 
-    private fun serialRegionStandardLabel(): String? {
-        val prefix = currentGameSerial.trim().uppercase().substringBefore('-').take(4)
+    /** Recovers a serial from the title when the dump filename has none. */
+    private fun resolveSerialFromTitle(title: String, path: String): String? {
+        return Ps1TitleIndexRepository(getApplication())
+            .serialForTitle(title, filenameRegionHint(path))
+            ?.let(::formatDiscSerial)
+    }
+
+    private fun formatDiscSerial(serial: String): String {
+        val compact = serial.uppercase().replace(Regex("[^A-Z0-9]"), "")
+        return if (compact.length >= 8) "${compact.take(4)}-${compact.substring(4)}" else serial
+    }
+
+    private fun resolveRegionLabel(serial: String, path: String): String {
+        return serialRegionLabel(serial) ?: filenameRegionLabel(path).orEmpty()
+    }
+
+    private fun serialRegionLabel(serial: String): String? {
+        val prefix = serial.uppercase().replace(Regex("[^A-Z0-9]"), "").take(4)
         if (prefix.length < 4) return null
         return when (prefix) {
-            "SCUS", "SLUS", "LSP" -> "NTSC-U"
-            "SCPS", "SLPS", "SLPM", "SCPM", "PAPX", "PBPX", "ESPM", "PCPX" -> "NTSC-J"
+            "SCUS", "SLUS", "LSP", "SCPS", "SLPS", "SLPM", "SCPM",
+            "PAPX", "PBPX", "ESPM", "PCPX" -> "NTSC"
             "SCES", "SLES", "SCED", "SLED" -> "PAL"
+            else -> null
+        }
+    }
+
+    private fun filenameRegionHint(path: String?): Char? = when (filenameRegionLabel(path)) {
+        "NTSC" -> 'U'
+        "PAL" -> 'E'
+        else -> null
+    }
+
+    private fun filenameRegionLabel(path: String?): String? {
+        if (path.isNullOrBlank()) return null
+        val name = if (path.startsWith("content://")) {
+            DocumentPathResolver.getDisplayName(getApplication(), path)
+        } else {
+            File(path).name
+        }
+        val lower = name.lowercase()
+        return when {
+            "usa" in lower || "(u)" in lower || "ntsc-u" in lower || "us " in lower -> "NTSC"
+            "japan" in lower || "jpn" in lower || "(j)" in lower || "ntsc-j" in lower -> "NTSC"
+            "europe" in lower || "eur" in lower || "(e)" in lower || "pal" in lower -> "PAL"
             else -> null
         }
     }

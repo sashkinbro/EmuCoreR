@@ -74,7 +74,18 @@ internal fun buildPerformanceOverlayLayout(
             line.startsWith("Audio:") -> PerformanceOverlayMetrics.AUDIO
             else -> 0
         }
-        if (metric != 0 && !PerformanceOverlayMetrics.isEnabled(metricsMask, metric)) return null
+        if (metric != 0 && metric != PerformanceOverlayMetrics.HOST_GPU &&
+            !PerformanceOverlayMetrics.isEnabled(metricsMask, metric)
+        ) {
+            return null
+        }
+        // The host GPU is shown alongside the host CPU: selecting CPU also
+        // enables the GPU line so the pair is never split.
+        if (metric == PerformanceOverlayMetrics.HOST_GPU &&
+            !PerformanceOverlayMetrics.isEnabled(metricsMask, PerformanceOverlayMetrics.HOST_CPU)
+        ) {
+            return null
+        }
         return if (line.startsWith("Queue:")) {
             line.replaceFirst("Queue:", "GS Queue:")
         } else {
