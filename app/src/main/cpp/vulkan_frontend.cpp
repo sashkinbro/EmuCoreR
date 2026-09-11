@@ -1116,7 +1116,7 @@ bool RecordPresentBlit(uint32_t swapchain_index, uint32_t source_width, uint32_t
     blit.dstOffsets[0] = {dst.x, dst.y, 0};
     blit.dstOffsets[1] = {dst.x + dst.width, dst.y + dst.height, 1};
     vkCmdBlitImage(command_buffer, source_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, target_image,
-                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
 
     source_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     source_barrier.newLayout = source_layout;

@@ -738,12 +738,12 @@ void PresentHardwareFrame() {
     glViewport(0, 0, win_width, win_height);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-    // Nearest keeps the native-resolution PS1 output pixel-exact, matching the
-    // software renderer's presentation. Linear here blurred text and smeared
-    // the dither pattern used by screen-transition fades into visible dots.
+    // Linear prevents shimmering and broken text (uneven pixel sizes)
+    // when upscaling native PS1 resolution to non-integer screen sizes
+    // (e.g. 240p to 1080p). This matches DuckStation's default Bilinear Upscaling.
     glBlitFramebuffer(0, 0, src_width, src_height,
                       dst.x, dst.y, dst.x + dst.width, dst.y + dst.height,
-                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
