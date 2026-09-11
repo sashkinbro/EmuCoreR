@@ -1501,7 +1501,10 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
         recorded = RecordPresentBlit(swapchain_index, source_width, source_height, dst);
     }
 #else
-    const int effect = g_shader_effect.load(std::memory_order_relaxed);
+    int effect = g_shader_effect.load(std::memory_order_relaxed);
+    if (effect == 0) {
+        effect = 5; // Fallback to Bilinear shader quad for reliable linear upscaling
+    }
     if (effect != 0) {
         recorded = RecordPresentEffect(swapchain_index, source_width, source_height, dst, effect);
         if (!recorded) VK_LOGW("Vulkan shader effect path failed; falling back to blit");

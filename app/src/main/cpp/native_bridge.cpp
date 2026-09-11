@@ -727,7 +727,10 @@ void PresentHardwareFrame() {
     }
 #endif
 
-    const int effect = g_shader_effect.load(std::memory_order_relaxed);
+    int effect = g_shader_effect.load(std::memory_order_relaxed);
+    if (effect == 0) {
+        effect = 5; // Fallback to Bilinear shader quad for reliable linear upscaling
+    }
     if (effect != 0 && EnsureGlEffectProgram()) {
         PresentHardwareFrameEffect(effect, win_width, win_height, dst, src_width, src_height);
         return;
