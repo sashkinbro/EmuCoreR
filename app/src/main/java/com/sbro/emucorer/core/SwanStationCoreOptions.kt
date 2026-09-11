@@ -4221,6 +4221,15 @@ object SwanStationCoreOptions {
         "swanstation_Audio_FastHook",
     )
 
+    /**
+     * True when the core option is driven by a dedicated app-level setting
+     * (renderer, resolution scale, aspect ratio, crop, ...). Per-game
+     * core-option overrides for these keys must be ignored: otherwise a stale
+     * core-option entry shadows the app-level value edited by the in-game menu
+     * and the game manager.
+     */
+    fun isManagedKey(key: String): Boolean = key in managedKeys
+
     fun categories(): List<Category> = categoryList
 
     fun all(): List<Option> = optionList

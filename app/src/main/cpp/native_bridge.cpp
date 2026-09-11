@@ -738,9 +738,12 @@ void PresentHardwareFrame() {
     glViewport(0, 0, win_width, win_height);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+    // Nearest keeps the native-resolution PS1 output pixel-exact, matching the
+    // software renderer's presentation. Linear here blurred text and smeared
+    // the dither pattern used by screen-transition fades into visible dots.
     glBlitFramebuffer(0, 0, src_width, src_height,
                       dst.x, dst.y, dst.x + dst.width, dst.y + dst.height,
-                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

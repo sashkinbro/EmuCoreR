@@ -298,6 +298,13 @@ internal object CoreRuntime {
         SwanStationOptions.persistedEntries().forEach { (key, value) ->
             bridge.nativeSetOption(key, value)
         }
+        // Internal resolution is owned by the app's per-game upscale setting,
+        // so re-assert it after the persisted core-option store so a legacy
+        // swanstation_GPU_ResolutionScale entry cannot shadow it.
+        upscale?.let { preference ->
+            val scale = Math.round(preference).coerceIn(1, 16)
+            bridge.nativeSetOption("swanstation_GPU_ResolutionScale", scale.toString())
+        }
         // Aspect ratio is owned by the app's display setting, so push it last so
         // it cannot be overridden by a stale SwanStationOptions entry.
         displayAspectRatioPreference()?.let { pushAspectRatio(it) }

@@ -180,9 +180,13 @@ import com.sbro.emucorer.R
 import com.sbro.emucorer.core.AndroidGyroscopeInput
 import com.sbro.emucorer.core.AudioDefaults
 import com.sbro.emucorer.core.DocumentPathResolver
+import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.core.EmulatorStorage
 import com.sbro.emucorer.core.GamepadManager
 import com.sbro.emucorer.core.NativeApp
+import com.sbro.emucorer.core.buildUpscaleOptions
+import com.sbro.emucorer.core.upscaleKeyToMultiplier
+import com.sbro.emucorer.core.upscaleMultiplierKey
 import com.sbro.emucorer.core.SwanStationCoreOptions
 import com.sbro.emucorer.core.SwanStationCoreOptionStrings
 import com.sbro.emucorer.core.LocalTvUiEnvironment
@@ -1968,11 +1972,29 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_aspect_ratio),
                             onResetToDefault = { viewModel.setAspectRatio(defaults.aspectRatio) }
                         )
+                        // Internal resolution is the app-level "Image Quality"
+                        // setting. Exposing the raw core option here (1x, 2x, ...)
+                        // duplicated the setting under a different name than the
+                        // in-game menu / game manager, and persisted a global
+                        // core-option override that shadowed per-game values.
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_upscale),
+                            options = buildUpscaleOptions(
+                                stringResource(R.string.settings_upscale_native),
+                                EmulatorBridge.getMaxUpscaleMultiplier(uiState.renderer)
+                            ),
+                            selectedValue = upscaleMultiplierKey(uiState.upscaleMultiplier),
+                            onSelect = { key ->
+                                viewModel.setUpscaleMultiplier(upscaleKeyToMultiplier(key))
+                            },
+                            onResetToDefault = {
+                                viewModel.setUpscaleMultiplier(defaults.upscaleMultiplier)
+                            }
+                        )
                         var coreGraphicsVersion by remember { mutableIntStateOf(0) }
                         CoreOptionSettingsRows(
                             options = remember {
                                 listOfNotNull(
-                                    SwanStationCoreOptions.option("swanstation_GPU_ResolutionScale"),
                                     SwanStationCoreOptions.option("swanstation_Display_CropMode")
                                 )
                             },
@@ -3859,7 +3881,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Library, R.string.settings_backup_export_title),
         entry(SettingsTab.Library, R.string.settings_backup_restore_title),
         entry(SettingsTab.Graphics, R.string.settings_renderer),
-        entry(SettingsTab.Graphics, R.string.ss_core_gpu_resolutionscale),
+        entry(SettingsTab.Graphics, R.string.settings_upscale),
         entry(SettingsTab.Graphics, R.string.settings_aspect_ratio),
         entry(SettingsTab.Emulation, R.string.settings_show_fps),
         entry(SettingsTab.Emulation, R.string.settings_fast_boot),

@@ -3650,13 +3650,24 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetRenderer(globalDefaults.renderer) }
                         )
 
-                        SwanStationCoreOptions.option("swanstation_GPU_ResolutionScale")?.let { option ->
-                            CoreOptionRows(
-                                options = listOf(option),
-                                version = coreOptionsVersion,
-                                onValueChange = onCoreOptionChange
-                            )
-                        }
+                        // Internal resolution belongs to the app-level per-game
+                        // upscale setting (uiState.upscale). Binding this row to
+                        // the raw core option (swanstation_GPU_ResolutionScale)
+                        // persisted changes to the global core-option store, so
+                        // they leaked into every game and never appeared in the
+                        // game manager.
+                        LiveSelectionRow(
+                            title = stringResource(R.string.settings_upscale),
+                            options = buildUpscaleOptions(
+                                stringResource(R.string.settings_upscale_native),
+                                EmulatorBridge.getMaxUpscaleMultiplier(uiState.renderer)
+                            ).map { (value, label) -> LiveSelectionOption(value, label) },
+                            currentValue = upscaleMultiplierValue(uiState.upscale),
+                            onValueChange = { onSetUpscale(upscaleKeyToMultiplier(it)) },
+                            allowWrap = false,
+                            horizontalScrolling = true,
+                            onResetToDefault = { onSetUpscale(globalDefaults.upscaleMultiplier) }
+                        )
 
                         LiveSelectionRow(
                             title = stringResource(R.string.settings_aspect_ratio).replace(":", ""),

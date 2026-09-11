@@ -3,9 +3,9 @@ package com.sbro.emucorer.core
 import kotlin.math.roundToInt
 
 const val UPSCALE_MIN = 1.0f
-const val UPSCALE_MAX = 10.0f
+const val UPSCALE_MAX = 16.0f
 
-private const val UPSCALE_STEP = 0.25f
+private const val UPSCALE_STEP = 1.0f
 private const val UPSCALE_NATIVE_MULTIPLIER = 1.0f
 private const val UPSCALE_MAX_MULTIPLIER = UPSCALE_MAX
 
@@ -25,28 +25,18 @@ fun upscaleKeyToMultiplier(value: Int): Float = normalizeUpscale(value.toFloat()
 
 fun formatUpscaleLabel(value: Float, nativeLabel: String): String {
     val normalized = normalizeUpscale(value)
-    return when {
-        normalized == UPSCALE_NATIVE_MULTIPLIER -> nativeLabel
-        normalized == normalized.roundToInt().toFloat() -> "${normalized.roundToInt()}x"
-        else -> "${"%.2f".format(java.util.Locale.US, normalized)}x"
-    }
+    return if (normalized == UPSCALE_NATIVE_MULTIPLIER) nativeLabel else "${normalized.roundToInt()}x"
 }
 
+/**
+ * Integer scale options: the native label for 1x, then 2x, 3x, ... up to
+ * [maxMultiplier]. The same labels are used by the global settings screen,
+ * the game manager and the in-game menu so a single resolution value is
+ * displayed identically everywhere.
+ */
 fun buildUpscaleOptions(nativeLabel: String, maxMultiplier: Int = UPSCALE_MAX_MULTIPLIER.roundToInt()): List<Pair<Int, String>> {
-    val max = maxMultiplier.coerceAtLeast(UPSCALE_NATIVE_MULTIPLIER.roundToInt())
-        .coerceAtMost(UPSCALE_MAX_MULTIPLIER.roundToInt())
-    // The PS1 core only supports native and the 2x enhanced-resolution buffer.
-    // Do not offer fractional multipliers that would silently behave like 2x.
-    if (max <= 2) {
-        val options = mutableListOf(upscaleMultiplierKey(UPSCALE_NATIVE_MULTIPLIER) to nativeLabel)
-        if (max >= 2) {
-            options += upscaleMultiplierKey(2f) to formatUpscaleLabel(2f, nativeLabel)
-        }
-        return options
-    }
-    val steps = ((max.toFloat() - UPSCALE_NATIVE_MULTIPLIER) / UPSCALE_STEP).roundToInt()
-    return (0..steps).map { index ->
-        val multiplier = UPSCALE_NATIVE_MULTIPLIER + (index * UPSCALE_STEP)
-        upscaleMultiplierKey(multiplier) to formatUpscaleLabel(multiplier, nativeLabel)
+    val max = maxMultiplier.coerceIn(UPSCALE_NATIVE_MULTIPLIER.roundToInt(), UPSCALE_MAX_MULTIPLIER.roundToInt())
+    return (1..max).map { multiplier ->
+        upscaleMultiplierKey(multiplier.toFloat()) to formatUpscaleLabel(multiplier.toFloat(), nativeLabel)
     }
 }

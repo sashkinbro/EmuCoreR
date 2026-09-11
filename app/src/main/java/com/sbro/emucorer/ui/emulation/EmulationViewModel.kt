@@ -25,6 +25,7 @@ import com.sbro.emucorer.core.GsHackDefaults
 import com.sbro.emucorer.core.MobileSocNameMapper
 import com.sbro.emucorer.core.NativeApp
 import com.sbro.emucorer.core.RuntimeFailure
+import com.sbro.emucorer.core.SwanStationCoreOptions
 import com.sbro.emucorer.core.PerformanceProfiles
 import com.sbro.emucorer.core.PerformancePresets
 import com.sbro.emucorer.core.resolveAndroidGamePhase
@@ -1710,6 +1711,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         existingProfile
                             ?: safePath.takeIf { it.isNotBlank() }?.let(perGameSettingsRepository::get)
                         )?.coreOptions.orEmpty()
+                        .filterKeys { !SwanStationCoreOptions.isManagedKey(it) }
                     refreshCurrentGameCheats(metadata, config.enableCheats)
                     _uiState.value = _uiState.value.copy(
                         currentGameTitle = currentGameTitle,
@@ -3981,6 +3983,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     touchControlsLayout = touchControlsLayout,
                     touchControlVisualStyle = visualStyleOverride,
                     touchControlPressEffect = pressEffectOverride,
+                    coreOptions = existingProfile?.coreOptions ?: runtimeProfile.coreOptions,
                     gpuDriverType = existingProfile?.gpuDriverType ?: runtimeProfile.gpuDriverType,
                     customDriverPath = existingProfile?.customDriverPath ?: runtimeProfile.customDriverPath,
                     mediatekAngleOpenGl = existingProfile?.mediatekAngleOpenGl ?: runtimeProfile.mediatekAngleOpenGl,

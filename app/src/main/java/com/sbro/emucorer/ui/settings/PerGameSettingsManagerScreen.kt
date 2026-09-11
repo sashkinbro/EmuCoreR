@@ -49,6 +49,9 @@ import com.sbro.emucorer.core.AudioDefaults
 import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.core.GpuHardwareProfiles
 import com.sbro.emucorer.core.RendererDefaults
+import com.sbro.emucorer.core.buildUpscaleOptions
+import com.sbro.emucorer.core.upscaleKeyToMultiplier
+import com.sbro.emucorer.core.upscaleMultiplierKey
 import com.sbro.emucorer.core.SwanStationCoreOptions
 import com.sbro.emucorer.core.SwanStationCoreOptionStrings
 import androidx.compose.material.icons.rounded.Tune
@@ -861,10 +864,30 @@ private fun GameSettingsTabContent(
                             onDraftChange(draft.copy(renderer = normalizeManagerRenderer(defaultProfile.renderer)))
                         }
                     )
-                    CoreOptionManagerRows(
-                        options = listOfNotNull(SwanStationCoreOptions.option("swanstation_GPU_ResolutionScale")),
-                        draft = draft,
-                        onDraftChange = onDraftChange
+                    // Internal resolution is the app-level per-game setting
+                    // (draft.upscaleMultiplier) - the same value the in-game
+                    // resolution selector edits. Exposing the raw core option
+                    // (swanstation_GPU_ResolutionScale) here duplicated the
+                    // setting: the manager showed the catalogue default (1x)
+                    // while the game ran the in-game value, and a single edit
+                    // here pinned a core-option override that shadowed the
+                    // app-level value at launch forever.
+                    SelectionRow(
+                        title = stringResource(R.string.settings_upscale),
+                        options = buildUpscaleOptions(nativeUpscaleLabel, maxUpscaleMultiplier),
+                        selectedValue = upscaleMultiplierKey(draft.upscaleMultiplier),
+                        onSelected = { key ->
+                            onDraftChange(draft.copy(upscaleMultiplier = upscaleKeyToMultiplier(key)))
+                        },
+                        onResetToDefault = {
+                            onDraftChange(
+                                draft.copy(
+                                    upscaleMultiplier = upscaleKeyToMultiplier(
+                                        upscaleMultiplierKey(defaultProfile.upscaleMultiplier)
+                                    )
+                                )
+                            )
+                        }
                     )
                     SelectionRow(
                         title = stringResource(R.string.settings_aspect_ratio),
