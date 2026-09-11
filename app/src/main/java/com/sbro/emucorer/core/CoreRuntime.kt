@@ -721,14 +721,11 @@ internal object CoreRuntime {
     }
 
     private fun runLoop(output: FrameAudioOutput) {
-        var lastLogNanos = System.nanoTime()
-        var framesSinceLog = 0
-        var metricsStartNanos = lastLogNanos
+        var metricsStartNanos = System.nanoTime()
         var metricsFrames = 0
         var metricsFrameTotalNanos = 0L
         var metricsCoreTotalNanos = 0L
         var metricsStartCpuMs = android.os.Process.getElapsedCpuTime()
-        var frameNumber = 0L
         try {
             while (running) {
                 if (paused) {
@@ -785,18 +782,10 @@ internal object CoreRuntime {
                 val audioNanos = System.nanoTime() - audioStartNanos
                 val frameNanos = System.nanoTime() - t0
 
-                frameNumber++
-                framesSinceLog++
                 metricsFrames++
                 metricsFrameTotalNanos += frameNanos
                 metricsCoreTotalNanos += frame.coreNanos
                 val now = System.nanoTime()
-                if (now - lastLogNanos >= 5_000_000_000L) {
-                    val fps = framesSinceLog * 1000.0 / ((now - lastLogNanos) / 1_000_000.0)
-                    Log.i(TAG, String.format(Locale.US, "Perf: %.1f fps, #%d", fps, frameNumber))
-                    lastLogNanos = now
-                    framesSinceLog = 0
-                }
                 if (!performanceMetricsEnabled) {
                     metricsStartNanos = now
                     metricsFrames = 0

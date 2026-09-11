@@ -84,6 +84,17 @@ FetchContent_Declare(librashader_src
 )
 FetchContent_MakeAvailable(librashader_src)
 
+# The pinned librashader GL backend always binds mipmapped samplers, so any
+# texture with a single mip level is mipmap incomplete and strict GLES drivers
+# (Adreno) sample it as black - the whole chain then outputs nothing. Replace
+# the two GL runtime files with the patched copies in ./patched that bind a
+# non-mipmapped sampler for level-less textures. Keep them in sync with the pin.
+set(_lrs_gl_src "${librashader_src_SOURCE_DIR}/librashader-runtime-gl/src")
+execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_SOURCE_DIR}/patched/samplers.rs" "${_lrs_gl_src}/samplers.rs")
+execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_SOURCE_DIR}/patched/gl3_texture_bind.rs"
+    "${_lrs_gl_src}/gl/gl3/texture_bind.rs")
 set(_lrs_out_dir "${CMAKE_CURRENT_BINARY_DIR}/cargo")
 set(_lrs_lib "${_lrs_out_dir}/${_lrs_rust_target}/release/liblibrashader_capi.so")
 
@@ -104,6 +115,9 @@ add_custom_command(
             --features runtime-vulkan,runtime-opengl
     WORKING_DIRECTORY "${librashader_src_SOURCE_DIR}"
     COMMENT "librashader: cargo build (${_lrs_rust_target}, vulkan+opengl)"
+    DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/patched/samplers.rs"
+        "${CMAKE_CURRENT_SOURCE_DIR}/patched/gl3_texture_bind.rs"
     VERBATIM
 )
 add_custom_target(librashader_cargo DEPENDS "${_lrs_lib}")
