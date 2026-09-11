@@ -174,6 +174,19 @@ uint RGBA8ToRGBA5551(vec4 v)
 }
 
 // ---- VRAM atlas sample ---------------------------------------------
+
+// Loads a VRAM texel. At 1x the atlas is sampled with integer coordinates
+// (texelFetch): normalized point sampling at exact texel boundaries is
+// implementation-defined and erodes small palette textures such as the menu
+// font on some drivers (Adreno/Mali/older AMD). At >1x the upscaled atlas is
+// sampled with normalized coordinates so the filtered paths keep working.
+vec4 LoadVRAMTexel(uvec2 icoord)
+{
+  const vec2 rcp_vram_size = vec2(1.0) / vec2(uvec2(1024u, 512u) * RESOLUTION_SCALE);
+  return (RESOLUTION_SCALE == 1u) ? texelFetch(samp0, ivec2(icoord), 0)
+                                  : texture(samp0, vec2(icoord) * rcp_vram_size);
+}
+
 vec4 SampleFromVRAM(uvec4 texpage, vec2 coords)
 {
   const vec2  rcp_vram_size = vec2(1.0) / vec2(uvec2(1024u, 512u) * RESOLUTION_SCALE);
@@ -195,7 +208,7 @@ vec4 SampleFromVRAM(uvec4 texpage, vec2 coords)
     uvec2 vicoord = uvec2(texpage.x + index_coord.x * RESOLUTION_SCALE,
                           texpage.y + index_coord.y * RESOLUTION_SCALE);
 
-    vec4 texel       = texture(samp0, vec2(vicoord) * rcp_vram_size);
+    vec4 texel       = LoadVRAMTexel(vicoord);
     uint vram_value  = RGBA8ToRGBA5551(texel);
 
     uint palette_index;
@@ -212,14 +225,14 @@ vec4 SampleFromVRAM(uvec4 texpage, vec2 coords)
 
     uvec2 palette_icoord = uvec2(texpage.z + (palette_index * RESOLUTION_SCALE),
                                  texpage.w);
-    return texture(samp0, vec2(palette_icoord) * rcp_vram_size);
+    return LoadVRAMTexel(palette_icoord);
   }
   else
   {
     // Direct 16bpp - render-to-texture effects, upscaled VRAM coords.
     uvec2 icoord = ApplyUpscaledTextureWindow(FloatToIntegerCoords(coords));
     uvec2 direct_icoord = uvec2(texpage.x + icoord.x, texpage.y + icoord.y);
-    return texture(samp0, vec2(direct_icoord) * rcp_vram_size);
+    return LoadVRAMTexel(direct_icoord);
   }
 }
 

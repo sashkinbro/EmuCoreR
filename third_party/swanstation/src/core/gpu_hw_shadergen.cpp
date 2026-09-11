@@ -903,6 +903,17 @@ uint2 FloatToIntegerCoords(float2 coords)
   return uint2((RESOLUTION_SCALE == 1u) ? roundEven(coords) : floor(coords));
 }
 
+// Loads a VRAM texel. At 1x the atlas is sampled with integer coordinates
+// (texelFetch/Load): normalized point sampling at exact texel boundaries is
+// implementation-defined and erodes small palette textures such as the menu
+// font on some drivers (Adreno/Mali/older AMD). At >1x the upscaled atlas is
+// sampled with normalized coordinates so bilinear/upscale paths keep working.
+float4 LoadVRAMTexel(uint2 icoord)
+{
+  return (RESOLUTION_SCALE == 1u) ? LOAD_TEXTURE(samp0, int2(icoord), 0) :
+                                    SAMPLE_TEXTURE(samp0, float2(icoord) * RCP_VRAM_SIZE);
+}
+
 float4 SampleFromVRAM(uint4 texpage, float2 coords)
 {
   #if PALETTE
@@ -918,7 +929,7 @@ float4 SampleFromVRAM(uint4 texpage, float2 coords)
     uint2 vicoord = uint2(texpage.x + index_coord.x * RESOLUTION_SCALE, fixYCoord(texpage.y + index_coord.y * RESOLUTION_SCALE));
 
     // load colour/palette
-    float4 texel = SAMPLE_TEXTURE(samp0, float2(vicoord) * RCP_VRAM_SIZE);
+    float4 texel = LoadVRAMTexel(vicoord);
     uint vram_value = RGBA8ToRGBA5551(texel);
 
     // apply palette
@@ -932,12 +943,12 @@ float4 SampleFromVRAM(uint4 texpage, float2 coords)
 
     // sample palette
     uint2 palette_icoord = uint2(texpage.z + (palette_index * RESOLUTION_SCALE), fixYCoord(texpage.w));
-    return SAMPLE_TEXTURE(samp0, float2(palette_icoord) * RCP_VRAM_SIZE);
+    return LoadVRAMTexel(palette_icoord);
   #else
     // Direct texturing. Render-to-texture effects. Use upscaled coordinates.
     uint2 icoord = ApplyUpscaledTextureWindow(FloatToIntegerCoords(coords));    
     uint2 direct_icoord = uint2(texpage.x + icoord.x, fixYCoord(texpage.y + icoord.y));
-    return SAMPLE_TEXTURE(samp0, float2(direct_icoord) * RCP_VRAM_SIZE);
+    return LoadVRAMTexel(direct_icoord);
   #endif
 }
 
