@@ -109,16 +109,19 @@ uint RGBA8ToRGBA5551(vec4 v)
 }
 
 
-// Loads a VRAM texel. At 1x the atlas is sampled with integer coordinates
-// (texelFetch): normalized point sampling at exact texel boundaries is
-// implementation-defined and erodes small palette textures such as the menu
-// font on some drivers (Adreno/Mali/older AMD). At >1x the upscaled atlas is
-// sampled with normalized coordinates so the filtered paths keep working.
+// Loads a VRAM texel using exact integer coordinates (texelFetch) at every
+// resolution scale.  Using normalised UV coordinates (texture()) risks
+// landing exactly on a texel boundary where the chosen texel is
+// implementation-defined; on Adreno/Mali/PowerVR this can silently pick the
+// neighbouring texel and corrupt 4-bit palette lookups (scrambled font
+// glyphs) at ANY scale.  texelFetch avoids the ambiguity entirely: the
+// coordinates are computed as integers by the caller so no rounding ever
+// occurs.  At >1x the upscaled VRAM atlas is also addressed with integer
+// coordinates (texpage + index * RESOLUTION_SCALE), so texelFetch is equally
+// correct there.
 vec4 LoadVRAMTexel(uvec2 icoord)
 {
-  const vec2 rcp_vram_size = vec2(1.0) / vec2(uvec2(1024u, 512u) * RESOLUTION_SCALE);
-  return (RESOLUTION_SCALE == 1u) ? texelFetch(samp0, ivec2(icoord), 0)
-                                  : texture(samp0, vec2(icoord) * rcp_vram_size);
+  return texelFetch(samp0, ivec2(icoord), 0);
 }
 
 vec4 SampleFromVRAM(uvec4 texpage, vec2 coords)

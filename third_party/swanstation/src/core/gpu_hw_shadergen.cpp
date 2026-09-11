@@ -903,15 +903,26 @@ uint2 FloatToIntegerCoords(float2 coords)
   return uint2((RESOLUTION_SCALE == 1u) ? roundEven(coords) : floor(coords));
 }
 
-// Loads a VRAM texel. At 1x the atlas is sampled with integer coordinates
-// (texelFetch/Load): normalized point sampling at exact texel boundaries is
-// implementation-defined and erodes small palette textures such as the menu
-// font on some drivers (Adreno/Mali/older AMD). At >1x the upscaled atlas is
-// sampled with normalized coordinates so bilinear/upscale paths keep working.
+// Loads a VRAM texel using exact integer coordinates (texelFetch / Load) at
+// every resolution scale.  Using normalised UV coordinates (texture/Sample)
+// risks landing exactly on a texel boundary where the chosen texel is
+// implementation-defined; on Adreno/Mali/PowerVR mobile drivers this can
+// silently pick the neighbouring texel and corrupt 4-bit palette lookups
+// (scrambled font glyphs) at ANY resolution scale.
+//
+// A uniform-guarded ternary mixing LOAD_TEXTURE and SAMPLE_TEXTURE on the
+// same sampler also confuses some mobile GLSL compilers: they may fold the
+// ternary to always-SAMPLE_TEXTURE regardless of u_resolution_scale.
+//
+// texelFetch / Load avoids all of that: the coordinates are computed as
+// integers by the caller (FloatToIntegerCoords / ApplyTextureWindow + texpage
+// arithmetic), so there is no rounding or boundary ambiguity.  At >1x the
+// upscaled VRAM atlas is addressed with integer coordinates too
+// (texpage + index * RESOLUTION_SCALE), so LOAD_TEXTURE is equally
+// correct there.
 float4 LoadVRAMTexel(uint2 icoord)
 {
-  return (RESOLUTION_SCALE == 1u) ? LOAD_TEXTURE(samp0, int2(icoord), 0) :
-                                    SAMPLE_TEXTURE(samp0, float2(icoord) * RCP_VRAM_SIZE);
+  return LOAD_TEXTURE(samp0, int2(icoord), 0);
 }
 
 float4 SampleFromVRAM(uint4 texpage, float2 coords)
