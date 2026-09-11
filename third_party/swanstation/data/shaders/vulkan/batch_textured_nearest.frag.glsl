@@ -161,7 +161,7 @@ uvec2 FloatToIntegerCoords(vec2 coords)
   // from the batch VS aligned us on a texel centre). >1x: floor, since
   // the vertex offset is pre-applied CPU-side and we want the bottom-
   // left of the upscaled cell.
-  return uvec2((RESOLUTION_SCALE == 1u) ? roundEven(coords) : floor(coords));
+  return uvec2((RESOLUTION_SCALE == 1u) ? floor(coords + 0.5) : floor(coords));
 }
 
 uint RGBA8ToRGBA5551(vec4 v)

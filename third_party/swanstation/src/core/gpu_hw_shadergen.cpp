@@ -900,7 +900,7 @@ uint2 FloatToIntegerCoords(float2 coords)
 {
   // With the vertex offset applied at 1x resolution scale, we want to round the texture coordinates.
   // Floor them otherwise, as it currently breaks when upscaling as the vertex offset is not applied.
-  return uint2((RESOLUTION_SCALE == 1u) ? roundEven(coords) : floor(coords));
+  return uint2((RESOLUTION_SCALE == 1u) ? floor(coords + 0.5) : floor(coords));
 }
 
 // Loads a VRAM texel using exact integer coordinates (texelFetch / Load) at
