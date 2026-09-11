@@ -2232,3 +2232,11 @@ std::unique_ptr<GPU> GPU::CreateHardwareOpenGLRenderer()
 {
   return std::make_unique<GPU_HW_OpenGL>();
 }
+
+// EmuCoreR frontend hook: the frontend runs RetroArch shader chains through
+// librashader, which rebinds GL programs behind the core's program cache.
+// Resetting the cache forces the next Bind() to re-issue glUseProgram.
+extern "C" __attribute__((visibility("default"))) void EmuCoreR_ResetGLProgramCache()
+{
+  GL::Program::ResetLastProgram();
+}

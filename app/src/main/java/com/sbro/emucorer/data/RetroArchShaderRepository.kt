@@ -11,6 +11,61 @@ import java.util.zip.ZipFile
 
 data class RetroArchShaderPreset(val label: String, val absolutePath: String)
 
+/**
+ * Maps an installed RetroArch preset onto a frontend post-processing effect.
+ *
+ * The libretro core cannot execute slang/SPIR-V pass chains itself, so the
+ * frontend renders the equivalent screen effect for the presets it can
+ * approximate and keeps the core's native texture filter for the rest.
+ */
+object RetroArchShaderEffects {
+    const val NONE = 0
+    const val CRT = 1
+    const val LCD = 2
+    const val SHARP_BILINEAR = 3
+    const val NEAREST = 4
+    const val BILINEAR = 5
+
+    fun classify(presetPath: String?): Int {
+        if (presetPath.isNullOrBlank()) return NONE
+        val file = File(presetPath)
+        if (!file.isFile) return NONE
+
+        val tokens = StringBuilder(presetPath.lowercase())
+        runCatching {
+            var inspected = 0
+            file.forEachLine { rawLine ->
+                if (inspected >= 64) return@forEachLine
+                val line = rawLine.trim()
+                if (line.isEmpty() || line.startsWith("#") || line.startsWith("//")) return@forEachLine
+                val separator = line.indexOf('=')
+                if (separator <= 0) return@forEachLine
+                val key = line.substring(0, separator).trim().lowercase()
+                if (key.startsWith("shader") || key.startsWith("texture") || key.startsWith("feedback") ||
+                    key.startsWith("parameters")) {
+                    tokens.append(' ').append(line.substring(separator + 1).lowercase())
+                    inspected++
+                }
+            }
+        }
+        val text = tokens.toString()
+        return when {
+            text.containsAny("lcd", "grid", "gameboy", "dmg", "gba", "handheld") -> LCD
+            text.containsAny(
+                "crt", "scanline", "shadowmask", "aperture", "slotmask", "trinitron", "zfast",
+                "geom", "royale", "ntsc", "composite", "s-video", "svideo", "tvout", "tv-out"
+            ) -> CRT
+            text.containsAny("sharp") -> SHARP_BILINEAR
+            text.containsAny("xbr", "jinc", "sabr", "scalenx", "nnedi", "xbrz") -> NEAREST
+            text.containsAny("nearest", "pixel") -> NEAREST
+            else -> BILINEAR
+        }
+    }
+
+    private fun String.containsAny(vararg needles: String): Boolean =
+        needles.any { contains(it) }
+}
+
 enum class ShaderPackInstallStage {
     DOWNLOADING,
     INSTALLING

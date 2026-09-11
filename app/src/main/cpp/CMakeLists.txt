@@ -54,6 +54,7 @@ endif()
 # JNI bridge that drives the core through the libretro API.
 add_library(emucorer_jni SHARED
     native_bridge.cpp
+    shader_chain.cpp
     vulkan_frontend.cpp
 )
 
@@ -64,6 +65,11 @@ target_include_directories(emucorer_jni PRIVATE
 
 find_library(VULKAN_LIBRARY vulkan)
 
+set(EMUCORER_HAVE_LIBRASHADER OFF)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/librashader/CMakeLists.txt")
+    add_subdirectory("third_party/librashader" "${CMAKE_BINARY_DIR}/librashader")
+endif()
+
 target_link_libraries(emucorer_jni PRIVATE
     swanstation_libretro
     android
@@ -73,6 +79,11 @@ target_link_libraries(emucorer_jni PRIVATE
     GLESv3
     ${VULKAN_LIBRARY}
 )
+
+if(TARGET librashader)
+    target_link_libraries(emucorer_jni PRIVATE librashader)
+    target_compile_definitions(emucorer_jni PRIVATE EMUCORER_HAVE_LIBRASHADER=1)
+endif()
 
 target_compile_options(emucorer_jni PRIVATE -Wall -Wextra)
 

@@ -5,7 +5,7 @@ object RendererDefaults {
     const val OPENGL = 12
     const val SOFTWARE = 13
     const val VULKAN = 14
-    const val DEFAULT = OPENGL
+    const val DEFAULT = VULKAN
 
     // Stable C API renderer values. Keep this translation at the frontend
     // boundary: Android's 12/13/14 values come from the inherited UI model and
@@ -15,14 +15,14 @@ object RendererDefaults {
     const val CORE_OPENGL = 2
 
     /**
-     * OpenGL ES is the app default: it has the broadest driver compatibility and
-     * the most stable frame pacing, which also keeps audio clean. Vulkan and
-     * Software remain available as manual choices.
+     * Vulkan is the app default: it is the renderer used for RetroArch shader
+     * chains and the target of the current graphics work. OpenGL and Software
+     * remain available as manual choices.
      */
     fun defaultForHardware(
         @Suppress("UNUSED_PARAMETER")
         isMediaTekHardware: Boolean = GpuHardwareProfiles.isMediaTekHardware()
-    ): Int = OPENGL
+    ): Int = VULKAN
 
     fun normalizeAndroidRenderer(
         value: Int,

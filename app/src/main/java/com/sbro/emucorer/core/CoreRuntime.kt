@@ -7,6 +7,7 @@ import android.graphics.Rect
 import android.net.Uri
 import android.util.Log
 import android.view.Surface
+import com.sbro.emucorer.data.RetroArchShaderEffects
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -266,6 +267,8 @@ internal object CoreRuntime {
         // filter; otherwise the app's texture filtering mode is translated.
         bridge.nativeSetOption("swanstation_GPU_TextureFilter", swanStationTextureFilter())
         bridge.nativeSetOption("swanstation_GPU_ShaderPrecompile", "true")
+        pushShaderEffect()
+        pushShaderPreset()
         settings["EmuCore/GS:LoadTextureReplacements"]?.toBooleanStrictOrNull()?.let { replacements ->
             bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements",
                 replacements.toString())
@@ -361,6 +364,24 @@ internal object CoreRuntime {
         RendererDefaults.CORE_VULKAN -> "Vulkan"
         RendererDefaults.CORE_OPENGL -> "OpenGL"
         else -> "Software"
+    }
+
+    private fun currentShaderEffect(): Int {
+        val enabled = settings["EmuCore/GS:ShaderChainEnabled"]?.toBooleanStrictOrNull() == true
+        if (!enabled) return RetroArchShaderEffects.NONE
+        return RetroArchShaderEffects.classify(settings["EmuCore/GS:ShaderChainPreset"])
+    }
+
+    private fun pushShaderEffect() {
+        runCatching { bridge.nativeSetShaderEffect(currentShaderEffect()) }
+            .onFailure { Log.w(TAG, "Unable to apply shader effect", it) }
+    }
+
+    private fun pushShaderPreset() {
+        val enabled = settings["EmuCore/GS:ShaderChainEnabled"]?.toBooleanStrictOrNull() == true
+        val preset = settings["EmuCore/GS:ShaderChainPreset"].orEmpty()
+        runCatching { bridge.nativeSetShaderPreset(if (enabled) preset else "", enabled) }
+            .onFailure { Log.w(TAG, "Unable to apply shader preset", it) }
     }
 
     private fun stageBios(biosPath: String): String? {
@@ -580,6 +601,10 @@ internal object CoreRuntime {
             else -> null
         }
         target?.let { (coreKey, coreValue) -> bridge.nativeSetOption(coreKey, coreValue) }
+        if (section == "EmuCore/GS" && (key == "ShaderChainEnabled" || key == "ShaderChainPreset")) {
+            pushShaderEffect()
+            pushShaderPreset()
+        }
     }
 
     private fun textureFilterName(filter: Int): String = when (filter) {

@@ -38,7 +38,14 @@
 #include <vector>
 
 #include "libretro.h"
+#include "shader_chain.h"
 #include "vulkan_frontend.h"
+
+#if defined(EMUCORER_HAVE_LIBRASHADER)
+#include <librashader.h>
+
+extern "C" void EmuCoreR_ResetGLProgramCache();
+#endif
 
 namespace vulkan = emucorer::vulkan;
 
@@ -155,6 +162,333 @@ struct GlRenderState {
 
 GlRenderState g_gl;
 
+// Frontend post-processing effect selected from the RetroArch shader preset.
+// 0 = off, 1 = CRT, 2 = LCD, 3 = sharp bilinear, 4 = nearest, 5 = bilinear.
+std::atomic<int> g_shader_effect{0};
+
+struct GlEffectState {
+    GLuint program = 0;
+    GLuint vao = 0;
+    GLint u_dst_rect = -1;
+    GLint u_src_rect = -1;
+    GLint u_out_size = -1;
+    GLint u_effect = -1;
+    GLint u_texture = -1;
+    bool failed = false;
+};
+
+GlEffectState g_gl_effect;
+
+#if defined(EMUCORER_HAVE_LIBRASHADER)
+struct GlShaderChainState {
+    void* chain = nullptr;
+    std::string preset;
+    uint64_t generation = 0;
+    bool failed = false;
+    uint64_t frame_count = 0;
+    GLuint input_texture = 0;
+    GLuint input_fbo = 0;
+    GLsizei input_width = 0;
+    GLsizei input_height = 0;
+    GLuint target_texture = 0;
+    GLuint target_fbo = 0;
+    GLsizei target_width = 0;
+    GLsizei target_height = 0;
+};
+
+GlShaderChainState g_gl_chain;
+
+const void* GlShaderChainLoader(const char* name) {
+    return reinterpret_cast<const void*>(eglGetProcAddress(name));
+}
+
+void ReportGlShaderChainError(const char* what, libra_error_t err) {
+    char* message = nullptr;
+    if (libra_error_write(err, &message) == 0 && message != nullptr) {
+        LOGE("librashader GL: %s failed: %s", what, message);
+        libra_error_free_string(&message);
+    } else {
+        LOGE("librashader GL: %s failed (errno %d)", what, static_cast<int>(libra_error_errno(err)));
+    }
+    libra_error_free(&err);
+}
+
+void DestroyGlShaderChain() {
+    if (g_gl_chain.chain != nullptr) {
+        libra_gl_filter_chain_t chain = static_cast<libra_gl_filter_chain_t>(g_gl_chain.chain);
+        libra_gl_filter_chain_free(&chain);
+        g_gl_chain.chain = nullptr;
+    }
+    if (g_gl_chain.input_fbo != 0) glDeleteFramebuffers(1, &g_gl_chain.input_fbo);
+    if (g_gl_chain.input_texture != 0) glDeleteTextures(1, &g_gl_chain.input_texture);
+    if (g_gl_chain.target_fbo != 0) glDeleteFramebuffers(1, &g_gl_chain.target_fbo);
+    if (g_gl_chain.target_texture != 0) glDeleteTextures(1, &g_gl_chain.target_texture);
+    g_gl_chain = GlShaderChainState{};
+}
+
+bool EnsureGlChainTexture(GLuint* texture, GLuint* fbo, GLsizei* current_width, GLsizei* current_height,
+                          GLsizei width, GLsizei height) {
+    if (width <= 0 || height <= 0) return false;
+    if (*texture != 0 && *current_width == width && *current_height == height) return true;
+    if (*fbo != 0) {
+        glDeleteFramebuffers(1, fbo);
+        *fbo = 0;
+    }
+    if (*texture != 0) {
+        glDeleteTextures(1, texture);
+        *texture = 0;
+    }
+
+    glGenTextures(1, texture);
+    glBindTexture(GL_TEXTURE_2D, *texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glGenFramebuffers(1, fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *texture, 0);
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        LOGE("librashader GL: framebuffer incomplete (0x%x)", status);
+        if (*fbo != 0) {
+            glDeleteFramebuffers(1, fbo);
+            *fbo = 0;
+        }
+        if (*texture != 0) {
+            glDeleteTextures(1, texture);
+            *texture = 0;
+        }
+        return false;
+    }
+    *current_width = width;
+    *current_height = height;
+    return true;
+}
+
+bool EnsureGlShaderChainInput(GLsizei width, GLsizei height) {
+    return EnsureGlChainTexture(&g_gl_chain.input_texture, &g_gl_chain.input_fbo, &g_gl_chain.input_width,
+                                &g_gl_chain.input_height, width, height);
+}
+
+bool EnsureGlShaderChainTarget(GLsizei width, GLsizei height) {
+    return EnsureGlChainTexture(&g_gl_chain.target_texture, &g_gl_chain.target_fbo, &g_gl_chain.target_width,
+                                &g_gl_chain.target_height, width, height);
+}
+
+void RestoreGlStateAfterShaderChain() {
+    // librashader leaves clobbered GL state behind. The core does not use
+    // sampler objects, so in particular any sampler it left bound on a texture
+    // unit would make the core's own textures sample as black next frame.
+    for (GLuint unit = 0; unit < 16; ++unit) {
+        glActiveTexture(GL_TEXTURE0 + unit);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindSampler(unit, 0);
+    }
+    glActiveTexture(GL_TEXTURE0);
+    glUseProgram(0);
+    glBindVertexArray(0);
+    EmuCoreR_ResetGLProgramCache();
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+}
+
+bool EnsureGlShaderChain() {
+    if (!emucorer::shader_chain::IsEnabled()) return false;
+    const std::string path = emucorer::shader_chain::PresetPath();
+    if (path.empty()) return false;
+
+    const uint64_t generation = emucorer::shader_chain::Generation();
+    if (g_gl_chain.chain != nullptr && g_gl_chain.preset == path && g_gl_chain.generation == generation) {
+        return true;
+    }
+    if (g_gl_chain.failed && g_gl_chain.preset == path && g_gl_chain.generation == generation) {
+        return false;
+    }
+
+    DestroyGlShaderChain();
+    g_gl_chain.preset = path;
+    g_gl_chain.generation = generation;
+
+    libra_shader_preset_t preset = nullptr;
+    if (libra_error_t err = libra_preset_create(path.c_str(), &preset)) {
+        ReportGlShaderChainError("preset load", err);
+        g_gl_chain.failed = true;
+        return false;
+    }
+
+    filter_chain_gl_opt_t options = {};
+    options.version = LIBRASHADER_CURRENT_VERSION;
+    options.glsl_version = 0;
+    options.use_dsa = false;
+    options.force_no_mipmaps = false;
+    options.disable_cache = false;
+
+    libra_gl_filter_chain_t chain = nullptr;
+    if (libra_error_t err = libra_gl_filter_chain_create(&preset, &GlShaderChainLoader, &options, &chain)) {
+        ReportGlShaderChainError("chain create", err);
+        g_gl_chain.failed = true;
+        return false;
+    }
+    g_gl_chain.chain = chain;
+    g_gl_chain.frame_count = 0;
+    LOGI("librashader GL: loaded preset '%s'", path.c_str());
+    return true;
+}
+#endif  // EMUCORER_HAVE_LIBRASHADER
+
+constexpr const char* kEffectVertexSource = R"(#version 300 es
+precision highp float;
+uniform vec4 u_dst_rect;
+uniform vec4 u_src_rect;
+out vec2 v_uv;
+void main() {
+    vec2 uv = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1)) * 2.0;
+    vec2 pos = u_dst_rect.xy + uv * u_dst_rect.zw;
+    gl_Position = vec4(pos.x * 2.0 - 1.0, 1.0 - pos.y * 2.0, 0.0, 1.0);
+    // FBO textures use a bottom-left origin, so flip V while keeping the
+    // destination rect anchored to the top-left.
+    v_uv = vec2(u_src_rect.x + uv.x * u_src_rect.z,
+                u_src_rect.y + (1.0 - uv.y) * u_src_rect.w);
+}
+)";
+
+constexpr const char* kEffectFragmentSource = R"(#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 o_color;
+uniform sampler2D u_tex;
+uniform vec4 u_dst_rect;
+uniform vec4 u_src_rect;
+uniform vec2 u_out_size;
+uniform int u_effect;
+
+const float PI = 3.14159265358979323846;
+
+vec3 sample_sharp(vec2 uv) {
+    vec2 tex_size = vec2(textureSize(u_tex, 0));
+    vec2 pixels = uv * tex_size;
+    vec2 center = floor(pixels) + 0.5;
+    vec2 out_px = max(u_dst_rect.zw * u_out_size, vec2(1.0));
+    vec2 scale = max(out_px / max(tex_size, vec2(1.0)), vec2(1.0));
+    vec2 offset = clamp((pixels - center) * scale, vec2(-0.5), vec2(0.5));
+    return texture(u_tex, (center + offset) / tex_size).rgb;
+}
+
+vec3 apply_crt(vec2 uv, vec2 out_pix) {
+    vec3 c = texture(u_tex, uv).rgb;
+    float scan = 0.82 + 0.18 * cos(out_pix.y * PI);
+    float phase = mod(out_pix.x, 3.0);
+    vec3 mask = vec3(1.0);
+    if (phase < 1.0)
+        mask = vec3(1.22, 0.86, 0.86);
+    else if (phase < 2.0)
+        mask = vec3(0.86, 1.22, 0.86);
+    else
+        mask = vec3(0.86, 0.86, 1.22);
+    return c * scan * mask;
+}
+
+vec3 apply_lcd(vec2 uv, vec2 out_pix) {
+    vec3 c = texture(u_tex, uv).rgb;
+    float phase = mod(out_pix.x, 3.0);
+    vec3 mask = phase < 1.0 ? vec3(1.15, 0.4, 0.4) : (phase < 2.0 ? vec3(0.4, 1.15, 0.4) : vec3(0.4, 0.4, 1.15));
+    float grid = mod(out_pix.y, 3.0) < 1.0 ? 1.0 : 0.62;
+    return c * mask * grid;
+}
+
+void main() {
+    vec3 color;
+    if (u_effect == 3) {
+        color = sample_sharp(v_uv);
+    } else if (u_effect == 1) {
+        color = apply_crt(v_uv, gl_FragCoord.xy);
+    } else if (u_effect == 2) {
+        color = apply_lcd(v_uv, gl_FragCoord.xy);
+    } else if (u_effect == 4) {
+        color = texture(u_tex, v_uv).rgb;
+    } else {
+        color = texture(u_tex, v_uv).rgb;
+    }
+    o_color = vec4(color, 1.0);
+}
+)";
+
+bool CompileGlShader(GLenum type, const char* source, GLuint* out_shader) {
+    const GLuint shader = glCreateShader(type);
+    if (shader == 0) return false;
+    glShaderSource(shader, 1, &source, nullptr);
+    glCompileShader(shader);
+    GLint compiled = GL_FALSE;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+    if (compiled != GL_TRUE) {
+        char log[512];
+        GLsizei length = 0;
+        glGetShaderInfoLog(shader, sizeof(log), &length, log);
+        LOGE("Shader compile failed: %s", log);
+        glDeleteShader(shader);
+        return false;
+    }
+    *out_shader = shader;
+    return true;
+}
+
+bool EnsureGlEffectProgram() {
+    if (g_gl_effect.program != 0) return true;
+    if (g_gl_effect.failed) return false;
+
+    GLuint vertex_shader = 0;
+    GLuint fragment_shader = 0;
+    if (!CompileGlShader(GL_VERTEX_SHADER, kEffectVertexSource, &vertex_shader) ||
+        !CompileGlShader(GL_FRAGMENT_SHADER, kEffectFragmentSource, &fragment_shader)) {
+        if (vertex_shader != 0) glDeleteShader(vertex_shader);
+        g_gl_effect.failed = true;
+        return false;
+    }
+
+    const GLuint program = glCreateProgram();
+    glAttachShader(program, vertex_shader);
+    glAttachShader(program, fragment_shader);
+    glLinkProgram(program);
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    GLint linked = GL_FALSE;
+    glGetProgramiv(program, GL_LINK_STATUS, &linked);
+    if (linked != GL_TRUE) {
+        char log[512];
+        GLsizei length = 0;
+        glGetProgramInfoLog(program, sizeof(log), &length, log);
+        LOGE("Shader link failed: %s", log);
+        glDeleteProgram(program);
+        g_gl_effect.failed = true;
+        return false;
+    }
+
+    g_gl_effect.program = program;
+    g_gl_effect.u_dst_rect = glGetUniformLocation(program, "u_dst_rect");
+    g_gl_effect.u_src_rect = glGetUniformLocation(program, "u_src_rect");
+    g_gl_effect.u_out_size = glGetUniformLocation(program, "u_out_size");
+    g_gl_effect.u_effect = glGetUniformLocation(program, "u_effect");
+    g_gl_effect.u_texture = glGetUniformLocation(program, "u_tex");
+    glGenVertexArrays(1, &g_gl_effect.vao);
+    LOGI("GL shader effect program ready");
+    return true;
+}
+
+void DestroyGlEffectProgram() {
+    if (g_gl_effect.vao != 0) glDeleteVertexArrays(1, &g_gl_effect.vao);
+    if (g_gl_effect.program != 0) glDeleteProgram(g_gl_effect.program);
+    g_gl_effect = GlEffectState{};
+}
+
+
 // True when the user selected the frontend "Stretch" (fill) mode. The
 // SwanStation core does not understand this value and falls back to Auto, so
 // the presenter honours it directly by disabling aspect correction.
@@ -195,6 +529,39 @@ PresentRect FitDisplayRect(int win_width, int win_height, double display_aspect)
     rect.width = width;
     rect.height = height;
     return rect;
+}
+
+void PresentHardwareFrameEffect(int effect, int win_width, int win_height, const PresentRect& dst,
+                                GLsizei src_width, GLsizei src_height) {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, win_width, win_height);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glUseProgram(g_gl_effect.program);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, g_gl.fbo_texture);
+    const GLint filter = (effect == 4) ? GL_NEAREST : GL_LINEAR;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+    glUniform1i(g_gl_effect.u_texture, 0);
+    glUniform4f(g_gl_effect.u_dst_rect,
+                static_cast<float>(dst.x) / static_cast<float>(win_width),
+                static_cast<float>(dst.y) / static_cast<float>(win_height),
+                static_cast<float>(dst.width) / static_cast<float>(win_width),
+                static_cast<float>(dst.height) / static_cast<float>(win_height));
+    glUniform4f(g_gl_effect.u_src_rect, 0.0f, 0.0f,
+                g_gl.fbo_width > 0 ? static_cast<float>(src_width) / static_cast<float>(g_gl.fbo_width) : 1.0f,
+                g_gl.fbo_height > 0 ? static_cast<float>(src_height) / static_cast<float>(g_gl.fbo_height) : 1.0f);
+    glUniform2f(g_gl_effect.u_out_size, static_cast<float>(win_width), static_cast<float>(win_height));
+    glUniform1i(g_gl_effect.u_effect, effect);
+    glBindVertexArray(g_gl_effect.vao);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
+    glUseProgram(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 bool CreatePresentFramebuffer() {
@@ -261,6 +628,55 @@ void PresentHardwareFrame() {
     const PresentRect dst = AspectRatioStretchRequested()
         ? PresentRect{0, 0, win_width, win_height}
         : FitDisplayRect(win_width, win_height, info.geometry.aspect_ratio);
+
+#if defined(EMUCORER_HAVE_LIBRASHADER)
+    if (emucorer::shader_chain::IsEnabled() && !emucorer::shader_chain::PresetPath().empty() &&
+        EnsureGlShaderChain() && EnsureGlShaderChainInput(src_width, src_height) &&
+        EnsureGlShaderChainTarget(dst.width, dst.height)) {
+        // The core renders the active display region into the bottom-left of a
+        // larger padded FBO, so crop that region into the exact-size chain input
+        // before librashader sees it.
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, g_gl.fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_gl_chain.input_fbo);
+        glDisable(GL_SCISSOR_TEST);
+        glBlitFramebuffer(0, 0, src_width, src_height, 0, 0, src_width, src_height, GL_COLOR_BUFFER_BIT,
+                          GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        const libra_image_gl_t in = {g_gl_chain.input_texture, GL_RGBA8, static_cast<uint32_t>(src_width),
+                                     static_cast<uint32_t>(src_height)};
+        const libra_image_gl_t out = {g_gl_chain.target_texture, GL_RGBA8,
+                                      static_cast<uint32_t>(g_gl_chain.target_width),
+                                      static_cast<uint32_t>(g_gl_chain.target_height)};
+        const libra_viewport_t viewport = {0.0f, 0.0f, static_cast<uint32_t>(g_gl_chain.target_width),
+                                           static_cast<uint32_t>(g_gl_chain.target_height)};
+        libra_gl_filter_chain_t chain = static_cast<libra_gl_filter_chain_t>(g_gl_chain.chain);
+        libra_error_t chain_error =
+            libra_gl_filter_chain_frame(&chain, g_gl_chain.frame_count, in, out, &viewport, nullptr, nullptr);
+        RestoreGlStateAfterShaderChain();
+        if (!chain_error) {
+            ++g_gl_chain.frame_count;
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, g_gl_chain.target_fbo);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+            glViewport(0, 0, win_width, win_height);
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glBlitFramebuffer(0, 0, g_gl_chain.target_width, g_gl_chain.target_height,
+                              dst.x, dst.y, dst.x + dst.width, dst.y + dst.height,
+                              GL_COLOR_BUFFER_BIT, GL_LINEAR);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            return;
+        }
+        ReportGlShaderChainError("frame", chain_error);
+        g_gl_chain.failed = true;
+    }
+#endif
+
+    const int effect = g_shader_effect.load(std::memory_order_relaxed);
+    if (effect != 0 && EnsureGlEffectProgram()) {
+        PresentHardwareFrameEffect(effect, win_width, win_height, dst, src_width, src_height);
+        return;
+    }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, g_gl.fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -367,6 +783,10 @@ void DestroyHardwareContext() {    if (g_gl.display != EGL_NO_DISPLAY) {
         if (g_gl.fbo != 0) glDeleteFramebuffers(1, &g_gl.fbo);
         if (g_gl.fbo_texture != 0) glDeleteTextures(1, &g_gl.fbo_texture);
         if (g_gl.fbo_depth != 0) glDeleteRenderbuffers(1, &g_gl.fbo_depth);
+        DestroyGlEffectProgram();
+#if defined(EMUCORER_HAVE_LIBRASHADER)
+        DestroyGlShaderChain();
+#endif
         eglMakeCurrent(g_gl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         if (g_gl.surface != EGL_NO_SURFACE) eglDestroySurface(g_gl.display, g_gl.surface);
         if (g_gl.context != EGL_NO_CONTEXT) eglDestroyContext(g_gl.display, g_gl.context);
@@ -691,11 +1111,19 @@ void PresentSoftwareFrame(const void* data, unsigned width, unsigned height, siz
         for (int x = 0; x < dst_width; ++x) row[x] = 0xFF000000u;
     }
 
+    const int effect = g_shader_effect.load(std::memory_order_relaxed);
+    auto scale_channel = [](float value) -> uint32_t {
+        if (value <= 0.0f) return 0;
+        if (value >= 255.0f) return 255;
+        return static_cast<uint32_t>(value + 0.5f);
+    };
+
     const auto* src_bytes = static_cast<const uint8_t*>(data);
     for (int y = 0; y < fit_h; ++y) {
         const unsigned src_y = static_cast<unsigned>((static_cast<int64_t>(y) * height) / fit_h);
         uint32_t* dst_row = dst + static_cast<size_t>(offset_y + y) * dst_stride + offset_x;
         const uint8_t* src_row = src_bytes + static_cast<size_t>(src_y) * pitch;
+        const int out_y = offset_y + y;
         for (int x = 0; x < fit_w; ++x) {
             const unsigned src_x = static_cast<unsigned>((static_cast<int64_t>(x) * width) / fit_w);
             // WINDOW_FORMAT_RGBA_8888 stores bytes R,G,B,A, i.e. on a
@@ -720,6 +1148,35 @@ void PresentSoftwareFrame(const void* data, unsigned width, unsigned height, siz
                 const uint32_t b = (px & 0x1F) << 3;
                 rgba |= (b << 16) | (g << 8) | r;
             }
+
+            if (effect == 1 || effect == 2) {
+                const int out_x = offset_x + x;
+                float r = static_cast<float>(rgba & 0xFFu);
+                float g = static_cast<float>((rgba >> 8) & 0xFFu);
+                float b = static_cast<float>((rgba >> 16) & 0xFFu);
+                if (effect == 1) {
+                    const float scan = (out_y & 1) == 0 ? 1.0f : 0.80f;
+                    r *= scan;
+                    g *= scan;
+                    b *= scan;
+                    const int phase = out_x % 3;
+                    if (phase == 0) {
+                        r *= 1.15f; g *= 0.88f; b *= 0.88f;
+                    } else if (phase == 1) {
+                        r *= 0.88f; g *= 1.15f; b *= 0.88f;
+                    } else {
+                        r *= 0.88f; g *= 0.88f; b *= 1.15f;
+                    }
+                } else {
+                    const float grid = (out_y % 3) == 0 ? 1.0f : 0.62f;
+                    const int phase = out_x % 3;
+                    r *= grid * (phase == 0 ? 1.15f : 0.45f);
+                    g *= grid * (phase == 1 ? 1.15f : 0.45f);
+                    b *= grid * (phase == 2 ? 1.15f : 0.45f);
+                }
+                rgba = 0xFF000000u | (scale_channel(b) << 16) | (scale_channel(g) << 8) | scale_channel(r);
+            }
+
             dst_row[x] = rgba;
         }
     }
@@ -955,6 +1412,30 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_destroySession(JNIEnv*, jobject, jl
 // ---------------------------------------------------------------------------
 // JNI: configuration.
 // ---------------------------------------------------------------------------
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_nativeSetShaderEffect(JNIEnv*, jobject, jint effect) {
+    const int clamped = effect < 0 ? 0 : (effect > 5 ? 5 : static_cast<int>(effect));
+    g_shader_effect.store(clamped, std::memory_order_relaxed);
+    vulkan::SetShaderEffect(clamped);
+    LOGI("Shader effect = %d", clamped);
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_nativeSetShaderPreset(JNIEnv* env, jobject, jstring path,
+                                                                    jboolean enabled) {
+    std::string value;
+    if (path != nullptr) {
+        const char* chars = env->GetStringUTFChars(path, nullptr);
+        if (chars != nullptr) {
+            value = chars;
+            env->ReleaseStringUTFChars(path, chars);
+        }
+    }
+    emucorer::shader_chain::SetPreset(std::move(value), enabled == JNI_TRUE);
+    LOGI("Shader preset enabled=%d path=%s", enabled == JNI_TRUE ? 1 : 0,
+         emucorer::shader_chain::PresetPath().c_str());
+}
+
 JNIEXPORT void JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_nativeSetOption(JNIEnv* env, jobject, jstring key,
                                                               jstring value) {

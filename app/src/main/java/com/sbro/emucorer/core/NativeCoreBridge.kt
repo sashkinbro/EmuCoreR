@@ -28,6 +28,11 @@ class NativeCoreBridge {
     external fun destroySession(handle: Long)
     external fun nativeSetOption(key: String, value: String)
     external fun nativeGetOption(key: String): String?
+    /** Frontend post-processing effect derived from the selected shader preset. */
+    external fun nativeSetShaderEffect(effect: Int)
+
+    /** RetroArch (.slangp) shader chain executed through librashader. */
+    external fun nativeSetShaderPreset(path: String, enabled: Boolean)
 
     // ---------------------------------------------------------------------
     // Content.
