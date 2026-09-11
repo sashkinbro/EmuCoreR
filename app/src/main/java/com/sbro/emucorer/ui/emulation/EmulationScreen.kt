@@ -187,6 +187,7 @@ import com.sbro.emucorer.ui.controls.CustomControlVisual
 import com.sbro.emucorer.ui.controls.composeShape
 import com.sbro.emucorer.ui.common.BitmapPathImage
 import com.sbro.emucorer.ui.common.EmulationSideArtworkOverlay
+import com.sbro.emucorer.ui.common.GameCoverArt
 import com.sbro.emucorer.ui.common.ProvideGamepadMenuAction
 import com.sbro.emucorer.ui.common.ProvideGamepadShoulderActions
 import com.sbro.emucorer.ui.common.ProvideGamepadUiNavigation
@@ -2805,12 +2806,13 @@ private fun EmulationSidebarMenu(
     )
 
     val menuContent: @Composable ColumnScope.() -> Unit = {
+                val menuTitle = uiState.currentGameTitle.ifBlank { stringResource(R.string.emulation_sidebar_title) }
                 Surface(
                     shape = neonShape(22.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                 ) {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
@@ -2822,39 +2824,60 @@ private fun EmulationSidebarMenu(
                                 )
                             )
                             .padding(horizontal = 18.dp, vertical = 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = uiState.currentGameTitle.ifBlank { stringResource(R.string.emulation_sidebar_title) },
-                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = uiState.currentGameSubtitle.ifBlank { stringResource(R.string.emulation_menu_subtitle) },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
+                        Surface(
+                            shape = neonShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                            modifier = Modifier
+                                .width(58.dp)
+                                .height(78.dp)
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(999.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+                            GameCoverArt(
+                                coverPath = uiState.currentGameCoverPath,
+                                fallbackTitle = menuTitle,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = menuTitle,
+                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = uiState.currentGameSubtitle.ifBlank { stringResource(R.string.emulation_menu_subtitle) },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
                             ) {
-                                Text(
-                                    text = stringResource(
-                                        R.string.emulation_play_time_badge,
-                                        formatPlayTime(uiState.activePlayTimeMs)
-                                    ),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                )
+                                Surface(
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+                                ) {
+                                    Text(
+                                        text = stringResource(
+                                            R.string.emulation_play_time_badge,
+                                            formatPlayTime(uiState.activePlayTimeMs)
+                                        ),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -4555,21 +4578,24 @@ private fun CoreOptionRows(
         } else {
             option.description.takeIf { it.isNotBlank() }
         }
+        val choiceLabels = option.choices.map { choice ->
+            val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
+            if (choiceRes != null) stringResource(choiceRes) else choice.label
+        }
+        // Equal-width chips clip long labels; fall back to a horizontally
+        // scrollable row whenever the labels cannot fit their share of the row.
+        val labelsOverflow = choiceLabels.any { it.length > 30 / option.choices.size }
         LiveSelectionRow(
             title = title,
-            options = option.choices.mapIndexed { index, choice ->
-                val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
-                LiveSelectionOption(
-                    index,
-                    if (choiceRes != null) stringResource(choiceRes) else choice.label
-                )
+            options = option.choices.mapIndexed { index, _ ->
+                LiveSelectionOption(index, choiceLabels[index])
             },
             currentValue = currentIndex,
             onValueChange = { index ->
                 values.getOrNull(index)?.let { onValueChange(option.key, it) }
             },
             allowWrap = false,
-            horizontalScrolling = option.choices.size > 4,
+            horizontalScrolling = option.choices.size > 4 || labelsOverflow,
             helpText = help,
             onResetToDefault = { onValueChange(option.key, option.defaultValue) }
         )

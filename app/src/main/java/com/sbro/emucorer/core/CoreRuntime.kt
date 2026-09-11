@@ -56,6 +56,8 @@ internal object CoreRuntime {
     @Volatile private var frameHeight = DEFAULT_FRAME_HEIGHT
     @Volatile private var requestedRenderer = RendererDefaults.defaultForHardware()
     @Volatile private var activeCoreRenderer = RendererDefaults.toCoreRenderer(requestedRenderer)
+    @Volatile private var currentGamePath: String? = null
+    @Volatile private var currentBiosOnly = false
     @Volatile private var performanceMetricsEnabled = false
     @Volatile private var detailedPerformanceMetrics = false
     @Volatile private var performanceMetricsSnapshot: String? = null
@@ -97,6 +99,52 @@ internal object CoreRuntime {
         startSession(gamePath, biosOnly)
     }
 
+    /**
+     * Restarts the running session on [renderer] while preserving the emulated
+     * state. The core only accepts a renderer change on boot, so the in-game
+     * selector is served by a serialize -> restart -> unserialize cycle.
+     */
+    fun restartWithRenderer(renderer: Int): Boolean = lifecycleLock.withLock lock@{
+        val normalized = RendererDefaults.normalizeAndroidRenderer(renderer)
+        val previousRenderer = requestedRenderer
+        val gamePath = currentGamePath
+        if (!isRunning() || gamePath.isNullOrBlank()) {
+            requestedRenderer = normalized
+            return@lock true
+        }
+        val biosOnly = currentBiosOnly
+        val wasPaused = paused
+        val stateFile = context?.let { File(it.cacheDir, "renderer-switch.rstate") }
+        val stateSaved = stateFile != null && sessionLock.withLock {
+            session != 0L && bridge.saveState(session, stateFile.absolutePath) == 0
+        }
+        Log.i(TAG, "Renderer restart renderer=" +
+            RendererDefaults.coreRendererName(RendererDefaults.toCoreRenderer(normalized)) +
+            " stateSaved=$stateSaved")
+        shutdownSession()
+        requestedRenderer = normalized
+        var started = startSession(gamePath, biosOnly)
+        if (!started && normalized != previousRenderer) {
+            Log.w(TAG, "Renderer restart failed; reverting to " +
+                RendererDefaults.coreRendererName(RendererDefaults.toCoreRenderer(previousRenderer)))
+            requestedRenderer = previousRenderer
+            started = startSession(gamePath, biosOnly)
+        }
+        try {
+            if (stateFile != null && started && stateSaved) {
+                sessionLock.withLock {
+                    if (session != 0L && bridge.loadState(session, stateFile.absolutePath) != 0) {
+                        Log.w(TAG, "Unable to restore state after renderer switch")
+                    }
+                }
+            }
+        } finally {
+            stateFile?.delete()
+        }
+        if (started && wasPaused) pause()
+        started
+    }
+
     private fun startSession(gamePath: String, biosOnly: Boolean): Boolean {
         val startupStartedAtNanos = System.nanoTime()
         if (!biosOnly && !isSupportedDiscPath(gamePath)) {
@@ -109,48 +157,31 @@ internal object CoreRuntime {
                 return false
             }
         val stagedBios = stageBios(biosPath) ?: return false
-        // The frontend Vulkan device/swapchain layer is not implemented yet, so
-        // a Vulkan request uses the working OpenGL ES hardware path instead of
-        // silently dropping to software.
         val requestedCore = RendererDefaults.toCoreRenderer(requestedRenderer)
-        val coreRenderer = if (requestedCore == RendererDefaults.CORE_VULKAN)
-            RendererDefaults.CORE_OPENGL else requestedCore
+        // A Vulkan request is attempted first; if the device cannot provide a
+        // Vulkan swapchain the session transparently falls back to OpenGL ES.
+        val candidates = if (requestedCore == RendererDefaults.CORE_VULKAN)
+            listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)
+        else listOf(requestedCore)
 
         shutdownSession()
-        val created = sessionLock.withLock {
-            // Publish core options before retro_init so the core's initial
-            // settings load already sees them.
-            applyStartOptions(coreRenderer)
-            val handle = bridge.createSession()
-            if (handle == 0L) return@withLock false
-            // Attach the surface before loading content: SET_HW_RENDER fires
-            // inside retro_load_game and needs a window to build the EGL context.
-            if (bridge.setSurface(handle, surface, coreRenderer) != 0) {
-                Log.e(TAG, "Failed to initialize ${RendererDefaults.coreRendererName(coreRenderer)} renderer")
-                bridge.destroySession(handle)
-                return@withLock false
+        var coreRenderer = candidates.first()
+        var created = false
+        for (candidate in candidates) {
+            if (createSessionLocked(gamePath, biosOnly, stagedBios, candidate)) {
+                coreRenderer = candidate
+                created = true
+                break
             }
-            if (bridge.loadBios(handle, stagedBios) != 0) {
-                bridge.destroySession(handle)
-                return@withLock false
+            if (candidate != candidates.last()) {
+                Log.w(TAG, "${RendererDefaults.coreRendererName(candidate)} renderer unavailable; " +
+                    "falling back to ${RendererDefaults.coreRendererName(candidates.last())}")
             }
-            if (biosOnly) {
-                // Boot the core with no content so the GPU/display are created
-                // before the frame worker calls retro_run().
-                if (bridge.loadBiosOnly(handle) != 0) {
-                    bridge.destroySession(handle)
-                    return@withLock false
-                }
-            } else if (loadDisc(handle, gamePath) != 0) {
-                bridge.destroySession(handle)
-                return@withLock false
-            }
-            session = handle
-            activeCoreRenderer = coreRenderer
-            true
         }
         if (!created) return false
 
+        currentGamePath = gamePath
+        currentBiosOnly = biosOnly
         running = true
         paused = false
         renderedFirstFrame = false
@@ -173,10 +204,43 @@ internal object CoreRuntime {
         }
     }
 
+    private fun createSessionLocked(gamePath: String, biosOnly: Boolean, stagedBios: String,
+                                    coreRenderer: Int): Boolean = sessionLock.withLock {
+        // Publish core options before retro_init so the core's initial settings
+        // load already sees them.
+        applyStartOptions(coreRenderer)
+        val handle = bridge.createSession()
+        if (handle == 0L) return@withLock false
+        // Attach the surface before loading content: SET_HW_RENDER fires inside
+        // retro_load_game and needs a window to build the render context.
+        if (bridge.setSurface(handle, surface, coreRenderer) != 0) {
+            Log.e(TAG, "Failed to initialize ${RendererDefaults.coreRendererName(coreRenderer)} renderer")
+            bridge.destroySession(handle)
+            return@withLock false
+        }
+        if (bridge.loadBios(handle, stagedBios) != 0) {
+            bridge.destroySession(handle)
+            return@withLock false
+        }
+        if (biosOnly) {
+            // Boot the core with no content so the GPU/display are created
+            // before the frame worker calls retro_run().
+            if (bridge.loadBiosOnly(handle) != 0) {
+                bridge.destroySession(handle)
+                return@withLock false
+            }
+        } else if (loadDisc(handle, gamePath) != 0) {
+            bridge.destroySession(handle)
+            return@withLock false
+        }
+        session = handle
+        activeCoreRenderer = coreRenderer
+        true
+    }
+
     private fun applyStartOptions(coreRenderer: Int) {
-        // The libretro GPU renderer option is read while the core boots. Until
-        // the frontend provides a Vulkan context the core falls back to its
-        // software renderer, but the option is still forwarded faithfully.
+        // The libretro GPU renderer option is read while the core boots; the
+        // frontend negotiates the matching hardware context per selection.
         bridge.nativeSetOption("swanstation_GPU_Renderer", rendererOptionName(coreRenderer))
         val upscale = settings["EmuCoreR/Display:Upscale"]?.toFloatOrNull()
             ?: settings["EmuCoreR:UpscaleMultiplier"]?.toFloatOrNull()

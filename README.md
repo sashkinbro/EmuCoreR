@@ -7,7 +7,7 @@ EmuCoreR is a PlayStation 1 emulator and game library for Android, built around 
 ## Highlights
 
 - SwanStation libretro core with an ARM64 CPU recompiler/JIT and interpreter fallback
-- OpenGL ES and software renderers with up to 10x internal resolution and texture filtering (Nearest, Bilinear, JINC2, xBR)
+- OpenGL ES, Vulkan, and software renderers with up to 10x internal resolution and texture filtering (Nearest, Bilinear, JINC2, xBR)
 - True color rendering, scaled dithering, deinterlacing, and NTSC timing controls
 - PGXP geometry precision, widescreen hacks, fast boot, and software renderer readbacks
 - Disc image support for CUE/BIN, ISO, IMG, CHD, PBP, ECM, MDS, and PSF, plus M3U playlists

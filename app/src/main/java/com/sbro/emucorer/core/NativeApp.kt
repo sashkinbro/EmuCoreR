@@ -198,6 +198,7 @@ object NativeApp {
         currentGamePath = path
         return CoreRuntime.start(path, biosOnly = path.isBlank())
     }
+    @JvmStatic fun restartRenderer(renderer: Int): Boolean = CoreRuntime.restartWithRenderer(renderer)
     @JvmStatic fun changeDisc(path: String): Boolean = CoreRuntime.changeDisc(path)
     @JvmStatic fun runBootSmokeProbe(path: String, steps: Int): Int = 0
     @JvmStatic fun runJitExecutableMemorySmokeTest(): Boolean = runCatching {

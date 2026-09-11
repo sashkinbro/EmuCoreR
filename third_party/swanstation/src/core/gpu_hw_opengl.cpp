@@ -586,7 +586,8 @@ GPU_HW_OpenGL::~GPU_HW_OpenGL()
 
   // One of our programs might've been bound.
   GL::Program::ResetLastProgram();
-  glUseProgram(0);
+  if (glad_glUseProgram != nullptr)
+    glUseProgram(0);
 }
 
 bool GPU_HW_OpenGL::Initialize(HostDisplay* host_display)

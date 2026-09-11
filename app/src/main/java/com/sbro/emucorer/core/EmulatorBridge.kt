@@ -1300,13 +1300,14 @@ object EmulatorBridge {
 
         settingsCache[cacheKey] = resolvedRenderer.toString()
         if (isVmActive && rendererChanged) {
-            // Invalidate pending callbacks and cached references before asking
-            // Compose to replace the SurfaceView/BufferQueue generation.
-            ++surfaceEventVersion
-            lastSurface = null
-            lastSurfaceWidth = 0
-            lastSurfaceHeight = 0
-            _presentationSurfaceGeneration.value += 1L
+            // The core re-negotiates the renderer only on boot, so the in-game
+            // switch is a state-preserving session restart.
+            val restarted = runSerial { NativeApp.restartRenderer(resolvedRenderer) }
+            isVmActive = NativeApp.hasOwnedVm()
+            if (!restarted) {
+                Log.e(TAG, "Renderer restart failed for ${rendererName(resolvedRenderer)}")
+                return false
+            }
         }
         return true
     }

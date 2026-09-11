@@ -38,6 +38,9 @@
 #include <vector>
 
 #include "libretro.h"
+#include "vulkan_frontend.h"
+
+namespace vulkan = emucorer::vulkan;
 
 #define LOG_TAG "EmuCoreR"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -279,7 +282,7 @@ bool CreateEglContext(ANativeWindow* window) {
         }
         const EGLint config_attribs[] = {
             EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
-            EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+            EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
             EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8,
             EGL_DEPTH_SIZE, 24, EGL_NONE,
         };
@@ -317,6 +320,21 @@ bool CreateEglContext(ANativeWindow* window) {
 // window and tells the core its context is ready (which also rebuilds GL
 // resources whenever the surface is recreated).
 bool EnsureHardwareContext() {
+    if (vulkan::IsRequested()) {
+        ANativeWindow* window = nullptr;
+        uint32_t generation = 0;
+        {
+            std::lock_guard<std::mutex> lock(g_frontend.mutex);
+            window = g_frontend.window;
+            generation = g_frontend.window_generation;
+        }
+        if (window == nullptr) return false;
+        ANativeWindow_acquire(window);
+        const bool ready = vulkan::EnsureContext(window, generation);
+        ANativeWindow_release(window);
+        return ready;
+    }
+
     if (g_gl.callback == nullptr || g_gl.failed || g_gl.pending == false) return g_gl.ready;
 
     ANativeWindow* window = nullptr;
@@ -357,6 +375,36 @@ void DestroyHardwareContext() {    if (g_gl.display != EGL_NO_DISPLAY) {
     g_gl = GlRenderState{};
 }
 
+// Releases the core's hardware renderer through its context_destroy callback.
+// Without this the core keeps the hardware-renderer flags across sessions and
+// the next boot initialises a GPU before any context exists, which crashes.
+void DestroyHardwareRendererContext() {
+    if (vulkan::IsRequested()) {
+        vulkan::NotifyContextDestroy();
+        return;
+    }
+    if (g_gl.callback == nullptr || g_gl.callback->context_destroy == nullptr) return;
+
+    EGLSurface teardown_surface = EGL_NO_SURFACE;
+    bool made_current = false;
+    if (g_gl.display != EGL_NO_DISPLAY && g_gl.context != EGL_NO_CONTEXT) {
+        if (g_gl.surface != EGL_NO_SURFACE &&
+            eglMakeCurrent(g_gl.display, g_gl.surface, g_gl.surface, g_gl.context) == EGL_TRUE) {
+            made_current = true;
+        } else {
+            const EGLint attribs[] = {EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE};
+            teardown_surface = eglCreatePbufferSurface(g_gl.display, g_gl.config, attribs);
+            if (teardown_surface != EGL_NO_SURFACE &&
+                eglMakeCurrent(g_gl.display, teardown_surface, teardown_surface, g_gl.context) == EGL_TRUE) {
+                made_current = true;
+            }
+        }
+    }
+    g_gl.callback->context_destroy();
+    if (made_current) eglMakeCurrent(g_gl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    if (teardown_surface != EGL_NO_SURFACE) eglDestroySurface(g_gl.display, teardown_surface);
+}
+
 // ---------------------------------------------------------------------------
 // Logging bridge.
 // ---------------------------------------------------------------------------
@@ -392,9 +440,16 @@ bool HandleHardwareRender(void* data) {
     auto* cb = static_cast<retro_hw_render_callback*>(data);
     if (cb == nullptr) return false;
 
-    // Only OpenGL ES is negotiated on Android. Vulkan/D3D requests are
-    // rejected so the core keeps its software renderer until a frontend
-    // Vulkan implementation exists.
+    if (cb->context_type == RETRO_HW_CONTEXT_VULKAN) {
+        if (!vulkan::AcceptHardwareRender(cb)) {
+            LOGI("Rejecting Vulkan hardware context (software fallback)");
+            return false;
+        }
+        return true;
+    }
+
+    // OpenGL ES is negotiated through EGL. Other context types are rejected so
+    // the core keeps its software renderer.
     if (cb->context_type != RETRO_HW_CONTEXT_OPENGLES3 &&
         cb->context_type != RETRO_HW_CONTEXT_OPENGLES_VERSION) {
         LOGI("Rejecting hardware context type %u (software fallback)", cb->context_type);
@@ -515,9 +570,37 @@ bool EnvironmentCallback(unsigned cmd, void* data) {
         case RETRO_ENVIRONMENT_SET_HW_RENDER:
             return HandleHardwareRender(data);
 
+        case RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE: {
+            if (data == nullptr) return false;
+            return vulkan::AcceptNegotiationInterface(
+                static_cast<const retro_hw_render_context_negotiation_interface*>(data));
+        }
+
+        case RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE: {
+            if (data == nullptr) return false;
+            return vulkan::FillHardwareRenderInterface(reinterpret_cast<retro_hw_render_interface**>(data));
+        }
+
+        case RETRO_ENVIRONMENT_GET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_SUPPORT: {
+            if (data == nullptr) return false;
+            auto* negotiation = static_cast<retro_hw_render_context_negotiation_interface*>(data);
+            if (negotiation->interface_type == RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN) {
+                negotiation->interface_version = RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN_VERSION;
+            } else {
+                negotiation->interface_version = 0;
+            }
+            return true;
+        }
+
         case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER: {
             if (data == nullptr) return false;
-            *static_cast<unsigned*>(data) = RETRO_HW_CONTEXT_OPENGLES3;
+            int renderer;
+            {
+                std::lock_guard<std::mutex> lock(g_frontend.mutex);
+                renderer = g_frontend.requested_renderer;
+            }
+            *static_cast<unsigned*>(data) = renderer == core_renderer::kVulkan ? RETRO_HW_CONTEXT_VULKAN
+                                                                               : RETRO_HW_CONTEXT_OPENGLES3;
             return true;
         }
 
@@ -651,6 +734,18 @@ void RetroVideoRefresh(const void* data, unsigned width, unsigned height, size_t
         return;
     }
     if (data == RETRO_HW_FRAME_BUFFER_VALID) {
+        if (vulkan::IsActive()) {
+            bool window_attached = false;
+            {
+                std::lock_guard<std::mutex> lock(g_frontend.mutex);
+                window_attached = g_frontend.window != nullptr;
+            }
+            if (!window_attached) return;
+            retro_system_av_info info{};
+            retro_get_system_av_info(&info);
+            vulkan::Present(width, height, info.geometry.aspect_ratio, AspectRatioStretchRequested());
+            return;
+        }
         // Hardware path: the core rendered into the frontend framebuffer; blit
         // it to the window, then present.
         PresentHardwareFrame();
@@ -844,6 +939,7 @@ JNIEXPORT void JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_destroySession(JNIEnv*, jobject, jlong handle) {
     if (handle == 0) return;
     std::lock_guard<std::mutex> lock(g_frontend.core_mutex);
+    DestroyHardwareRendererContext();
     if (g_frontend.game_loaded) {
         retro_unload_game();
         g_frontend.game_loaded = false;
@@ -853,6 +949,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_destroySession(JNIEnv*, jobject, jl
         g_frontend.core_initialized = false;
     }
     DestroyHardwareContext();
+    vulkan::Destroy();
 }
 
 // ---------------------------------------------------------------------------
@@ -1034,20 +1131,35 @@ JNIEXPORT jint JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_setSurface(JNIEnv* env, jobject, jlong handle,
                                                          jobject surface, jint renderer) {
     if (handle == 0) return -1;
-    std::lock_guard<std::mutex> lock(g_frontend.mutex);
-    if (g_frontend.window != nullptr) {
-        ANativeWindow_release(g_frontend.window);
-        g_frontend.window = nullptr;
+    ANativeWindow* probe_window = nullptr;
+    uint32_t generation = 0;
+    {
+        std::lock_guard<std::mutex> lock(g_frontend.mutex);
+        if (g_frontend.window != nullptr) {
+            ANativeWindow_release(g_frontend.window);
+            g_frontend.window = nullptr;
+        }
+        if (surface != nullptr) {
+            g_frontend.window = ANativeWindow_fromSurface(env, surface);
+        }
+        g_frontend.window_generation++;
+        g_frontend.requested_renderer = renderer;
+        g_frontend.options[option_key::kRenderer] = RendererOptionForInteger(renderer);
+        probe_window = g_frontend.window;
+        generation = g_frontend.window_generation;
+        if (probe_window != nullptr) ANativeWindow_acquire(probe_window);
     }
-    if (surface != nullptr) {
-        g_frontend.window = ANativeWindow_fromSurface(env, surface);
-    }
-    g_frontend.window_generation++;
-    g_frontend.requested_renderer = renderer;
-    g_frontend.options[option_key::kRenderer] = RendererOptionForInteger(renderer);
     LOGI("setSurface renderer=%d window=%s", renderer,
-         g_frontend.window != nullptr ? "attached" : "detached");
-    return 0;
+         probe_window != nullptr ? "attached" : "detached");
+
+    int result = 0;
+    if (probe_window != nullptr && renderer == core_renderer::kVulkan &&
+        !vulkan::Prepare(probe_window, generation)) {
+        LOGE("Vulkan is unavailable for the requested surface");
+        result = -2;
+    }
+    if (probe_window != nullptr) ANativeWindow_release(probe_window);
+    return result;
 }
 
 // ---------------------------------------------------------------------------

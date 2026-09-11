@@ -54,12 +54,15 @@ endif()
 # JNI bridge that drives the core through the libretro API.
 add_library(emucorer_jni SHARED
     native_bridge.cpp
+    vulkan_frontend.cpp
 )
 
 target_include_directories(emucorer_jni PRIVATE
     "${SWANSTATION_DIR}/dep/libretro-common/include"
     "${SWANSTATION_DIR}/src"
 )
+
+find_library(VULKAN_LIBRARY vulkan)
 
 target_link_libraries(emucorer_jni PRIVATE
     swanstation_libretro
@@ -68,6 +71,7 @@ target_link_libraries(emucorer_jni PRIVATE
     aaudio
     EGL
     GLESv3
+    ${VULKAN_LIBRARY}
 )
 
 target_compile_options(emucorer_jni PRIVATE -Wall -Wextra)
