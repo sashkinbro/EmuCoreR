@@ -434,7 +434,7 @@ object SwanStationCoreOptions {
                 Choice("true", "Enabled"),
                 Choice("false", "Disabled"),
             ),
-            defaultValue = "true",
+            defaultValue = "false",
         ),
         Option(
             key = "swanstation_GPU_PGXPTextureCorrection",
@@ -445,7 +445,7 @@ object SwanStationCoreOptions {
                 Choice("true", "Enabled"),
                 Choice("false", "Disabled"),
             ),
-            defaultValue = "true",
+            defaultValue = "false",
         ),
         Option(
             key = "swanstation_GPU_PGXPColorCorrection",
