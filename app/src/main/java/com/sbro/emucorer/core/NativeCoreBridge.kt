@@ -46,6 +46,11 @@ class NativeCoreBridge {
 
     /** Advances one guest frame and returns interleaved 44.1 kHz stereo PCM. */
     external fun runFrame(handle: Long): ShortArray?
+    /**
+     * Creates/rebinds the hardware renderer context on the calling thread.
+     * Must be invoked from the frame worker so GL state stays thread-affine.
+     */
+    external fun ensureHardwareContext(): Boolean
     external fun setSurface(handle: Long, surface: Surface?, renderer: Int): Int
 
     // ---------------------------------------------------------------------

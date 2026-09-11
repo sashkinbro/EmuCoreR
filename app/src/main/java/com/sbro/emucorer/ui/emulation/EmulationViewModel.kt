@@ -205,7 +205,7 @@ data class EmulationUiState(
     val currentSlot: Int = 1,
     val renderer: Int = RendererDefaults.defaultForHardware(),
     val upscale: Float = 1f,
-    val aspectRatio: Int = 2,
+    val aspectRatio: Int = 1,
     val localMultiplayerMode: Int = AppPreferences.LOCAL_MULTIPLAYER_OFF,
     val displayCrop: DisplayCrop = DisplayCrop.None,
     val performancePreset: Int = PerformancePresets.CUSTOM,

@@ -13,6 +13,9 @@ import com.sbro.emucorer.data.RetroArchShaderEffects
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicIntegerArray
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
@@ -44,7 +47,7 @@ internal object CoreRuntime {
     private val sessionLock = ReentrantLock()
     private var context: Context? = null
     private var session = 0L
-    private var worker: Thread? = null
+    @Volatile private var worker: Thread? = null
     private var audioOutput: FrameAudioOutput? = null
 
     private var systemDirectory = ""
@@ -73,6 +76,56 @@ internal object CoreRuntime {
 
     private val pendingPadButtons = AtomicIntegerArray(IntArray(2) { -1 })
     private val pendingPadAnalog = AtomicIntegerArray(IntArray(2) { 0x80808080.toInt() })
+
+    private class FrameTask(
+        val block: () -> Boolean,
+        val completed: CountDownLatch
+    ) {
+        @Volatile var result: Boolean = false
+    }
+
+    private val frameTasks = ConcurrentLinkedQueue<FrameTask>()
+
+    /**
+     * Runs [block] on the frame worker thread.
+     *
+     * Serialization must happen there because the OpenGL ES renderer owns its
+     * EGL context on that thread: calling [NativeCoreBridge.saveState] /
+     * [NativeCoreBridge.loadState] from any other thread silently skips the GL
+     * VRAM readback/upload and produces corrupted save states.
+     */
+    private fun runOnFrameThread(block: () -> Boolean): Boolean {
+        val activeWorker = worker
+        if (activeWorker == null || !activeWorker.isAlive || activeWorker === Thread.currentThread()) {
+            return block()
+        }
+        val task = FrameTask(block, CountDownLatch(1))
+        frameTasks.add(task)
+        return try {
+            if (!task.completed.await(30, TimeUnit.SECONDS)) {
+                Log.w(TAG, "Timed out waiting for the frame worker to run a state operation")
+                false
+            } else {
+                task.result
+            }
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
+        }
+    }
+
+    private fun drainFrameTasks() {
+        while (true) {
+            val task = frameTasks.poll() ?: return
+            task.result = try {
+                task.block()
+            } catch (error: Throwable) {
+                Log.e(TAG, "Frame-thread state operation failed", error)
+                false
+            }
+            task.completed.countDown()
+        }
+    }
 
     fun initialize(context: Context) {
         this.context = context.applicationContext
@@ -124,8 +177,11 @@ internal object CoreRuntime {
         val biosOnly = currentBiosOnly
         val wasPaused = paused
         val stateFile = context?.let { File(it.cacheDir, "renderer-switch.rstate") }
-        val stateSaved = stateFile != null && sessionLock.withLock {
-            session != 0L && bridge.saveState(session, stateFile.absolutePath) == 0
+        val statePath = stateFile?.absolutePath
+        val stateSaved = statePath != null && runOnFrameThread {
+            sessionLock.withLock {
+                session != 0L && bridge.saveState(session, statePath) == 0
+            }
         }
         Log.i(TAG, "Renderer restart renderer=" +
             RendererDefaults.coreRendererName(RendererDefaults.toCoreRenderer(normalized)) +
@@ -140,12 +196,13 @@ internal object CoreRuntime {
             started = startSession(gamePath, biosOnly)
         }
         try {
-            if (stateFile != null && started && stateSaved) {
-                sessionLock.withLock {
-                    if (session != 0L && bridge.loadState(session, stateFile.absolutePath) != 0) {
-                        Log.w(TAG, "Unable to restore state after renderer switch")
+            if (statePath != null && started && stateSaved) {
+                val restored = runOnFrameThread {
+                    sessionLock.withLock {
+                        session != 0L && bridge.loadState(session, statePath) == 0
                     }
                 }
+                if (!restored) Log.w(TAG, "Unable to restore state after renderer switch")
             }
         } finally {
             stateFile?.delete()
@@ -330,7 +387,7 @@ internal object CoreRuntime {
 
     /** Persists and forwards the app's aspect-ratio selection (0..4). */
     fun setDisplayAspectRatio(type: Int) {
-        val normalized = if (type in ASPECT_RATIO_STRETCH..ASPECT_RATIO_CUSTOM) type else ASPECT_RATIO_4_3
+        val normalized = if (type in ASPECT_RATIO_STRETCH..ASPECT_RATIO_CUSTOM) type else ASPECT_RATIO_AUTO
         settings["EmuCoreR/Display:AspectRatio"] = normalized.toString()
         pushAspectRatio(normalized)
     }
@@ -341,7 +398,7 @@ internal object CoreRuntime {
     }
 
     private fun pushAspectRatio(type: Int) {
-        val normalized = if (type in ASPECT_RATIO_STRETCH..ASPECT_RATIO_CUSTOM) type else ASPECT_RATIO_4_3
+        val normalized = if (type in ASPECT_RATIO_STRETCH..ASPECT_RATIO_CUSTOM) type else ASPECT_RATIO_AUTO
         bridge.nativeSetOption(
             "swanstation_Display_AspectRatio",
             when (normalized) {
@@ -473,14 +530,17 @@ internal object CoreRuntime {
         return sessionLock.withLock { session != 0L && loadDisc(session, path) == 0 }
     }
 
-    fun saveState(path: String): Boolean = sessionLock.withLock {
-        if (session == 0L) return@withLock false
+    fun saveState(path: String): Boolean {
         val target = File(path)
         target.parentFile?.mkdirs()
         val temporary = File(target.parentFile, ".${target.name}.saving")
-        try {
-            if (bridge.saveState(session, temporary.absolutePath) != 0) return@withLock false
-            writeSaveStateFile(temporary, target)
+        return try {
+            val saved = runOnFrameThread {
+                sessionLock.withLock {
+                    session != 0L && bridge.saveState(session, temporary.absolutePath) == 0
+                }
+            }
+            saved && writeSaveStateFile(temporary, target)
         } finally {
             temporary.delete()
         }
@@ -493,28 +553,30 @@ internal object CoreRuntime {
         paused = true
         try {
             audioOutput?.pause()
-            sessionLock.withLock {
-                val raw = File(file.parentFile, ".${file.name}.loading")
-                val prepared = runCatching {
-                    val bytes = file.readBytes()
-                    val payload = if (
-                        bytes.size > SAVE_STATE_HEADER_BYTES &&
-                        readSaveStateMagic(bytes) == SAVE_STATE_MAGIC
-                    ) {
-                        bytes.copyOfRange(SAVE_STATE_HEADER_BYTES, bytes.size)
-                    } else {
-                        bytes
-                    }
-                    raw.writeBytes(payload)
-                }.isSuccess
-                val loaded = prepared && session != 0L && bridge.loadState(session, raw.absolutePath) == 0
-                raw.delete()
-                if (loaded) {
-                    audioOutput?.discardTimeline()
-                    renderedFirstFrame = false
+            val raw = File(file.parentFile, ".${file.name}.loading")
+            val prepared = runCatching {
+                val bytes = file.readBytes()
+                val payload = if (
+                    bytes.size > SAVE_STATE_HEADER_BYTES &&
+                    readSaveStateMagic(bytes) == SAVE_STATE_MAGIC
+                ) {
+                    bytes.copyOfRange(SAVE_STATE_HEADER_BYTES, bytes.size)
+                } else {
+                    bytes
                 }
-                loaded
+                raw.writeBytes(payload)
+            }.isSuccess
+            val loaded = prepared && runOnFrameThread {
+                sessionLock.withLock {
+                    session != 0L && bridge.loadState(session, raw.absolutePath) == 0
+                }
             }
+            raw.delete()
+            if (loaded) {
+                audioOutput?.discardTimeline()
+                renderedFirstFrame = false
+            }
+            loaded
         } finally {
             if (!wasPaused && running) audioOutput?.resume()
             paused = wasPaused
@@ -735,6 +797,10 @@ internal object CoreRuntime {
         var metricsStartCpuMs = android.os.Process.getElapsedCpuTime()
         try {
             while (running) {
+                // Owns the thread-affine EGL context, so any queued save/load
+                // task must wait until the hardware context is ready here.
+                bridge.ensureHardwareContext()
+                drainFrameTasks()
                 if (paused) {
                     Thread.sleep(8)
                     continue
@@ -827,6 +893,7 @@ internal object CoreRuntime {
             Log.e(TAG, "Emulation frame loop stopped", error)
             reportFailure("Emulation frame loop stopped: ${error.javaClass.simpleName}: ${error.message.orEmpty()}")
         } finally {
+            drainFrameTasks()
             running = false
         }
     }

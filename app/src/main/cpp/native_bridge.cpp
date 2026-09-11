@@ -1711,6 +1711,13 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_setSurface(JNIEnv* env, jobject, jl
     return result;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_ensureHardwareContext(JNIEnv*, jobject) {
+    // Called from the frame worker before draining state operations so the GL
+    // context (thread-affine) exists before serialization touches the GPU.
+    return EnsureHardwareContext() ? JNI_TRUE : JNI_FALSE;
+}
+
 // ---------------------------------------------------------------------------
 // JNI: input.
 // ---------------------------------------------------------------------------

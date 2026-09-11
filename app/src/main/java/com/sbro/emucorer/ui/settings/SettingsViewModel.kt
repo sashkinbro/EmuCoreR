@@ -110,7 +110,7 @@ data class SettingsUiState(
     val tvInterfaceMode: TvInterfaceMode = TvInterfaceMode.AUTO,
     val renderer: Int = RendererDefaults.defaultForHardware(),
     val upscaleMultiplier: Float = 1f,
-    val aspectRatio: Int = 2,
+    val aspectRatio: Int = 1,
     val localMultiplayerMode: Int = AppPreferences.LOCAL_MULTIPLAYER_OFF,
     val displayCrop: DisplayCrop = DisplayCrop.None,
     val audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,
