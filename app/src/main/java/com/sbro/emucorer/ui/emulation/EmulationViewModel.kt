@@ -279,6 +279,7 @@ data class EmulationUiState(
     val currentGameSubtitle: String = "",
     val currentGameCoverPath: String? = null,
     val gameSettingsProfileActive: Boolean = false,
+    val perGameCoreOptions: Map<String, String> = emptyMap(),
     val currentSlotLastModified: Long = 0L,
     val autoSaveEnabled: Boolean = false,
     val autoSaveIntervalMinutes: Int = 1,
@@ -1662,11 +1663,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     currentGameCoverArtPath = null
                     currentGameCrc = ""
                     currentGameSource = "bios_only"
+                    pendingPerGameCoreOptions = emptyMap()
                     _uiState.value = _uiState.value.copy(
                         currentGameTitle = currentGameTitle,
                         currentGameSubtitle = currentGameSubtitle(),
                         currentGameCoverPath = currentGameCoverArtPath,
                         gameSettingsProfileActive = false,
+                        perGameCoreOptions = emptyMap(),
                         cheatsGameKey = null,
                         availableCheats = emptyList()
                     )
@@ -1678,11 +1681,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     currentGameCoverArtPath = null
                     currentGameCrc = ""
                     currentGameSource = "autotest_elf"
+                    pendingPerGameCoreOptions = emptyMap()
                     _uiState.value = _uiState.value.copy(
                         currentGameTitle = currentGameTitle,
                         currentGameSubtitle = currentGameSubtitle(),
                         currentGameCoverPath = currentGameCoverArtPath,
                         gameSettingsProfileActive = false,
+                        perGameCoreOptions = emptyMap(),
                         cheatsGameKey = null,
                         availableCheats = emptyList()
                     )
@@ -1717,7 +1722,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         currentGameTitle = currentGameTitle,
                         currentGameSubtitle = currentGameSubtitle(),
                         currentGameCoverPath = currentGameCoverArtPath,
-                        gameSettingsProfileActive = existingProfile != null
+                        gameSettingsProfileActive = existingProfile != null,
+                        perGameCoreOptions = pendingPerGameCoreOptions
                     )
                     syncCurrentGameProfileMetadata()
                     if (!bootSmokeProbe) {
@@ -2190,6 +2196,41 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /**
+     * Applies a SwanStation core option while a game session is running.
+     *
+     * Core options edited in-game belong to the running game, so they are stored
+     * in that game's profile instead of the global core-option store. A change
+     * made while the core is live (BIOS only) still persists globally.
+     */
+    fun setCoreOption(key: String, value: String) {
+        viewModelScope.launch {
+            val gameKey = activePerGameKey()
+            if (gameKey == null) {
+                NativeApp.setCoreOption(key, value)
+                return@launch
+            }
+            NativeApp.applyCoreOption(key, value)
+            val existing = perGameSettingsRepository.get(gameKey)
+            val coreOptions = (existing?.coreOptions ?: emptyMap()) + (key to value)
+            val profile = existing?.copy(coreOptions = coreOptions)
+                ?: PerGameSettings(
+                    gameKey = gameKey,
+                    gameTitle = resolvePerGameTitle(_uiState.value),
+                    gameSerial = currentGameSerial.takeIf { it.isNotBlank() },
+                    coreOptions = coreOptions,
+                    providedKeys = setOf("coreOptions")
+                )
+            perGameSettingsRepository.save(profile)
+            pendingPerGameCoreOptions =
+                coreOptions.filterKeys { !SwanStationCoreOptions.isManagedKey(it) }
+            _uiState.value = _uiState.value.copy(
+                gameSettingsProfileActive = true,
+                perGameCoreOptions = pendingPerGameCoreOptions
+            )
+        }
+    }
+
     fun setOverlayScale(value: Int) {
         viewModelScope.launch {
             preferences.setOverlayScale(value)
@@ -2503,6 +2544,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     fun setRenderer(renderer: Int) {
         viewModelScope.launch {
             if (!EmulatorBridge.setRenderer(renderer)) return@launch
+            // A renderer switch recreates the core session, which drops the
+            // per-game core-option overrides applied after the last launch.
+            pendingPerGameCoreOptions.forEach { (key, value) -> NativeApp.applyCoreOption(key, value) }
             val newState = markPerformancePresetCustom(_uiState.value).copy(renderer = renderer)
             persistRuntimeState(newState) {
                 preferences.setPerformancePreset(PerformancePresets.CUSTOM)
@@ -4044,7 +4088,17 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         perGameSettingsRepository.delete(gameKey)
         currentTouchControlsLayoutProfile = null
         GamepadManager.clearPerGameOverrides()
-        _uiState.value = _uiState.value.copy(gameSettingsProfileActive = false, gamepadBindingsByPad = emptyMap())
+        // Restore the global/core-default value of any option that was overridden
+        // only by this game, so the live core matches the reset profile.
+        pendingPerGameCoreOptions.keys.forEach { key ->
+            NativeApp.getCoreOption(key)?.let { baseValue -> NativeApp.applyCoreOption(key, baseValue) }
+        }
+        pendingPerGameCoreOptions = emptyMap()
+        _uiState.value = _uiState.value.copy(
+            gameSettingsProfileActive = false,
+            perGameCoreOptions = emptyMap(),
+            gamepadBindingsByPad = emptyMap()
+        )
         viewModelScope.launch {
             val settings = preferences.settingsSnapshot.first()
             _uiState.value = _uiState.value
@@ -4053,6 +4107,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     touchControlVisualStyle = settings.touchControlVisualStyle,
                     touchControlPressEffect = settings.touchControlPressEffect,
                     gameSettingsProfileActive = false,
+                    perGameCoreOptions = emptyMap(),
                     gamepadStickDeadzone = settings.gamepadStickDeadzone,
                     gamepadLeftStickSensitivity = settings.gamepadLeftStickSensitivity,
                     gamepadRightStickSensitivity = settings.gamepadRightStickSensitivity

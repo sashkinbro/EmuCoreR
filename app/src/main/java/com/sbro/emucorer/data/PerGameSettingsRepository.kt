@@ -670,7 +670,7 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("analogAxisModifier")) put("analogAxisModifier", analogAxisModifier)
         if (shouldWrite("dualshockToggleCombo")) put("dualshockToggleCombo", dualshockToggleCombo)
         if (shouldWrite("cdReadAhead")) put("cdReadAhead", cdReadAhead)
-        if (shouldWrite("coreOptions") && coreOptions.isNotEmpty()) {
+        if (coreOptions.isNotEmpty()) {
             put("coreOptions", JSONObject().apply {
                 coreOptions.forEach { (optionKey, optionValue) -> put(optionKey, optionValue) }
             })

@@ -1318,6 +1318,7 @@ fun EmulationScreen(
                     onSetAutoLoadOnStart = { viewModel.setAutoLoadOnStart(it) },
                     onSaveGameSettingsProfile = { viewModel.saveCurrentGameSettingsProfile() },
                     onResetGameSettingsProfile = { viewModel.resetCurrentGameSettingsProfile() },
+                    onSetCoreOption = { key, value -> viewModel.setCoreOption(key, value) },
                     onNextSlot = { viewModel.setSlot(uiState.currentSlot + 1) },
                     onPrevSlot = { viewModel.setSlot(uiState.currentSlot - 1) },
                     onToggleFps = { viewModel.toggleFpsVisibility() },
@@ -2675,6 +2676,7 @@ private fun EmulationSidebarMenu(
     onSetAutoLoadOnStart: (Boolean) -> Unit,
     onSaveGameSettingsProfile: () -> Unit,
     onResetGameSettingsProfile: () -> Unit,
+    onSetCoreOption: (String, String) -> Unit,
     onNextSlot: () -> Unit,
     onPrevSlot: () -> Unit,
     onToggleFps: () -> Unit,
@@ -2885,7 +2887,7 @@ private fun EmulationSidebarMenu(
 
                 var coreOptionsVersion by remember { mutableIntStateOf(0) }
                 val onCoreOptionChange: (String, String) -> Unit = { key, value ->
-                    NativeApp.setCoreOption(key, value)
+                    onSetCoreOption(key, value)
                     coreOptionsVersion++
                 }
 
@@ -3249,6 +3251,7 @@ private fun EmulationSidebarMenu(
                         CoreOptionRows(
                             options = SwanStationCoreOptions.controlsOptions(),
                             version = coreOptionsVersion,
+                            perGameOverrides = uiState.perGameCoreOptions,
                             onValueChange = onCoreOptionChange
                         )
 
@@ -3571,6 +3574,7 @@ private fun EmulationSidebarMenu(
                         CoreOptionRows(
                             options = SwanStationCoreOptions.emulationOptions(),
                             version = coreOptionsVersion,
+                            perGameOverrides = uiState.perGameCoreOptions,
                             onValueChange = onCoreOptionChange
                         )
 
@@ -3612,6 +3616,7 @@ private fun EmulationSidebarMenu(
                         CoreOptionRows(
                             options = SwanStationCoreOptions.audioOptions(),
                             version = coreOptionsVersion,
+                            perGameOverrides = uiState.perGameCoreOptions,
                             onValueChange = onCoreOptionChange
                         )
 
@@ -3693,6 +3698,7 @@ private fun EmulationSidebarMenu(
                             CoreOptionRows(
                                 options = listOf(option),
                                 version = coreOptionsVersion,
+                                perGameOverrides = uiState.perGameCoreOptions,
                                 onValueChange = onCoreOptionChange
                             )
                         }
@@ -3700,6 +3706,7 @@ private fun EmulationSidebarMenu(
                         CoreOptionRows(
                             options = SwanStationCoreOptions.graphicsOptions(),
                             version = coreOptionsVersion,
+                            perGameOverrides = uiState.perGameCoreOptions,
                             onValueChange = onCoreOptionChange
                         )
 
@@ -4580,12 +4587,15 @@ private fun LiveSelectionRow(
 private fun CoreOptionRows(
     options: List<SwanStationCoreOptions.Option>,
     version: Int,
+    perGameOverrides: Map<String, String>,
     onValueChange: (String, String) -> Unit
 ) {
     version
     options.forEach { option ->
         val values = option.choices.map { it.value }
-        val current = NativeApp.getCoreOption(option.key) ?: option.defaultValue
+        val current = perGameOverrides[option.key]
+            ?: NativeApp.getCoreOption(option.key)
+            ?: option.defaultValue
         val currentIndex = values.indexOf(current).let { if (it >= 0) it else 0 }
         val titleRes = SwanStationCoreOptionStrings.optionLabelRes[option.key]
         val title = if (titleRes != null) stringResource(titleRes) else option.label

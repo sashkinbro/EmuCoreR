@@ -7,7 +7,7 @@ object GsHackDefaults {
     const val DITHERING_DEFAULT = 2
     const val DITHERING_MIN = 0
     const val DITHERING_MAX = 3
-    const val BILINEAR_FILTERING_DEFAULT = 2
+    const val BILINEAR_FILTERING_DEFAULT = 0
     const val BILINEAR_FILTERING_MIN = 0
     const val BILINEAR_FILTERING_MAX = 3
     const val TRILINEAR_FILTERING_DEFAULT = -1
