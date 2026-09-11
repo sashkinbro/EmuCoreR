@@ -121,6 +121,10 @@ struct FrontendState {
     size_t audio_read_frame = 0;
     size_t audio_write_frame = 0;
 
+    // AAudio output configuration, applied when the next stream is opened.
+    std::atomic<int> audio_output_latency_ms{50};
+    std::atomic<bool> audio_low_latency{false};
+
     // Input: active-high bitmask per port plus analog axes.
     std::atomic<uint16_t> pad_buttons[2]{{0xFFFF}, {0xFFFF}};
     std::atomic<int16_t> pad_analog[2][4]{};  // lx, ly, rx, ry in -32768..32767
@@ -1835,6 +1839,23 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_getAvInfo(JNIEnv* env, jobject, jlo
 // ---------------------------------------------------------------------------
 // JNI: AAudio output (NativeAudioPcmSink contract).
 // ---------------------------------------------------------------------------
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_setAudioOutputLatencyMs(JNIEnv*, jobject,
+                                                                     jint milliseconds) {
+    int clamped = milliseconds;
+    if (clamped < 1) clamped = 1;
+    if (clamped > 500) clamped = 500;
+    g_frontend.audio_output_latency_ms.store(clamped);
+    LOGI("Audio output latency = %d ms", clamped);
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_setAudioLowLatency(JNIEnv*, jobject, jboolean enabled) {
+    const bool value = enabled == JNI_TRUE;
+    g_frontend.audio_low_latency.store(value);
+    LOGI("Audio low latency = %d", value ? 1 : 0);
+}
+
 JNIEXPORT jlong JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_createAudioOutput(JNIEnv*, jobject) {
     auto* output = new AudioOutput();
@@ -1847,7 +1868,15 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createAudioOutput(JNIEnv*, jobject)
     AAudioStreamBuilder_setFormat(builder, AAUDIO_FORMAT_PCM_I16);
     AAudioStreamBuilder_setChannelCount(builder, 2);
     AAudioStreamBuilder_setSampleRate(builder, 44100);
-    AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
+    const int latency_ms = g_frontend.audio_output_latency_ms.load();
+    const int32_t capacity_frames =
+        static_cast<int32_t>((static_cast<int64_t>(latency_ms) * 44100) / 1000);
+    if (capacity_frames > 0) {
+        AAudioStreamBuilder_setBufferCapacityInFrames(builder, capacity_frames);
+    }
+    AAudioStreamBuilder_setPerformanceMode(
+        builder, g_frontend.audio_low_latency.load() ? AAUDIO_PERFORMANCE_MODE_LOW_LATENCY
+                                                     : AAUDIO_PERFORMANCE_MODE_NONE);
     const aaudio_result_t opened = AAudioStreamBuilder_openStream(builder, &output->stream);
     AAudioStreamBuilder_delete(builder);
     if (opened != AAUDIO_OK || output->stream == nullptr) {

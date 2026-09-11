@@ -5,8 +5,8 @@ package com.sbro.emucorer.core
 import com.sbro.emucorer.R
 
 /**
- * GENERATED from assets/catalog/swanstation_options.json.
- * Localized option labels, descriptions and choice labels for the SwanStation core options.
+ * Localized labels, descriptions and choice labels for the in-code SwanStation
+ * core option catalogue in [SwanStationCoreOptions].
  */
 object SwanStationCoreOptionStrings {
     val optionLabelRes: Map<String, Int> = buildMap {

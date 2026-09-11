@@ -878,6 +878,12 @@
     <string name="settings_audio_mute_desc">Zakáže veškerý zvukový výstup emulátoru</string>
     <string name="settings_help_audio_volume">Řídí hlasitost zvuku během normální emulace.</string>
     <string name="settings_help_audio_mute">Ztlumí zvuk emulátoru beze změny uložených úrovní hlasitosti.</string>
+    <string name="settings_audio_output">Zvukový výstup</string>
+    <string name="settings_audio_output_latency">Zpoždění výstupu</string>
+    <string name="settings_help_audio_output_latency">Nastavuje zvukovou vyrovnávací paměť pro přehrávání. Nižší hodnoty snižují zpoždění zvuku, vyšší hodnoty jsou stabilnější na pomalejších zařízeních. Použije se při spuštění hry.</string>
+    <string name="settings_audio_minimal_latency">Minimální zpoždění výstupu</string>
+    <string name="settings_audio_minimal_latency_desc">Upřednostnit nejrychlejší zvukovou cestu AAudio</string>
+    <string name="settings_help_audio_minimal_latency">Vyžádá režim nízkého zpoždění AAudio pro zvukový proud emulátoru. Snižuje zpoždění mezi konzolí a reproduktorem, ale spotřebovává více energie a hůře snáší zátěž na pozadí. Použije se při spuštění hry.</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">Procesor / Systém</string>

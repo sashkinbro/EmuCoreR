@@ -308,6 +308,21 @@ object EmulatorBridge {
                 NativeApp.setAudioBufferMs(audioBufferMsSetting)
                 return true
             }
+            "OutputLatencyMS", "AudioOutputLatencyMs" -> {
+                val milliseconds = value.toIntOrNull() ?: return false
+                NativeApp.setAudioOutputLatencyMs(
+                    milliseconds.coerceIn(
+                        AudioDefaults.OUTPUT_LATENCY_MS_MIN,
+                        AudioDefaults.OUTPUT_LATENCY_MS_MAX
+                    )
+                )
+                return true
+            }
+            "OutputLatencyMinimal", "MinimalOutputLatency" -> {
+                val enabled = value.toBooleanStrictOrNull() ?: return false
+                NativeApp.setAudioLowLatency(enabled)
+                return true
+            }
             else -> return false
         }
         NativeApp.setAudioOutputGain(audioVolumeSetting, audioMutedSetting)

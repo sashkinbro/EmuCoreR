@@ -758,6 +758,12 @@
     <string name="settings_audio_mute_desc">Sämtliche Audioausgabe des Emulators deaktivieren</string>
     <string name="settings_help_audio_volume">Steuert die Audiolautstärke während der normalen Emulation.</string>
     <string name="settings_help_audio_mute">Schaltet das Emulator-Audio stumm, ohne die gespeicherten Lautstärkepegel zu ändern.</string>
+    <string name="settings_audio_output">Audioausgabe</string>
+    <string name="settings_audio_output_latency">Ausgabelatenz</string>
+    <string name="settings_help_audio_output_latency">Legt den Audiopuffer für die Wiedergabe fest. Niedrigere Werte verringern die Klangverzögerung, höhere Werte sind auf langsameren Geräten stabiler. Wird beim Spielstart angewendet.</string>
+    <string name="settings_audio_minimal_latency">Minimale Ausgabelatenz</string>
+    <string name="settings_audio_minimal_latency_desc">Den schnellsten AAudio-Ausgabeweg bevorzugen</string>
+    <string name="settings_help_audio_minimal_latency">Fordert den AAudio-Leistungsmodus mit niedriger Latenz für den Audio-Stream des Emulators an. Verringert die Verzögerung zwischen Konsole und Lautsprecher, verbraucht aber mehr Energie und reagiert empfindlicher auf Hintergrundlast. Wird beim Spielstart angewendet.</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">CPU / System</string>

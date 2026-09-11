@@ -773,6 +773,12 @@
     <string name="settings_audio_mute_desc">Вимкнути будь-яке виведення звуку емулятора</string>
     <string name="settings_help_audio_volume">Керує гучністю звуку під час звичайної емуляції.</string>
     <string name="settings_help_audio_mute">Вимикає звук емулятора без зміни збережених рівнів гучності.</string>
+    <string name="settings_audio_output">Виведення звуку</string>
+    <string name="settings_audio_output_latency">Затримка виведення</string>
+    <string name="settings_help_audio_output_latency">Задає аудіобуфер, який використовується для відтворення. Менші значення зменшують затримку звуку, більші — стабільніші на повільних пристроях. Застосовується під час запуску гри.</string>
+    <string name="settings_audio_minimal_latency">Мінімальна затримка виведення</string>
+    <string name="settings_audio_minimal_latency_desc">Надавати перевагу найшвидшому шляху виведення AAudio</string>
+    <string name="settings_help_audio_minimal_latency">Запитує низьколатентний режим продуктивності AAudio для аудіопотоку емулятора. Зменшує затримку між консоллю та динаміком, але споживає більше енергії та гірше переносить фонове навантаження. Застосовується під час запуску гри.</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">Процесор / Система</string>

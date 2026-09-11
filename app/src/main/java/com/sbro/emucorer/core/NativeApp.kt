@@ -123,6 +123,12 @@ object NativeApp {
     @JvmStatic fun setAudioBufferMs(milliseconds: Int) = runCatching {
         CoreRuntime.bridge.setAudioBufferMs(milliseconds)
     }
+    @JvmStatic fun setAudioOutputLatencyMs(milliseconds: Int) = runCatching {
+        CoreRuntime.bridge.setAudioOutputLatencyMs(milliseconds)
+    }
+    @JvmStatic fun setAudioLowLatency(enabled: Boolean) = runCatching {
+        CoreRuntime.bridge.setAudioLowLatency(enabled)
+    }
     @JvmStatic fun queueGsDump(frames: Int) = Unit
     @JvmStatic @Synchronized fun setPadButton(padIndex: Int, index: Int, range: Int, pressed: Boolean) {
         if (padIndex !in 0..1) return

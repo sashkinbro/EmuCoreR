@@ -756,6 +756,12 @@
     <string name="settings_audio_mute_desc">모든 에뮬레이터 오디오 출력 비활성화</string>
     <string name="settings_help_audio_volume">일반 에뮬레이션 중의 오디오 음량을 조절합니다.</string>
     <string name="settings_help_audio_mute">저장된 음량 레벨을 변경하지 않고 에뮬레이터 오디오를 음소거합니다.</string>
+    <string name="settings_audio_output">오디오 출력</string>
+    <string name="settings_audio_output_latency">출력 지연 시간</string>
+    <string name="settings_help_audio_output_latency">재생에 사용할 오디오 버퍼를 설정합니다. 값이 낮으면 소리 지연이 줄고, 값이 높으면 느린 기기에서 더 안정적입니다. 게임 시작 시 적용됩니다.</string>
+    <string name="settings_audio_minimal_latency">최소 출력 지연 시간</string>
+    <string name="settings_audio_minimal_latency_desc">가장 빠른 AAudio 출력 경로 우선</string>
+    <string name="settings_help_audio_minimal_latency">에뮬레이터 오디오 스트림에 AAudio 저지연 성능 모드를 요청합니다. 콘솔과 스피커 사이의 지연을 줄이지만 전력을 더 사용하고 백그라운드 부하에 덜 견고합니다. 게임 시작 시 적용됩니다.</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">CPU / 시스템</string>

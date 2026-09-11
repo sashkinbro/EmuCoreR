@@ -758,6 +758,12 @@
     <string name="settings_audio_mute_desc">禁用所有模拟器音频输出</string>
     <string name="settings_help_audio_volume">控制正常模拟期间的音频音量。</string>
     <string name="settings_help_audio_mute">将模拟器音频静音，而不更改保存的音量级别。</string>
+    <string name="settings_audio_output">音频输出</string>
+    <string name="settings_audio_output_latency">输出延迟</string>
+    <string name="settings_help_audio_output_latency">设置用于播放的音频缓冲区。较低的值可减少声音延迟，较高的值在较慢的设备上更稳定。在游戏启动时应用。</string>
+    <string name="settings_audio_minimal_latency">最低输出延迟</string>
+    <string name="settings_audio_minimal_latency_desc">优先使用最快的 AAudio 输出路径</string>
+    <string name="settings_help_audio_minimal_latency">为模拟器音频流请求 AAudio 低延迟性能模式。可减少主机与扬声器之间的延迟，但耗电更多，且对后台负载更敏感。在游戏启动时应用。</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">CPU / 系统</string>

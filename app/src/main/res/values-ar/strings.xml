@@ -756,6 +756,12 @@
     <string name="settings_audio_mute_desc">تعطيل جميع مخارج الصوت للمحاكي</string>
     <string name="settings_help_audio_volume">يتحكم في مستوى الصوت أثناء المحاكاة العادية.</string>
     <string name="settings_help_audio_mute">يكتم صوت المحاكي دون تغيير مستويات الصوت المحفوظة.</string>
+    <string name="settings_audio_output">إخراج الصوت</string>
+    <string name="settings_audio_output_latency">زمن استجابة الإخراج</string>
+    <string name="settings_help_audio_output_latency">يضبط مخزن الصوت المؤقت المستخدم للتشغيل. القيم الأقل تقلل تأخر الصوت، والقيم الأعلى أكثر استقرارًا على الأجهزة البطيئة. يُطبق عند بدء اللعبة.</string>
+    <string name="settings_audio_minimal_latency">أدنى زمن استجابة للإخراج</string>
+    <string name="settings_audio_minimal_latency_desc">تفضيل مسار إخراج AAudio الأسرع</string>
+    <string name="settings_help_audio_minimal_latency">يطلب وضع الأداء منخفض زمن الاستجابة لتيار صوت المحاكي. يقلل التأخر بين المنصة ومكبر الصوت، لكنه يستهلك طاقة أكثر ويتحمل أقل الحمل في الخلفية. يُطبق عند بدء اللعبة.</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">المعالج / النظام</string>

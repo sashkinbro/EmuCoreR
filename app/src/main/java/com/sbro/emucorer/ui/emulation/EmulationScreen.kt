@@ -3609,6 +3609,12 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetEnableCddaAudio(globalDefaults.enableCddaAudio) }
                         )
 
+                        CoreOptionRows(
+                            options = SwanStationCoreOptions.audioOptions(),
+                            version = coreOptionsVersion,
+                            onValueChange = onCoreOptionChange
+                        )
+
                         }
                                     }
 

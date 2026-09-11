@@ -142,12 +142,14 @@ import com.sbro.emucorer.ui.theme.neon.neonShape
 private enum class GameSettingsManagerTab {
     Core,
     Runtime,
+    Audio,
     Controls,
 }
 
 private val SupportedGameSettingsManagerTabs = listOf(
     GameSettingsManagerTab.Core,
     GameSettingsManagerTab.Runtime,
+    GameSettingsManagerTab.Audio,
     GameSettingsManagerTab.Controls
 )
 
@@ -760,6 +762,7 @@ private fun GameSettingsManagerTabRow(
                         text = when (tab) {
                             GameSettingsManagerTab.Core -> stringResource(R.string.settings_graphics_tab)
                             GameSettingsManagerTab.Runtime -> stringResource(R.string.game_settings_manager_tab_system)
+                            GameSettingsManagerTab.Audio -> stringResource(R.string.settings_audio_tab)
                             GameSettingsManagerTab.Controls -> stringResource(R.string.settings_controls_tab)
                         }
                     )
@@ -980,12 +983,19 @@ private fun GameSettingsTabContent(
                     )
                 }
 
+            }
+            GameSettingsManagerTab.Audio -> {
                 EditorSection(title = stringResource(R.string.settings_core_audio)) {
                     ToggleRow(
                         title = stringResource(R.string.settings_enable_cdda_audio),
                         checked = draft.enableCddaAudio,
                         onCheckedChange = { onDraftChange(draft.copy(enableCddaAudio = it)) },
                         onResetToDefault = { onDraftChange(draft.copy(enableCddaAudio = defaultProfile.enableCddaAudio)) }
+                    )
+                    CoreOptionManagerRows(
+                        options = SwanStationCoreOptions.audioOptions(),
+                        draft = draft,
+                        onDraftChange = onDraftChange
                     )
                 }
             }
@@ -1545,6 +1555,7 @@ private fun Modifier.sectionContentFullBleed(horizontalPadding: Dp): Modifier {
 private fun GameSettingsManagerTab.title(): String = when (this) {
     GameSettingsManagerTab.Core -> stringResource(R.string.settings_graphics_tab)
     GameSettingsManagerTab.Runtime -> stringResource(R.string.game_settings_manager_tab_system)
+    GameSettingsManagerTab.Audio -> stringResource(R.string.settings_audio_tab)
     GameSettingsManagerTab.Controls -> stringResource(R.string.settings_controls_tab)
 }
 
@@ -1838,6 +1849,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         analogAxisModifier = pick("analogAxisModifier", analogAxisModifier, defaultProfile.analogAxisModifier),
         dualshockToggleCombo = pick("dualshockToggleCombo", dualshockToggleCombo, defaultProfile.dualshockToggleCombo),
         cdReadAhead = pick("cdReadAhead", cdReadAhead, defaultProfile.cdReadAhead),
+        coreOptions = coreOptions,
         touchControlVisualStyle = pick("touchControlVisualStyle", touchControlVisualStyle, defaultProfile.touchControlVisualStyle),
         touchControlPressEffect = pick("touchControlPressEffect", touchControlPressEffect, defaultProfile.touchControlPressEffect),
         providedKeys = null,

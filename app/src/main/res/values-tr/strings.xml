@@ -756,6 +756,12 @@
     <string name="settings_audio_mute_desc">Tüm emülatör ses çıkışını devre dışı bırak</string>
     <string name="settings_help_audio_volume">Normal emülasyon sırasında ses seviyesini kontrol eder.</string>
     <string name="settings_help_audio_mute">Kaydedilen ses seviyelerini değiştirmeden emülatör sesini kapatır.</string>
+    <string name="settings_audio_output">Ses çıkışı</string>
+    <string name="settings_audio_output_latency">Çıkış gecikmesi</string>
+    <string name="settings_help_audio_output_latency">Oynatma için kullanılan ses arabelleğini ayarlar. Düşük değerler ses gecikmesini azaltır, yüksek değerler yavaş cihazlarda daha kararlıdır. Oyun başlatıldığında uygulanır.</string>
+    <string name="settings_audio_minimal_latency">En düşük çıkış gecikmesi</string>
+    <string name="settings_audio_minimal_latency_desc">En hızlı AAudio çıkış yolunu tercih et</string>
+    <string name="settings_help_audio_minimal_latency">Emülatör ses akışı için AAudio düşük gecikmeli performans modunu ister. Konsol ile hoparlör arasındaki gecikmeyi azaltır, ancak daha fazla güç tüketir ve arka plan yüküne karşı daha az dayanıklıdır. Oyun başlatıldığında uygulanır.</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">CPU / Sistem</string>

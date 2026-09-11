@@ -756,6 +756,12 @@
     <string name="settings_audio_mute_desc">エミュレーターのすべての音声出力を無効にする</string>
     <string name="settings_help_audio_volume">通常のエミュレーション時の音量を調整します。</string>
     <string name="settings_help_audio_mute">保存されている音量レベルを変更せずに、エミュレーターの音声をミュートします。</string>
+    <string name="settings_audio_output">オーディオ出力</string>
+    <string name="settings_audio_output_latency">出力レイテンシ</string>
+    <string name="settings_help_audio_output_latency">再生に使用するオーディオバッファを設定します。値を小さくすると音の遅延が減り、値を大きくすると低速な端末でも安定します。ゲーム開始時に適用されます。</string>
+    <string name="settings_audio_minimal_latency">最小出力レイテンシ</string>
+    <string name="settings_audio_minimal_latency_desc">最速の AAudio 出力パスを優先</string>
+    <string name="settings_help_audio_minimal_latency">エミュレーターのオーディオストリームに AAudio の低遅延パフォーマンスモードを要求します。本体とスピーカーの間の遅延を減らしますが、消費電力が増え、バックグラウンド負荷に弱くなります。ゲーム開始時に適用されます。</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">CPU / システム</string>

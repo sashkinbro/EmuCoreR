@@ -832,6 +832,12 @@
     <string name="settings_audio_mute_desc">Nonaktifkan semua keluaran audio emulator</string>
     <string name="settings_help_audio_volume">Mengontrol volume audio selama emulasi normal.</string>
     <string name="settings_help_audio_mute">Membisukan audio emulator tanpa mengubah tingkat volume yang disimpan.</string>
+    <string name="settings_audio_output">Output audio</string>
+    <string name="settings_audio_output_latency">Latensi output</string>
+    <string name="settings_help_audio_output_latency">Mengatur buffer audio yang digunakan untuk pemutaran. Nilai lebih rendah mengurangi jeda suara, nilai lebih tinggi lebih stabil pada perangkat lambat. Diterapkan saat game dimulai.</string>
+    <string name="settings_audio_minimal_latency">Latensi output minimal</string>
+    <string name="settings_audio_minimal_latency_desc">Utamakan jalur output AAudio tercepat</string>
+    <string name="settings_help_audio_minimal_latency">Meminta mode performa latensi rendah AAudio untuk aliran audio emulator. Mengurangi jeda antara konsol dan speaker, tetapi memakai lebih banyak daya dan kurang toleran terhadap beban latar belakang. Diterapkan saat game dimulai.</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">CPU / Sistem</string>

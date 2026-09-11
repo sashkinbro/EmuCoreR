@@ -1302,6 +1302,35 @@ private fun SettingsContent(
                         )
                     }
 
+                    SettingsSection(title = stringResource(R.string.settings_audio_output)) {
+                        SliderItem(
+                            icon = Icons.Rounded.GraphicEq,
+                            title = stringResource(R.string.settings_audio_output_latency),
+                            subtitle = "${uiState.audioOutputLatencyMs} ms",
+                            value = uiState.audioOutputLatencyMs.toFloat(),
+                            range = AudioDefaults.OUTPUT_LATENCY_MS_MIN.toFloat()..
+                                AudioDefaults.OUTPUT_LATENCY_MS_MAX.toFloat(),
+                            steps = 0,
+                            onValueChange = { viewModel.setAudioOutputLatencyMs(it.roundToInt()) },
+                            valueLabel = { "${it.roundToInt()} ms" },
+                            helpText = stringResource(R.string.settings_help_audio_output_latency),
+                            onResetToDefault = {
+                                viewModel.setAudioOutputLatencyMs(defaults.audioOutputLatencyMs)
+                            }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.settings_audio_minimal_latency),
+                            subtitle = stringResource(R.string.settings_audio_minimal_latency_desc),
+                            checked = uiState.audioMinimalOutputLatency,
+                            onCheckedChange = viewModel::setAudioMinimalOutputLatency,
+                            helpText = stringResource(R.string.settings_help_audio_minimal_latency),
+                            onResetToDefault = {
+                                viewModel.setAudioMinimalOutputLatency(defaults.audioMinimalOutputLatency)
+                            }
+                        )
+                    }
+
                     SettingsSection(title = stringResource(R.string.settings_core_audio)) {
                         ToggleItem(
                             icon = Icons.Rounded.MusicNote,
@@ -1311,8 +1340,16 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setEnableCddaAudio,
                             onResetToDefault = { viewModel.setEnableCddaAudio(defaults.enableCddaAudio) }
                         )
+                        var coreAudioOptionsVersion by remember { mutableIntStateOf(0) }
+                        CoreOptionSettingsRows(
+                            options = remember { SwanStationCoreOptions.audioOptions() },
+                            version = coreAudioOptionsVersion,
+                            onValueChange = { key, value ->
+                                NativeApp.setCoreOption(key, value)
+                                coreAudioOptionsVersion++
+                            }
+                        )
                     }
-
                 }
 
                 SettingsTab.Controls -> {
@@ -3773,6 +3810,10 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.General, R.string.settings_prefer_english_game_titles),
         entry(SettingsTab.Audio, R.string.settings_audio_volume),
         entry(SettingsTab.Audio, R.string.settings_audio_mute),
+        entry(SettingsTab.Audio, R.string.settings_audio_output_latency),
+        entry(SettingsTab.Audio, R.string.settings_audio_minimal_latency),
+        entry(SettingsTab.Audio, R.string.settings_enable_cdda_audio),
+        entry(SettingsTab.Audio, R.string.ss_core_audio_fasthook),
         entry(SettingsTab.Controls, R.string.settings_overlay_scale),
         entry(SettingsTab.Controls, R.string.settings_overlay_opacity),
         entry(SettingsTab.Controls, R.string.settings_touchscreen_right_stick),

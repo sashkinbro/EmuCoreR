@@ -756,6 +756,12 @@
     <string name="settings_audio_mute_desc">एमुलेटर के सभी ऑडियो आउटपुट अक्षम करें</string>
     <string name="settings_help_audio_volume">सामान्य एमुलेशन के दौरान ऑडियो वॉल्यूम को नियंत्रित करता है।</string>
     <string name="settings_help_audio_mute">सहेजे गए वॉल्यूम स्तरों को बदले बिना एमुलेटर ऑडियो को म्यूट करता है।</string>
+    <string name="settings_audio_output">ऑडियो आउटपुट</string>
+    <string name="settings_audio_output_latency">आउटपुट विलंबता</string>
+    <string name="settings_help_audio_output_latency">प्लेबैक के लिए उपयोग किए जाने वाले ऑडियो बफ़र को निर्धारित करता है। कम मान ध्वनि विलंब को घटाते हैं, और अधिक मान धीमे उपकरणों पर अधिक स्थिर होते हैं। गेम शुरू होने पर लागू होता है।</string>
+    <string name="settings_audio_minimal_latency">न्यूनतम आउटपुट विलंबता</string>
+    <string name="settings_audio_minimal_latency_desc">सबसे तेज़ AAudio आउटपुट पथ को प्राथमिकता दें</string>
+    <string name="settings_help_audio_minimal_latency">एमुलेटर ऑडियो स्ट्रीम के लिए AAudio का कम विलंब वाला प्रदर्शन मोड अनुरोध करता है। यह कंसोल और स्पीकर के बीच विलंब घटाता है, लेकिन अधिक बिजली लेता है और पृष्ठभूमि लोड के प्रति कम सहनशील होता है। गेम शुरू होने पर लागू होता है।</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">CPU / सिस्टम</string>

@@ -83,6 +83,12 @@ class NativeCoreBridge {
     fun clearCheats() = Unit
 
     // ---------------------------------------------------------------------
+    // AAudio output tuning (applied when the next stream is opened).
+    // ---------------------------------------------------------------------
+    external fun setAudioOutputLatencyMs(milliseconds: Int)
+    external fun setAudioLowLatency(enabled: Boolean)
+
+    // ---------------------------------------------------------------------
     // AAudio output (consumed by NativeAudioPcmSink).
     // ---------------------------------------------------------------------
     external fun createAudioOutput(): Long

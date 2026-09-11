@@ -832,6 +832,12 @@
     <string name="settings_audio_mute_desc">غیرفعال کردن تمام خروجی صدای شبیه‌ساز</string>
     <string name="settings_help_audio_volume">حجم صدا را در طول شبیه‌سازی عادی کنترل می‌کند.</string>
     <string name="settings_help_audio_mute">صدای شبیه‌ساز را بدون تغییر سطح صدای ذخیره شده، قطع می‌کند.</string>
+    <string name="settings_audio_output">خروجی صدا</string>
+    <string name="settings_audio_output_latency">تأخیر خروجی</string>
+    <string name="settings_help_audio_output_latency">بافر صدای پخش را تعیین می‌کند. مقادیر کمتر تأخیر صدا را کاهش می‌دهند و مقادیر بیشتر روی دستگاه‌های کندتر پایدارتر هستند. هنگام شروع بازی اعمال می‌شود.</string>
+    <string name="settings_audio_minimal_latency">کمترین تأخیر خروجی</string>
+    <string name="settings_audio_minimal_latency_desc">ترجیح سریع‌ترین مسیر خروجی AAudio</string>
+    <string name="settings_help_audio_minimal_latency">حالت عملکرد کم‌تأخیر AAudio را برای جریان صدای شبیه‌ساز درخواست می‌کند. تأخیر بین کنسول و بلندگو را کاهش می‌دهد، اما مصرف انرژی بیشتری دارد و در برابر بار پس‌زمینه حساس‌تر است. هنگام شروع بازی اعمال می‌شود.</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">پردازنده / سیستم</string>

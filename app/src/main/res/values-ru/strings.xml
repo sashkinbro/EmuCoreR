@@ -758,6 +758,12 @@
     <string name="settings_audio_mute_desc">Отключает любой вывод звука эмулятора</string>
     <string name="settings_help_audio_volume">Управляет громкостью звука во время обычной эмуляции.</string>
     <string name="settings_help_audio_mute">Отключает звук эмулятора без изменения сохраненных уровней громкости.</string>
+    <string name="settings_audio_output">Вывод звука</string>
+    <string name="settings_audio_output_latency">Задержка вывода</string>
+    <string name="settings_help_audio_output_latency">Задаёт аудиобуфер, используемый для воспроизведения. Меньшие значения уменьшают задержку звука, большие — стабильнее на медленных устройствах. Применяется при запуске игры.</string>
+    <string name="settings_audio_minimal_latency">Минимальная задержка вывода</string>
+    <string name="settings_audio_minimal_latency_desc">Предпочитать самый быстрый путь вывода AAudio</string>
+    <string name="settings_help_audio_minimal_latency">Запрашивает низколатентный режим производительности AAudio для аудиопотока эмулятора. Уменьшает задержку между консолью и динамиком, но расходует больше энергии и хуже переносит фоновую нагрузку. Применяется при запуске игры.</string>
 
 <!-- Core-specific emulation settings -->
     <string name="settings_core_cpu">Процессор / Система</string>

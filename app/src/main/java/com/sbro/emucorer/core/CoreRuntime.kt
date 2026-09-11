@@ -62,6 +62,7 @@ internal object CoreRuntime {
     @Volatile private var performanceMetricsEnabled = false
     @Volatile private var detailedPerformanceMetrics = false
     @Volatile private var performanceMetricsSnapshot: String? = null
+    @Volatile private var audioGain: Float = 1f
 
     private val pendingPadButtons = AtomicIntegerArray(IntArray(2) { -1 })
     private val pendingPadAnalog = AtomicIntegerArray(IntArray(2) { 0x80808080.toInt() })
@@ -73,7 +74,6 @@ internal object CoreRuntime {
         saveDirectory = File(root, "save").apply { mkdirs() }.absolutePath
         coreAssetsDirectory = File(root, "assets").apply { mkdirs() }.absolutePath
         SwanStationOptions.initialize(context.applicationContext)
-        SwanStationCoreOptions.load(context.applicationContext)
         runCatching {
             bridge.nativeInit(systemDirectory, saveDirectory, coreAssetsDirectory)
             bridge.apiVersion()
@@ -91,9 +91,10 @@ internal object CoreRuntime {
 
     fun performanceMetricsSnapshot(): String? = performanceMetricsSnapshot
 
-    fun setAudioGain(@Suppress("UNUSED_PARAMETER") volume: Int, @Suppress("UNUSED_PARAMETER") muted: Boolean) {
-        // Frontend volume/mute is handled by the app audio pipeline before
-        // PCM reaches the AAudio sink.
+    fun setAudioGain(volume: Int, muted: Boolean) {
+        val normalized = volume.coerceIn(AudioDefaults.VOLUME_MIN, AudioDefaults.VOLUME_MAX) /
+            AudioDefaults.VOLUME_MAX.toFloat()
+        audioGain = if (muted) 0f else normalized
     }
 
     fun start(gamePath: String, biosOnly: Boolean): Boolean = lifecycleLock.withLock {
@@ -189,7 +190,7 @@ internal object CoreRuntime {
         sessionStartedAtNanos = startupStartedAtNanos
         var started = false
         try {
-            val output = FrameAudioOutput(createPcmSink())
+            val output = FrameAudioOutput(createPcmSink()) { audioGain }
             audioOutput = output
             output.resume()
             worker = thread(name = "EmuCoreR-Frame", isDaemon = true, start = true) { runLoop(output) }
