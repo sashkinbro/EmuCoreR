@@ -895,10 +895,23 @@ bool CreateSwapchain() {
     create_info.imageArrayLayers = 1;
     create_info.imageUsage = usage;
     create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    create_info.preTransform = capabilities.currentTransform;
+    // The frame is rendered in the window's logical orientation; the display
+    // compositor already rotates it for the physical panel. Declaring the
+    // surface's currentTransform as preTransform made the platform rotate the
+    // image a second time (90 degrees off on portrait-native phones), so ask
+    // for an identity pre-transform whenever the surface allows it.
+    VkSurfaceTransformFlagBitsKHR pre_transform = capabilities.currentTransform;
+    if ((capabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) != 0) {
+        pre_transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    }
+    create_info.preTransform = pre_transform;
     create_info.compositeAlpha = ChooseCompositeAlpha(capabilities.supportedCompositeAlpha);
     create_info.presentMode = present_mode;
     create_info.clipped = VK_TRUE;
+    VK_LOGI("Vulkan swapchain transforms: supported=0x%x current=0x%x chosen=0x%x",
+            static_cast<unsigned>(capabilities.supportedTransforms),
+            static_cast<unsigned>(capabilities.currentTransform),
+            static_cast<unsigned>(pre_transform));
 
     const VkResult result = g_vk.pfn_create_swapchain(g_vk.device, &create_info, nullptr, &g_vk.swapchain);
     if (result != VK_SUCCESS) {
@@ -1467,8 +1480,10 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
         RecreateSwapchain();
         return false;
     }
-    const bool recreate_after_present = (result == VK_SUBOPTIMAL_KHR);
-    if (result != VK_SUCCESS && !recreate_after_present) {
+    // A swapchain whose preTransform differs from the surface's current
+    // transform reports SUBOPTIMAL_KHR on every present while still presenting
+    // correctly; rebuilding it there just burns a full swapchain per frame.
+    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         VK_LOGW("vkAcquireNextImageKHR failed (0x%x)", result);
         return false;
     }
@@ -1526,12 +1541,17 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
     g_vk.swapchain_initialized[swapchain_index] = true;
     g_vk.sync_index = swapchain_index;
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || recreate_after_present) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         RecreateSwapchain();
-    } else if (result != VK_SUCCESS) {
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         VK_LOGW("vkQueuePresentKHR failed (0x%x)", result);
         return false;
     }
+    // The core reuses a single frame texture for every frame. Without waiting
+    // for this frame's blit to finish, the core starts overwriting that texture
+    // while the GPU is still sampling it, which shows up as trails/ghosting of
+    // the previous frame during menu transitions.
+    vkWaitForFences(g_vk.device, 1, &g_vk.frame_fence, VK_TRUE, kFenceWaitTimeoutNs);
     return true;
 }
 

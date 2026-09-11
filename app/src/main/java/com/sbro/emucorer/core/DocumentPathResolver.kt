@@ -357,6 +357,61 @@ object DocumentPathResolver {
         return cueFile.absolutePath
     }
 
+    /**
+     * Copies a single-file disc image opened through SAF into [targetDir] under
+     * a real path with its original extension. SwanStation picks the container
+     * from the path extension and reopens the image by path, which scoped
+     * storage denies for `/proc/self/fd` symlinks, so CHD/ISO/PBP images must
+     * be streamed once into app-owned storage. Existing copies with the same
+     * size as the source document are reused.
+     */
+    fun materializeSingleFileDisc(context: Context, launchPath: String, targetDir: File): String? {
+        if (!launchPath.startsWith("content://")) return null
+        val uri = launchPath.toUri()
+        val displayName = getDisplayName(context, launchPath)
+        val extension = displayName.substringAfterLast('.', "").lowercase()
+        if (extension.isBlank() || extension.length > 5) return null
+        if (!targetDir.exists() && !targetDir.mkdirs()) return null
+
+        val sourceSize = querySourceSize(context, uri)
+        val target = File(targetDir, "disc.$extension")
+        if (target.isFile && sourceSize > 0 && target.length() == sourceSize) {
+            return target.absolutePath
+        }
+
+        val staging = File(targetDir, ".disc.$extension.part")
+        staging.delete()
+        val copied = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(staging).use { output -> input.copyTo(output, 1 shl 20) }
+            } ?: return null
+            true
+        }.onFailure { error ->
+            Log.e(TAG, "Unable to materialize disc image $launchPath", error)
+        }.getOrDefault(false)
+        if (!copied) {
+            staging.delete()
+            return null
+        }
+        if (sourceSize > 0 && staging.length() != sourceSize) {
+            Log.e(TAG, "Disc image copy is incomplete: ${staging.length()} != $sourceSize for $launchPath")
+            staging.delete()
+            return null
+        }
+        if (!staging.renameTo(target)) {
+            staging.delete()
+            return null
+        }
+        Log.i(TAG, "Materialized disc image ${target.absolutePath} (${target.length()} bytes) from $launchPath")
+        return target.absolutePath
+    }
+
+    private fun querySourceSize(context: Context, uri: Uri): Long = runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else -1L
+        } ?: -1L
+    }.getOrDefault(-1L)
+
     private fun prepareUriGameLaunchPath(context: Context, uri: Uri): String? {
         val resolvedDirect = resolveFilePath(context, uri.toString())
             ?.let(::File)

@@ -830,11 +830,17 @@ internal object CoreRuntime {
 
     private fun loadDisc(handle: Long, gamePath: String): Int {
         if (!gamePath.startsWith("content://")) return bridge.loadDisc(handle, gamePath)
-        val cacheDir = context?.cacheDir
-        if (cacheDir != null) {
-            val directory = File(cacheDir, "swanstation-cue/${gamePath.hashCode()}")
+        val appContext = context
+        if (appContext != null) {
+            val directory = File(appContext.cacheDir, "swanstation-cue/${gamePath.hashCode()}")
             DocumentPathResolver.materializePreparedCue(gamePath, directory)?.let { cuePath ->
                 return bridge.loadDisc(handle, cuePath)
+            }
+            // Single-file images (CHD/ISO/PBP/...) cannot be reopened through a
+            // /proc/self/fd symlink under scoped storage, so stream them into
+            // app-owned cache with their original extension first.
+            DocumentPathResolver.materializeSingleFileDisc(appContext, gamePath, directory)?.let { imagePath ->
+                return bridge.loadDisc(handle, imagePath)
             }
         }
         val resolver = context?.contentResolver ?: return -1
@@ -847,7 +853,7 @@ internal object CoreRuntime {
         // live SAF descriptor through a cache symlink that keeps the original
         // extension ("/proc/self/fd/N" alone would be rejected as unknown).
         val extension = discExtensionFor(gamePath)
-        val link = cacheDir?.let { File(it, "swanstation-disc/disc-${gamePath.hashCode()}.$extension") }
+        val link = context?.cacheDir?.let { File(it, "swanstation-disc/disc-${gamePath.hashCode()}.$extension") }
         if (link != null && createDiscSymlink(link, descriptor.fd)) {
             discLink = link
             val linked = bridge.loadDisc(handle, link.absolutePath)
