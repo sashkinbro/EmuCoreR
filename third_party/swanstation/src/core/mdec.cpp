@@ -1,4 +1,5 @@
 #include "mdec.h"
+#include "common/log.h"
 #include "common/state_wrapper.h"
 #include "cpu_core.h"
 #include "dma.h"
@@ -7,6 +8,8 @@
 #include "system.h"
 
 #include <cstring>
+Log_SetChannel(MDEC);
+
 MDEC g_mdec;
 
 MDEC::MDEC() = default;
@@ -192,6 +195,14 @@ uint32_t MDEC::ReadDataRegister()
 
 void MDEC::WriteCommandRegister(uint32_t value)
 {
+  // The command/data FIFO takes two halfwords per CPU write; drop the write
+  // when it cannot hold both, otherwise the queue would overrun.
+  if (m_data_in_fifo.GetSpace() < 2)
+  {
+    Log_ErrorPrintf("Ignoring MDEC command/data write 0x%08X: FIFO full", value);
+    return;
+  }
+
   m_data_in_fifo.Push(static_cast<uint16_t>(value));
   m_data_in_fifo.Push(static_cast<uint16_t>(value >> 16));
 
