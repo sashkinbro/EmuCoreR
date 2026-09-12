@@ -1,8 +1,18 @@
 # EmuCoreR
 
+[![Website](https://img.shields.io/badge/website-emucorer.web.app-2563eb?logo=firebase&logoColor=white)](https://emucorer.web.app)
+[![Discord](https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/c5EBeNRpz2)
 [![Support on Patreon](https://img.shields.io/badge/Patreon-Support%20EmuCore-ff424d?logo=patreon&logoColor=white)](https://www.patreon.com/c/emucore/membership)
 
 EmuCoreR is a PlayStation 1 emulator and game library for Android, built around the [SwanStation](https://github.com/libretro/swanstation) libretro core (a DuckStation-derived PS1 emulator) and a purpose-built Compose interface for phones, tablets, and Android TV.
+
+## Website and Releases
+
+Builds are published on the project website at **[emucorer.web.app](https://emucorer.web.app)**. Every release has localized notes in all 18 app languages and per-file download links, backed by Cloud Firestore. Release details can be opened directly from the app's Updates screen.
+
+- Website: https://emucorer.web.app
+- Changelogs and downloads: https://emucorer.web.app/#downloads
+- Community: https://discord.com/invite/c5EBeNRpz2
 
 ## Highlights
 
@@ -35,6 +45,7 @@ This repository contains the Android application, its Compose UI, settings and d
 - [SwanStation](https://github.com/libretro/swanstation) libretro core vendored under `third_party/swanstation`
 - Coil and WorkManager for library artwork and background jobs
 - Discord Social SDK for Rich Presence and party features
+- Firebase Hosting and Cloud Firestore for the website and release catalog
 - Firebase services used by the Hub and feedback flows
 
 ## Current App Scope
@@ -93,6 +104,8 @@ Thanks to the SwanStation and DuckStation developers, to the libretro team, and 
 
 If you want to support ongoing development:
 
+- Website: https://emucorer.web.app
+- Discord: https://discord.com/invite/c5EBeNRpz2
 - Patreon: https://www.patreon.com/c/emucore/membership
 - More apps by the author: https://play.google.com/store/apps/dev?id=7136622298887775989
 
