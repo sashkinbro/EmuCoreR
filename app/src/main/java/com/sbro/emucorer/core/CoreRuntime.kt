@@ -1026,7 +1026,8 @@ internal object CoreRuntime {
         val extension = path.substringAfterLast('.', "").lowercase()
         return extension == "cue" || extension == "bin" || extension == "img" ||
             extension == "iso" || extension == "chd" || extension == "pbp" || extension == "m3u" ||
-            extension == "ecm" || extension == "mds" || extension == "psf"
+            extension == "ecm" || extension == "mds" || extension == "psf" ||
+            extension == "exe" || extension == "psexe" || extension == "cpe"
     }
 
     private fun fitRect(containerWidth: Int, containerHeight: Int, contentWidth: Int, contentHeight: Int): Rect {

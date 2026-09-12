@@ -5,6 +5,9 @@
 #include "system.h"
 #include <limits>
 
+// The 16-bit counters wrap at this value.
+static constexpr uint32_t TIMER_OVERFLOW = 0x10000;
+
 Timers g_timers;
 
 Timers::Timers() = default;
@@ -114,8 +117,8 @@ TickCount Timers::GetTicksUntilIRQ(uint32_t timer) const
   TickCount ticks_until_irq = std::numeric_limits<TickCount>::max();
   if (cs.mode.irq_at_target && cs.counter < cs.target)
     ticks_until_irq = static_cast<TickCount>(cs.target - cs.counter);
-  if (cs.mode.irq_on_overflow)
-    ticks_until_irq = std::min(ticks_until_irq, static_cast<TickCount>(0xFFFFu - cs.counter));
+  if (cs.mode.irq_on_overflow && !cs.mode.reset_at_target)
+    ticks_until_irq = std::min(ticks_until_irq, static_cast<TickCount>(TIMER_OVERFLOW - cs.counter));
 
   return ticks_until_irq;
 }
@@ -123,14 +126,40 @@ TickCount Timers::GetTicksUntilIRQ(uint32_t timer) const
 void Timers::AddTicks(uint32_t timer, TickCount count)
 {
   CounterState& cs = m_states[timer];
-  const uint32_t old_counter = cs.counter;
-  cs.counter += static_cast<uint32_t>(count);
-  CheckForIRQ(timer, old_counter);
+
+  // In pulse mode the counter is stepped up to each reset point separately,
+  // otherwise a large jump could hide the intermediate IRQ edges.
+  if (cs.mode.irq_pulse_n)
+  {
+    do
+    {
+      const uint32_t reset_at = (cs.mode.reset_at_target && cs.counter < cs.target) ? cs.target : TIMER_OVERFLOW;
+      const uint32_t add = std::min(reset_at - cs.counter, static_cast<uint32_t>(count));
+      const uint32_t old_counter = cs.counter;
+      cs.counter += add;
+      count -= static_cast<TickCount>(add);
+      CheckForIRQ(timer, old_counter);
+    } while (count > 0);
+  }
+  else
+  {
+    const uint32_t old_counter = cs.counter;
+    cs.counter += static_cast<uint32_t>(count);
+    CheckForIRQ(timer, old_counter);
+  }
 }
 
 void Timers::CheckForIRQ(uint32_t timer, uint32_t old_counter)
 {
   CounterState& cs = m_states[timer];
+
+  // A counter above the target can wrap first and still raise the overflow IRQ.
+  bool wrapped_overflow = false;
+  if (cs.counter >= TIMER_OVERFLOW)
+  {
+    wrapped_overflow = (!cs.mode.reset_at_target || old_counter >= cs.target);
+    old_counter = 0;
+  }
 
   bool interrupt_request = false;
   if (cs.counter >= cs.target && (old_counter < cs.target || cs.target == 0))
@@ -138,14 +167,16 @@ void Timers::CheckForIRQ(uint32_t timer, uint32_t old_counter)
     interrupt_request |= cs.mode.irq_at_target;
     cs.mode.reached_target = true;
 
-    if (cs.mode.reset_at_target && cs.target > 0)
+    // A target of 0xFFFF still has to expose the overflow edge, so it is not
+    // used as a reset point.
+    if (cs.mode.reset_at_target && cs.target > 0 && cs.target != 0xFFFFu)
       cs.counter %= cs.target;
   }
-  if (cs.counter >= 0xFFFF)
+  if (cs.counter >= TIMER_OVERFLOW || wrapped_overflow)
   {
     interrupt_request |= cs.mode.irq_on_overflow;
     cs.mode.reached_overflow = true;
-    cs.counter %= 0xFFFFu;
+    cs.counter &= 0xFFFFu;
   }
 
   if (interrupt_request)
@@ -270,9 +301,8 @@ void Timers::WriteRegister(uint32_t offset, uint32_t value)
   {
     case 0x00:
     {
-      const uint32_t old_counter = cs.counter;
+      // Writing the counter does not compare it against the target.
       cs.counter = value & uint32_t(0xFFFF);
-      CheckForIRQ(timer_index, old_counter);
       if (timer_index == 2 || !cs.external_counting_enabled)
         UpdateSysClkEvent();
     }
@@ -297,7 +327,6 @@ void Timers::WriteRegister(uint32_t offset, uint32_t value)
     case 0x08:
     {
       cs.target = value & uint32_t(0xFFFF);
-      CheckForIRQ(timer_index, cs.counter);
       if (timer_index == 2 || !cs.external_counting_enabled)
         UpdateSysClkEvent();
     }

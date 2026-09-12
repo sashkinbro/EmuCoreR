@@ -873,6 +873,17 @@ object EmulatorBridge {
             }
             else -> false
         }
+        val isExeExecutable = when {
+            path.substringAfterLast('.', "").let { it.equals("exe", true) || it.equals("psexe", true) || it.equals("cpe", true) } -> true
+            path.startsWith("content://") -> {
+                val context = getContext()
+                val displayName = context?.let { DocumentPathResolver.getDisplayName(it, path) }.orEmpty()
+                displayName.substringAfterLast('.', "").let {
+                    it.equals("exe", true) || it.equals("psexe", true) || it.equals("cpe", true)
+                }
+            }
+            else -> false
+        }
         val pathType = when {
             path.startsWith("content://") -> "content"
             path.isBlank() -> "bios"
@@ -907,7 +918,7 @@ object EmulatorBridge {
                 Log.e(TAG, "startEmulation native call failed", error)
                 false
             }
-            if (result && !bootSmokeProbe && !allowBiosBoot && !isElf && !isIrx && !path.isBlank()) {
+            if (result && !bootSmokeProbe && !allowBiosBoot && !isElf && !isIrx && !isExeExecutable && !path.isBlank()) {
                 // The bundled core silently boots the BIOS when a disc image
                 // cannot be opened. Surface that as a failed launch instead of
                 // leaving the user on a misleading BIOS screen.

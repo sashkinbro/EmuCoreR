@@ -94,3 +94,12 @@ tests/fuzz/artifacts/
 /deps/
 /.github/
 /.gitlab-ci.yml
+
+# Firebase local state
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Local website workspace
+/public/

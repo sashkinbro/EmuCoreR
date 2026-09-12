@@ -178,8 +178,9 @@ float GetVerticalFrequency()
 static bool IsExeFileName(const char* path)
 {
   const char* extension = std::strrchr(path, '.');
-  return (extension &&
-          (StringUtil::Strcasecmp(extension, ".exe") == 0 || StringUtil::Strcasecmp(extension, ".psexe") == 0));
+  return (extension && (StringUtil::Strcasecmp(extension, ".exe") == 0 ||
+                        StringUtil::Strcasecmp(extension, ".psexe") == 0 ||
+                        StringUtil::Strcasecmp(extension, ".cpe") == 0));
 }
 
 /// Returns true if the filename is a Portable Sound Format file we can uncompress/load.
@@ -1206,6 +1207,203 @@ void SetVerticalFrequency(float frequency)
   s_vertical_frequency = frequency;
 }
 
+// PSYQ debug executables ("CPE") are chunked images: a magic word followed by
+// load/register/control records. The container predates PS-EXE and is used by
+// some development builds, so we parse it here to boot such files the same way
+// as regular executables.
+static constexpr uint32_t CPE_MAGIC = 0x01455043;
+
+static bool ReadCPEField(const std::vector<uint8_t>& data, size_t& offset, void* out, size_t count)
+{
+  if (offset + count > data.size())
+    return false;
+
+  std::memcpy(out, data.data() + offset, count);
+  offset += count;
+  return true;
+}
+
+// Writes an arbitrary byte run to emulated RAM. Whole words go through the
+// normal safe path; a trailing partial word preserves the untouched bytes.
+static bool WriteCPEImage(uint32_t address, const uint8_t* bytes, uint32_t count)
+{
+  uint32_t written = 0;
+  while (written < count)
+  {
+    const uint32_t remaining = count - written;
+    if (remaining >= sizeof(uint32_t))
+    {
+      uint32_t word;
+      std::memcpy(&word, bytes + written, sizeof(word));
+      if (!CPU::SafeWriteMemoryWord(address + written, word))
+        return false;
+
+      written += sizeof(uint32_t);
+      continue;
+    }
+
+    uint32_t word = 0;
+    CPU::SafeReadMemoryWord(address + written, &word);
+    for (uint32_t i = 0; i < remaining; i++)
+      word = (word & ~(UINT32_C(0xFF) << (i * 8))) | (static_cast<uint32_t>(bytes[written + i]) << (i * 8));
+
+    if (!CPU::SafeWriteMemoryWord(address + written, word))
+      return false;
+
+    written += remaining;
+  }
+
+  return true;
+}
+
+// Injects a CPE image and reports the register state it asks for. Only the
+// registers the BIOS handoff can restore (PC, GP, SP, FP) are captured; the
+// rest are skipped because the program initializes them itself.
+static bool LoadCPEToRAM(const char* filename, uint32_t* out_pc, uint32_t* out_gp, uint32_t* out_sp,
+                         uint32_t* out_fp)
+{
+  RFILE* fp = FileSystem::OpenRFile(filename, "rb");
+  if (!fp)
+  {
+    Log_ErrorPrintf("Failed to open CPE file '%s'", filename);
+    return false;
+  }
+
+  rfseek(fp, 0, SEEK_END);
+  const long file_size = rftell(fp);
+  rfseek(fp, 0, SEEK_SET);
+  if (file_size < 8)
+  {
+    rfclose(fp);
+    return false;
+  }
+
+  std::vector<uint8_t> data(static_cast<size_t>(file_size));
+  if (rfread(data.data(), data.size(), 1, fp) != 1)
+  {
+    rfclose(fp);
+    return false;
+  }
+  rfclose(fp);
+
+  size_t offset = 0;
+  uint32_t magic = 0;
+  if (!ReadCPEField(data, offset, &magic, sizeof(magic)) || magic != CPE_MAGIC)
+    return false;
+
+  bool reached_end = false;
+  while (offset < data.size())
+  {
+    uint8_t chunk = 0;
+    if (!ReadCPEField(data, offset, &chunk, sizeof(chunk)))
+      return false;
+
+    // Record 0 closes the stream; the boot parameters are already captured.
+    if (chunk == 0x00)
+    {
+      reached_end = true;
+      break;
+    }
+
+    switch (chunk)
+    {
+      case 0x01: // Image load: address, byte count, payload.
+      {
+        uint32_t address = 0, count = 0;
+        if (!ReadCPEField(data, offset, &address, sizeof(address)) ||
+            !ReadCPEField(data, offset, &count, sizeof(count)) || offset + count > data.size())
+          return false;
+        if (count > 0 && !WriteCPEImage(address, data.data() + offset, count))
+        {
+          Log_ErrorPrintf("Failed to load %u bytes at 0x%08X from CPE '%s'", count, address, filename);
+          return false;
+        }
+        offset += count;
+      }
+      break;
+
+      case 0x02: // Run address; the register record below is authoritative.
+      {
+        uint32_t run_address = 0;
+        if (!ReadCPEField(data, offset, &run_address, sizeof(run_address)))
+          return false;
+      }
+      break;
+
+      case 0x03: // 32-bit register write.
+      case 0x04: // 16-bit register write.
+      case 0x05: // 8-bit register write.
+      case 0x06: // 24-bit register write.
+      {
+        uint16_t reg = 0;
+        uint32_t value = 0;
+        if (!ReadCPEField(data, offset, &reg, sizeof(reg)))
+          return false;
+        if (chunk == 0x03)
+        {
+          if (!ReadCPEField(data, offset, &value, sizeof(value)))
+            return false;
+        }
+        else if (chunk == 0x04)
+        {
+          uint16_t half = 0;
+          if (!ReadCPEField(data, offset, &half, sizeof(half)))
+            return false;
+          value = half;
+        }
+        else if (chunk == 0x05)
+        {
+          uint8_t byte = 0;
+          if (!ReadCPEField(data, offset, &byte, sizeof(byte)))
+            return false;
+          value = byte;
+        }
+        else
+        {
+          uint16_t low = 0;
+          uint8_t high = 0;
+          if (!ReadCPEField(data, offset, &low, sizeof(low)) || !ReadCPEField(data, offset, &high, sizeof(high)))
+            return false;
+          value = static_cast<uint32_t>(low) | (static_cast<uint32_t>(high) << 16);
+        }
+
+        // 0x90 is the pseudo-register carrying the entry point.
+        if (reg == 0x90)
+          *out_pc = value;
+        else if (reg == 28)
+          *out_gp = value;
+        else if (reg == 29)
+          *out_sp = value;
+        else if (reg == 30)
+          *out_fp = value;
+      }
+      break;
+
+      case 0x07: // Workspace selector; meaningless for a direct boot.
+      {
+        uint32_t workspace = 0;
+        if (!ReadCPEField(data, offset, &workspace, sizeof(workspace)))
+          return false;
+      }
+      break;
+
+      case 0x08: // Debugger unit selector.
+      {
+        uint8_t unit = 0;
+        if (!ReadCPEField(data, offset, &unit, sizeof(unit)))
+          return false;
+      }
+      break;
+
+      default:
+        Log_ErrorPrintf("Unknown CPE record 0x%02X in '%s'", chunk, filename);
+        return false;
+    }
+  }
+
+  return reached_end;
+}
+
 static bool LoadEXEToRAM(const char* filename, bool patch_bios)
 {
   RFILE* fp = FileSystem::OpenRFile(filename, "rb");
@@ -1217,6 +1415,29 @@ static bool LoadEXEToRAM(const char* filename, bool patch_bios)
 
   rfseek(fp, 0, SEEK_END);
   const uint32_t file_size = static_cast<uint32_t>(rftell(fp));
+  rfseek(fp, 0, SEEK_SET);
+
+  // A CPE container starts with its own magic instead of the PS-EXE header.
+  uint32_t first_word = 0;
+  if (rfread(&first_word, sizeof(first_word), 1, fp) == 1 && first_word == CPE_MAGIC)
+  {
+    rfclose(fp);
+    uint32_t cpe_pc = 0, cpe_gp = 0, cpe_sp = 0, cpe_fp = 0;
+    if (!LoadCPEToRAM(filename, &cpe_pc, &cpe_gp, &cpe_sp, &cpe_fp))
+    {
+      Log_ErrorPrintf("'%s' is not a valid CPE image", filename);
+      return false;
+    }
+    if (cpe_pc == 0)
+    {
+      Log_ErrorPrintf("CPE image '%s' does not set an entry point", filename);
+      return false;
+    }
+
+    Log_InfoPrintf("Loaded CPE image '%s' entry=0x%08X", filename, cpe_pc);
+    return BIOS::PatchBIOSForEXE(Bus::g_bios, Bus::BIOS_SIZE, cpe_pc, cpe_gp, cpe_sp, cpe_fp);
+  }
+
   rfseek(fp, 0, SEEK_SET);
 
   BIOS::PSEXEHeader header;

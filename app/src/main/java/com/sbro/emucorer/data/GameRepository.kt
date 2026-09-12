@@ -29,7 +29,7 @@ class GameRepository {
     companion object {
         private const val TAG = "GameRepository"
         // Keep the library honest with what the bundled SwanStation core mounts.
-        private val SUPPORTED_EXTENSIONS = setOf("bin", "cue", "iso", "img", "chd", "pbp", "ecm", "mds")
+        private val SUPPORTED_EXTENSIONS = setOf("bin", "cue", "iso", "img", "chd", "pbp", "ecm", "mds", "exe", "psexe", "cpe")
         private val COVER_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp")
         private val COVER_DIRECTORY_NAMES = setOf("covers", "cover", "art", "artwork", "boxart", "box art")
         private const val MAX_DOCUMENT_SCAN_DEPTH = 32
