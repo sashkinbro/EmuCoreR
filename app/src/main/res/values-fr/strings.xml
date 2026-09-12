@@ -1921,4 +1921,6 @@
     <string name="ss_core_choice_profile">Profil</string>
     <string name="ss_core_choice_debug">Débogage</string>
     <string name="ss_core_choice_trace">Trace</string>
+    <string name="settings_frame_limit">Limite d\'images</string>
+    <string name="settings_frame_limit_desc">Limite l\'émulation au taux de rafraîchissement de la console. Désactivez pour aller aussi vite que l\'appareil le permet.</string>
 </resources>

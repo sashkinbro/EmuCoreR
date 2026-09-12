@@ -1921,4 +1921,6 @@
     <string name="ss_core_choice_profile">Perfil</string>
     <string name="ss_core_choice_debug">Depuração</string>
     <string name="ss_core_choice_trace">Rastreamento</string>
+    <string name="settings_frame_limit">Limite de quadros</string>
+    <string name="settings_frame_limit_desc">Limita a emulação à taxa de atualização do console. Desative para rodar o mais rápido que o dispositivo permitir.</string>
 </resources>

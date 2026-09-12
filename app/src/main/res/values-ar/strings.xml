@@ -1927,4 +1927,6 @@
     <string name="ss_core_choice_profile">ملف تعريف</string>
     <string name="ss_core_choice_debug">تصحيح</string>
     <string name="ss_core_choice_trace">تتبع</string>
+    <string name="settings_frame_limit">حد الإطارات</string>
+    <string name="settings_frame_limit_desc">يحد من المحاكاة بمعدل تحديث وحدة التحكم. أوقفه للتشغيل بأقصى سرعة يسمح بها الجهاز.</string>
 </resources>

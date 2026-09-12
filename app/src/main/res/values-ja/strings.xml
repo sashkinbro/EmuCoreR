@@ -1918,4 +1918,6 @@
     <string name="ss_core_choice_profile">プロファイル</string>
     <string name="ss_core_choice_debug">デバッグ</string>
     <string name="ss_core_choice_trace">トレース</string>
+    <string name="settings_frame_limit">フレーム制限</string>
+    <string name="settings_frame_limit_desc">エミュレーションを本体のリフレッシュレートに制限します。オフにするとデバイスの性能に応じて高速に動作します。</string>
 </resources>

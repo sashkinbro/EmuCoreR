@@ -1941,4 +1941,6 @@
     <string name="ss_core_choice_profile">Profile</string>
     <string name="ss_core_choice_debug">Debug</string>
     <string name="ss_core_choice_trace">Trace</string>
+    <string name="settings_frame_limit">Frame limit</string>
+    <string name="settings_frame_limit_desc">Caps emulation to the console\'s refresh rate. Turn off to run as fast as the device allows.</string>
 </resources>

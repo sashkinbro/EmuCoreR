@@ -2069,6 +2069,14 @@ private fun SettingsContent(
                             helpText = stringResource(R.string.settings_help_show_fps),
                             onResetToDefault = { viewModel.setShowFps(defaults.showFps) }
                         )
+                        ToggleItem(
+                            icon = Icons.Rounded.FastForward,
+                            title = stringResource(R.string.settings_frame_limit),
+                            subtitle = stringResource(R.string.settings_frame_limit_desc),
+                            checked = uiState.frameLimitEnabled,
+                            onCheckedChange = viewModel::setFrameLimitEnabled,
+                            onResetToDefault = { viewModel.setFrameLimitEnabled(defaults.frameLimitEnabled) }
+                        )
                         ChoiceSection(
                             title = stringResource(R.string.settings_fps_overlay_mode),
                             options = listOf(

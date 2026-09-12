@@ -812,20 +812,27 @@ internal object CoreRuntime {
                     Thread.sleep(8)
                     continue
                 }
-                paceToAudioClock(output)
-                val frameRate = runCatching { bridge.getFrameRate(session) }.getOrDefault(0.0)
-                if (frameRate > 1.0) {
-                    val framePeriodNanos = (1_000_000_000.0 / frameRate).toLong()
-                    if (frameDeadlineNanos == 0L) frameDeadlineNanos = System.nanoTime()
-                    while (running && !paused && System.nanoTime() < frameDeadlineNanos) {
-                        drainFrameTasks()
-                        Thread.sleep(1)
+                // Frame limiting also keeps audio in sync; when the user turns
+                // it off the emulator runs as fast as the host allows.
+                val frameLimitEnabled = settings["EmuCore/GS:FrameLimitEnable"]?.toBooleanStrictOrNull() ?: true
+                if (frameLimitEnabled) {
+                    paceToAudioClock(output)
+                    val frameRate = runCatching { bridge.getFrameRate(session) }.getOrDefault(0.0)
+                    if (frameRate > 1.0) {
+                        val framePeriodNanos = (1_000_000_000.0 / frameRate).toLong()
+                        if (frameDeadlineNanos == 0L) frameDeadlineNanos = System.nanoTime()
+                        while (running && !paused && System.nanoTime() < frameDeadlineNanos) {
+                            drainFrameTasks()
+                            Thread.sleep(1)
+                        }
+                        val afterNanos = System.nanoTime()
+                        frameDeadlineNanos += framePeriodNanos
+                        if (frameDeadlineNanos < afterNanos - framePeriodNanos * 4) {
+                            frameDeadlineNanos = afterNanos + framePeriodNanos
+                        }
                     }
-                    val afterNanos = System.nanoTime()
-                    frameDeadlineNanos += framePeriodNanos
-                    if (frameDeadlineNanos < afterNanos - framePeriodNanos * 4) {
-                        frameDeadlineNanos = afterNanos + framePeriodNanos
-                    }
+                } else {
+                    frameDeadlineNanos = 0L
                 }
                 val t0 = System.nanoTime()
                 var skippedPausedFrame = false

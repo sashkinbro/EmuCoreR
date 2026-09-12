@@ -1919,4 +1919,6 @@
     <string name="ss_core_choice_profile">Profil</string>
     <string name="ss_core_choice_debug">Hata ayıklama</string>
     <string name="ss_core_choice_trace">İzleme</string>
+    <string name="settings_frame_limit">Kare sınırı</string>
+    <string name="settings_frame_limit_desc">Emülasyonu konsolun yenileme hızıyla sınırlar. Cihazın izin verdiği kadar hızlı çalışması için kapatın.</string>
 </resources>

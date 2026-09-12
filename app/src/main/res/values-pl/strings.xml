@@ -1940,4 +1940,6 @@
     <string name="ss_core_choice_profile">Profil</string>
     <string name="ss_core_choice_debug">Debugowanie</string>
     <string name="ss_core_choice_trace">Śledzenie</string>
+    <string name="settings_frame_limit">Limit klatek</string>
+    <string name="settings_frame_limit_desc">Ogranicza emulację do częstotliwości odświeżania konsoli. Wyłącz, aby działać tak szybko, jak pozwala urządzenie.</string>
 </resources>

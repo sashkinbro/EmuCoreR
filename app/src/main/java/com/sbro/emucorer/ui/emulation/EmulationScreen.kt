@@ -1322,6 +1322,7 @@ fun EmulationScreen(
                     onNextSlot = { viewModel.setSlot(uiState.currentSlot + 1) },
                     onPrevSlot = { viewModel.setSlot(uiState.currentSlot - 1) },
                     onToggleFps = { viewModel.toggleFpsVisibility() },
+                    onSetFrameLimit = { viewModel.toggleFrameLimit() },
                     onSetFpsOverlayMode = { viewModel.setFpsOverlayMode(it) },
                     onSetFpsOverlayCorner = { viewModel.setFpsOverlayCorner(it) },
                     onSetFpsOverlayScale = { viewModel.setFpsOverlayScale(it) },
@@ -2680,6 +2681,7 @@ private fun EmulationSidebarMenu(
     onNextSlot: () -> Unit,
     onPrevSlot: () -> Unit,
     onToggleFps: () -> Unit,
+    onSetFrameLimit: () -> Unit,
     onSetFpsOverlayMode: (Int) -> Unit,
     onSetFpsOverlayCorner: (Int) -> Unit,
     onSetFpsOverlayScale: (Int) -> Unit,
@@ -3481,6 +3483,17 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = {
                                 if (uiState.showFps != globalDefaults.showFps) {
                                     onToggleFps()
+                                }
+                            }
+                        )
+
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_frame_limit),
+                            checked = uiState.frameLimitEnabled,
+                            onCheckedChange = { onSetFrameLimit() },
+                            onResetToDefault = {
+                                if (uiState.frameLimitEnabled != globalDefaults.frameLimitEnabled) {
+                                    onSetFrameLimit()
                                 }
                             }
                         )

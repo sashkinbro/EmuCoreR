@@ -1924,4 +1924,6 @@
     <string name="ss_core_choice_profile">Профіль</string>
     <string name="ss_core_choice_debug">Налагодження</string>
     <string name="ss_core_choice_trace">Трасування</string>
+    <string name="settings_frame_limit">Обмеження кадрів</string>
+    <string name="settings_frame_limit_desc">Обмежує емуляцію частотою оновлення консолі. Вимкніть, щоб працювати так швидко, як дозволяє пристрій.</string>
 </resources>

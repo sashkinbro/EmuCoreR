@@ -1933,4 +1933,6 @@
     <string name="ss_core_choice_profile">Profil</string>
     <string name="ss_core_choice_debug">Debug</string>
     <string name="ss_core_choice_trace">Jejak</string>
+    <string name="settings_frame_limit">Batas bingkai</string>
+    <string name="settings_frame_limit_desc">Membatasi emulasi ke laju penyegaran konsol. Matikan agar berjalan secepat perangkat.</string>
 </resources>

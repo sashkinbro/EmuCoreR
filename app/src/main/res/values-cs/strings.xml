@@ -1940,4 +1940,6 @@
     <string name="ss_core_choice_profile">Profil</string>
     <string name="ss_core_choice_debug">Ladění</string>
     <string name="ss_core_choice_trace">Trasování</string>
+    <string name="settings_frame_limit">Limit snímků</string>
+    <string name="settings_frame_limit_desc">Omezuje emulaci na obnovovací frekvenci konzole. Vypnutím poběží tak rychle, jak zařízení dovolí.</string>
 </resources>

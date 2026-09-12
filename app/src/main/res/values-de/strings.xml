@@ -1921,4 +1921,6 @@
     <string name="ss_core_choice_profile">Profil</string>
     <string name="ss_core_choice_debug">Debug</string>
     <string name="ss_core_choice_trace">Trace</string>
+    <string name="settings_frame_limit">Bildratenlimit</string>
+    <string name="settings_frame_limit_desc">Begrenzt die Emulation auf die Bildwiederholrate der Konsole. Ausschalten, um so schnell wie das Gerät läuft.</string>
 </resources>

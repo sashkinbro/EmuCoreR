@@ -1919,4 +1919,6 @@
     <string name="ss_core_choice_profile">Profilo</string>
     <string name="ss_core_choice_debug">Debug</string>
     <string name="ss_core_choice_trace">Traccia</string>
+    <string name="settings_frame_limit">Limite fotogrammi</string>
+    <string name="settings_frame_limit_desc">Limita l\'emulazione alla frequenza di aggiornamento della console. Disattivalo per andare il più veloce possibile.</string>
 </resources>

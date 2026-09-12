@@ -1920,4 +1920,6 @@
     <string name="ss_core_choice_profile">配置文件</string>
     <string name="ss_core_choice_debug">调试</string>
     <string name="ss_core_choice_trace">跟踪</string>
+    <string name="settings_frame_limit">幀率限制</string>
+    <string name="settings_frame_limit_desc">將模擬限制在主機的刷新率。關閉後以裝置允許的最高速度運行。</string>
 </resources>

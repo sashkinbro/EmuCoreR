@@ -218,7 +218,8 @@ object NativeApp {
         CoreRuntime.applyCoreOption(key, value)
     }
     @JvmStatic fun setFrameSkip(frames: Int) = Unit
-    @JvmStatic fun setFrameLimitEnabled(enabled: Boolean) = Unit
+    @JvmStatic fun setFrameLimitEnabled(enabled: Boolean) =
+        CoreRuntime.updateSetting("EmuCore/GS", "FrameLimitEnable", enabled.toString())
     @JvmStatic fun setTurboModeEnabled(enabled: Boolean) = Unit
     @JvmStatic fun reloadPatches() = Unit
     @JvmStatic fun loadCheats(path: String) = CoreRuntime.loadCheats(path)

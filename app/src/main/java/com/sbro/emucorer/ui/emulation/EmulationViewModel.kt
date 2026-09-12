@@ -2759,6 +2759,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun toggleFrameLimit() {
+        setFrameLimitEnabled(!_uiState.value.frameLimitEnabled)
+    }
+
     fun setFrameLimitEnabled(enabled: Boolean) {
         viewModelScope.launch {
             persistRuntimeState(_uiState.value.copy(frameLimitEnabled = enabled)) {

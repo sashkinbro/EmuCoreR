@@ -1934,4 +1934,6 @@
     <string name="ss_core_choice_profile">نمایه</string>
     <string name="ss_core_choice_debug">اشکال‌زدایی</string>
     <string name="ss_core_choice_trace">ردیابی</string>
+    <string name="settings_frame_limit">محدودیت فریم</string>
+    <string name="settings_frame_limit_desc">شبیه‌سازی را به نرخ نوسازی کنسول محدود می‌کند. برای اجرا با بیشترین سرعت دستگاه، آن را خاموش کنید.</string>
 </resources>

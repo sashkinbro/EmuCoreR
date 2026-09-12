@@ -1919,4 +1919,6 @@
     <string name="ss_core_choice_profile">प्रोफ़ाइल</string>
     <string name="ss_core_choice_debug">डीबग</string>
     <string name="ss_core_choice_trace">ट्रेस</string>
+    <string name="settings_frame_limit">फ़्रेम सीमा</string>
+    <string name="settings_frame_limit_desc">एमुलेशन को कंसोल की रिफ्रेश दर तक सीमित करता है। डिवाइस की अधिकतम गति से चलाने के लिए इसे बंद करें।</string>
 </resources>
