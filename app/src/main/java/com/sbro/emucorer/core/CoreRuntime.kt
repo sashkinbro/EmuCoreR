@@ -230,6 +230,9 @@ internal object CoreRuntime {
         else listOf(requestedCore)
 
         shutdownSession()
+        // The native audio ring is shared between sessions; clear it so the new
+        // AAudio stream does not replay the tail of the previous game.
+        bridge.resetAudioQueue()
         var coreRenderer = candidates.first()
         var created = false
         for (candidate in candidates) {

@@ -114,6 +114,8 @@ class NativeCoreBridge {
     external fun startAudioOutput(handle: Long): Int
     external fun pauseAudioOutput(handle: Long): Int
     external fun flushAudioOutput(handle: Long): Int
+    /** Empties the shared ring so a new session cannot replay old frames. */
+    external fun resetAudioQueue()
     /** Linear gain in 0..1 applied on the output callback thread. */
     external fun setAudioGain(gain: Float)
     /** Frames queued for the output; negative when the stream needs recovery. */

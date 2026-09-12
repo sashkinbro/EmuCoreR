@@ -2261,6 +2261,15 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_flushAudioOutput(JNIEnv*, jobject, 
 }
 
 JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_resetAudioQueue(JNIEnv*, jobject) {
+    // The ring outlives individual sessions, so a new game would otherwise
+    // start by playing whatever the previous game left behind.
+    std::lock_guard<std::mutex> lock(g_frontend.audio_mutex);
+    g_frontend.audio_read_frame = 0;
+    g_frontend.audio_write_frame = 0;
+}
+
+JNIEXPORT void JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_setAudioGain(JNIEnv*, jobject, jfloat gain) {
     float clamped = gain;
     if (!(clamped >= 0.0f)) clamped = 0.0f;
