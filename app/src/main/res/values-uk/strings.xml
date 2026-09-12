@@ -1926,4 +1926,8 @@
     <string name="ss_core_choice_trace">Трасування</string>
     <string name="settings_frame_limit">Обмеження кадрів</string>
     <string name="settings_frame_limit_desc">Обмежує емуляцію частотою оновлення консолі. Вимкніть, щоб працювати так швидко, як дозволяє пристрій.</string>
+    <string name="settings_target_fps">Цільова частота кадрів</string>
+    <string name="settings_target_fps_desc">Перевизначає частоту оновлення емуляції. «Авто» відповідає регіону консолі.</string>
+    <string name="settings_frame_skip">Пропуск кадрів</string>
+    <string name="settings_frame_skip_desc">Пропускає показ зрендерених кадрів, щоб зменшити навантаження. Більші значення — рваніше, але швидше.</string>
 </resources>

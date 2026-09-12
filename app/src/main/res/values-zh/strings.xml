@@ -1922,4 +1922,8 @@
     <string name="ss_core_choice_trace">跟踪</string>
     <string name="settings_frame_limit">幀率限制</string>
     <string name="settings_frame_limit_desc">將模擬限制在主機的刷新率。關閉後以裝置允許的最高速度運行。</string>
+    <string name="settings_target_fps">目標幀率</string>
+    <string name="settings_target_fps_desc">覆寫模擬的刷新率。自動會跟隨主機地區。</string>
+    <string name="settings_frame_skip">跳幀</string>
+    <string name="settings_frame_skip_desc">跳過已渲染畫面的顯示以降低主機負載。數值越高越不流暢但更快。</string>
 </resources>

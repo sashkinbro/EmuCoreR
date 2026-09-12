@@ -1943,4 +1943,8 @@
     <string name="ss_core_choice_trace">Trace</string>
     <string name="settings_frame_limit">Frame limit</string>
     <string name="settings_frame_limit_desc">Caps emulation to the console\'s refresh rate. Turn off to run as fast as the device allows.</string>
+    <string name="settings_target_fps">Target frame rate</string>
+    <string name="settings_target_fps_desc">Overrides the emulated refresh rate. Auto follows the console region.</string>
+    <string name="settings_frame_skip">Frame skip</string>
+    <string name="settings_frame_skip_desc">Skips presenting rendered frames to reduce host load. Higher values are choppier but faster.</string>
 </resources>

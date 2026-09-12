@@ -217,7 +217,11 @@ object NativeApp {
         invalidateAnalogDpadOptionCache(key, value)
         CoreRuntime.applyCoreOption(key, value)
     }
-    @JvmStatic fun setFrameSkip(frames: Int) = Unit
+    @JvmStatic fun setFrameSkip(frames: Int) {
+        val clamped = frames.coerceIn(0, 4)
+        CoreRuntime.updateSetting("EmuCore/GS", "FrameSkip", clamped.toString())
+        runCatching { CoreRuntime.bridge.setFrameSkip(clamped) }
+    }
     @JvmStatic fun setFrameLimitEnabled(enabled: Boolean) =
         CoreRuntime.updateSetting("EmuCore/GS", "FrameLimitEnable", enabled.toString())
     @JvmStatic fun setTurboModeEnabled(enabled: Boolean) = Unit

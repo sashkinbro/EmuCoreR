@@ -1923,4 +1923,8 @@
     <string name="ss_core_choice_trace">Trace</string>
     <string name="settings_frame_limit">Bildratenlimit</string>
     <string name="settings_frame_limit_desc">Begrenzt die Emulation auf die Bildwiederholrate der Konsole. Ausschalten, um so schnell wie das Gerät läuft.</string>
+    <string name="settings_target_fps">Ziel-Bildrate</string>
+    <string name="settings_target_fps_desc">Überschreibt die emulierte Bildwiederholrate. Automatisch folgt der Konsolenregion.</string>
+    <string name="settings_frame_skip">Frames überspringen</string>
+    <string name="settings_frame_skip_desc">Überspringt die Ausgabe gerenderter Frames, um die Last zu senken. Höhere Werte ruckeln, sind aber schneller.</string>
 </resources>

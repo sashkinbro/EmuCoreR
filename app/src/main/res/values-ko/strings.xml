@@ -1920,4 +1920,8 @@
     <string name="ss_core_choice_trace">추적</string>
     <string name="settings_frame_limit">프레임 제한</string>
     <string name="settings_frame_limit_desc">에뮬레이션을 콘솔의 주사율로 제한합니다. 끄면 기기가 허용하는 만큼 빠르게 실행됩니다.</string>
+    <string name="settings_target_fps">목표 프레임 속도</string>
+    <string name="settings_target_fps_desc">에뮬레이션 주사율을 재정의합니다. 자동은 콘솔 지역을 따릅니다.</string>
+    <string name="settings_frame_skip">프레임 건너뛰기</string>
+    <string name="settings_frame_skip_desc">렌더링된 프레임 표시를 건너뛰어 부하를 줄입니다. 값이 높을수록 끊기지만 빠릅니다.</string>
 </resources>

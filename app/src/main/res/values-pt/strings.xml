@@ -1923,4 +1923,8 @@
     <string name="ss_core_choice_trace">Rastreamento</string>
     <string name="settings_frame_limit">Limite de quadros</string>
     <string name="settings_frame_limit_desc">Limita a emulação à taxa de atualização do console. Desative para rodar o mais rápido que o dispositivo permitir.</string>
+    <string name="settings_target_fps">Taxa de quadros alvo</string>
+    <string name="settings_target_fps_desc">Substitui a taxa de atualização emulada. Auto segue a região do console.</string>
+    <string name="settings_frame_skip">Salto de quadros</string>
+    <string name="settings_frame_skip_desc">Pula a apresentação de quadros renderizados para reduzir a carga. Valores altos são mais travados, mas rápidos.</string>
 </resources>

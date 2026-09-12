@@ -1923,4 +1923,8 @@
     <string name="ss_core_choice_trace">Traza</string>
     <string name="settings_frame_limit">Límite de fotogramas</string>
     <string name="settings_frame_limit_desc">Limita la emulación a la frecuencia de actualización de la consola. Desactívalo para ir tan rápido como permita el dispositivo.</string>
+    <string name="settings_target_fps">Frecuencia de fotogramas objetivo</string>
+    <string name="settings_target_fps_desc">Anula la frecuencia de actualización emulada. Auto sigue la región de la consola.</string>
+    <string name="settings_frame_skip">Salto de fotogramas</string>
+    <string name="settings_frame_skip_desc">Omite la presentación de fotogramas renderizados para reducir la carga. Valores altos son más entrecortados pero rápidos.</string>
 </resources>

@@ -1929,4 +1929,8 @@
     <string name="ss_core_choice_trace">تتبع</string>
     <string name="settings_frame_limit">حد الإطارات</string>
     <string name="settings_frame_limit_desc">يحد من المحاكاة بمعدل تحديث وحدة التحكم. أوقفه للتشغيل بأقصى سرعة يسمح بها الجهاز.</string>
+    <string name="settings_target_fps">معدل الإطارات المستهدف</string>
+    <string name="settings_target_fps_desc">يتجاوز معدل التحديث المحاكى. يتبع الوضع التلقائي منطقة الجهاز.</string>
+    <string name="settings_frame_skip">تخطي الإطارات</string>
+    <string name="settings_frame_skip_desc">يتخطى عرض الإطارات المعروضة لتقليل الحمل. القيم الأعلى أكثر تقطعًا لكن أسرع.</string>
 </resources>

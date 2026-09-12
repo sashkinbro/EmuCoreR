@@ -1942,4 +1942,8 @@
     <string name="ss_core_choice_trace">Trasování</string>
     <string name="settings_frame_limit">Limit snímků</string>
     <string name="settings_frame_limit_desc">Omezuje emulaci na obnovovací frekvenci konzole. Vypnutím poběží tak rychle, jak zařízení dovolí.</string>
+    <string name="settings_target_fps">Cílová frekvence snímků</string>
+    <string name="settings_target_fps_desc">Nahrazuje emulovanou obnovovací frekvenci. Auto se řídí regionem konzole.</string>
+    <string name="settings_frame_skip">Přeskakování snímků</string>
+    <string name="settings_frame_skip_desc">Přeskakuje zobrazování vykreslených snímků pro snížení zátěže. Vyšší hodnoty jsou trhanější, ale rychlejší.</string>
 </resources>

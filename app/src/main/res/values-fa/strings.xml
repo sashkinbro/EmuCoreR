@@ -1936,4 +1936,8 @@
     <string name="ss_core_choice_trace">ردیابی</string>
     <string name="settings_frame_limit">محدودیت فریم</string>
     <string name="settings_frame_limit_desc">شبیه‌سازی را به نرخ نوسازی کنسول محدود می‌کند. برای اجرا با بیشترین سرعت دستگاه، آن را خاموش کنید.</string>
+    <string name="settings_target_fps">نرخ فریم هدف</string>
+    <string name="settings_target_fps_desc">نرخ نوسازی شبیه‌سازی‌شده را بازنویسی می‌کند. حالت خودکار از منطقه کنسول پیروی می‌کند.</string>
+    <string name="settings_frame_skip">پرش فریم</string>
+    <string name="settings_frame_skip_desc">نمایش فریم‌های رندرشده را برای کاهش بار میزبان رد می‌کند. مقادیر بالاتر تکه‌تکه‌تر اما سریع‌تر است.</string>
 </resources>

@@ -1921,4 +1921,8 @@
     <string name="ss_core_choice_trace">İzleme</string>
     <string name="settings_frame_limit">Kare sınırı</string>
     <string name="settings_frame_limit_desc">Emülasyonu konsolun yenileme hızıyla sınırlar. Cihazın izin verdiği kadar hızlı çalışması için kapatın.</string>
+    <string name="settings_target_fps">Hedef kare hızı</string>
+    <string name="settings_target_fps_desc">Emüle edilen yenileme hızını geçersiz kılar. Otomatik, konsol bölgesini izler.</string>
+    <string name="settings_frame_skip">Kare atlama</string>
+    <string name="settings_frame_skip_desc">Ana makine yükünü azaltmak için oluşturulan karelerin sunumunu atlar. Yüksek değerler daha takılır ama daha hızlıdır.</string>
 </resources>

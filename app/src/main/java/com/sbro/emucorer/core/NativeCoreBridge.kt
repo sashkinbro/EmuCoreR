@@ -101,6 +101,8 @@ class NativeCoreBridge {
     // ---------------------------------------------------------------------
     external fun setAudioOutputLatencyMs(milliseconds: Int)
     external fun setAudioLowLatency(enabled: Boolean)
+    /** Frontend presentation frame skip (0..4). */
+    external fun setFrameSkip(frames: Int)
 
     // ---------------------------------------------------------------------
     // AAudio output (owned by NativeAudioOutput).

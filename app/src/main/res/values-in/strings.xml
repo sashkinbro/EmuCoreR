@@ -1935,4 +1935,8 @@
     <string name="ss_core_choice_trace">Jejak</string>
     <string name="settings_frame_limit">Batas bingkai</string>
     <string name="settings_frame_limit_desc">Membatasi emulasi ke laju penyegaran konsol. Matikan agar berjalan secepat perangkat.</string>
+    <string name="settings_target_fps">Laju bingkai target</string>
+    <string name="settings_target_fps_desc">Mengganti laju penyegaran emulasi. Otomatis mengikuti wilayah konsol.</string>
+    <string name="settings_frame_skip">Lewati bingkai</string>
+    <string name="settings_frame_skip_desc">Melewati penyajian bingkai yang dirender untuk mengurangi beban. Nilai lebih tinggi lebih tersendat tapi cepat.</string>
 </resources>

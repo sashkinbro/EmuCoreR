@@ -817,7 +817,13 @@ internal object CoreRuntime {
                 val frameLimitEnabled = settings["EmuCore/GS:FrameLimitEnable"]?.toBooleanStrictOrNull() ?: true
                 if (frameLimitEnabled) {
                     paceToAudioClock(output)
-                    val frameRate = runCatching { bridge.getFrameRate(session) }.getOrDefault(0.0)
+                    // A manual target rate overrides the console's reported one.
+                    val manualTargetFps = settings["EmuCore/GS:TargetFps"]?.toIntOrNull() ?: 0
+                    val frameRate = if (manualTargetFps in 20..120) {
+                        manualTargetFps.toDouble()
+                    } else {
+                        runCatching { bridge.getFrameRate(session) }.getOrDefault(0.0)
+                    }
                     if (frameRate > 1.0) {
                         val framePeriodNanos = (1_000_000_000.0 / frameRate).toLong()
                         if (frameDeadlineNanos == 0L) frameDeadlineNanos = System.nanoTime()

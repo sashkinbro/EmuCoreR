@@ -1323,6 +1323,8 @@ fun EmulationScreen(
                     onPrevSlot = { viewModel.setSlot(uiState.currentSlot - 1) },
                     onToggleFps = { viewModel.toggleFpsVisibility() },
                     onSetFrameLimit = { viewModel.toggleFrameLimit() },
+                    onSetTargetFps = { viewModel.setTargetFps(it) },
+                    onSetFrameSkip = { viewModel.setFrameSkip(it) },
                     onSetFpsOverlayMode = { viewModel.setFpsOverlayMode(it) },
                     onSetFpsOverlayCorner = { viewModel.setFpsOverlayCorner(it) },
                     onSetFpsOverlayScale = { viewModel.setFpsOverlayScale(it) },
@@ -2682,6 +2684,8 @@ private fun EmulationSidebarMenu(
     onPrevSlot: () -> Unit,
     onToggleFps: () -> Unit,
     onSetFrameLimit: () -> Unit,
+    onSetTargetFps: (Int) -> Unit,
+    onSetFrameSkip: (Int) -> Unit,
     onSetFpsOverlayMode: (Int) -> Unit,
     onSetFpsOverlayCorner: (Int) -> Unit,
     onSetFpsOverlayScale: (Int) -> Unit,
@@ -3496,6 +3500,34 @@ private fun EmulationSidebarMenu(
                                     onSetFrameLimit()
                                 }
                             }
+                        )
+
+                        LiveSelectionRow(
+                            title = stringResource(R.string.settings_target_fps),
+                            options = listOf(
+                                LiveSelectionOption(0, stringResource(R.string.settings_aspect_ratio_auto)),
+                                LiveSelectionOption(50, "50 Hz"),
+                                LiveSelectionOption(60, "60 Hz")
+                            ),
+                            currentValue = uiState.targetFps,
+                            onValueChange = onSetTargetFps,
+                            helpText = stringResource(R.string.settings_target_fps_desc),
+                            onResetToDefault = { onSetTargetFps(globalDefaults.targetFps) }
+                        )
+
+                        LiveSelectionRow(
+                            title = stringResource(R.string.settings_frame_skip),
+                            options = listOf(
+                                LiveSelectionOption(0, stringResource(R.string.settings_disabled_short)),
+                                LiveSelectionOption(1, "1"),
+                                LiveSelectionOption(2, "2"),
+                                LiveSelectionOption(3, "3"),
+                                LiveSelectionOption(4, "4")
+                            ),
+                            currentValue = uiState.frameSkip,
+                            onValueChange = onSetFrameSkip,
+                            helpText = stringResource(R.string.settings_frame_skip_desc),
+                            onResetToDefault = { onSetFrameSkip(globalDefaults.frameSkip) }
                         )
 
                         LiveSelectionRow(

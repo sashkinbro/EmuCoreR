@@ -1925,4 +1925,8 @@
     <string name="ss_core_choice_trace">Трассировка</string>
     <string name="settings_frame_limit">Ограничение кадров</string>
     <string name="settings_frame_limit_desc">Ограничивает эмуляцию частотой обновления консоли. Отключите, чтобы работать так быстро, как позволяет устройство.</string>
+    <string name="settings_target_fps">Целевая частота кадров</string>
+    <string name="settings_target_fps_desc">Переопределяет частоту обновления эмуляции. «Авто» соответствует региону консоли.</string>
+    <string name="settings_frame_skip">Пропуск кадров</string>
+    <string name="settings_frame_skip_desc">Пропускает вывод отрисованных кадров, снижая нагрузку. Большие значения — рывками, но быстрее.</string>
 </resources>

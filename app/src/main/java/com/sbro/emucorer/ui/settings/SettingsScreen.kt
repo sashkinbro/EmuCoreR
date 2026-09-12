@@ -2078,6 +2078,32 @@ private fun SettingsContent(
                             onResetToDefault = { viewModel.setFrameLimitEnabled(defaults.frameLimitEnabled) }
                         )
                         ChoiceSection(
+                            title = stringResource(R.string.settings_target_fps),
+                            options = listOf(
+                                0 to stringResource(R.string.settings_aspect_ratio_auto),
+                                50 to "50 Hz",
+                                60 to "60 Hz"
+                            ),
+                            selectedValue = uiState.targetFps,
+                            onSelect = viewModel::setTargetFps,
+                            helpText = stringResource(R.string.settings_target_fps_desc),
+                            onResetToDefault = { viewModel.setTargetFps(defaults.targetFps) }
+                        )
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_frame_skip),
+                            options = listOf(
+                                0 to stringResource(R.string.settings_disabled_short),
+                                1 to "1",
+                                2 to "2",
+                                3 to "3",
+                                4 to "4"
+                            ),
+                            selectedValue = uiState.frameSkip,
+                            onSelect = viewModel::setFrameSkip,
+                            helpText = stringResource(R.string.settings_frame_skip_desc),
+                            onResetToDefault = { viewModel.setFrameSkip(defaults.frameSkip) }
+                        )
+                        ChoiceSection(
                             title = stringResource(R.string.settings_fps_overlay_mode),
                             options = listOf(
                                 FPS_OVERLAY_MODE_SIMPLE to stringResource(R.string.settings_fps_overlay_mode_simple),

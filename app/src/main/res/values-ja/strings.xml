@@ -1920,4 +1920,8 @@
     <string name="ss_core_choice_trace">トレース</string>
     <string name="settings_frame_limit">フレーム制限</string>
     <string name="settings_frame_limit_desc">エミュレーションを本体のリフレッシュレートに制限します。オフにするとデバイスの性能に応じて高速に動作します。</string>
+    <string name="settings_target_fps">目標フレームレート</string>
+    <string name="settings_target_fps_desc">エミュレートするリフレッシュレートを上書きします。自動は本体の地域に従います。</string>
+    <string name="settings_frame_skip">フレームスキップ</string>
+    <string name="settings_frame_skip_desc">レンダリング済みフレームの表示を間引き、負荷を軽減します。値が大きいほどカクつきますが高速です。</string>
 </resources>

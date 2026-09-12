@@ -1455,6 +1455,7 @@ object EmulatorBridge {
         performRuntimeOps(
             buildList {
                 addAll(targetFpsOps(targetFps, ntscFramerate, palFramerate))
+                add(settingOp("EmuCore/GS", "TargetFps", "int", targetFps.coerceIn(0, 120).toString()))
                 add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
             }
         )

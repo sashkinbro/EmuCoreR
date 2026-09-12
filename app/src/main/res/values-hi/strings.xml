@@ -1921,4 +1921,8 @@
     <string name="ss_core_choice_trace">ट्रेस</string>
     <string name="settings_frame_limit">फ़्रेम सीमा</string>
     <string name="settings_frame_limit_desc">एमुलेशन को कंसोल की रिफ्रेश दर तक सीमित करता है। डिवाइस की अधिकतम गति से चलाने के लिए इसे बंद करें।</string>
+    <string name="settings_target_fps">लक्ष्य फ़्रेम दर</string>
+    <string name="settings_target_fps_desc">एमुलेटेड रिफ्रेश दर को ओवरराइड करता है। ऑटो कंसोल क्षेत्र का अनुसरण करता है।</string>
+    <string name="settings_frame_skip">फ़्रेम स्किप</string>
+    <string name="settings_frame_skip_desc">होस्ट लोड कम करने के लिए रेंडर किए गए फ़्रेम दिखाना छोड़ता है। बड़े मान अधिक झटकेदार पर तेज़ होते हैं।</string>
 </resources>

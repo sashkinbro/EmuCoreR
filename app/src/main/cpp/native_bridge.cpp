@@ -177,6 +177,9 @@ struct FrontendState {
     std::atomic<bool> audio_low_latency{false};
     std::atomic<float> audio_gain{1.0f};
 
+    // Frontend frame skip: 0 = present every rendered frame.
+    std::atomic<int> frame_skip{0};
+
     // Input: active-high bitmask per port plus analog axes.
     std::atomic<uint16_t> pad_buttons[2]{{0xFFFF}, {0xFFFF}};
     std::atomic<int16_t> pad_analog[2][4]{};  // lx, ly, rx, ry in -32768..32767
@@ -1247,6 +1250,20 @@ void PresentSoftwareFrame(const void* data, unsigned width, unsigned height, siz
 }
 
 void RetroVideoRefresh(const void* data, unsigned width, unsigned height, size_t pitch) {
+    // Optional frontend frame skip: after presenting one frame, drop the next
+    // N refresh callbacks so the host does less presentation work per second.
+    const int frame_skip = g_frontend.frame_skip.load(std::memory_order_relaxed);
+    if (frame_skip > 0)
+    {
+        static thread_local int skip_counter = 0;
+        if (skip_counter > 0)
+        {
+            skip_counter--;
+            return;
+        }
+        skip_counter = frame_skip;
+    }
+
     if (data == nullptr) {
         if (g_gl.ready && g_gl.display != EGL_NO_DISPLAY && g_gl.surface != EGL_NO_SURFACE)
             eglSwapBuffers(g_gl.display, g_gl.surface);
@@ -2032,6 +2049,14 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_setAudioLowLatency(JNIEnv*, jobject
     const bool value = enabled == JNI_TRUE;
     g_frontend.audio_low_latency.store(value);
     LOGI("Audio low latency = %d", value ? 1 : 0);
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_setFrameSkip(JNIEnv*, jobject, jint frames) {
+    int clamped = frames;
+    if (clamped < 0) clamped = 0;
+    if (clamped > 4) clamped = 4;
+    g_frontend.frame_skip.store(clamped, std::memory_order_relaxed);
 }
 
 JNIEXPORT jlong JNICALL

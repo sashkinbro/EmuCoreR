@@ -1923,4 +1923,8 @@
     <string name="ss_core_choice_trace">Trace</string>
     <string name="settings_frame_limit">Limite d\'images</string>
     <string name="settings_frame_limit_desc">Limite l\'émulation au taux de rafraîchissement de la console. Désactivez pour aller aussi vite que l\'appareil le permet.</string>
+    <string name="settings_target_fps">Fréquence d\'images cible</string>
+    <string name="settings_target_fps_desc">Remplace la fréquence de rafraîchissement émulée. Auto suit la région de la console.</string>
+    <string name="settings_frame_skip">Saut d\'images</string>
+    <string name="settings_frame_skip_desc">Saute l\'affichage des images rendues pour réduire la charge. Des valeurs élevées saccadent mais accélèrent.</string>
 </resources>
