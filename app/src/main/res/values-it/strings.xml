@@ -1886,7 +1886,7 @@
     <string name="ss_core_cpu_fastmemrewrite">Riscrittura dell\'accesso rapido alla memoria</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">Attiva le riscritture quando l\'accesso rapido alla memoria del recompiler CPU è abilitato. Può offrire un aumento di velocità misurabile, ma può causare un crash del core (segfault) su alcune piattaforme.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">Attiva sostituzione texture con scrittura in VRAM</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Sostituisce le \'texture di scrittura in VRAM\' con pacchetti texture in formato DuckStation dalla cartella \'swanstation/textures\' nella directory di sistema del frontend. Funziona solo con i renderer Vulkan e D3D11 (dove disponibili).</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Sostituisce le \'texture di scrittura in VRAM\' con pacchetti texture in formato SwanStation dalla cartella \'swanstation/textures\' nella directory di sistema del frontend. Funziona solo con i renderer Vulkan e D3D11 (dove disponibili).</string>
     <string name="ss_core_texturereplacements_preloadtextures">Precarica sostituzioni texture</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">Precarica in RAM le texture di sostituzione con scrittura in VRAM.</string>
     <string name="ss_core_main_runaheadframecount">Run-ahead interno</string>
@@ -1925,4 +1925,10 @@
     <string name="settings_target_fps_desc">Sostituisce la frequenza di aggiornamento emulata. Auto segue la regione della console.</string>
     <string name="settings_frame_skip">Salto fotogrammi</string>
     <string name="settings_frame_skip_desc">Salta la presentazione dei fotogrammi renderizzati per ridurre il carico. Valori alti sono più scattosi ma veloci.</string>
+    <string name="settings_display_crop">Ritaglio immagine</string>
+    <string name="settings_display_crop_desc">Rimuove i pixel dai bordi dell\'immagine prima del ridimensionamento. Aumenta il valore finché il bordo indesiderato non scompare.</string>
+    <string name="settings_display_crop_left">Bordo sinistro</string>
+    <string name="settings_display_crop_top">Bordo superiore</string>
+    <string name="settings_display_crop_right">Bordo destro</string>
+    <string name="settings_display_crop_bottom">Bordo inferiore</string>
 </resources>

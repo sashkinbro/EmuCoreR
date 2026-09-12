@@ -1900,7 +1900,7 @@
     <string name="ss_core_cpu_fastmemrewrite">Penulisan ulang akses memori cepat</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">Mengaktifkan penulisan ulang saat akses memori cepat recompiler CPU aktif. Dapat memberi peningkatan kecepatan yang terukur, tetapi dapat menyebabkan crash core (segfault) di platform tertentu.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">Aktifkan penggantian tekstur penulisan VRAM</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Mengganti \'tekstur penulisan VRAM\' dengan paket tekstur berformat DuckStation dari folder \'swanstation/textures\' di direktori sistem frontend. Hanya berfungsi dengan renderer Vulkan dan D3D11 (bila tersedia).</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Mengganti \'tekstur penulisan VRAM\' dengan paket tekstur berformat SwanStation dari folder \'swanstation/textures\' di direktori sistem frontend. Hanya berfungsi dengan renderer Vulkan dan D3D11 (bila tersedia).</string>
     <string name="ss_core_texturereplacements_preloadtextures">Pramuat penggantian tekstur</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">Pramuat penggantian tekstur penulisan VRAM ke RAM.</string>
     <string name="ss_core_main_runaheadframecount">Run-ahead internal</string>
@@ -1939,4 +1939,10 @@
     <string name="settings_target_fps_desc">Mengganti laju penyegaran emulasi. Otomatis mengikuti wilayah konsol.</string>
     <string name="settings_frame_skip">Lewati bingkai</string>
     <string name="settings_frame_skip_desc">Melewati penyajian bingkai yang dirender untuk mengurangi beban. Nilai lebih tinggi lebih tersendat tapi cepat.</string>
+    <string name="settings_display_crop">Pangkas tampilan</string>
+    <string name="settings_display_crop_desc">Memangkas piksel dari tepi gambar sebelum penskalaan. Tingkatkan nilai hingga tepi yang tidak diinginkan hilang.</string>
+    <string name="settings_display_crop_left">Tepi kiri</string>
+    <string name="settings_display_crop_top">Tepi atas</string>
+    <string name="settings_display_crop_right">Tepi kanan</string>
+    <string name="settings_display_crop_bottom">Tepi bawah</string>
 </resources>

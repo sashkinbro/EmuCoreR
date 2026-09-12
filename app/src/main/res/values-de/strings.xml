@@ -1888,7 +1888,7 @@
     <string name="ss_core_cpu_fastmemrewrite">Umschreiben für schnellen Speicherzugriff</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">Aktiviert Umschreibungen, wenn der schnelle Speicherzugriff des CPU-Recompilers aktiviert ist. Kann einen messbaren Geschwindigkeitsschub bringen, auf manchen Plattformen aber einen Core-Absturz (Segfault) verursachen.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">VRAM-Schreibtexturersetzung aktivieren</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Ersetzt \'VRAM-Schreibtexturen\' durch Texturpakete im DuckStation-Format aus dem Ordner \'swanstation/textures\' im Systemverzeichnis des Frontends. Funktioniert nur mit den Renderern Vulkan und D3D11 (sofern verfügbar).</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Ersetzt \'VRAM-Schreibtexturen\' durch Texturpakete im SwanStation-Format aus dem Ordner \'swanstation/textures\' im Systemverzeichnis des Frontends. Funktioniert nur mit den Renderern Vulkan und D3D11 (sofern verfügbar).</string>
     <string name="ss_core_texturereplacements_preloadtextures">Texturersetzungen vorladen</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">Lädt VRAM-Schreibtexturersetzungen in den RAM vor.</string>
     <string name="ss_core_main_runaheadframecount">Interner Run-Ahead</string>
@@ -1927,4 +1927,10 @@
     <string name="settings_target_fps_desc">Überschreibt die emulierte Bildwiederholrate. Automatisch folgt der Konsolenregion.</string>
     <string name="settings_frame_skip">Frames überspringen</string>
     <string name="settings_frame_skip_desc">Überspringt die Ausgabe gerenderter Frames, um die Last zu senken. Höhere Werte ruckeln, sind aber schneller.</string>
+    <string name="settings_display_crop">Bildzuschnitt</string>
+    <string name="settings_display_crop_desc">Schneidet Pixel von den Bildrändern ab, bevor skaliert wird. Wert erhöhen, bis der unerwünschte Rand verschwindet.</string>
+    <string name="settings_display_crop_left">Linker Rand</string>
+    <string name="settings_display_crop_top">Oberer Rand</string>
+    <string name="settings_display_crop_right">Rechter Rand</string>
+    <string name="settings_display_crop_bottom">Unterer Rand</string>
 </resources>

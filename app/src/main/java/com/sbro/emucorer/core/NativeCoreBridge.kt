@@ -103,6 +103,8 @@ class NativeCoreBridge {
     external fun setAudioLowLatency(enabled: Boolean)
     /** Frontend presentation frame skip (0..4). */
     external fun setFrameSkip(frames: Int)
+    /** Display crop in source pixels, applied before aspect-ratio scaling. */
+    external fun setDisplayCrop(left: Int, top: Int, right: Int, bottom: Int)
 
     // ---------------------------------------------------------------------
     // AAudio output (owned by NativeAudioOutput).

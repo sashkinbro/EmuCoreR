@@ -1907,7 +1907,7 @@
     <string name="ss_core_cpu_fastmemrewrite">Przepisywanie szybkiego dostępu do pamięci</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">Włącza przepisywanie, gdy szybki dostęp do pamięci rekompilatora CPU jest włączony. Może dać zauważalny wzrost szybkości, ale na niektórych platformach może spowodować awarię rdzenia (segfault).</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">Włącz zamianę tekstur przy zapisie do VRAM</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Zastępuje \'tekstury zapisu VRAM\' pakietami tekstur w formacie DuckStation z folderu \'swanstation/textures\' w katalogu systemowym frontendu. Działa tylko z rendererami Vulkan i D3D11 (tam, gdzie są dostępne).</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Zastępuje \'tekstury zapisu VRAM\' pakietami tekstur w formacie SwanStation z folderu \'swanstation/textures\' w katalogu systemowym frontendu. Działa tylko z rendererami Vulkan i D3D11 (tam, gdzie są dostępne).</string>
     <string name="ss_core_texturereplacements_preloadtextures">Wstępnie wczytuj zamiany tekstur</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">Wstępnie wczytuje zamiany tekstur zapisu VRAM do RAM.</string>
     <string name="ss_core_main_runaheadframecount">Wewnętrzny run-ahead</string>
@@ -1946,4 +1946,10 @@
     <string name="settings_target_fps_desc">Zastępuje emulowaną częstotliwość odświeżania. Auto podąża za regionem konsoli.</string>
     <string name="settings_frame_skip">Pomijanie klatek</string>
     <string name="settings_frame_skip_desc">Pomija prezentację wyrenderowanych klatek, zmniejszając obciążenie. Wyższe wartości są mniej płynne, ale szybsze.</string>
+    <string name="settings_display_crop">Przycinanie obrazu</string>
+    <string name="settings_display_crop_desc">Usuwa piksele z krawędzi obrazu przed skalowaniem. Zwiększaj wartość, aż niechciana ramka zniknie.</string>
+    <string name="settings_display_crop_left">Lewa krawędź</string>
+    <string name="settings_display_crop_top">Górna krawędź</string>
+    <string name="settings_display_crop_right">Prawa krawędź</string>
+    <string name="settings_display_crop_bottom">Dolna krawędź</string>
 </resources>

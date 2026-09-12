@@ -1885,7 +1885,7 @@
     <string name="ss_core_cpu_fastmemrewrite">高速メモリアクセスの書き換え</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">CPUリコンパイラ高速メモリアクセスが有効なときに書き換えを有効にします。計測できる速度向上が得られますが、一部のプラットフォームではコアがクラッシュ（セグメンテーション違反）する可能性があります。</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">VRAM書き込みテクスチャ置換を有効化</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">\'VRAM書き込みテクスチャ\'を、フロントエンドのシステムディレクトリ内の\'swanstation/textures\'フォルダーにあるDuckStation形式のテクスチャパックで置き換えます。VulkanおよびD3D11（利用可能な場合）レンダラーでのみ動作します。</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">\'VRAM書き込みテクスチャ\'を、フロントエンドのシステムディレクトリ内の\'swanstation/textures\'フォルダーにあるSwanStation形式のテクスチャパックで置き換えます。VulkanおよびD3D11（利用可能な場合）レンダラーでのみ動作します。</string>
     <string name="ss_core_texturereplacements_preloadtextures">テクスチャ置換をプリロード</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">VRAM書き込みテクスチャ置換をRAMにプリロードします。</string>
     <string name="ss_core_main_runaheadframecount">内部ランアヘッド</string>
@@ -1924,4 +1924,10 @@
     <string name="settings_target_fps_desc">エミュレートするリフレッシュレートを上書きします。自動は本体の地域に従います。</string>
     <string name="settings_frame_skip">フレームスキップ</string>
     <string name="settings_frame_skip_desc">レンダリング済みフレームの表示を間引き、負荷を軽減します。値が大きいほどカクつきますが高速です。</string>
+    <string name="settings_display_crop">表示クロップ</string>
+    <string name="settings_display_crop_desc">拡大縮小の前に画像の端からピクセルを削除します。不要な枠が消えるまで値を増やしてください。</string>
+    <string name="settings_display_crop_left">左端</string>
+    <string name="settings_display_crop_top">上端</string>
+    <string name="settings_display_crop_right">右端</string>
+    <string name="settings_display_crop_bottom">下端</string>
 </resources>

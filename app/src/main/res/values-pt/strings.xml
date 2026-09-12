@@ -1888,7 +1888,7 @@
     <string name="ss_core_cpu_fastmemrewrite">Reescrita do acesso rápido à memória</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">Ativa reescritas quando o acesso rápido à memória do recompilador de CPU está ativado. Pode proporcionar um ganho de velocidade mensurável, mas pode causar falha do núcleo (segfault) em algumas plataformas.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">Ativar substituição de texturas por escrita na VRAM</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Substitui as \'texturas de escrita na VRAM\' por pacotes de textura no formato DuckStation da pasta \'swanstation/textures\' dentro do diretório de sistema do frontend. Funciona apenas com os renderizadores Vulkan e D3D11 (onde disponíveis).</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Substitui as \'texturas de escrita na VRAM\' por pacotes de textura no formato SwanStation da pasta \'swanstation/textures\' dentro do diretório de sistema do frontend. Funciona apenas com os renderizadores Vulkan e D3D11 (onde disponíveis).</string>
     <string name="ss_core_texturereplacements_preloadtextures">Pré-carregar substituições de textura</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">Pré-carrega as texturas de substituição de escrita na VRAM para a RAM.</string>
     <string name="ss_core_main_runaheadframecount">Run-ahead interno</string>
@@ -1927,4 +1927,10 @@
     <string name="settings_target_fps_desc">Substitui a taxa de atualização emulada. Auto segue a região do console.</string>
     <string name="settings_frame_skip">Salto de quadros</string>
     <string name="settings_frame_skip_desc">Pula a apresentação de quadros renderizados para reduzir a carga. Valores altos são mais travados, mas rápidos.</string>
+    <string name="settings_display_crop">Recorte da imagem</string>
+    <string name="settings_display_crop_desc">Remove pixels das bordas da imagem antes da escala. Aumente o valor até a borda indesejada desaparecer.</string>
+    <string name="settings_display_crop_left">Borda esquerda</string>
+    <string name="settings_display_crop_top">Borda superior</string>
+    <string name="settings_display_crop_right">Borda direita</string>
+    <string name="settings_display_crop_bottom">Borda inferior</string>
 </resources>

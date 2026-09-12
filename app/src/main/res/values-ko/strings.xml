@@ -1885,7 +1885,7 @@
     <string name="ss_core_cpu_fastmemrewrite">빠른 메모리 접근 재작성</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">CPU 리컴파일러 빠른 메모리 접근이 활성화된 경우 재작성을 활성화합니다. 측정 가능한 속도 향상을 줄 수 있지만 일부 플랫폼에서 코어 충돌(세그폴트)을 일으킬 수 있습니다.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">VRAM 쓰기 텍스처 교체 활성화</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">\'VRAM 쓰기 텍스처\'를 프런트엔드 시스템 디렉터리의 \'swanstation/textures\' 폴더에 있는 DuckStation 형식 텍스처 팩으로 교체합니다. Vulkan 및 D3D11(사용 가능한 경우) 렌더러에서만 작동합니다.</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">\'VRAM 쓰기 텍스처\'를 프런트엔드 시스템 디렉터리의 \'swanstation/textures\' 폴더에 있는 SwanStation 형식 텍스처 팩으로 교체합니다. Vulkan 및 D3D11(사용 가능한 경우) 렌더러에서만 작동합니다.</string>
     <string name="ss_core_texturereplacements_preloadtextures">텍스처 교체 미리 로드</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">VRAM 쓰기 텍스처 교체를 RAM에 미리 로드합니다.</string>
     <string name="ss_core_main_runaheadframecount">내부 런어헤드</string>
@@ -1924,4 +1924,10 @@
     <string name="settings_target_fps_desc">에뮬레이션 주사율을 재정의합니다. 자동은 콘솔 지역을 따릅니다.</string>
     <string name="settings_frame_skip">프레임 건너뛰기</string>
     <string name="settings_frame_skip_desc">렌더링된 프레임 표시를 건너뛰어 부하를 줄입니다. 값이 높을수록 끊기지만 빠릅니다.</string>
+    <string name="settings_display_crop">화면 자르기</string>
+    <string name="settings_display_crop_desc">크기 조정 전에 화면 가장자리에서 픽셀을 잘라냅니다. 불필요한 테두리가 사라질 때까지 값을 높이세요.</string>
+    <string name="settings_display_crop_left">왼쪽 가장자리</string>
+    <string name="settings_display_crop_top">위쪽 가장자리</string>
+    <string name="settings_display_crop_right">오른쪽 가장자리</string>
+    <string name="settings_display_crop_bottom">아래쪽 가장자리</string>
 </resources>

@@ -1901,7 +1901,7 @@
     <string name="ss_core_cpu_fastmemrewrite">بازنویسی دسترسی سریع حافظه</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">وقتی دسترسی سریع حافظه بازکامپایلر CPU فعال است، بازنویسی‌ها را فعال می‌کند. می‌تواند افزایش سرعت محسوسی بدهد، اما در برخی پلتفرم‌ها ممکن است باعث کرش هسته (segfault) شود.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">فعال‌کردن جایگزینی بافت نوشتن VRAM</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">\'بافت‌های نوشتن VRAM\' را با بسته‌های بافت با فرمت DuckStation از پوشه \'swanstation/textures\' در پوشه سیستم فرانت‌اند جایگزین می‌کند. فقط با رندررهای Vulkan و D3D11 (در صورت وجود) کار می‌کند.</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">\'بافت‌های نوشتن VRAM\' را با بسته‌های بافت با فرمت SwanStation از پوشه \'swanstation/textures\' در پوشه سیستم فرانت‌اند جایگزین می‌کند. فقط با رندررهای Vulkan و D3D11 (در صورت وجود) کار می‌کند.</string>
     <string name="ss_core_texturereplacements_preloadtextures">پیش‌بارگذاری جایگزینی بافت‌ها</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">جایگزینی بافت‌های نوشتن VRAM را در RAM پیش‌بارگذاری می‌کند.</string>
     <string name="ss_core_main_runaheadframecount">ران‌اهد داخلی</string>
@@ -1940,4 +1940,10 @@
     <string name="settings_target_fps_desc">نرخ نوسازی شبیه‌سازی‌شده را بازنویسی می‌کند. حالت خودکار از منطقه کنسول پیروی می‌کند.</string>
     <string name="settings_frame_skip">پرش فریم</string>
     <string name="settings_frame_skip_desc">نمایش فریم‌های رندرشده را برای کاهش بار میزبان رد می‌کند. مقادیر بالاتر تکه‌تکه‌تر اما سریع‌تر است.</string>
+    <string name="settings_display_crop">برش تصویر</string>
+    <string name="settings_display_crop_desc">پیکسل‌ها را پیش از مقیاس‌بندی از لبه‌های تصویر حذف می‌کند. مقدار را افزایش دهید تا حاشیه ناخواسته ناپدید شود.</string>
+    <string name="settings_display_crop_left">لبه چپ</string>
+    <string name="settings_display_crop_top">لبه بالا</string>
+    <string name="settings_display_crop_right">لبه راست</string>
+    <string name="settings_display_crop_bottom">لبه پایین</string>
 </resources>

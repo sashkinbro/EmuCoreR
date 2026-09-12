@@ -180,6 +180,12 @@ struct FrontendState {
     // Frontend frame skip: 0 = present every rendered frame.
     std::atomic<int> frame_skip{0};
 
+    // Display crop in source pixels, trimmed before aspect-ratio scaling.
+    std::atomic<int> crop_left{0};
+    std::atomic<int> crop_top{0};
+    std::atomic<int> crop_right{0};
+    std::atomic<int> crop_bottom{0};
+
     // Input: active-high bitmask per port plus analog axes.
     std::atomic<uint16_t> pad_buttons[2]{{0xFFFF}, {0xFFFF}};
     std::atomic<int16_t> pad_analog[2][4]{};  // lx, ly, rx, ry in -32768..32767
@@ -590,8 +596,49 @@ PresentRect FitDisplayRect(int win_width, int win_height, double display_aspect)
     return rect;
 }
 
+// User-requested display crop, in source pixels.
+struct DisplayCropRect {
+    int left;
+    int top;
+    int right;
+    int bottom;
+};
+
+DisplayCropRect CurrentDisplayCrop() {
+    return {g_frontend.crop_left.load(std::memory_order_relaxed),
+            g_frontend.crop_top.load(std::memory_order_relaxed),
+            g_frontend.crop_right.load(std::memory_order_relaxed),
+            g_frontend.crop_bottom.load(std::memory_order_relaxed)};
+}
+
+// Drops pixel rows/columns from the source frame while keeping at least one
+// pixel in each direction, so the scaler never receives an empty frame.
+DisplayCropRect ClampDisplayCrop(DisplayCropRect crop, unsigned width, unsigned height) {
+    if (crop.left < 0) crop.left = 0;
+    if (crop.top < 0) crop.top = 0;
+    if (crop.right < 0) crop.right = 0;
+    if (crop.bottom < 0) crop.bottom = 0;
+    if (width > 0) {
+        if (crop.left >= static_cast<int>(width)) crop.left = static_cast<int>(width) - 1;
+        if (crop.right > static_cast<int>(width) - 1 - crop.left) {
+            crop.right = static_cast<int>(width) - 1 - crop.left;
+        }
+    }
+    if (height > 0) {
+        if (crop.top >= static_cast<int>(height)) crop.top = static_cast<int>(height) - 1;
+        if (crop.bottom > static_cast<int>(height) - 1 - crop.top) {
+            crop.bottom = static_cast<int>(height) - 1 - crop.top;
+        }
+    }
+    return crop;
+}
+
+bool IsCropActive(const DisplayCropRect& crop) {
+    return crop.left > 0 || crop.top > 0 || crop.right > 0 || crop.bottom > 0;
+}
+
 void PresentHardwareFrameEffect(int effect, int win_width, int win_height, const PresentRect& dst,
-                                GLsizei src_width, GLsizei src_height) {
+                                int src_x, int src_y, int src_width, int src_height) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, win_width, win_height);
     glDisable(GL_DEPTH_TEST);
@@ -611,7 +658,9 @@ void PresentHardwareFrameEffect(int effect, int win_width, int win_height, const
                 static_cast<float>(dst.y) / static_cast<float>(win_height),
                 static_cast<float>(dst.width) / static_cast<float>(win_width),
                 static_cast<float>(dst.height) / static_cast<float>(win_height));
-    glUniform4f(g_gl_effect.u_src_rect, 0.0f, 0.0f,
+    glUniform4f(g_gl_effect.u_src_rect,
+                g_gl.fbo_width > 0 ? static_cast<float>(src_x) / static_cast<float>(g_gl.fbo_width) : 0.0f,
+                g_gl.fbo_height > 0 ? static_cast<float>(src_y) / static_cast<float>(g_gl.fbo_height) : 0.0f,
                 g_gl.fbo_width > 0 ? static_cast<float>(src_width) / static_cast<float>(g_gl.fbo_width) : 1.0f,
                 g_gl.fbo_height > 0 ? static_cast<float>(src_height) / static_cast<float>(g_gl.fbo_height) : 1.0f);
     glUniform2f(g_gl_effect.u_out_size, static_cast<float>(win_width), static_cast<float>(win_height));
@@ -684,13 +733,34 @@ void PresentHardwareFrame() {
     if (src_width > g_gl.fbo_width) src_width = g_gl.fbo_width;
     if (src_height > g_gl.fbo_height) src_height = g_gl.fbo_height;
 
+    // Crop trims source pixels before scaling. The core puts the active region
+    // in the bottom-left of the padded FBO, so the user-facing "top" crop trims
+    // the high-V edge and "bottom" trims the low-V edge.
+    const DisplayCropRect crop = ClampDisplayCrop(
+        CurrentDisplayCrop(), static_cast<unsigned>(src_width), static_cast<unsigned>(src_height));
+    const bool crop_active = IsCropActive(crop);
+    const int cropped_width = src_width - crop.left - crop.right;
+    const int cropped_height = src_height - crop.top - crop.bottom;
+    const int src_x0 = crop.left;
+    const int src_y0 = crop.bottom;
+    const int src_x1 = src_width - crop.right;
+    const int src_y1 = src_height - crop.top;
+
+    double display_aspect = info.geometry.aspect_ratio;
+    if (crop_active && cropped_width > 0 && cropped_height > 0) {
+        // The core reports the aspect of the full active region; recompute it
+        // for the trimmed region so the fit stays undistorted.
+        display_aspect *= (static_cast<double>(cropped_width) / static_cast<double>(src_width)) /
+                          (static_cast<double>(cropped_height) / static_cast<double>(src_height));
+    }
+
     const PresentRect dst = AspectRatioStretchRequested()
         ? PresentRect{0, 0, win_width, win_height}
-        : FitDisplayRect(win_width, win_height, info.geometry.aspect_ratio);
+        : FitDisplayRect(win_width, win_height, display_aspect);
 
 #if defined(EMUCORER_HAVE_LIBRASHADER)
     if (emucorer::shader_chain::IsEnabled() && !emucorer::shader_chain::PresetPath().empty() &&
-        EnsureGlShaderChain() && EnsureGlShaderChainInput(src_width, src_height) &&
+        EnsureGlShaderChain() && EnsureGlShaderChainInput(cropped_width, cropped_height) &&
         EnsureGlShaderChainTarget(dst.width, dst.height)) {
         // The core renders the active display region into the bottom-left of a
         // larger padded FBO, so crop that region into the exact-size chain input
@@ -698,12 +768,13 @@ void PresentHardwareFrame() {
         glBindFramebuffer(GL_READ_FRAMEBUFFER, g_gl.fbo);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_gl_chain.input_fbo);
         glDisable(GL_SCISSOR_TEST);
-        glBlitFramebuffer(0, 0, src_width, src_height, 0, 0, src_width, src_height, GL_COLOR_BUFFER_BIT,
-                          GL_NEAREST);
+        glBlitFramebuffer(src_x0, src_y0, src_x1, src_y1, 0, 0, cropped_width, cropped_height,
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        const libra_image_gl_t in = {g_gl_chain.input_texture, GL_RGBA8, static_cast<uint32_t>(src_width),
-                                     static_cast<uint32_t>(src_height)};
+        const libra_image_gl_t in = {g_gl_chain.input_texture, GL_RGBA8,
+                                     static_cast<uint32_t>(cropped_width),
+                                     static_cast<uint32_t>(cropped_height)};
         const libra_image_gl_t out = {g_gl_chain.target_texture, GL_RGBA8,
                                       static_cast<uint32_t>(g_gl_chain.target_width),
                                       static_cast<uint32_t>(g_gl_chain.target_height)};
@@ -736,7 +807,8 @@ void PresentHardwareFrame() {
         effect = 5; // Fallback to Bilinear shader quad for reliable linear upscaling
     }
     if (effect != 0 && EnsureGlEffectProgram()) {
-        PresentHardwareFrameEffect(effect, win_width, win_height, dst, src_width, src_height);
+        PresentHardwareFrameEffect(effect, win_width, win_height, dst, src_x0, src_y0, cropped_width,
+                                   cropped_height);
         return;
     }
 
@@ -745,10 +817,9 @@ void PresentHardwareFrame() {
     glViewport(0, 0, win_width, win_height);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-    // Linear prevents shimmering and broken text (uneven pixel sizes)
-    // when upscaling native PS1 resolution to non-integer screen sizes
-    // (e.g. 240p to 1080p). This matches DuckStation's default Bilinear Upscaling.
-    glBlitFramebuffer(0, 0, src_width, src_height,
+    // Linear filtering keeps unevenly scaled text from shimmering when the
+    // native PS1 resolution is upscaled to a non-integer screen size.
+    glBlitFramebuffer(src_x0, src_y0, src_x1, src_y1,
                       dst.x, dst.y, dst.x + dst.width, dst.y + dst.height,
                       GL_COLOR_BUFFER_BIT, GL_LINEAR);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1141,6 +1212,21 @@ void PresentSoftwareFrame(const void* data, unsigned width, unsigned height, siz
     }
     if (window == nullptr || data == nullptr || width == 0 || height == 0) return;
 
+    // Crop trims source pixels before scaling: move the read pointer to the
+    // first kept pixel and shrink the sampling region, leaving pitch intact.
+    const DisplayCropRect crop = ClampDisplayCrop(CurrentDisplayCrop(), width, height);
+    const bool crop_active = IsCropActive(crop);
+    const unsigned full_width = width;
+    const unsigned full_height = height;
+    const auto* src_bytes = static_cast<const uint8_t*>(data);
+    if (crop_active) {
+        const size_t bytes_per_pixel = pixel_format == RETRO_PIXEL_FORMAT_XRGB8888 ? 4u : 2u;
+        src_bytes += static_cast<size_t>(crop.top) * pitch +
+                     static_cast<size_t>(crop.left) * bytes_per_pixel;
+        width -= static_cast<unsigned>(crop.left + crop.right);
+        height -= static_cast<unsigned>(crop.top + crop.bottom);
+    }
+
     const int32_t win_width = WindowWidth(window);
     const int32_t win_height = WindowHeight(window);
     if (win_width <= 0 || win_height <= 0) return;
@@ -1161,9 +1247,16 @@ void PresentSoftwareFrame(const void* data, unsigned width, unsigned height, siz
     // the intended display aspect ratio separately from the raw pixel size.
     retro_system_av_info av_info{};
     retro_get_system_av_info(&av_info);
-    const double display_aspect = AspectRatioStretchRequested()
-        ? static_cast<double>(dst_width) / static_cast<double>(dst_height)
-        : av_info.geometry.aspect_ratio;
+    double display_aspect = av_info.geometry.aspect_ratio;
+    if (crop_active && width > 0 && height > 0) {
+        // The reported aspect covers the full frame, so rescale it for the
+        // trimmed region instead of stretching the remaining pixels.
+        display_aspect *= (static_cast<double>(width) / static_cast<double>(full_width)) /
+                          (static_cast<double>(height) / static_cast<double>(full_height));
+    }
+    if (AspectRatioStretchRequested()) {
+        display_aspect = static_cast<double>(dst_width) / static_cast<double>(dst_height);
+    }
     const PresentRect fit = FitDisplayRect(dst_width, dst_height, display_aspect);
     const int fit_w = fit.width;
     const int fit_h = fit.height;
@@ -1183,7 +1276,6 @@ void PresentSoftwareFrame(const void* data, unsigned width, unsigned height, siz
         return static_cast<uint32_t>(value + 0.5f);
     };
 
-    const auto* src_bytes = static_cast<const uint8_t*>(data);
     for (int y = 0; y < fit_h; ++y) {
         const unsigned src_y = static_cast<unsigned>((static_cast<int64_t>(y) * height) / fit_h);
         uint32_t* dst_row = dst + static_cast<size_t>(offset_y + y) * dst_stride + offset_x;
@@ -2057,6 +2149,25 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_setFrameSkip(JNIEnv*, jobject, jint
     if (clamped < 0) clamped = 0;
     if (clamped > 4) clamped = 4;
     g_frontend.frame_skip.store(clamped, std::memory_order_relaxed);
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_setDisplayCrop(JNIEnv*, jobject, jint left, jint top,
+                                                            jint right, jint bottom) {
+    const auto clamp = [](jint value) {
+        if (value < 0) return 0;
+        if (value > 64) return 64;
+        return static_cast<int>(value);
+    };
+    const int l = clamp(left);
+    const int t = clamp(top);
+    const int r = clamp(right);
+    const int b = clamp(bottom);
+    g_frontend.crop_left.store(l, std::memory_order_relaxed);
+    g_frontend.crop_top.store(t, std::memory_order_relaxed);
+    g_frontend.crop_right.store(r, std::memory_order_relaxed);
+    g_frontend.crop_bottom.store(b, std::memory_order_relaxed);
+    vulkan::SetDisplayCrop(l, t, r, b);
 }
 
 JNIEXPORT jlong JNICALL

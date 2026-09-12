@@ -1886,7 +1886,7 @@
     <string name="ss_core_cpu_fastmemrewrite">Hızlı bellek erişimi yeniden yazımı</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">CPU recompiler hızlı bellek erişimi etkinken yeniden yazımları etkinleştirir. Ölçülebilir bir hız artışı sağlayabilir, ancak bazı platformlarda çekirdeğin çökmesine (segfault) neden olabilir.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">VRAM yazma doku değişimini etkinleştir</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">\'VRAM yazma dokularını\' frontend\'in sistem dizinindeki \'swanstation/textures\' klasöründen DuckStation biçimli doku paketleriyle değiştirir. Yalnızca Vulkan ve D3D11 (mevcutsa) oluşturucularıyla çalışır.</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">\'VRAM yazma dokularını\' frontend\'in sistem dizinindeki \'swanstation/textures\' klasöründen SwanStation biçimli doku paketleriyle değiştirir. Yalnızca Vulkan ve D3D11 (mevcutsa) oluşturucularıyla çalışır.</string>
     <string name="ss_core_texturereplacements_preloadtextures">Doku değişimlerini önceden yükle</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">VRAM yazma doku değişimlerini RAM\'e önceden yükler.</string>
     <string name="ss_core_main_runaheadframecount">Dahili run-ahead</string>
@@ -1925,4 +1925,10 @@
     <string name="settings_target_fps_desc">Emüle edilen yenileme hızını geçersiz kılar. Otomatik, konsol bölgesini izler.</string>
     <string name="settings_frame_skip">Kare atlama</string>
     <string name="settings_frame_skip_desc">Ana makine yükünü azaltmak için oluşturulan karelerin sunumunu atlar. Yüksek değerler daha takılır ama daha hızlıdır.</string>
+    <string name="settings_display_crop">Görüntü kırpma</string>
+    <string name="settings_display_crop_desc">Ölçeklemeden önce görüntünün kenarlarından piksel keser. İstenmeyen kenarlık kaybolana kadar değeri artırın.</string>
+    <string name="settings_display_crop_left">Sol kenar</string>
+    <string name="settings_display_crop_top">Üst kenar</string>
+    <string name="settings_display_crop_right">Sağ kenar</string>
+    <string name="settings_display_crop_bottom">Alt kenar</string>
 </resources>

@@ -31,11 +31,51 @@ constexpr uint32_t kPreferredQueueFamilyNone = UINT32_MAX;
 constexpr uint64_t kFenceWaitTimeoutNs = 2'000'000'000ull;
 constexpr int kMaxSwapchainFailures = 3;
 
+// User-requested source-pixel crop.
+struct CropRect {
+    int left;
+    int top;
+    int right;
+    int bottom;
+};
+
+bool IsCropActive(const CropRect& crop) {
+    return crop.left > 0 || crop.top > 0 || crop.right > 0 || crop.bottom > 0;
+}
+
+// Keeps at least one pixel in each direction so blits never get an empty rect.
+CropRect ClampCrop(CropRect crop, uint32_t width, uint32_t height) {
+    if (crop.left < 0) crop.left = 0;
+    if (crop.top < 0) crop.top = 0;
+    if (crop.right < 0) crop.right = 0;
+    if (crop.bottom < 0) crop.bottom = 0;
+    if (width > 0) {
+        if (crop.left >= static_cast<int>(width)) crop.left = static_cast<int>(width) - 1;
+        if (crop.right > static_cast<int>(width) - 1 - crop.left) {
+            crop.right = static_cast<int>(width) - 1 - crop.left;
+        }
+    }
+    if (height > 0) {
+        if (crop.top >= static_cast<int>(height)) crop.top = static_cast<int>(height) - 1;
+        if (crop.bottom > static_cast<int>(height) - 1 - crop.top) {
+            crop.bottom = static_cast<int>(height) - 1 - crop.top;
+        }
+    }
+    return crop;
+}
+
 struct State {
     bool requested = false;
     bool failed = false;
     bool active = false;
     bool context_reset_pending = false;
+
+    // Source-pixel crop applied by the plain present paths; shader chains own
+    // their own scaling and receive the uncropped frame.
+    int crop_left = 0;
+    int crop_top = 0;
+    int crop_right = 0;
+    int crop_bottom = 0;
 
     retro_hw_render_callback* callback = nullptr;
     const retro_hw_render_context_negotiation_interface_vulkan* negotiation = nullptr;
@@ -1063,7 +1103,7 @@ struct PresentPushConstants {
 };
 
 bool RecordPresentBlit(uint32_t swapchain_index, uint32_t source_width, uint32_t source_height,
-                       const PresentRect& dst) {
+                       const PresentRect& dst, const CropRect& crop) {
     VkCommandBuffer command_buffer = g_vk.command_buffer;
     vkResetCommandBuffer(command_buffer, 0);
 
@@ -1110,8 +1150,9 @@ bool RecordPresentBlit(uint32_t swapchain_index, uint32_t source_width, uint32_t
 
     VkImageBlit blit{};
     blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    blit.srcOffsets[0] = {0, 0, 0};
-    blit.srcOffsets[1] = {static_cast<int32_t>(source_width), static_cast<int32_t>(source_height), 1};
+    blit.srcOffsets[0] = {crop.left, crop.top, 0};
+    blit.srcOffsets[1] = {static_cast<int32_t>(source_width) - crop.right,
+                          static_cast<int32_t>(source_height) - crop.bottom, 1};
     blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     blit.dstOffsets[0] = {dst.x, dst.y, 0};
     blit.dstOffsets[1] = {dst.x + dst.width, dst.y + dst.height, 1};
@@ -1137,7 +1178,7 @@ bool RecordPresentBlit(uint32_t swapchain_index, uint32_t source_width, uint32_t
 
 #if !defined(EMUCORER_HAVE_LIBRASHADER)
 bool RecordPresentEffect(uint32_t swapchain_index, uint32_t source_width, uint32_t source_height,
-                         const PresentRect& dst, int effect) {
+                         const PresentRect& dst, const CropRect& crop, int effect) {
     if (!EnsureEffectPipeline()) return false;
     if (swapchain_index >= g_vk.swapchain_framebuffers.size()) return false;
 
@@ -1149,12 +1190,14 @@ bool RecordPresentEffect(uint32_t swapchain_index, uint32_t source_width, uint32
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS) return false;
 
-    (void)source_width;
-    (void)source_height;
-
     const VkImage source_image = g_vk.frame_image.create_info.image;
     const VkImageLayout source_layout = g_vk.frame_image.image_layout;
     const VkImage target_image = g_vk.swapchain_images[swapchain_index];
+
+    // The push-constant source rect is normalised texture space; the crop
+    // offsets trim the sampled region to the user's selection.
+    const float inv_width = source_width > 0 ? 1.0f / static_cast<float>(source_width) : 0.0f;
+    const float inv_height = source_height > 0 ? 1.0f / static_cast<float>(source_height) : 0.0f;
 
     VkImageMemoryBarrier source_barrier{};
     source_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1229,10 +1272,12 @@ bool RecordPresentEffect(uint32_t swapchain_index, uint32_t source_width, uint32
     constants.dst_y = static_cast<float>(dst.y) / static_cast<float>(g_vk.swapchain_extent.height);
     constants.dst_w = static_cast<float>(dst.width) / static_cast<float>(g_vk.swapchain_extent.width);
     constants.dst_h = static_cast<float>(dst.height) / static_cast<float>(g_vk.swapchain_extent.height);
-    constants.src_x = 0.0f;
-    constants.src_y = 0.0f;
-    constants.src_w = 1.0f;
-    constants.src_h = 1.0f;
+    constants.src_x = static_cast<float>(crop.left) * inv_width;
+    constants.src_y = static_cast<float>(crop.top) * inv_height;
+    constants.src_w = static_cast<float>(static_cast<int32_t>(source_width) - crop.left - crop.right) *
+                      inv_width;
+    constants.src_h = static_cast<float>(static_cast<int32_t>(source_height) - crop.top - crop.bottom) *
+                      inv_height;
     constants.out_w = static_cast<float>(g_vk.swapchain_extent.width);
     constants.out_h = static_cast<float>(g_vk.swapchain_extent.height);
     constants.effect = static_cast<float>(effect);
@@ -1418,6 +1463,18 @@ void SetShaderEffect(int effect) {
     g_shader_effect.store(effect, std::memory_order_relaxed);
 }
 
+void SetDisplayCrop(int left, int top, int right, int bottom) {
+    const auto clamp = [](int value) {
+        if (value < 0) return 0;
+        if (value > 64) return 64;
+        return value;
+    };
+    g_vk.crop_left = clamp(left);
+    g_vk.crop_top = clamp(top);
+    g_vk.crop_right = clamp(right);
+    g_vk.crop_bottom = clamp(bottom);
+}
+
 bool EnsureContext(ANativeWindow* window, uint32_t window_generation) {
     if (!g_vk.requested) return false;
     if (window == nullptr) return false;
@@ -1489,16 +1546,35 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
     }
     if (swapchain_index >= g_vk.swapchain_images.size()) return false;
 
+#if defined(EMUCORER_HAVE_LIBRASHADER)
+    const bool want_chain = shader_chain::IsEnabled() && !shader_chain::PresetPath().empty();
+#else
+    constexpr bool want_chain = false;
+#endif
+    // Shader chains sample the whole frame image (no sub-rect input), so the
+    // crop applies only to the direct present paths.
+    const CropRect crop = want_chain
+        ? CropRect{0, 0, 0, 0}
+        : ClampCrop(CropRect{g_vk.crop_left, g_vk.crop_top, g_vk.crop_right, g_vk.crop_bottom},
+                    source_width, source_height);
+    if (IsCropActive(crop)) {
+        // The caller's aspect describes the full frame; rescale it for the
+        // trimmed region so the fit stays undistorted.
+        const double source_aspect = static_cast<double>(source_width) / static_cast<double>(source_height);
+        const double crop_aspect = static_cast<double>(source_width - crop.left - crop.right) /
+                                   static_cast<double>(source_height - crop.top - crop.bottom);
+        display_aspect *= crop_aspect / source_aspect;
+    }
+
     const PresentRect dst = FitDisplayRect(g_vk.swapchain_extent, display_aspect, stretch);
     bool recorded = false;
 #if defined(EMUCORER_HAVE_LIBRASHADER)
-    const bool want_chain = shader_chain::IsEnabled() && !shader_chain::PresetPath().empty();
     if (want_chain && EnsureShaderChain() && EnsureShaderChainTarget(dst.width, dst.height)) {
         recorded = RecordPresentShaderChain(swapchain_index, source_width, source_height, dst);
         if (!recorded) VK_LOGW("librashader chain frame failed; falling back to blit");
     }
     if (!recorded) {
-        recorded = RecordPresentBlit(swapchain_index, source_width, source_height, dst);
+        recorded = RecordPresentBlit(swapchain_index, source_width, source_height, dst, crop);
     }
 #else
     int effect = g_shader_effect.load(std::memory_order_relaxed);
@@ -1506,11 +1582,11 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
         effect = 5; // Fallback to Bilinear shader quad for reliable linear upscaling
     }
     if (effect != 0) {
-        recorded = RecordPresentEffect(swapchain_index, source_width, source_height, dst, effect);
+        recorded = RecordPresentEffect(swapchain_index, source_width, source_height, dst, crop, effect);
         if (!recorded) VK_LOGW("Vulkan shader effect path failed; falling back to blit");
     }
     if (!recorded) {
-        recorded = RecordPresentBlit(swapchain_index, source_width, source_height, dst);
+        recorded = RecordPresentBlit(swapchain_index, source_width, source_height, dst, crop);
     }
 #endif
     if (!recorded) {

@@ -1908,7 +1908,7 @@
     <string name="ss_core_cpu_fastmemrewrite">CPU Recompiler Fast Memory Access Rewrite</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">Enables rewrites when CPU Recompiler Fast Memory Access is enabled. Can provide a measurable speed boost, but may cause the core to segfault on certain platforms.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">Enable VRAM Write Texture Replacement</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Replace \'VRAM write textures\' with DuckStation-formatted texture packs from the \'swanstation/textures\' folder inside the frontend\'s system directory. This only works with the Vulkan and D3D11 (where available) renderers.</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Replace \'VRAM write textures\' with SwanStation-formatted texture packs from the \'swanstation/textures\' folder inside the frontend\'s system directory. This only works with the Vulkan and D3D11 (where available) renderers.</string>
     <string name="ss_core_texturereplacements_preloadtextures">Preload Texture Replacements</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">Preload VRAM write replacement textures to RAM</string>
     <string name="ss_core_main_runaheadframecount">Internal Run-Ahead</string>
@@ -1947,4 +1947,10 @@
     <string name="settings_target_fps_desc">Overrides the emulated refresh rate. Auto follows the console region.</string>
     <string name="settings_frame_skip">Frame skip</string>
     <string name="settings_frame_skip_desc">Skips presenting rendered frames to reduce host load. Higher values are choppier but faster.</string>
+    <string name="settings_display_crop">Display crop</string>
+    <string name="settings_display_crop_desc">Trims pixels from the edges of the picture before scaling. Increase a value until the unwanted border disappears.</string>
+    <string name="settings_display_crop_left">Left edge</string>
+    <string name="settings_display_crop_top">Top edge</string>
+    <string name="settings_display_crop_right">Right edge</string>
+    <string name="settings_display_crop_bottom">Bottom edge</string>
 </resources>

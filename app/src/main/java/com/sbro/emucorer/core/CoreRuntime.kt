@@ -322,7 +322,7 @@ internal object CoreRuntime {
         settings["InputSources:PadVibration"]?.toBooleanStrictOrNull()?.let { rumble ->
             bridge.nativeSetOption("swanstation_Controller_EnableRumble", rumble.toString())
         }
-        // Shader-based upscaling. The libretro core does not expose DuckStation
+        // Shader-based upscaling. The libretro core does not expose SwanStation
         // post-processing chains, but its texture filters (JINC2/xBR) are the
         // equivalent GPU shaders. A selected shader preset selects the closest
         // filter; otherwise the app's texture filtering mode is translated.

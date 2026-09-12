@@ -1887,7 +1887,7 @@
     <string name="ss_core_cpu_fastmemrewrite">快速内存访问重写</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">在启用 CPU 重编译器快速内存访问时启用重写。可带来可观的提速，但在某些平台上可能导致核心崩溃（段错误）。</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">启用 VRAM 写入纹理替换</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">将 \'VRAM 写入纹理\' 替换为前端系统目录中 \'swanstation/textures\' 文件夹下的 DuckStation 格式纹理包。仅适用于 Vulkan 和 D3D11（如果可用）渲染器。</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">将 \'VRAM 写入纹理\' 替换为前端系统目录中 \'swanstation/textures\' 文件夹下的 SwanStation 格式纹理包。仅适用于 Vulkan 和 D3D11（如果可用）渲染器。</string>
     <string name="ss_core_texturereplacements_preloadtextures">预加载纹理替换</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">将 VRAM 写入纹理替换预加载到 RAM。</string>
     <string name="ss_core_main_runaheadframecount">内部提前运行</string>
@@ -1926,4 +1926,10 @@
     <string name="settings_target_fps_desc">覆寫模擬的刷新率。自動會跟隨主機地區。</string>
     <string name="settings_frame_skip">跳幀</string>
     <string name="settings_frame_skip_desc">跳過已渲染畫面的顯示以降低主機負載。數值越高越不流暢但更快。</string>
+    <string name="settings_display_crop">畫面裁切</string>
+    <string name="settings_display_crop_desc">在縮放前裁掉畫面邊緣的像素。提高數值直到多餘的邊框消失。</string>
+    <string name="settings_display_crop_left">左邊緣</string>
+    <string name="settings_display_crop_top">上邊緣</string>
+    <string name="settings_display_crop_right">右邊緣</string>
+    <string name="settings_display_crop_bottom">下邊緣</string>
 </resources>

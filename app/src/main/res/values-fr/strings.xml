@@ -1888,7 +1888,7 @@
     <string name="ss_core_cpu_fastmemrewrite">Réécriture de l\'accès mémoire rapide</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">Active les réécritures lorsque l\'accès mémoire rapide du recompilateur CPU est activé. Peut apporter un gain de vitesse mesurable, mais peut provoquer un plantage du cœur (segfault) sur certaines plateformes.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">Activer le remplacement de textures par écriture VRAM</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Remplace les \'textures d\'écriture VRAM\' par des packs de textures au format DuckStation depuis le dossier \'swanstation/textures\' du répertoire système du frontend. Ne fonctionne qu\'avec les moteurs de rendu Vulkan et D3D11 (là où disponibles).</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Remplace les \'textures d\'écriture VRAM\' par des packs de textures au format SwanStation depuis le dossier \'swanstation/textures\' du répertoire système du frontend. Ne fonctionne qu\'avec les moteurs de rendu Vulkan et D3D11 (là où disponibles).</string>
     <string name="ss_core_texturereplacements_preloadtextures">Précharger les remplacements de textures</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">Précharge les textures de remplacement d\'écriture VRAM en RAM.</string>
     <string name="ss_core_main_runaheadframecount">Run-ahead interne</string>
@@ -1927,4 +1927,10 @@
     <string name="settings_target_fps_desc">Remplace la fréquence de rafraîchissement émulée. Auto suit la région de la console.</string>
     <string name="settings_frame_skip">Saut d\'images</string>
     <string name="settings_frame_skip_desc">Saute l\'affichage des images rendues pour réduire la charge. Des valeurs élevées saccadent mais accélèrent.</string>
+    <string name="settings_display_crop">Rognage de l\'image</string>
+    <string name="settings_display_crop_desc">Coupe les pixels des bords de l\'image avant la mise à l\'échelle. Augmentez la valeur jusqu\'à faire disparaître la bordure indésirable.</string>
+    <string name="settings_display_crop_left">Bord gauche</string>
+    <string name="settings_display_crop_top">Bord supérieur</string>
+    <string name="settings_display_crop_right">Bord droit</string>
+    <string name="settings_display_crop_bottom">Bord inférieur</string>
 </resources>

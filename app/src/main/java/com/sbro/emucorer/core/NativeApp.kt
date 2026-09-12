@@ -222,6 +222,12 @@ object NativeApp {
         CoreRuntime.updateSetting("EmuCore/GS", "FrameSkip", clamped.toString())
         runCatching { CoreRuntime.bridge.setFrameSkip(clamped) }
     }
+    @JvmStatic fun setDisplayCrop(crop: com.sbro.emucorer.data.DisplayCrop) {
+        val value = crop.sanitized()
+        runCatching {
+            CoreRuntime.bridge.setDisplayCrop(value.left, value.top, value.right, value.bottom)
+        }
+    }
     @JvmStatic fun setFrameLimitEnabled(enabled: Boolean) =
         CoreRuntime.updateSetting("EmuCore/GS", "FrameLimitEnable", enabled.toString())
     @JvmStatic fun setTurboModeEnabled(enabled: Boolean) = Unit

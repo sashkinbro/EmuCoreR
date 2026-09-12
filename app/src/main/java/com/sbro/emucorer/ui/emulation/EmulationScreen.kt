@@ -3739,6 +3739,49 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetAspectRatio(globalDefaults.aspectRatio) }
                         )
 
+                        OverlaySubsectionLabel(text = stringResource(R.string.settings_display_crop))
+
+                        LiveSliderRow(
+                            title = stringResource(R.string.settings_display_crop_left),
+                            valueLabelForValue = { "$it px" },
+                            value = uiState.displayCrop.left.toFloat(),
+                            range = DisplayCrop.MIN_PIXELS.toFloat()..DisplayCrop.MAX_PIXELS.toFloat(),
+                            steps = DisplayCrop.MAX_PIXELS - DisplayCrop.MIN_PIXELS - 1,
+                            onValueChange = { onSetDisplayCrop(uiState.displayCrop.copy(left = it.toInt())) },
+                            helpText = stringResource(R.string.settings_display_crop_desc),
+                            onResetToDefault = { onSetDisplayCrop(globalDefaults.displayCrop) }
+                        )
+
+                        LiveSliderRow(
+                            title = stringResource(R.string.settings_display_crop_top),
+                            valueLabelForValue = { "$it px" },
+                            value = uiState.displayCrop.top.toFloat(),
+                            range = DisplayCrop.MIN_PIXELS.toFloat()..DisplayCrop.MAX_PIXELS.toFloat(),
+                            steps = DisplayCrop.MAX_PIXELS - DisplayCrop.MIN_PIXELS - 1,
+                            onValueChange = { onSetDisplayCrop(uiState.displayCrop.copy(top = it.toInt())) },
+                            onResetToDefault = { onSetDisplayCrop(globalDefaults.displayCrop) }
+                        )
+
+                        LiveSliderRow(
+                            title = stringResource(R.string.settings_display_crop_right),
+                            valueLabelForValue = { "$it px" },
+                            value = uiState.displayCrop.right.toFloat(),
+                            range = DisplayCrop.MIN_PIXELS.toFloat()..DisplayCrop.MAX_PIXELS.toFloat(),
+                            steps = DisplayCrop.MAX_PIXELS - DisplayCrop.MIN_PIXELS - 1,
+                            onValueChange = { onSetDisplayCrop(uiState.displayCrop.copy(right = it.toInt())) },
+                            onResetToDefault = { onSetDisplayCrop(globalDefaults.displayCrop) }
+                        )
+
+                        LiveSliderRow(
+                            title = stringResource(R.string.settings_display_crop_bottom),
+                            valueLabelForValue = { "$it px" },
+                            value = uiState.displayCrop.bottom.toFloat(),
+                            range = DisplayCrop.MIN_PIXELS.toFloat()..DisplayCrop.MAX_PIXELS.toFloat(),
+                            steps = DisplayCrop.MAX_PIXELS - DisplayCrop.MIN_PIXELS - 1,
+                            onValueChange = { onSetDisplayCrop(uiState.displayCrop.copy(bottom = it.toInt())) },
+                            onResetToDefault = { onSetDisplayCrop(globalDefaults.displayCrop) }
+                        )
+
                         SwanStationCoreOptions.option("swanstation_Display_CropMode")?.let { option ->
                             CoreOptionRows(
                                 options = listOf(option),

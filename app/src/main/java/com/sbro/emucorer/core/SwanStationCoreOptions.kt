@@ -4109,7 +4109,7 @@ object SwanStationCoreOptions {
         Option(
             key = "swanstation_TextureReplacements_EnableVRAMWriteReplacements",
             label = "Enable VRAM Write Texture Replacement",
-            description = "Replace 'VRAM write textures' with DuckStation-formatted texture packs from the 'swanstation/textures' folder inside the frontend's system directory. This only works with the Vulkan and D3D11 (where available) renderers.",
+            description = "Replace 'VRAM write textures' with SwanStation-formatted texture packs from the 'swanstation/textures' folder inside the frontend's system directory. This only works with the Vulkan and D3D11 (where available) renderers.",
             category = "advanced",
             choices = listOf(
                 Choice("true", "Enabled"),

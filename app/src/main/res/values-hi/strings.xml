@@ -1886,7 +1886,7 @@
     <string name="ss_core_cpu_fastmemrewrite">तेज़ मेमोरी एक्सेस रीराइट</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">CPU रीकम्पाइलर तेज़ मेमोरी एक्सेस सक्षम होने पर रीराइट सक्षम करता है। मापनीय गति लाभ दे सकता है, पर कुछ प्लेटफ़ॉर्म पर कोर क्रैश (segfault) हो सकता है।</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">VRAM राइट टेक्सचर रिप्लेसमेंट सक्षम करें</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">\'VRAM राइट टेक्सचर\' को फ़्रंटएंड की सिस्टम डायरेक्टरी में \'swanstation/textures\' फ़ोल्डर से DuckStation प्रारूप वाले टेक्सचर पैक से बदलता है। यह केवल Vulkan और D3D11 (जहाँ उपलब्ध हो) रेंडरर के साथ काम करता है।</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">\'VRAM राइट टेक्सचर\' को फ़्रंटएंड की सिस्टम डायरेक्टरी में \'swanstation/textures\' फ़ोल्डर से SwanStation प्रारूप वाले टेक्सचर पैक से बदलता है। यह केवल Vulkan और D3D11 (जहाँ उपलब्ध हो) रेंडरर के साथ काम करता है।</string>
     <string name="ss_core_texturereplacements_preloadtextures">टेक्सचर रिप्लेसमेंट प्रीलोड करें</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">VRAM राइट टेक्सचर रिप्लेसमेंट को RAM में प्रीलोड करता है।</string>
     <string name="ss_core_main_runaheadframecount">आंतरिक रन-अहेड</string>
@@ -1925,4 +1925,10 @@
     <string name="settings_target_fps_desc">एमुलेटेड रिफ्रेश दर को ओवरराइड करता है। ऑटो कंसोल क्षेत्र का अनुसरण करता है।</string>
     <string name="settings_frame_skip">फ़्रेम स्किप</string>
     <string name="settings_frame_skip_desc">होस्ट लोड कम करने के लिए रेंडर किए गए फ़्रेम दिखाना छोड़ता है। बड़े मान अधिक झटकेदार पर तेज़ होते हैं।</string>
+    <string name="settings_display_crop">डिस्प्ले क्रॉप</string>
+    <string name="settings_display_crop_desc">स्केलिंग से पहले छवि के किनारों से पिक्सेल हटाता है। अवांछित बॉर्डर गायब होने तक मान बढ़ाएँ।</string>
+    <string name="settings_display_crop_left">बायाँ किनारा</string>
+    <string name="settings_display_crop_top">ऊपरी किनारा</string>
+    <string name="settings_display_crop_right">दायाँ किनारा</string>
+    <string name="settings_display_crop_bottom">निचला किनारा</string>
 </resources>

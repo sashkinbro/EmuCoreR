@@ -642,12 +642,6 @@ object EmulatorBridge {
                         ).toString()
                     )
                 )
-                displayCrop.sanitized().let { crop ->
-                    add(settingOp("EmuCore/GS", "CropLeft", "int", crop.left.toString()))
-                    add(settingOp("EmuCore/GS", "CropTop", "int", crop.top.toString()))
-                    add(settingOp("EmuCore/GS", "CropRight", "int", crop.right.toString()))
-                    add(settingOp("EmuCore/GS", "CropBottom", "int", crop.bottom.toString()))
-                }
                 add(settingOp("SPU2/Output", "StandardVolume", "int", AudioDefaults.coerceVolume(audioVolume).toString()))
                 add(settingOp("SPU2/Output", "FastForwardVolume", "int", AudioDefaults.coerceVolume(audioFastForwardVolume).toString()))
                 add(settingOp("SPU2/Output", "OutputMuted", "bool", audioMuted.toString()))
@@ -828,6 +822,9 @@ object EmulatorBridge {
                 add(customDriverOp(resolvedCustomDriverPath))
             }
         )
+        // Crop is applied by the frontend presenter, not the core option set,
+        // so it is pushed straight to the native bridge.
+        NativeApp.setDisplayCrop(displayCrop.sanitized())
         if (runtimeApplied) {
             settingsCache["EmuCore/GS:Renderer"] = resolvedRenderer.toString()
         }
@@ -1382,16 +1379,11 @@ object EmulatorBridge {
 
     suspend fun setDisplayCrop(value: DisplayCrop) {
         val crop = value.sanitized()
-        val values = listOf(
-            "CropLeft" to crop.left,
-            "CropTop" to crop.top,
-            "CropRight" to crop.right,
-            "CropBottom" to crop.bottom
-        )
-        values.forEach { (key, pixels) -> settingsCache["EmuCore/GS:$key"] = pixels.toString() }
-        performRuntimeOps(values.map { (key, pixels) ->
-            settingOp("EmuCore/GS", key, "int", pixels.toString())
-        })
+        settingsCache["EmuCore/GS:CropLeft"] = crop.left.toString()
+        settingsCache["EmuCore/GS:CropTop"] = crop.top.toString()
+        settingsCache["EmuCore/GS:CropRight"] = crop.right.toString()
+        settingsCache["EmuCore/GS:CropBottom"] = crop.bottom.toString()
+        NativeApp.setDisplayCrop(crop)
     }
 
     suspend fun setLocalMultiplayerMode(mode: Int) {

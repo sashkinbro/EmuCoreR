@@ -1907,7 +1907,7 @@
     <string name="ss_core_cpu_fastmemrewrite">Přepis rychlého přístupu k paměti</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">Zapíná přepisy, když je zapnutý rychlý přístup k paměti rekompilátoru CPU. Může přinést znatelné zrychlení, ale na některých platformách může způsobit pád jádra (segfault).</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">Zapnout náhradu textur při zápisu do VRAM</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Nahrazuje \'textury zápisu VRAM\' balíčky textur ve formátu DuckStation ze složky \'swanstation/textures\' v systémovém adresáři frontendu. Funguje jen s renderery Vulkan a D3D11 (kde jsou dostupné).</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Nahrazuje \'textury zápisu VRAM\' balíčky textur ve formátu SwanStation ze složky \'swanstation/textures\' v systémovém adresáři frontendu. Funguje jen s renderery Vulkan a D3D11 (kde jsou dostupné).</string>
     <string name="ss_core_texturereplacements_preloadtextures">Přednačíst náhrady textur</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">Přednačte náhrady textur zápisu VRAM do RAM.</string>
     <string name="ss_core_main_runaheadframecount">Interní run-ahead</string>
@@ -1946,4 +1946,10 @@
     <string name="settings_target_fps_desc">Nahrazuje emulovanou obnovovací frekvenci. Auto se řídí regionem konzole.</string>
     <string name="settings_frame_skip">Přeskakování snímků</string>
     <string name="settings_frame_skip_desc">Přeskakuje zobrazování vykreslených snímků pro snížení zátěže. Vyšší hodnoty jsou trhanější, ale rychlejší.</string>
+    <string name="settings_display_crop">Ořez obrazu</string>
+    <string name="settings_display_crop_desc">Odstraňuje pixely z okrajů obrazu před škálováním. Zvyšujte hodnotu, dokud nežádoucí okraj nezmizí.</string>
+    <string name="settings_display_crop_left">Levý okraj</string>
+    <string name="settings_display_crop_top">Horní okraj</string>
+    <string name="settings_display_crop_right">Pravý okraj</string>
+    <string name="settings_display_crop_bottom">Dolní okraj</string>
 </resources>

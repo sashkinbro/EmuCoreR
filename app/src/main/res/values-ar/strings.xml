@@ -1894,7 +1894,7 @@
     <string name="ss_core_cpu_fastmemrewrite">إعادة كتابة الوصول السريع للذاكرة</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">يفعّل إعادة الكتابة عند تفعيل الوصول السريع للذاكرة في مُعيد مترجم CPU. قد يوفر زيادة ملموسة في السرعة، لكنه قد يسبب انهيار النواة (segfault) على بعض المنصات.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">تفعيل استبدال قوام الكتابة في VRAM</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">يستبدل \'قوام الكتابة في VRAM\' بحزم قوام بصيغة DuckStation من مجلد \'swanstation/textures\' داخل مجلد النظام للواجهة الأمامية. يعمل فقط مع عارضَي Vulkan وD3D11 (حيثما توفرا).</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">يستبدل \'قوام الكتابة في VRAM\' بحزم قوام بصيغة SwanStation من مجلد \'swanstation/textures\' داخل مجلد النظام للواجهة الأمامية. يعمل فقط مع عارضَي Vulkan وD3D11 (حيثما توفرا).</string>
     <string name="ss_core_texturereplacements_preloadtextures">تحميل استبدالات القوام مسبقًا</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">يحمّل استبدالات قوام الكتابة في VRAM مسبقًا إلى RAM.</string>
     <string name="ss_core_main_runaheadframecount">التشغيل المسبق الداخلي</string>
@@ -1933,4 +1933,10 @@
     <string name="settings_target_fps_desc">يتجاوز معدل التحديث المحاكى. يتبع الوضع التلقائي منطقة الجهاز.</string>
     <string name="settings_frame_skip">تخطي الإطارات</string>
     <string name="settings_frame_skip_desc">يتخطى عرض الإطارات المعروضة لتقليل الحمل. القيم الأعلى أكثر تقطعًا لكن أسرع.</string>
+    <string name="settings_display_crop">قص الصورة</string>
+    <string name="settings_display_crop_desc">يزيل البكسلات من حواف الصورة قبل التحجيم. زد القيمة حتى تختفي الحواف غير المرغوبة.</string>
+    <string name="settings_display_crop_left">الحافة اليسرى</string>
+    <string name="settings_display_crop_top">الحافة العلوية</string>
+    <string name="settings_display_crop_right">الحافة اليمنى</string>
+    <string name="settings_display_crop_bottom">الحافة السفلية</string>
 </resources>

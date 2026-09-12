@@ -1890,7 +1890,7 @@
     <string name="ss_core_cpu_fastmemrewrite">Перезапись быстрого доступа к памяти</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">Включает перезаписи, когда включён быстрый доступ к памяти рекомпилятора CPU. Может дать заметный прирост скорости, но на некоторых платформах способен вызвать сбой ядра (segfault).</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">Включить замену текстур при записи в VRAM</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Заменяет \'текстуры записи VRAM\' пакетами текстур формата DuckStation из папки \'swanstation/textures\' в системной папке фронтенда. Работает только с рендерерами Vulkan и D3D11 (где доступны).</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Заменяет \'текстуры записи VRAM\' пакетами текстур формата SwanStation из папки \'swanstation/textures\' в системной папке фронтенда. Работает только с рендерерами Vulkan и D3D11 (где доступны).</string>
     <string name="ss_core_texturereplacements_preloadtextures">Предзагружать замены текстур</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">Предварительно загружает замены текстур записи VRAM в RAM.</string>
     <string name="ss_core_main_runaheadframecount">Внутренний run-ahead</string>
@@ -1929,4 +1929,10 @@
     <string name="settings_target_fps_desc">Переопределяет частоту обновления эмуляции. «Авто» соответствует региону консоли.</string>
     <string name="settings_frame_skip">Пропуск кадров</string>
     <string name="settings_frame_skip_desc">Пропускает вывод отрисованных кадров, снижая нагрузку. Большие значения — рывками, но быстрее.</string>
+    <string name="settings_display_crop">Обрезка изображения</string>
+    <string name="settings_display_crop_desc">Убирает пиксели с краёв изображения перед масштабированием. Увеличивайте значение, пока лишняя рамка не исчезнет.</string>
+    <string name="settings_display_crop_left">Левый край</string>
+    <string name="settings_display_crop_top">Верхний край</string>
+    <string name="settings_display_crop_right">Правый край</string>
+    <string name="settings_display_crop_bottom">Нижний край</string>
 </resources>

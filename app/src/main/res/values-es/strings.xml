@@ -1888,7 +1888,7 @@
     <string name="ss_core_cpu_fastmemrewrite">Reescritura del acceso rápido a memoria</string>
     <string name="ss_core_cpu_fastmemrewrite_desc">Activa las reescrituras cuando el acceso rápido a memoria del recompilador de CPU está activado. Puede aportar una mejora de velocidad notable, pero puede provocar un fallo del núcleo (segfault) en ciertas plataformas.</string>
     <string name="ss_core_texturereplacements_enablevramwritereplacements">Activar reemplazo de texturas por escritura en VRAM</string>
-    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Reemplaza las \'texturas de escritura en VRAM\' con paquetes de texturas en formato DuckStation de la carpeta \'swanstation/textures\' dentro del directorio del sistema del frontend. Solo funciona con los renderizadores Vulkan y D3D11 (donde estén disponibles).</string>
+    <string name="ss_core_texturereplacements_enablevramwritereplacements_desc">Reemplaza las \'texturas de escritura en VRAM\' con paquetes de texturas en formato SwanStation de la carpeta \'swanstation/textures\' dentro del directorio del sistema del frontend. Solo funciona con los renderizadores Vulkan y D3D11 (donde estén disponibles).</string>
     <string name="ss_core_texturereplacements_preloadtextures">Precargar reemplazos de texturas</string>
     <string name="ss_core_texturereplacements_preloadtextures_desc">Precarga las texturas de reemplazo de escritura en VRAM en la RAM.</string>
     <string name="ss_core_main_runaheadframecount">Run-ahead interno</string>
@@ -1927,4 +1927,10 @@
     <string name="settings_target_fps_desc">Anula la frecuencia de actualización emulada. Auto sigue la región de la consola.</string>
     <string name="settings_frame_skip">Salto de fotogramas</string>
     <string name="settings_frame_skip_desc">Omite la presentación de fotogramas renderizados para reducir la carga. Valores altos son más entrecortados pero rápidos.</string>
+    <string name="settings_display_crop">Recorte de imagen</string>
+    <string name="settings_display_crop_desc">Elimina píxeles de los bordes de la imagen antes del escalado. Aumenta el valor hasta que desaparezca el borde no deseado.</string>
+    <string name="settings_display_crop_left">Borde izquierdo</string>
+    <string name="settings_display_crop_top">Borde superior</string>
+    <string name="settings_display_crop_right">Borde derecho</string>
+    <string name="settings_display_crop_bottom">Borde inferior</string>
 </resources>

@@ -33,6 +33,7 @@ bool IsActive();
 
 void NotifyContextDestroy();
 void SetShaderEffect(int effect);
+void SetDisplayCrop(int left, int top, int right, int bottom);
 
 bool EnsureContext(ANativeWindow* window, uint32_t window_generation);
 bool Present(uint32_t source_width, uint32_t source_height, double display_aspect, bool stretch);
