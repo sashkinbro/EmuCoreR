@@ -223,20 +223,10 @@ object EmulatorBridge {
         return File(root, name).absolutePath
     }
 
-    /**
-     * Keep the frontend renderer name honest: Vulkan/OpenGL execute GP0 work on
-     * that backend, while Software remains the exact PGXP-capable reference.
-     * Hardware execution and PGXP are deliberately mutually exclusive in the
-     * native runtime, so switches first enter a compatible neutral state.
-     */
     private fun rendererExecutionOps(renderer: Int): List<RuntimeOp> {
         val resolved = normalizeRenderer(renderer)
-        val hardware = resolved == VULKAN_RENDERER || resolved == OPENGL_RENDERER
         return listOf(
-            settingOp("EmuCoreR/GPU", "HardwareExecution", "bool", "false"),
-            settingOp("EmuCoreR/GPU", "PGXP", "bool", (!hardware).toString()),
-            settingOp("EmuCore/GS", "Renderer", "int", resolved.toString()),
-            settingOp("EmuCoreR/GPU", "HardwareExecution", "bool", hardware.toString())
+            settingOp("EmuCore/GS", "Renderer", "int", resolved.toString())
         )
     }
 

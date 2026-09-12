@@ -46,7 +46,7 @@ internal object CoreRuntime {
     private val lifecycleLock = ReentrantLock()
     private val sessionLock = ReentrantLock()
     private var context: Context? = null
-    private var session = 0L
+    @Volatile private var session = 0L
     @Volatile private var worker: Thread? = null
     private var audioOutput: NativeAudioOutput? = null
 
@@ -312,9 +312,6 @@ internal object CoreRuntime {
         upscale?.let {
             val scale = Math.round(it).coerceIn(1, 16)
             bridge.nativeSetOption("swanstation_GPU_ResolutionScale", scale.toString())
-        }
-        settings["EmuCoreR/GPU:PGXP"]?.toBooleanStrictOrNull()?.let { pgxp ->
-            bridge.nativeSetOption("swanstation_GPU_PGXPEnable", pgxp.toString())
         }
         settings["EmuCore:EnableFastBoot"]?.toBooleanStrictOrNull()?.let { fastBoot ->
             bridge.nativeSetOption("swanstation_BIOS_PatchFastBoot", fastBoot.toString())
@@ -715,7 +712,6 @@ internal object CoreRuntime {
             // GPU texture filter (its real hardware "shader" stage), at runtime.
             "EmuCore/GS:ShaderChainEnabled", "EmuCore/GS:ShaderChainPreset" ->
                 "swanstation_GPU_TextureFilter" to swanStationTextureFilter()
-            "EmuCoreR/GPU:PGXP" -> bool?.let { "swanstation_GPU_PGXPEnable" to it.toString() }
             "EmuCore:EnableFastBoot" -> bool?.let { "swanstation_BIOS_PatchFastBoot" to it.toString() }
             "EmuCore:EnableWideScreenPatches" ->
                 bool?.let { "swanstation_GPU_WidescreenHack" to it.toString() }
@@ -805,6 +801,7 @@ internal object CoreRuntime {
         var metricsFrameTotalNanos = 0L
         var metricsCoreTotalNanos = 0L
         var metricsStartCpuMs = android.os.Process.getElapsedCpuTime()
+        var frameDeadlineNanos = 0L
         try {
             while (running) {
                 // Owns the thread-affine EGL context, so any queued save/load
@@ -816,6 +813,20 @@ internal object CoreRuntime {
                     continue
                 }
                 paceToAudioClock(output)
+                val frameRate = runCatching { bridge.getFrameRate(session) }.getOrDefault(0.0)
+                if (frameRate > 1.0) {
+                    val framePeriodNanos = (1_000_000_000.0 / frameRate).toLong()
+                    if (frameDeadlineNanos == 0L) frameDeadlineNanos = System.nanoTime()
+                    while (running && !paused && System.nanoTime() < frameDeadlineNanos) {
+                        drainFrameTasks()
+                        Thread.sleep(1)
+                    }
+                    val afterNanos = System.nanoTime()
+                    frameDeadlineNanos += framePeriodNanos
+                    if (frameDeadlineNanos < afterNanos - framePeriodNanos * 4) {
+                        frameDeadlineNanos = afterNanos + framePeriodNanos
+                    }
+                }
                 val t0 = System.nanoTime()
                 var skippedPausedFrame = false
                 val coreNanos = sessionLock.withLock {

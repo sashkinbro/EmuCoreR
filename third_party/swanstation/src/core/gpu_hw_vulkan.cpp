@@ -1366,6 +1366,7 @@ bool GPU_HW_Vulkan::CreateFramebuffer()
 
 bool GPU_HW_Vulkan::CreateDownsampleResources(uint32_t texture_width, uint32_t texture_height, VkFormat texture_format)
 {
+  m_adaptive_downsample_unavailable = false;
   VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
   Vulkan::DescriptorSetUpdateBuilder dsubuilder;
   Vulkan::FramebufferBuilder fbb;
@@ -1437,7 +1438,7 @@ bool GPU_HW_Vulkan::CreateDownsampleResources(uint32_t texture_width, uint32_t t
 
     m_downsample_composite_descriptor_set =
       g_vulkan_context->AllocateGlobalDescriptorSet(m_downsample_composite_descriptor_set_layout);
-    if (m_downsample_composite_descriptor_set_layout == VK_NULL_HANDLE)
+    if (m_downsample_composite_descriptor_set == VK_NULL_HANDLE)
       return false;
 
     dsubuilder.AddCombinedImageSamplerDescriptorWrite(m_downsample_composite_descriptor_set, 1,
@@ -3588,6 +3589,20 @@ void GPU_HW_Vulkan::DownsampleFramebufferBoxFilter(Vulkan::Texture& source, uint
 
 void GPU_HW_Vulkan::DownsampleFramebufferAdaptive(Vulkan::Texture& source, uint32_t left, uint32_t top, uint32_t width, uint32_t height)
 {
+  if (!m_adaptive_downsample_unavailable &&
+      (GetDownsampleFirstPassPipeline() == VK_NULL_HANDLE || GetDownsampleMidPassPipeline() == VK_NULL_HANDLE ||
+       GetDownsampleBlurPassPipeline() == VK_NULL_HANDLE || GetDownsampleCompositePassPipeline() == VK_NULL_HANDLE))
+  {
+    m_adaptive_downsample_unavailable = true;
+    Log_ErrorPrintf("Adaptive downsampling is unavailable on this device; showing the undownsampled image instead");
+  }
+  if (m_adaptive_downsample_unavailable)
+  {
+    m_host_display->SetDisplayTexture(&source, HostDisplayPixelFormat::RGBA8, source.GetWidth(), source.GetHeight(),
+                                      left, top, width, height);
+    return;
+  }
+
   const VkImageCopy copy{{VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},
                          {static_cast<int32_t>(left), static_cast<int32_t>(top), 0},
                          {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},

@@ -416,6 +416,7 @@ private:
   VkDescriptorSet m_downsample_composite_descriptor_set = VK_NULL_HANDLE;
   VkPipeline m_downsample_first_pass_pipeline = VK_NULL_HANDLE;
   VkPipeline m_downsample_mid_pass_pipeline = VK_NULL_HANDLE;
+  bool m_adaptive_downsample_unavailable = false;
   VkPipeline m_downsample_blur_pass_pipeline = VK_NULL_HANDLE;
   VkPipeline m_downsample_composite_pass_pipeline = VK_NULL_HANDLE;
 };

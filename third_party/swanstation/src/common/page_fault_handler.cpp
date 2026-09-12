@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstring>
 #include <mutex>
+#include <optional>
 #include <vector>
 Log_SetChannel(Common::PageFaultHandler);
 
@@ -80,6 +81,55 @@ static bool IsStoreInstruction(const void* ptr)
 }
 #endif
 
+#if defined(__linux__) && defined(CPU_AARCH64)
+
+static constexpr uint64_t ARM64_ESR_ISS_DA_WNR = (1u << 6);
+
+static std::optional<uint64_t> GetLinuxAArch64ESR(const ucontext_t* context)
+{
+  // The kernel does not expose the ESR directly; walk the reserved context
+  // records looking for the ESR record.
+  struct LinuxAArch64ContextHeader
+  {
+    uint32_t magic;
+    uint32_t size;
+  };
+
+  struct LinuxAArch64ESRContext
+  {
+    LinuxAArch64ContextHeader head;
+    uint64_t esr;
+  };
+
+  static constexpr uint32_t LINUX_AARCH64_ESR_MAGIC = 0x45535201;
+
+  const uint8_t* ptr = context->uc_mcontext.__reserved;
+  const uint8_t* const end = ptr + sizeof(context->uc_mcontext.__reserved);
+
+  while (ptr < end)
+  {
+    const size_t remaining = static_cast<size_t>(end - ptr);
+    if (remaining < sizeof(LinuxAArch64ContextHeader))
+      break;
+
+    const auto* header = reinterpret_cast<const LinuxAArch64ContextHeader*>(ptr);
+    if (header->magic == 0 && header->size == 0)
+      break;
+
+    if (header->size < sizeof(LinuxAArch64ContextHeader) || header->size > remaining || (header->size & 15) != 0)
+      break;
+
+    if (header->magic == LINUX_AARCH64_ESR_MAGIC && header->size >= sizeof(LinuxAArch64ESRContext))
+      return reinterpret_cast<const LinuxAArch64ESRContext*>(ptr)->esr;
+
+    ptr += header->size;
+  }
+
+  return std::nullopt;
+}
+
+#endif // __linux__ && CPU_AARCH64
+
 #if defined(_WIN32) && (defined(CPU_X64) || defined(CPU_AARCH64))
 static PVOID s_veh_handle;
 
@@ -143,8 +193,13 @@ static void SIGSEGVHandler(int sig, siginfo_t* info, void* ctx)
   void* const exception_pc = reinterpret_cast<void*>(static_cast<ucontext_t*>(ctx)->uc_mcontext.arm_pc);
   const bool is_write = IsStoreInstruction(exception_pc);
 #elif defined(CPU_AARCH64)
-  void* const exception_pc = reinterpret_cast<void*>(static_cast<ucontext_t*>(ctx)->uc_mcontext.pc);
-  const bool is_write = IsStoreInstruction(exception_pc);
+  ucontext_t* const context = static_cast<ucontext_t*>(ctx);
+  void* const exception_pc = reinterpret_cast<void*>(context->uc_mcontext.pc);
+  // Only decode the faulting instruction when the kernel did not provide the
+  // write flag: the instruction may not be mapped.
+  const std::optional<uint64_t> esr = GetLinuxAArch64ESR(context);
+  const bool is_write =
+    esr.has_value() ? ((esr.value() & ARM64_ESR_ISS_DA_WNR) != 0) : IsStoreInstruction(exception_pc);
 #else
   void* const exception_pc = nullptr;
   const bool is_write = false;
@@ -251,7 +306,9 @@ bool InstallHandler(const void* owner, void* start_pc, uint32_t code_size, Callb
 #elif defined(USE_SIGSEGV)
     struct sigaction sa = {};
     sa.sa_sigaction = SIGSEGVHandler;
-    sa.sa_flags = SA_SIGINFO;
+    // Allow recursive delivery so a fault raised while decoding the original
+    // faulting instruction can still reach the previous handler.
+    sa.sa_flags = SA_SIGINFO | SA_NODEFER;
     sigemptyset(&sa.sa_mask);
     if (sigaction(SIGSEGV, &sa, &s_old_sigsegv_action) < 0)
     {

@@ -88,8 +88,7 @@ tests/fuzz/artifacts/
 /add_translations.ps1
 
 # Local release tooling (parallel builds + apktool)
-/tools/apktool.jar
-/tools/*.ps1
+/tools/
 
 # Legacy PS1 core trees replaced by third_party/swanstation
 /deps/

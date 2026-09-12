@@ -1988,6 +1988,14 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_getDisplayRect(JNIEnv* env, jobject
     return result;
 }
 
+JNIEXPORT jdouble JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_getFrameRate(JNIEnv*, jobject, jlong handle) {
+    if (handle == 0) return 0.0;
+    retro_system_av_info info{};
+    retro_get_system_av_info(&info);
+    return info.timing.fps;
+}
+
 JNIEXPORT jlongArray JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_getAvInfo(JNIEnv* env, jobject, jlong handle) {
     if (handle == 0) return nullptr;

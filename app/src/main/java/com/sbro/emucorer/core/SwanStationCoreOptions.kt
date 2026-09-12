@@ -4187,9 +4187,9 @@ object SwanStationCoreOptions {
 
     /**
      * Keys that already have a dedicated control in the app UI (renderer,
-     * resolution, aspect, crop, fast boot, PGXP, widescreen, rumble, texture
-     * replacements, BIOS selection, memory cards). They must not be rendered
-     * again by the generic option rows.
+     * resolution, aspect, crop, fast boot, rumble, texture replacements, BIOS
+     * selection, memory cards). They must not be rendered again by the generic
+     * option rows.
      */
     private val managedKeys = setOf(
         "swanstation_GPU_Renderer",
@@ -4200,8 +4200,6 @@ object SwanStationCoreOptions {
         "swanstation_BIOS_PathNTSCJ",
         "swanstation_BIOS_PathNTSCU",
         "swanstation_BIOS_PathPAL",
-        "swanstation_GPU_PGXPEnable",
-        "swanstation_GPU_WidescreenHack",
         "swanstation_Controller_EnableRumble",
         "swanstation_ControllerPorts_MultitapMode",
         "swanstation_TextureReplacements_EnableVRAMWriteReplacements",

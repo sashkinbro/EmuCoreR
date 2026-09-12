@@ -57,6 +57,8 @@ CDImageMds::~CDImageMds()
 
 bool CDImageMds::OpenAndParse(const char* filename, Common::Error* error)
 {
+  m_filename = filename;
+
   RFILE* mds_fp = FileSystem::OpenRFile(filename, "rb");
   if (!mds_fp)
   {

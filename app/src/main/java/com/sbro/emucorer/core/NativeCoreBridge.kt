@@ -75,6 +75,8 @@ class NativeCoreBridge {
     external fun getDiagnostics(): String
     external fun getDisplayRect(handle: Long): IntArray?
     external fun getAvInfo(handle: Long): LongArray?
+    /** Emulated vertical refresh in Hz, used for audio-synced frame pacing. */
+    external fun getFrameRate(handle: Long): Double
 
     /** Human-readable core name/version used by statistics and the About screen. */
     fun coreName(): String? = "SwanStation"

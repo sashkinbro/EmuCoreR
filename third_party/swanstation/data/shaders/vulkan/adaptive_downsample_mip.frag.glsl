@@ -20,7 +20,7 @@
 
 layout(constant_id = 100) const bool FIRST_PASS = false;
 
-layout(set = 0, binding = 0) uniform sampler2D samp0;
+layout(set = 0, binding = 1) uniform sampler2D samp0;
 
 layout(push_constant) uniform PushConstants {
   vec2 u_uv_min;
