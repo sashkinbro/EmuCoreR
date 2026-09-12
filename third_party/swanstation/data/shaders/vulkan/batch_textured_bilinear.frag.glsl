@@ -129,7 +129,7 @@ uvec2 ApplyUpscaledTextureWindow(uvec2 coords)
 
 uvec2 FloatToIntegerCoords(vec2 coords)
 {
-  return uvec2((RESOLUTION_SCALE == 1u) ? floor(coords + 0.5) : floor(coords));
+  return uvec2((RESOLUTION_SCALE == 1u) ? roundEven(coords) : floor(coords));
 }
 
 uint RGBA8ToRGBA5551(vec4 v)

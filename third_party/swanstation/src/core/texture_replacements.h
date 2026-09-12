@@ -2,6 +2,7 @@
 #include "common/hash_combine.h"
 #include "common/image.h"
 #include "types.h"
+#include <list>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -54,6 +55,8 @@ public:
 private:
   using VRAMWriteReplacementMap = std::unordered_map<TextureReplacementHash, std::string>;
   using TextureCache = std::unordered_map<std::string, TextureReplacementTexture>;
+  using TextureLruList = std::list<std::string>;
+  using TextureLruPositions = std::unordered_map<std::string, TextureLruList::iterator>;
 
   static bool ParseReplacementFilename(const std::string& filename, TextureReplacementHash* replacement_hash,
                                        ReplacmentType* replacement_type);
@@ -68,9 +71,18 @@ private:
   void PreloadTextures();
   void PurgeUnreferencedTexturesFromCache();
 
+  // Keeps the decoded texture cache inside a fixed memory budget by evicting
+  // the least recently used entries when a new image is inserted.
+  void EvictTexturesForBudget(size_t incoming_bytes, const std::string& keep_filename);
+  void TouchTextureCacheEntry(const std::string& filename);
+  void ResetTextureCacheOrdering();
+
   std::string m_game_id;
 
   TextureCache m_texture_cache;
+  TextureLruList m_texture_lru;
+  TextureLruPositions m_texture_lru_positions;
+  size_t m_texture_cache_bytes = 0;
 
   VRAMWriteReplacementMap m_vram_write_replacements;
 };

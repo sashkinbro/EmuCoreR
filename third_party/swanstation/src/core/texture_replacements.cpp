@@ -15,6 +15,10 @@
 #include <file/file_path.h>
 Log_SetChannel(TextureReplacements);
 
+// Decoded replacement textures are kept in memory, and large HD packs can be
+// hundreds of megabytes, so cap the cache and evict the oldest entries first.
+static constexpr size_t TEXTURE_CACHE_BUDGET_BYTES = 128u * 1024u * 1024u;
+
 TextureReplacements g_texture_replacements;
 
 static constexpr uint32_t VRAMRGBA5551ToRGBA8888(uint16_t color)
@@ -80,6 +84,9 @@ const TextureReplacementTexture* TextureReplacements::GetVRAMWriteReplacement(ui
 void TextureReplacements::Shutdown()
 {
   m_texture_cache.clear();
+  m_texture_lru.clear();
+  m_texture_lru_positions.clear();
+  m_texture_cache_bytes = 0;
   m_vram_write_replacements.clear();
   m_game_id.clear();
 }
@@ -120,6 +127,50 @@ void TextureReplacements::PurgeUnreferencedTexturesFromCache()
     {
       m_texture_cache[it.second] = std::move(it2->second);
       old_map.erase(it2);
+    }
+  }
+
+  ResetTextureCacheOrdering();
+}
+
+void TextureReplacements::ResetTextureCacheOrdering()
+{
+  m_texture_lru.clear();
+  m_texture_lru_positions.clear();
+  m_texture_cache_bytes = 0;
+  for (auto& it : m_texture_cache)
+  {
+    m_texture_lru.push_back(it.first);
+    m_texture_lru_positions.emplace(it.first, std::prev(m_texture_lru.end()));
+    m_texture_cache_bytes += static_cast<size_t>(it.second.GetWidth()) * it.second.GetHeight() * 4;
+  }
+}
+
+void TextureReplacements::TouchTextureCacheEntry(const std::string& filename)
+{
+  const auto pos = m_texture_lru_positions.find(filename);
+  if (pos == m_texture_lru_positions.end())
+    return;
+
+  m_texture_lru.splice(m_texture_lru.end(), m_texture_lru, pos->second);
+}
+
+void TextureReplacements::EvictTexturesForBudget(size_t incoming_bytes, const std::string& keep_filename)
+{
+  while ((m_texture_cache_bytes + incoming_bytes) > TEXTURE_CACHE_BUDGET_BYTES && !m_texture_lru.empty())
+  {
+    const std::string victim = m_texture_lru.front();
+    if (victim == keep_filename && m_texture_lru.size() == 1)
+      break;
+
+    m_texture_lru.pop_front();
+    m_texture_lru_positions.erase(victim);
+
+    const auto it = m_texture_cache.find(victim);
+    if (it != m_texture_cache.end())
+    {
+      m_texture_cache_bytes -= static_cast<size_t>(it->second.GetWidth()) * it->second.GetHeight() * 4;
+      m_texture_cache.erase(it);
     }
   }
 }
@@ -207,7 +258,10 @@ const TextureReplacementTexture* TextureReplacements::LoadTexture(const std::str
 {
   auto it = m_texture_cache.find(filename);
   if (it != m_texture_cache.end())
+  {
+    TouchTextureCacheEntry(filename);
     return &it->second;
+  }
 
   Common::RGBA8Image image;
   if (!Common::LoadImageFromFile(&image, filename.c_str()))
@@ -216,8 +270,15 @@ const TextureReplacementTexture* TextureReplacements::LoadTexture(const std::str
     return nullptr;
   }
 
+  const size_t image_bytes = static_cast<size_t>(image.GetWidth()) * image.GetHeight() * 4;
   Log_InfoPrintf("Loaded '%s': %ux%u", filename.c_str(), image.GetWidth(), image.GetHeight());
+
+  EvictTexturesForBudget(image_bytes, filename);
+
   it = m_texture_cache.emplace(filename, std::move(image)).first;
+  m_texture_lru.push_back(filename);
+  m_texture_lru_positions[filename] = std::prev(m_texture_lru.end());
+  m_texture_cache_bytes += image_bytes;
   return &it->second;
 }
 
