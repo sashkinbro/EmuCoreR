@@ -175,6 +175,7 @@ struct FrontendState {
     // AAudio output configuration, applied when the next stream is opened.
     std::atomic<int> audio_output_latency_ms{50};
     std::atomic<bool> audio_low_latency{false};
+    std::atomic<float> audio_gain{1.0f};
 
     // Input: active-high bitmask per port plus analog axes.
     std::atomic<uint16_t> pad_buttons[2]{{0xFFFF}, {0xFFFF}};
@@ -1281,7 +1282,7 @@ void RetroVideoRefresh(const void* data, unsigned width, unsigned height, size_t
 }
 
 // ---------------------------------------------------------------------------
-// Audio callback: append into the ring buffer consumed by runFrame().
+// Audio callback: append into the ring buffer consumed by the output stream.
 // ---------------------------------------------------------------------------
 void AudioRingEnsureCapacity(size_t additional_frames) {
     const size_t used = (g_frontend.audio_write_frame + kAudioRingCapacityFrames -
@@ -1370,7 +1371,7 @@ int16_t RetroInputState(unsigned port, unsigned device, unsigned index, unsigned
 }
 
 // ---------------------------------------------------------------------------
-// AAudio output. Kept compatible with the Kotlin NativeAudioPcmSink contract.
+// AAudio output.
 // ---------------------------------------------------------------------------
 struct AudioOutput {
     AAudioStream* stream = nullptr;
@@ -1382,8 +1383,52 @@ struct AudioOutput {
     std::atomic<uint64_t> callback_frames{0};
     std::atomic<uint64_t> silence_frames{0};
     std::atomic<int32_t> state{0};
+    std::atomic<int32_t> device_buffer_frames{0};
+    std::atomic<int32_t> pacing_high_water_frames{0};
     std::mutex mutex;
 };
+
+aaudio_data_callback_result_t AudioDataCallback(AAudioStream*, void* user_data, void* audio_data,
+                                                int32_t num_frames) {
+    auto* output = static_cast<AudioOutput*>(user_data);
+    auto* out = static_cast<int16_t*>(audio_data);
+    if (output == nullptr || out == nullptr || num_frames <= 0) return AAUDIO_CALLBACK_RESULT_CONTINUE;
+
+    std::lock_guard<std::mutex> lock(g_frontend.audio_mutex);
+    const size_t available = (g_frontend.audio_write_frame + kAudioRingCapacityFrames -
+                              g_frontend.audio_read_frame) % kAudioRingCapacityFrames;
+    const size_t to_read = std::min(static_cast<size_t>(num_frames), available);
+    const float gain = g_frontend.audio_gain.load(std::memory_order_relaxed);
+    for (size_t i = 0; i < to_read; ++i) {
+        const size_t slot = (g_frontend.audio_read_frame + i) % kAudioRingCapacityFrames;
+        if (gain >= 1.0f) {
+            out[i * 2 + 0] = g_frontend.audio_ring[slot * 2 + 0];
+            out[i * 2 + 1] = g_frontend.audio_ring[slot * 2 + 1];
+        } else {
+            out[i * 2 + 0] = static_cast<int16_t>(
+                static_cast<int32_t>(g_frontend.audio_ring[slot * 2 + 0] * gain));
+            out[i * 2 + 1] = static_cast<int16_t>(
+                static_cast<int32_t>(g_frontend.audio_ring[slot * 2 + 1] * gain));
+        }
+    }
+    g_frontend.audio_read_frame = (g_frontend.audio_read_frame + to_read) % kAudioRingCapacityFrames;
+    if (to_read < static_cast<size_t>(num_frames)) {
+        std::memset(out + to_read * 2, 0,
+                    (static_cast<size_t>(num_frames) - to_read) * 2 * sizeof(int16_t));
+        output->silence_frames.fetch_add(static_cast<uint64_t>(num_frames) - to_read);
+    }
+    output->callback_frames.fetch_add(static_cast<uint64_t>(num_frames));
+    output->queued_frames.store(static_cast<uint64_t>(available - to_read));
+    return AAUDIO_CALLBACK_RESULT_CONTINUE;
+}
+
+void AudioErrorCallback(AAudioStream*, void* user_data, aaudio_result_t error) {
+    auto* output = static_cast<AudioOutput*>(user_data);
+    if (output == nullptr) return;
+    output->last_error.store(error);
+    output->started.store(false);
+    output->state.store(0);
+}
 
 std::string RendererOptionForInteger(int renderer) {
     switch (renderer) {
@@ -1650,30 +1695,11 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_reset(JNIEnv*, jobject, jlong handl
 // ---------------------------------------------------------------------------
 // JNI: per-frame execution.
 // ---------------------------------------------------------------------------
-JNIEXPORT jshortArray JNICALL
-Java_com_sbro_emucorer_core_NativeCoreBridge_runFrame(JNIEnv* env, jobject, jlong handle) {
-    if (handle == 0) return nullptr;
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_runFrame(JNIEnv*, jobject, jlong handle) {
+    if (handle == 0) return;
     EnsureHardwareContext();
     retro_run();
-
-    std::lock_guard<std::mutex> lock(g_frontend.audio_mutex);
-    size_t frames = (g_frontend.audio_write_frame + kAudioRingCapacityFrames -
-                     g_frontend.audio_read_frame) % kAudioRingCapacityFrames;
-    if (frames == 0) return nullptr;
-    if (frames > 8192) frames = 8192;
-    jshortArray result = env->NewShortArray(static_cast<jsize>(frames * 2));
-    if (result == nullptr) return nullptr;
-    // The ring may wrap; copy in up to two linear spans.
-    std::vector<int16_t> linear(frames * 2);
-    for (size_t i = 0; i < frames; ++i) {
-        const size_t slot = (g_frontend.audio_read_frame + i) % kAudioRingCapacityFrames;
-        linear[i * 2 + 0] = g_frontend.audio_ring[slot * 2 + 0];
-        linear[i * 2 + 1] = g_frontend.audio_ring[slot * 2 + 1];
-    }
-    g_frontend.audio_read_frame = (g_frontend.audio_read_frame + frames) % kAudioRingCapacityFrames;
-    env->SetShortArrayRegion(result, 0, static_cast<jsize>(frames * 2),
-                             reinterpret_cast<const jshort*>(linear.data()));
-    return result;
 }
 
 JNIEXPORT jint JNICALL
@@ -2021,6 +2047,8 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createAudioOutput(JNIEnv*, jobject)
     AAudioStreamBuilder_setPerformanceMode(
         builder, g_frontend.audio_low_latency.load() ? AAUDIO_PERFORMANCE_MODE_LOW_LATENCY
                                                      : AAUDIO_PERFORMANCE_MODE_NONE);
+    AAudioStreamBuilder_setDataCallback(builder, AudioDataCallback, output);
+    AAudioStreamBuilder_setErrorCallback(builder, AudioErrorCallback, output);
     const aaudio_result_t opened = AAudioStreamBuilder_openStream(builder, &output->stream);
     AAudioStreamBuilder_delete(builder);
     if (opened != AAUDIO_OK || output->stream == nullptr) {
@@ -2029,6 +2057,15 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createAudioOutput(JNIEnv*, jobject)
         return 0;
     }
     output->sample_rate.store(AAudioStream_getSampleRate(output->stream));
+    int32_t device_buffer = std::max(128, std::min(AAudioStream_getFramesPerBurst(output->stream) * 2, 1024));
+    if (capacity_frames > 0) device_buffer = std::min(device_buffer, capacity_frames);
+    const aaudio_result_t resized = AAudioStream_setBufferSizeInFrames(output->stream, device_buffer);
+    if (resized > 0) device_buffer = resized;
+    output->device_buffer_frames.store(device_buffer);
+    output->pacing_high_water_frames.store(
+        std::min(device_buffer * 2 + 1024, static_cast<int32_t>(kAudioRingCapacityFrames) - 2048));
+    LOGI("AAudio output device buffer = %d frames, pacing high water = %d frames", device_buffer,
+         output->pacing_high_water_frames.load());
     return reinterpret_cast<jlong>(output);
 }
 
@@ -2070,32 +2107,38 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_flushAudioOutput(JNIEnv*, jobject, 
     auto* output = reinterpret_cast<AudioOutput*>(handle);
     if (output == nullptr || output->stream == nullptr) return -1;
     const aaudio_result_t result = AAudioStream_requestFlush(output->stream);
+    {
+        std::lock_guard<std::mutex> lock(g_frontend.audio_mutex);
+        g_frontend.audio_read_frame = 0;
+        g_frontend.audio_write_frame = 0;
+    }
     output->queued_frames.store(0);
-    return result == AAUDIO_OK ? 0 : -2;
+    return (result == AAUDIO_OK || result == AAUDIO_ERROR_INVALID_STATE) ? 0 : -2;
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_setAudioGain(JNIEnv*, jobject, jfloat gain) {
+    float clamped = gain;
+    if (!(clamped >= 0.0f)) clamped = 0.0f;
+    if (clamped > 1.0f) clamped = 1.0f;
+    g_frontend.audio_gain.store(clamped, std::memory_order_relaxed);
 }
 
 JNIEXPORT jint JNICALL
-Java_com_sbro_emucorer_core_NativeCoreBridge_writeAudioOutput(JNIEnv* env, jobject, jlong handle,
-                                                              jshortArray data, jint offset,
-                                                              jint count) {
+Java_com_sbro_emucorer_core_NativeCoreBridge_audioOutputBufferedFrames(JNIEnv*, jobject, jlong handle) {
     auto* output = reinterpret_cast<AudioOutput*>(handle);
-    if (output == nullptr || output->stream == nullptr || data == nullptr) return -1;
-    if (offset < 0 || count < 0 || (count & 1) != 0) return -1;
-    const jsize length = env->GetArrayLength(data);
-    if (count > length || offset > length - count) return -1;
-    jshort* samples = env->GetShortArrayElements(data, nullptr);
-    if (samples == nullptr) return -1;
-    const int32_t frames = count / 2;
-    const aaudio_result_t result =
-        AAudioStream_write(output->stream, samples + offset, frames, 100000000LL /* 100 ms */);
-    env->ReleaseShortArrayElements(data, samples, JNI_ABORT);
-    if (result < 0) {
-        output->last_error.store(result);
-        return -3;
-    }
-    output->accepted_frames.fetch_add(static_cast<uint64_t>(result));
-    output->queued_frames.store(0);
-    return static_cast<jint>(result * 2);
+    if (output == nullptr || output->stream == nullptr) return -1;
+    if (output->last_error.load() != 0) return -1;
+    std::lock_guard<std::mutex> lock(g_frontend.audio_mutex);
+    return static_cast<jint>((g_frontend.audio_write_frame + kAudioRingCapacityFrames -
+                              g_frontend.audio_read_frame) % kAudioRingCapacityFrames);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_audioOutputPacingHighWaterFrames(JNIEnv*, jobject,
+                                                                              jlong handle) {
+    auto* output = reinterpret_cast<AudioOutput*>(handle);
+    return output != nullptr ? output->pacing_high_water_frames.load() : 0;
 }
 
 JNIEXPORT jlongArray JNICALL

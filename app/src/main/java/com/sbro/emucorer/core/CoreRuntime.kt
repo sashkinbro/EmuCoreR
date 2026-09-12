@@ -48,7 +48,7 @@ internal object CoreRuntime {
     private var context: Context? = null
     private var session = 0L
     @Volatile private var worker: Thread? = null
-    private var audioOutput: FrameAudioOutput? = null
+    private var audioOutput: NativeAudioOutput? = null
 
     private var systemDirectory = ""
     private var saveDirectory = ""
@@ -70,7 +70,6 @@ internal object CoreRuntime {
     @Volatile private var performanceMetricsEnabled = false
     @Volatile private var detailedPerformanceMetrics = false
     @Volatile private var performanceMetricsSnapshot: String? = null
-    @Volatile private var audioGain: Float = 1f
     private var discDescriptor: ParcelFileDescriptor? = null
     private var discLink: File? = null
 
@@ -154,7 +153,7 @@ internal object CoreRuntime {
     fun setAudioGain(volume: Int, muted: Boolean) {
         val normalized = volume.coerceIn(AudioDefaults.VOLUME_MIN, AudioDefaults.VOLUME_MAX) /
             AudioDefaults.VOLUME_MAX.toFloat()
-        audioGain = if (muted) 0f else normalized
+        bridge.setAudioGain(if (muted) 0f else normalized)
     }
 
     fun start(gamePath: String, biosOnly: Boolean): Boolean = lifecycleLock.withLock {
@@ -254,9 +253,9 @@ internal object CoreRuntime {
         sessionStartedAtNanos = startupStartedAtNanos
         var started = false
         try {
-            val output = FrameAudioOutput(createPcmSink(), { audioGain }, onPaused = ::drainFrameTasks)
+            val output = NativeAudioOutput()
             audioOutput = output
-            output.resume()
+            output.play()
             worker = thread(name = "EmuCoreR-Frame", isDaemon = true, start = true) { runLoop(output) }
             Log.i(TAG, String.format(Locale.US, "Startup setup %.1f ms",
                 (System.nanoTime() - startupStartedAtNanos) / 1_000_000.0))
@@ -478,7 +477,7 @@ internal object CoreRuntime {
 
     fun resume() = lifecycleLock.withLock {
         if (!running) return@withLock
-        audioOutput?.resume()
+        audioOutput?.play()
         paused = false
     }
 
@@ -506,7 +505,7 @@ internal object CoreRuntime {
                 }
             }
             worker = null
-            audioOutput?.let { output -> runCatching { output.close() } }
+            audioOutput?.let { output -> runCatching { output.release() } }
             audioOutput = null
             sessionLock.withLock {
                 if (session != 0L) {
@@ -573,12 +572,12 @@ internal object CoreRuntime {
             }
             raw.delete()
             if (loaded) {
-                audioOutput?.discardTimeline()
+                audioOutput?.flush()
                 renderedFirstFrame = false
             }
             loaded
         } finally {
-            if (!wasPaused && running) audioOutput?.resume()
+            if (!wasPaused && running) audioOutput?.play()
             paused = wasPaused
         }
     }
@@ -789,7 +788,18 @@ internal object CoreRuntime {
         performanceMetricsSnapshot = String.format(Locale.US, "%.3f\n%.3f\n%s", fps, speed, overlay)
     }
 
-    private fun runLoop(output: FrameAudioOutput) {
+    private fun paceToAudioClock(output: NativeAudioOutput) {
+        val highWater = runCatching { output.pacingHighWaterFrames() }.getOrDefault(0)
+        if (highWater <= 0) return
+        val deadline = System.nanoTime() + AUDIO_PACING_MAX_WAIT_NANOS
+        while (running && !paused && output.bufferedFrames() > highWater) {
+            drainFrameTasks()
+            if (System.nanoTime() >= deadline) return
+            Thread.sleep(1)
+        }
+    }
+
+    private fun runLoop(output: NativeAudioOutput) {
         var metricsStartNanos = System.nanoTime()
         var metricsFrames = 0
         var metricsFrameTotalNanos = 0L
@@ -805,9 +815,10 @@ internal object CoreRuntime {
                     Thread.sleep(8)
                     continue
                 }
+                paceToAudioClock(output)
                 val t0 = System.nanoTime()
                 var skippedPausedFrame = false
-                val frame = sessionLock.withLock {
+                val coreNanos = sessionLock.withLock {
                     if (!running || session == 0L) null else if (paused) {
                         skippedPausedFrame = true
                         null
@@ -826,11 +837,8 @@ internal object CoreRuntime {
                             )
                         }
                         val coreStartNanos = System.nanoTime()
-                        val pcm = bridge.runFrame(session)
-                        val coreNanos = System.nanoTime() - coreStartNanos
-                        if (pcm == null && !renderedFirstFrame) {
-                            // The first frame can legitimately emit no audio.
-                        }
+                        bridge.runFrame(session)
+                        val elapsed = System.nanoTime() - coreStartNanos
                         bridge.getDisplayRect(session)
                             ?.takeIf { it.size == 4 && it[2] > 0 && it[3] > 0 }
                             ?.let {
@@ -844,20 +852,17 @@ internal object CoreRuntime {
                                 Log.i(TAG, String.format(Locale.US,
                                     "First emulated frame after %.1f ms (core %.1f ms)",
                                     (System.nanoTime() - startedAt) / 1_000_000.0,
-                                    coreNanos / 1_000_000.0))
+                                    elapsed / 1_000_000.0))
                             }
                         }
-                        FrameOutput(pcm ?: EMPTY_PCM, output.timeline, coreNanos)
+                        elapsed
                     }
                 } ?: if (skippedPausedFrame) continue else break
-                val audioStartNanos = System.nanoTime()
-                if (!output.writeFrame(frame.pcm, frame.audioTimeline)) continue
-                val audioNanos = System.nanoTime() - audioStartNanos
                 val frameNanos = System.nanoTime() - t0
 
                 metricsFrames++
                 metricsFrameTotalNanos += frameNanos
-                metricsCoreTotalNanos += frame.coreNanos
+                metricsCoreTotalNanos += coreNanos
                 val now = System.nanoTime()
                 if (!performanceMetricsEnabled) {
                     metricsStartNanos = now
@@ -884,7 +889,6 @@ internal object CoreRuntime {
                     metricsFrameTotalNanos = 0L
                     metricsCoreTotalNanos = 0L
                 }
-                if (audioNanos < 0) break
             }
         } catch (error: InterruptedException) {
             if (running) reportFailure("Emulation worker was interrupted unexpectedly")
@@ -1007,8 +1011,6 @@ internal object CoreRuntime {
             ?.absolutePath
     }
 
-    internal fun createPcmSink(): PcmSink = NativeAudioPcmSink()
-
     private fun isSupportedDiscPath(path: String): Boolean {
         val extension = path.substringAfterLast('.', "").lowercase()
         return extension == "cue" || extension == "bin" || extension == "img" ||
@@ -1025,16 +1027,9 @@ internal object CoreRuntime {
         return Rect(left, top, left + width, top + height)
     }
 
-    private data class FrameOutput(
-        val pcm: ShortArray,
-        val audioTimeline: Long,
-        val coreNanos: Long
-    )
-
-    private val EMPTY_PCM = ShortArray(0)
-
     private const val BIOS_BYTES = 512L * 1024L
     private const val PAD_ANALOG_MODE_BIT = 1 shl 16
+    private const val AUDIO_PACING_MAX_WAIT_NANOS = 500_000_000L
 
     // App aspect-ratio preference values (mirrors the display settings UI).
     private const val ASPECT_RATIO_STRETCH = 0

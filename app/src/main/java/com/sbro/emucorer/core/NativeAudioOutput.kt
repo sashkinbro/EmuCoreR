@@ -1,12 +1,13 @@
-
+// SPDX-FileCopyrightText: 2026 SBRO
+// SPDX-License-Identifier: LicenseRef-EmuCoreR-Proprietary
 package com.sbro.emucorer.core
 
-
-/** The native callback never enters Java. Short/zero writes use FrameAudioOutput's
- * existing suffix retention and interruptible wait, not another guest frame.
- * Synchronization owns the handle lifetime; native writes are bounded/nonblocking.
+/**
+ * Owns the native AAudio stream. Sample data never crosses JNI: the output
+ * callback pulls from the native ring and the frame loop only keeps the
+ * queued level under [pacingHighWaterFrames].
  */
-internal class NativeAudioPcmSink : PcmSink {
+internal class NativeAudioOutput {
     private val bridge = NativeCoreBridge()
     private var handle = createHandle()
     private var playing = false
@@ -15,9 +16,8 @@ internal class NativeAudioPcmSink : PcmSink {
         check(it != 0L) { "Could not open native AAudio output" }
     }
 
-    /** AAudio reports disconnect asynchronously. Recovery belongs to this
-     * owner thread: the callback only latches the error and stops itself.
-     * Device-buffer and queued host PCM are obsolete after a route loss.
+    /** AAudio reports disconnect asynchronously; recovery belongs to this
+     * owner thread and rebuilds the stream around the existing ring.
      */
     private fun recreate(start: Boolean) {
         val old = handle
@@ -33,36 +33,44 @@ internal class NativeAudioPcmSink : PcmSink {
         playing = start
     }
 
-    @Synchronized override fun write(samples: ShortArray, offset: Int, count: Int): Int {
-        check(handle != 0L) { "AAudio output is closed" }
-        if (offset < 0 || count < 0 || count and 1 != 0 || offset > samples.size - count)
-            return -1 // EMUCORER_ERR_INVALID_ARGUMENT; do not rebuild a healthy stream.
-        val result = bridge.writeAudioOutput(handle, samples, offset, count)
-        if (result != -1) return result // EMUCORER_ERR_INTERNAL means backend loss/failure.
-        recreate(playing)
-        return bridge.writeAudioOutput(handle, samples, offset, count)
-    }
-    @Synchronized override fun play() {
+    @Synchronized fun play() {
         check(handle != 0L) { "AAudio output is closed" }
         if (bridge.startAudioOutput(handle) != 0) recreate(start = true)
         playing = true
     }
-    @Synchronized override fun pause() {
+
+    @Synchronized fun pause() {
         check(handle != 0L) { "AAudio output is closed" }
         if (bridge.pauseAudioOutput(handle) != 0) recreate(start = false)
         playing = false
     }
-    @Synchronized override fun flush() {
+
+    @Synchronized fun flush() {
         check(handle != 0L) { "AAudio output is closed" }
         if (bridge.flushAudioOutput(handle) != 0) recreate(start = false)
     }
-    @Synchronized override fun release() {
+
+    @Synchronized fun release() {
         if (handle != 0L) {
             bridge.destroyAudioOutput(handle)
             handle = 0L
         }
         playing = false
     }
-    @Synchronized override fun stats(): LongArray? =
+
+    @Synchronized fun stats(): LongArray? =
         if (handle == 0L) null else bridge.audioOutputStats(handle)
+
+    @Synchronized fun bufferedFrames(): Int {
+        if (handle == 0L) return -1
+        val frames = bridge.audioOutputBufferedFrames(handle)
+        if (frames < 0) {
+            recreate(playing)
+            return 0
+        }
+        return frames
+    }
+
+    @Synchronized fun pacingHighWaterFrames(): Int =
+        if (handle == 0L) 0 else bridge.audioOutputPacingHighWaterFrames(handle)
 }

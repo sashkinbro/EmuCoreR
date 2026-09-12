@@ -85,6 +85,14 @@ if(TARGET librashader)
     target_compile_definitions(emucorer_jni PRIVATE EMUCORER_HAVE_LIBRASHADER=1)
 endif()
 
-target_compile_options(emucorer_jni PRIVATE -Wall -Wextra)
+target_compile_options(emucorer_jni PRIVATE
+    -Wall -Wextra
+    $<$<NOT:$<CONFIG:Debug>>:-O3>
+)
+
+set_target_properties(emucorer_jni PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+)
 
 set_target_properties(emucorer_jni PROPERTIES OUTPUT_NAME "emucorer_jni")

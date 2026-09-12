@@ -8,8 +8,7 @@ import android.view.Surface
  * JNI surface over the bundled SwanStation libretro frontend.
  *
  * The native side drives the core through the libretro API (video, audio,
- * input, environment) and keeps the same per-frame PCM + pad contract the
- * Kotlin runtime expects from the previous core.
+ * input, environment); the frame loop and pad state stay on the Kotlin side.
  */
 class NativeCoreBridge {
     companion object {
@@ -44,8 +43,8 @@ class NativeCoreBridge {
     external fun loadDiscFd(handle: Long, fd: Int, offset: Long, size: Long): Int
     external fun reset(handle: Long): Int
 
-    /** Advances one guest frame and returns interleaved 44.1 kHz stereo PCM. */
-    external fun runFrame(handle: Long): ShortArray?
+    /** Runs one guest frame; audio is pulled by the output stream callback. */
+    external fun runFrame(handle: Long)
     /**
      * Creates/rebinds the hardware renderer context on the calling thread.
      * Must be invoked from the frame worker so GL state stays thread-affine.
@@ -102,15 +101,19 @@ class NativeCoreBridge {
     external fun setAudioLowLatency(enabled: Boolean)
 
     // ---------------------------------------------------------------------
-    // AAudio output (consumed by NativeAudioPcmSink).
+    // AAudio output (owned by NativeAudioOutput).
     // ---------------------------------------------------------------------
     external fun createAudioOutput(): Long
     external fun destroyAudioOutput(handle: Long)
     external fun startAudioOutput(handle: Long): Int
     external fun pauseAudioOutput(handle: Long): Int
     external fun flushAudioOutput(handle: Long): Int
-    /** Nonblocking: accepted shorts, or negative status. */
-    external fun writeAudioOutput(handle: Long, samples: ShortArray, offset: Int, count: Int): Int
+    /** Linear gain in 0..1 applied on the output callback thread. */
+    external fun setAudioGain(gain: Float)
+    /** Frames queued for the output; negative when the stream needs recovery. */
+    external fun audioOutputBufferedFrames(handle: Long): Int
+    /** Queue level the frame loop keeps the output at for audio-synced pacing. */
+    external fun audioOutputPacingHighWaterFrames(handle: Long): Int
     /** state, error, sample rate, burst, queued, accepted, callback, silence frames. */
     external fun audioOutputStats(handle: Long): LongArray?
 
