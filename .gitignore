@@ -91,7 +91,7 @@ tests/fuzz/artifacts/
 /tools/apktool.jar
 /tools/*.ps1
 
-# Legacy PCSX-ReARMed trees replaced by third_party/swanstation
+# Legacy PS1 core trees replaced by third_party/swanstation
 /deps/
 /.github/
 /.gitlab-ci.yml

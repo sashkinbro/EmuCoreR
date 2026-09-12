@@ -137,7 +137,7 @@
     <string name="settings_version">Versión</string>
     <string name="settings_emulator_core">Núcleo de emulación</string>
     <string name="settings_about_app">Acerca de EmuCoreR</string>
-    <string name="settings_about_app_desc">EmuCoreR es un emulador y biblioteca de juegos de PlayStation basado en el núcleo PCSX-ReARMed, con configuración rápida y una interfaz optimizada para dispositivos portátiles.</string>
+    <string name="settings_about_app_desc">EmuCoreR es un emulador y biblioteca de juegos de PlayStation basado en el núcleo SwanStation, con configuración rápida y una interfaz optimizada para dispositivos portátiles.</string>
     <string name="settings_about_studio">Desarrollador</string>
     <string name="settings_about_studio_desc">Creado por Sashkin Apps.</string>
     <string name="settings_about_support_project">Apoyar el proyecto</string>
@@ -742,9 +742,9 @@
     <string name="settings_about_app_source_link">Abrir EmuCoreR en GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">Núcleo de emulación</string>
-    <string name="settings_about_core_source_desc">Basado en PCSX-ReARMed, un fork del emulador de PlayStation optimizado para ARM por notaz.</string>
+    <string name="settings_about_core_source_desc">Basado en SwanStation, el núcleo de emulación de PlayStation para libretro.</string>
     <string name="settings_about_core_source_link">Ver el código fuente del núcleo en GitHub</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_touch_haptics_strength">Intensidad de respuesta háptica</string>
     <string name="settings_touch_haptics_test">Probar respuesta háptica</string>
     <string name="settings_touch_haptics_test_desc">Reproduce una breve vibración usando la intensidad de respuesta háptica actual.</string>

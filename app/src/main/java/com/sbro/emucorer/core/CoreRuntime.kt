@@ -254,7 +254,7 @@ internal object CoreRuntime {
         sessionStartedAtNanos = startupStartedAtNanos
         var started = false
         try {
-            val output = FrameAudioOutput(createPcmSink()) { audioGain }
+            val output = FrameAudioOutput(createPcmSink(), { audioGain }, onPaused = ::drainFrameTasks)
             audioOutput = output
             output.resume()
             worker = thread(name = "EmuCoreR-Frame", isDaemon = true, start = true) { runLoop(output) }

@@ -311,7 +311,7 @@
     <string name="settings_version">Versi</string>
     <string name="settings_emulator_core">Inti Emulasi</string>
     <string name="settings_about_app">Tentang EmuCoreR</string>
-    <string name="settings_about_app_desc">EmuCoreR adalah emulator dan pustaka game PlayStation yang ditenagai inti PCSX-ReARMed, dengan penyiapan cepat dan antarmuka yang ramah perangkat genggam.</string>
+    <string name="settings_about_app_desc">EmuCoreR adalah emulator dan pustaka game PlayStation yang ditenagai inti SwanStation, dengan penyiapan cepat dan antarmuka yang ramah perangkat genggam.</string>
     <string name="settings_about_studio">Pengembang</string>
     <string name="settings_about_studio_desc">Dibuat oleh Sashkin Apps.</string>
     <string name="settings_about_app_source">Repositori EmuCoreR</string>
@@ -319,9 +319,9 @@
     <string name="settings_about_app_source_link">Buka EmuCoreR di GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">Inti Emulasi</string>
-    <string name="settings_about_core_source_desc">Berdasarkan PCSX-ReARMed, fork emulator PlayStation yang dioptimalkan untuk ARM oleh notaz.</string>
+    <string name="settings_about_core_source_desc">Berdasarkan SwanStation, inti emulator PlayStation untuk libretro.</string>
     <string name="settings_about_core_source_link">Lihat sumber inti di GitHub</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_about_support_project">Dukung Proyek</string>
     <string name="settings_about_support_project_desc">Dukung pengembangan berkelanjutan dan pembaruan masa depan untuk EmuCoreR.</string>
     <string name="settings_about_support_project_link">Dukung proyek ini</string>

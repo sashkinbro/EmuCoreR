@@ -216,7 +216,7 @@
     <string name="settings_version">Sürüm</string>
     <string name="settings_emulator_core">Emülasyon Çekirdeği</string>
     <string name="settings_about_app">EmuCoreR Hakkında</string>
-    <string name="settings_about_app_desc">EmuCoreR, PCSX-ReARMed çekirdeği üzerine kurulu bir PlayStation emülatörü ve oyun kitaplığıdır; hızlı kurulum ve el cihazlarına uygun bir arayüz sunar.</string>
+    <string name="settings_about_app_desc">EmuCoreR, SwanStation çekirdeği üzerine kurulu bir PlayStation emülatörü ve oyun kitaplığıdır; hızlı kurulum ve el cihazlarına uygun bir arayüz sunar.</string>
     <string name="settings_about_studio">Geliştirici</string>
     <string name="settings_about_studio_desc">Sashkin Apps tarafından oluşturuldu.</string>
     <string name="settings_about_support_project">Projeyi Destekle</string>
@@ -740,9 +740,9 @@
     <string name="settings_about_app_source_link">GitHub\'da EmuCoreR\'i açın</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">Emülasyon çekirdeği</string>
-    <string name="settings_about_core_source_desc">notaz tarafından ARM için optimize edilmiş PlayStation emülatörü çatalı PCSX-ReARMed tabanlıdır.</string>
+    <string name="settings_about_core_source_desc">libretro için PlayStation emülatör çekirdeği SwanStation tabanlıdır.</string>
     <string name="settings_about_core_source_link">Çekirdek kaynağını GitHub\'da görüntüle</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_touch_haptics_strength">Dokunmatik titreşim gücü</string>
     <string name="settings_touch_haptics_test">Dokunmatik titreşimi test et</string>
     <string name="settings_touch_haptics_test_desc">Geçerli dokunmatik titreşim gücünü kullanarak kısa bir titreşim oynatır.</string>

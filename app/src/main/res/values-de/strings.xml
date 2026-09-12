@@ -137,7 +137,7 @@
     <string name="settings_version">Version</string>
     <string name="settings_emulator_core">Emulationskern</string>
     <string name="settings_about_app">Über EmuCoreR</string>
-    <string name="settings_about_app_desc">EmuCoreR ist ein PlayStation-Emulator mit Spielebibliothek auf Basis des PCSX-ReARMed-Kerns, mit schneller Einrichtung und einer für Handhelds optimierten Oberfläche.</string>
+    <string name="settings_about_app_desc">EmuCoreR ist ein PlayStation-Emulator mit Spielebibliothek auf Basis des SwanStation-Kerns, mit schneller Einrichtung und einer für Handhelds optimierten Oberfläche.</string>
     <string name="settings_about_studio">Entwickler</string>
     <string name="settings_about_studio_desc">Erstellt von Sashkin Apps.</string>
     <string name="settings_about_support_project">Das Projekt unterstützen</string>
@@ -742,9 +742,9 @@
     <string name="settings_about_app_source_link">EmuCoreR auf GitHub öffnen</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">Emulationskernel</string>
-    <string name="settings_about_core_source_desc">Basierend auf PCSX-ReARMed, einem von notaz erstellten ARM-optimierten PlayStation-Emulator-Fork.</string>
+    <string name="settings_about_core_source_desc">Basierend auf SwanStation, dem libretro-PlayStation-Emulator-Kern.</string>
     <string name="settings_about_core_source_link">Kernel-Quelltext auf GitHub ansehen</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_touch_haptics_strength">Stärke des haptischen Feedbacks</string>
     <string name="settings_touch_haptics_test">Haptisches Feedback testen</string>
     <string name="settings_touch_haptics_test_desc">Führt ein kurzes Ticken mit der aktuellen Stärke des haptischen Feedbacks aus.</string>

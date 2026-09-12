@@ -137,7 +137,7 @@
     <string name="settings_version">Version</string>
     <string name="settings_emulator_core">Cœur d\'émulation</string>
     <string name="settings_about_app">À propos d\'EmuCoreR</string>
-    <string name="settings_about_app_desc">EmuCoreR est un émulateur et une bibliothèque de jeux PlayStation basés sur le cœur PCSX-ReARMed, avec une configuration rapide et une interface adaptée aux appareils portables.</string>
+    <string name="settings_about_app_desc">EmuCoreR est un émulateur et une bibliothèque de jeux PlayStation basés sur le cœur SwanStation, avec une configuration rapide et une interface adaptée aux appareils portables.</string>
     <string name="settings_about_studio">Développeur</string>
     <string name="settings_about_studio_desc">Créé par Sashkin Apps.</string>
     <string name="settings_about_support_project">Soutenir le projet</string>
@@ -742,9 +742,9 @@
     <string name="settings_about_app_source_link">Ouvrir EmuCoreR sur GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">Noyau d\'émulation</string>
-    <string name="settings_about_core_source_desc">Basé sur PCSX-ReARMed, un fork de l\'émulateur PlayStation optimisé pour ARM par notaz.</string>
+    <string name="settings_about_core_source_desc">Basé sur SwanStation, le cœur d\'émulation PlayStation pour libretro.</string>
     <string name="settings_about_core_source_link">Voir la source du noyau sur GitHub</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_touch_haptics_strength">Intensité du retour haptique</string>
     <string name="settings_touch_haptics_test">Tester le retour haptique</string>
     <string name="settings_touch_haptics_test_desc">Émet une brève vibration en utilisant l\'intensité du retour haptique actuelle.</string>

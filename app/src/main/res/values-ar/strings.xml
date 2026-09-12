@@ -216,7 +216,7 @@
     <string name="settings_version">الإصدار</string>
     <string name="settings_emulator_core">نواة المحاكاة</string>
     <string name="settings_about_app">حول EmuCoreR</string>
-    <string name="settings_about_app_desc">EmuCoreR هو محاكي ومكتبة ألعاب PlayStation يعتمد على نواة PCSX-ReARMed، مع إعداد سريع وواجهة مناسبة للأجهزة المحمولة.</string>
+    <string name="settings_about_app_desc">EmuCoreR هو محاكي ومكتبة ألعاب PlayStation يعتمد على نواة SwanStation، مع إعداد سريع وواجهة مناسبة للأجهزة المحمولة.</string>
     <string name="settings_about_studio">المطور</string>
     <string name="settings_about_studio_desc">تم الإنشاء بواسطة Sashkin Apps.</string>
     <string name="settings_about_support_project">ادعم المشروع</string>
@@ -740,9 +740,9 @@
     <string name="settings_about_app_source_link">افتح EmuCoreR على GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">نواة المحاكية</string>
-    <string name="settings_about_core_source_desc">مبني على PCSX-ReARMed، وهو fork محسّن لمعمار ARM لمحاكي PlayStation من notaz.</string>
+    <string name="settings_about_core_source_desc">مبني على SwanStation، نواة محاكي PlayStation الخاصة بـ libretro.</string>
     <string name="settings_about_core_source_link">عرض مصدر النواة على GitHub</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_touch_haptics_strength">قوة استجابة اللمس</string>
     <string name="settings_touch_haptics_test">اختبار استجابة اللمس</string>
     <string name="settings_touch_haptics_test_desc">يشغل نبضة قصيرة باستخدام قوة استجابة اللمس الحالية.</string>

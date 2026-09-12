@@ -317,7 +317,7 @@
     <string name="settings_version">Wersja</string>
     <string name="settings_emulator_core">Rdzeń emulacji</string>
     <string name="settings_about_app">O EmuCoreR</string>
-    <string name="settings_about_app_desc">EmuCoreR to emulator i biblioteka gier PlayStation oparte na rdzeniu PCSX-ReARMed, z szybką konfiguracją i interfejsem przyjaznym urządzeniom przenośnym.</string>
+    <string name="settings_about_app_desc">EmuCoreR to emulator i biblioteka gier PlayStation oparte na rdzeniu SwanStation, z szybką konfiguracją i interfejsem przyjaznym urządzeniom przenośnym.</string>
     <string name="settings_about_studio">Deweloper</string>
     <string name="settings_about_studio_desc">Stworzone przez Sashkin Apps.</string>
     <string name="settings_about_app_source">Repozytorium EmuCoreR</string>
@@ -325,9 +325,9 @@
     <string name="settings_about_app_source_link">Otwórz EmuCoreR na GitHubie</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">Jądro emulacji</string>
-    <string name="settings_about_core_source_desc">Oparte na PCSX-ReARMed, fork-u emulatora PlayStation zoptymalizowanego dla ARM autorstwa notaz.</string>
+    <string name="settings_about_core_source_desc">Oparte na SwanStation, rdzeniu emulatora PlayStation dla libretro.</string>
     <string name="settings_about_core_source_link">Zobacz źródło jądra na GitHub</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_about_support_project">Wesprzyj projekt</string>
     <string name="settings_about_support_project_desc">Wesprzyj ciągły rozwój i przyszłe aktualizacje dla EmuCoreR.</string>
     <string name="settings_about_support_project_link">Wesprzyj projekt</string>

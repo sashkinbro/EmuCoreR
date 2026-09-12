@@ -186,7 +186,7 @@
     <string name="settings_version">Versione</string>
     <string name="settings_emulator_core">Core di emulazione</string>
     <string name="settings_about_app">Informazioni su EmuCoreR</string>
-    <string name="settings_about_app_desc">EmuCoreR è un emulatore e una libreria di giochi PlayStation basati sul core PCSX-ReARMed, con configurazione rapida e interfaccia ottimizzata per dispositivi portatili.</string>
+    <string name="settings_about_app_desc">EmuCoreR è un emulatore e una libreria di giochi PlayStation basati sul core SwanStation, con configurazione rapida e interfaccia ottimizzata per dispositivi portatili.</string>
     <string name="settings_about_studio">Sviluppatore</string>
     <string name="settings_about_studio_desc">Creato da Sashkin Apps.</string>
     <string name="settings_about_support_project">Supporta il progetto</string>
@@ -740,9 +740,9 @@
     <string name="settings_about_app_source_link">Apri EmuCoreR su GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">Core di emulazione</string>
-    <string name="settings_about_core_source_desc">Basato su PCSX-ReARMed, un fork dell\'emulatore PlayStation ottimizzato per ARM di notaz.</string>
+    <string name="settings_about_core_source_desc">Basato su SwanStation, il core dell\'emulatore PlayStation per libretro.</string>
     <string name="settings_about_core_source_link">Visualizza il sorgente del core su GitHub</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_touch_haptics_strength">Intensità feedback aptico</string>
     <string name="settings_touch_haptics_test">Testa feedback aptico</string>
     <string name="settings_touch_haptics_test_desc">Riproduce una breve vibrazione utilizzando l\'attuale intensità del feedback aptico.</string>

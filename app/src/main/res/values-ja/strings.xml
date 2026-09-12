@@ -216,7 +216,7 @@
     <string name="settings_version">バージョン</string>
     <string name="settings_emulator_core">エミュレーションコア</string>
     <string name="settings_about_app">EmuCoreR について</string>
-    <string name="settings_about_app_desc">EmuCoreRは、PCSX-ReARMedコアを搭載したPlayStationエミュレーター兼ゲームライブラリです。高速セットアップと携帯端末向けインターフェースを備えています。</string>
+    <string name="settings_about_app_desc">EmuCoreRは、SwanStationコアを搭載したPlayStationエミュレーター兼ゲームライブラリです。高速セットアップと携帯端末向けインターフェースを備えています。</string>
     <string name="settings_about_studio">開発者</string>
     <string name="settings_about_studio_desc">Sashkin Apps により作成。</string>
     <string name="settings_about_support_project">プロジェクトを支援</string>
@@ -740,9 +740,9 @@
     <string name="settings_about_app_source_link">GitHubでEmuCoreRを開く</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">エミュレーションコア</string>
-    <string name="settings_about_core_source_desc">notazによるARM最適化PlayStationエミュレーターフォーク、PCSX-ReARMedに基づいています。</string>
+    <string name="settings_about_core_source_desc">libretro向けのPlayStationエミュレーターコア、SwanStationをベースにしています。</string>
     <string name="settings_about_core_source_link">GitHubでコアのソースを表示</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_touch_haptics_strength">タッチハプティクスの強度</string>
     <string name="settings_touch_haptics_test">タッチハプティクスをテスト</string>
     <string name="settings_touch_haptics_test_desc">現在のタッチハプティクスの強度を使用して短い振動を再生します。</string>

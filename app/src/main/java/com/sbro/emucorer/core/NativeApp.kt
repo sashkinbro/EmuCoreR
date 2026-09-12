@@ -194,8 +194,8 @@ object NativeApp {
     }
     @JvmStatic fun setAspectRatio(type: Int) { CoreRuntime.setDisplayAspectRatio(type) }
     @JvmStatic fun renderUpscalemultiplier(value: Float) { setSetting("EmuCoreR/Display", "Upscale", "float", value.toString()) }
-    // PCSX-ReARMed is a CPU rasterizer: the only real internal resolution
-    // increase is the 2x "enhanced resolution" buffer.
+    // The software renderer is a CPU rasterizer: the only real internal
+    // resolution increase is the 2x "enhanced resolution" buffer.
     @JvmStatic fun getMaxUpscaleMultiplier(renderer: Int): Int =
         if (RendererDefaults.toCoreRenderer(renderer) == RendererDefaults.CORE_SOFTWARE) 1 else UPSCALE_MAX.toInt()
     @JvmStatic fun renderGpu(value: Int) = Unit

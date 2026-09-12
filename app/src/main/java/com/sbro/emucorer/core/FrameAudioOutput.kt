@@ -20,7 +20,8 @@ internal interface PcmSink {
 /** One frame producer, serialized lifecycle callers. Host waits never advance guest time. */
 internal class FrameAudioOutput(
     private val sink: PcmSink,
-    private val gainProvider: () -> Float = { 1f }
+    private val gainProvider: () -> Float = { 1f },
+    private val onPaused: () -> Unit = {}
 ) : AutoCloseable {
     private val writeLock = ReentrantLock()
     private val changed = writeLock.newCondition()
@@ -54,28 +55,40 @@ internal class FrameAudioOutput(
     fun stats(): LongArray? = sink.stats()
 
     /** False means this frame belongs to a replaced/closed timeline, not a sink error. */
-    fun writeFrame(samples: ShortArray, expectedTimeline: Long): Boolean = writeLock.withLock {
+    fun writeFrame(samples: ShortArray, expectedTimeline: Long): Boolean {
         val gain = gainProvider().coerceIn(0f, 1f)
         val source = if (gain >= 1f) samples else applyGain(samples, gain)
         var offset = 0
-        while (offset < source.size) {
-            if (closed || timeline != expectedTimeline) return false
-            if (paused) {
-                changed.await()
-                continue
+        writeLock.lock()
+        try {
+            while (offset < source.size) {
+                if (closed || timeline != expectedTimeline) return false
+                if (paused) {
+                    writeLock.unlock()
+                    try {
+                        onPaused()
+                    } finally {
+                        writeLock.lock()
+                    }
+                    if (closed || timeline != expectedTimeline) return false
+                    if (paused) changed.awaitNanos(TimeUnit.MILLISECONDS.toNanos(8))
+                    continue
+                }
+                val remaining = source.size - offset
+                val written = sink.write(source, offset, remaining)
+                check(written in 0..remaining) { "PCM sink write failed: $written of $remaining shorts" }
+                offset += written
+                if (written == 0) {
+                    // A short/zero transfer is not permission to drop a frame or
+                    // execute another guest frame. Release the lock for lifecycle
+                    // changes; this bounded host wait also prevents a busy spin.
+                    changed.awaitNanos(TimeUnit.MILLISECONDS.toNanos(1))
+                }
             }
-            val remaining = source.size - offset
-            val written = sink.write(source, offset, remaining)
-            check(written in 0..remaining) { "PCM sink write failed: $written of $remaining shorts" }
-            offset += written
-            if (written == 0) {
-                // A short/zero transfer is not permission to drop a frame or
-                // execute another guest frame. Release the lock for lifecycle
-                // changes; this bounded host wait also prevents a busy spin.
-                changed.awaitNanos(TimeUnit.MILLISECONDS.toNanos(1))
-            }
+            return !closed && timeline == expectedTimeline
+        } finally {
+            writeLock.unlock()
         }
-        !closed && timeline == expectedTimeline
     }
 
     private fun applyGain(samples: ShortArray, gain: Float): ShortArray {

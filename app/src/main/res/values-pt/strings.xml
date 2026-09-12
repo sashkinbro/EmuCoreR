@@ -137,7 +137,7 @@
     <string name="settings_version">Versão</string>
     <string name="settings_emulator_core">Núcleo de Emulação</string>
     <string name="settings_about_app">Sobre o EmuCoreR</string>
-    <string name="settings_about_app_desc">O EmuCoreR é um emulador e biblioteca de jogos PlayStation baseado no núcleo PCSX-ReARMed, com configuração rápida e uma interface otimizada para dispositivos portáteis.</string>
+    <string name="settings_about_app_desc">O EmuCoreR é um emulador e biblioteca de jogos PlayStation baseado no núcleo SwanStation, com configuração rápida e uma interface otimizada para dispositivos portáteis.</string>
     <string name="settings_about_studio">Desenvolvedor</string>
     <string name="settings_about_studio_desc">Criado por Sashkin Apps.</string>
     <string name="settings_about_support_project">Apoiar o Projeto</string>
@@ -742,9 +742,9 @@
     <string name="settings_about_app_source_link">Abrir EmuCoreR no GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">Núcleo de emulação</string>
-    <string name="settings_about_core_source_desc">Baseado no PCSX-ReARMed, um fork do emulador de PlayStation otimizado para ARM por notaz.</string>
+    <string name="settings_about_core_source_desc">Baseado no SwanStation, o núcleo do emulador de PlayStation para libretro.</string>
     <string name="settings_about_core_source_link">Ver a fonte do núcleo no GitHub</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_touch_haptics_strength">Intensidade da resposta tátil</string>
     <string name="settings_touch_haptics_test">Testar resposta tátil</string>
     <string name="settings_touch_haptics_test_desc">Reproduz uma curta vibração usando a intensidade da resposta tátil atual.</string>

@@ -311,7 +311,7 @@
     <string name="settings_version">نسخه</string>
     <string name="settings_emulator_core">هسته شبیه‌سازی</string>
     <string name="settings_about_app">درباره EmuCoreR</string>
-    <string name="settings_about_app_desc">EmuCoreR یک شبیه‌ساز و کتابخانه بازی PlayStation مبتنی بر هسته PCSX-ReARMed است، با راه‌اندازی سریع و رابط مناسب دستگاه‌های دستی.</string>
+    <string name="settings_about_app_desc">EmuCoreR یک شبیه‌ساز و کتابخانه بازی PlayStation مبتنی بر هسته SwanStation است، با راه‌اندازی سریع و رابط مناسب دستگاه‌های دستی.</string>
     <string name="settings_about_studio">توسعه‌دهنده</string>
     <string name="settings_about_studio_desc">ایجاد شده توسط Sashkin Apps.</string>
     <string name="settings_about_app_source">مخزن EmuCoreR</string>
@@ -319,9 +319,9 @@
     <string name="settings_about_app_source_link">باز کردن EmuCoreR در GitHub</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">هسته شبیه‌سازی</string>
-    <string name="settings_about_core_source_desc">بر پایه PCSX-ReARMed، یک فورک بهینه‌سازی شده ARM از شبیه‌ساز PlayStation توسط notaz.</string>
+    <string name="settings_about_core_source_desc">بر پایه SwanStation، هسته شبیه‌ساز PlayStation برای libretro.</string>
     <string name="settings_about_core_source_link">مشاهده کد منبع هسته در GitHub</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_about_support_project">حمایت از پروژه</string>
     <string name="settings_about_support_project_desc">حمایت از توسعه مداوم و به‌روزرسانی‌های آینده برای EmuCoreR.</string>
     <string name="settings_about_support_project_link">حمایت از پروژه</string>

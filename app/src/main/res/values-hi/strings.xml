@@ -186,7 +186,7 @@
     <string name="settings_version">संस्करण</string>
     <string name="settings_emulator_core">एमुलेशन कोर</string>
     <string name="settings_about_app">EmuCoreR के बारे में</string>
-    <string name="settings_about_app_desc">EmuCoreR, PCSX-ReARMed कोर पर आधारित PlayStation एमुलेटर और गेम लाइब्रेरी है, जिसमें तेज़ सेटअप और हैंडहेल्ड-अनुकूल इंटरफ़ेस है।</string>
+    <string name="settings_about_app_desc">EmuCoreR, SwanStation कोर पर आधारित PlayStation एमुलेटर और गेम लाइब्रेरी है, जिसमें तेज़ सेटअप और हैंडहेल्ड-अनुकूल इंटरफ़ेस है।</string>
     <string name="settings_about_studio">डेवलपर</string>
     <string name="settings_about_studio_desc">Sashkin Apps द्वारा निर्मित।</string>
     <string name="settings_about_support_project">प्रोजेक्ट का समर्थन करें</string>
@@ -740,9 +740,9 @@
     <string name="settings_about_app_source_link">GitHub पर EmuCoreR खोलें</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">एमुलेशन कोर</string>
-    <string name="settings_about_core_source_desc">PCSX-ReARMed पर आधारित, notaz द्वारा ARM-अनुकूलित PlayStation एमुलेटर फोर्क।</string>
+    <string name="settings_about_core_source_desc">SwanStation पर आधारित, libretro के लिए PlayStation एमुलेटर कोर।</string>
     <string name="settings_about_core_source_link">GitHub पर कोर स्रोत देखें</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_touch_haptics_strength">टच हैप्टिक की शक्ति</string>
     <string name="settings_touch_haptics_test">टच हैप्टिक्स का परीक्षण करें</string>
     <string name="settings_touch_haptics_test_desc">वर्तमान टच हैप्टिक शक्ति का उपयोग करके एक छोटा टिक प्ले करता है।</string>

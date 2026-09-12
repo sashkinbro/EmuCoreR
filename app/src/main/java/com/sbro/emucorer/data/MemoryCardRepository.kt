@@ -98,7 +98,7 @@ class MemoryCardRepository(
         )
     }
 
-    /** Imports raw DuckStation, PCSX-ReARMed, or EmuCoreR cards only when byte-compatible. */
+    /** Imports raw DuckStation, SwanStation, or EmuCoreR cards only when byte-compatible. */
     fun importCard(uri: Uri, displayName: String? = null): Boolean {
         val resolvedName = displayName?.takeIf(String::isNotBlank)
             ?: DocumentPathResolver.getDisplayName(context, uri.toString())

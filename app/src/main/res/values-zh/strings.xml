@@ -137,7 +137,7 @@
     <string name="settings_version">版本</string>
     <string name="settings_emulator_core">模擬器核心</string>
     <string name="settings_about_app">關於 EmuCoreR</string>
-    <string name="settings_about_app_desc">EmuCoreR 是一款基于 PCSX-ReARMed 核心的 PlayStation 模拟器和游戏库，提供快速设置与适合掌机的清晰界面。</string>
+    <string name="settings_about_app_desc">EmuCoreR 是一款基于 SwanStation 核心的 PlayStation 模拟器和游戏库，提供快速设置与适合掌机的清晰界面。</string>
     <string name="settings_about_studio">開發者</string>
     <string name="settings_about_studio_desc">由 Sashkin Apps 製作。</string>
     <string name="settings_about_support_project">支持專案</string>
@@ -742,9 +742,9 @@
     <string name="settings_about_app_source_link">在 GitHub 上打开 EmuCoreR</string>
     <string name="settings_about_app_source_url">https://github.com/sashkinbro/EmuCoreR</string>
     <string name="settings_about_core_source">模擬核心</string>
-    <string name="settings_about_core_source_desc">基於 PCSX-ReARMed，由 notaz 製作的 ARM 優化 PlayStation 模擬器分支。</string>
+    <string name="settings_about_core_source_desc">基於 libretro 的 PlayStation 模擬器核心 SwanStation。</string>
     <string name="settings_about_core_source_link">在 GitHub 上檢視核心原始碼</string>
-    <string name="settings_about_core_source_url">https://github.com/sashkinbro/EmuCoreR</string>
+    <string name="settings_about_core_source_url">https://github.com/libretro/swanstation</string>
     <string name="settings_touch_haptics_strength">触摸震动强度</string>
     <string name="settings_touch_haptics_test">测试触摸震动</string>
     <string name="settings_touch_haptics_test_desc">使用当前的触摸震动强度播放短促的震动。</string>
