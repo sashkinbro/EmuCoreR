@@ -607,6 +607,7 @@ private fun SideNavigation(
     val showTools =
         (navigateMemoryCardManager != null && DrawerItemId.MEMORY_CARDS !in hiddenDrawerItems) ||
             (navigateCheatManager != null && DrawerItemId.CHEAT_MANAGER !in hiddenDrawerItems) ||
+            (navigateTextureManager != null && DrawerItemId.TEXTURE_MANAGER !in hiddenDrawerItems) ||
             (navigateSaveManager != null && DrawerItemId.SAVE_STATES !in hiddenDrawerItems)
 
     val content: @Composable () -> Unit = {
@@ -786,6 +787,13 @@ private fun SideNavigation(
                         icon = Icons.Rounded.SportsEsports,
                         label = stringResource(R.string.shell_cheat_manager),
                         onClick = navigateCheatManager
+                    )
+                }
+                if (navigateTextureManager != null && DrawerItemId.TEXTURE_MANAGER !in hiddenDrawerItems) {
+                    ShellAction(
+                        icon = Icons.Rounded.FolderZip,
+                        label = stringResource(R.string.shell_texture_manager),
+                        onClick = navigateTextureManager
                     )
                 }
                 if (navigateSaveManager != null && DrawerItemId.SAVE_STATES !in hiddenDrawerItems) {

@@ -626,6 +626,10 @@ bool GPU_HW_Vulkan::Initialize(HostDisplay* host_display)
   if (!GPU_HW::Initialize(host_display))
     return false;
 
+  // Texture page (texpage-*) replacements are only wired up on the Vulkan
+  // backend; the base class hooks are no-ops for the other renderers.
+  m_texture_replacements_enabled = true;
+
   if (!CreatePipelineLayouts())
   {
     Log_ErrorPrintf("Failed to create pipeline layouts");
@@ -772,8 +776,10 @@ void GPU_HW_Vulkan::RestoreGraphicsAPIState()
   VkDeviceSize vertex_buffer_offset = 0;
   vkCmdBindVertexBuffers(cmdbuf, 0, 1, m_vertex_stream_buffer.GetBufferPointer(), &vertex_buffer_offset);
   Vulkan::Util::SetViewport(cmdbuf, 0, 0, m_vram_texture.GetWidth(), m_vram_texture.GetHeight());
+  const VkDescriptorSet batch_set =
+    (m_current_replacement_descriptor_set != VK_NULL_HANDLE) ? m_current_replacement_descriptor_set : m_batch_descriptor_set;
   vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_batch_pipeline_layout, 0, 1,
-                          &m_batch_descriptor_set, 1, &m_current_uniform_buffer_offset);
+                          &batch_set, 1, &m_current_uniform_buffer_offset);
   SetScissorFromDrawingArea();
 }
 
@@ -1008,8 +1014,10 @@ void GPU_HW_Vulkan::UploadUniformBuffer(const void* data, uint32_t data_size)
   std::memcpy(m_uniform_stream_buffer.GetCurrentHostPointer(), data, data_size);
   m_uniform_stream_buffer.CommitMemory(data_size);
 
+  const VkDescriptorSet batch_set =
+    (m_current_replacement_descriptor_set != VK_NULL_HANDLE) ? m_current_replacement_descriptor_set : m_batch_descriptor_set;
   vkCmdBindDescriptorSets(g_vulkan_context->GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          m_batch_pipeline_layout, 0, 1, &m_batch_descriptor_set, 1, &m_current_uniform_buffer_offset);
+                          m_batch_pipeline_layout, 0, 1, &batch_set, 1, &m_current_uniform_buffer_offset);
 }
 
 void GPU_HW_Vulkan::SetCapabilities()
@@ -1018,6 +1026,9 @@ void GPU_HW_Vulkan::SetCapabilities()
   const uint32_t max_texture_scale = max_texture_size / VRAM_WIDTH;
   Log_InfoPrintf("Max texture size: %ux%u", max_texture_size, max_texture_size);
   m_max_resolution_scale = max_texture_scale;
+
+  // Caps the size of composited texture page replacements.
+  g_texture_replacements.SetMaxTextureSize(max_texture_size);
 
   VkImageFormatProperties color_properties = {};
   vkGetPhysicalDeviceImageFormatProperties(g_vulkan_context->GetPhysicalDevice(), VK_FORMAT_R8G8B8A8_UNORM,
@@ -1519,6 +1530,7 @@ void GPU_HW_Vulkan::ClearFramebuffer()
 void GPU_HW_Vulkan::DestroyFramebuffer()
 {
   DestroyDownsampleResources();
+  DestroyTextureReplacementEntries();
 
   Vulkan::Util::SafeFreeGlobalDescriptorSet(m_batch_descriptor_set);
   Vulkan::Util::SafeFreeGlobalDescriptorSet(m_vram_copy_descriptor_set);
@@ -3298,6 +3310,11 @@ void GPU_HW_Vulkan::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t 
   const Common::Rectangle<uint32_t> bounds = GetVRAMTransferBounds(x, y, width, height);
   GPU_HW::UpdateVRAM(bounds.left, bounds.top, bounds.GetWidth(), bounds.GetHeight(), data, set_mask, check_mask);
 
+  // Keep the CPU-side shadow current for texture replacement hashing. The
+  // original coordinates are needed here (the shadow writer handles wrapping).
+  if (!m_sw_renderer)
+    GPU::UpdateVRAM(x, y, width, height, data, set_mask, check_mask);
+
   if (!check_mask)
   {
     const TextureReplacementTexture* rtex = g_texture_replacements.GetVRAMWriteReplacement(width, height, data);
@@ -3349,6 +3366,8 @@ void GPU_HW_Vulkan::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uin
   VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
   if (IsUsingSoftwareRendererForReadbacks())
     CopySoftwareRendererVRAM(src_x, src_y, dst_x, dst_y, width, height);
+  else
+    GPU::CopyVRAM(src_x, src_y, dst_x, dst_y, width, height);
 
   if (UseVRAMCopyShader(src_x, src_y, dst_x, dst_y, width, height) || IsUsingMultisampling())
   {
@@ -3545,6 +3564,156 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
                  m_vram_texture.GetImage(), m_vram_texture.GetLayout(), 1, &blit, VK_FILTER_LINEAR);
   m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   return true;
+}
+
+bool GPU_HW_Vulkan::SetTextureReplacement(const TexturePageReplacement* replacement)
+{
+  if (!replacement || !replacement->image || replacement->image->GetWidth() == 0 || replacement->image->GetHeight() == 0)
+  {
+    m_current_replacement_descriptor_set = VK_NULL_HANDLE;
+    return true;
+  }
+
+  auto it = m_texture_replacement_entries.find(replacement->id);
+  if (it == m_texture_replacement_entries.end())
+  {
+    // Very simple bounded cache: when full, submit and wait for the GPU, then
+    // drop everything. Replacement textures are re-uploaded on demand.
+    if (m_texture_replacement_entries.size() >= MAX_TEXTURE_REPLACEMENTS)
+    {
+      ExecuteCommandBuffer(true, true);
+      DestroyTextureReplacementEntries();
+    }
+
+    TextureReplacementGPUEntry entry;
+    if (!UploadTextureReplacement(*replacement, &entry))
+    {
+      m_current_replacement_descriptor_set = VK_NULL_HANDLE;
+      return false;
+    }
+
+    it = m_texture_replacement_entries.emplace(replacement->id, std::move(entry)).first;
+  }
+
+  it->second.last_used = ++m_texture_replacement_used_counter;
+  m_current_replacement_descriptor_set = it->second.descriptor_set;
+  return true;
+}
+
+void GPU_HW_Vulkan::SyncVRAMForTextureReplacement(uint32_t page_x, uint32_t page_y, uint32_t page_width,
+                                                  uint32_t page_height, uint32_t palette_x, uint32_t palette_y,
+                                                  uint32_t palette_width)
+{
+  if (!m_texture_replacements_enabled || m_sw_renderer ||
+      (m_vram_shadow_dirty_pages == 0 && m_vram_shadow_dirty_palette_pages == 0))
+  {
+    return;
+  }
+
+  bool synced = false;
+
+  if (page_x < VRAM_WIDTH && page_y < VRAM_HEIGHT)
+  {
+    const uint32_t page_index = ((page_y / 256) * 16u) + (page_x / 64u);
+    if (m_vram_shadow_dirty_pages & (1u << page_index))
+    {
+      ReadVRAM(page_x, page_y, page_width, page_height);
+      m_vram_shadow_dirty_pages &= ~(1u << page_index);
+      m_vram_shadow_dirty_palette_pages &= ~(1u << page_index);
+      synced = true;
+    }
+  }
+
+  if (palette_width > 0 && palette_y < VRAM_HEIGHT)
+  {
+    // A palette row spans up to 1024 words; refill the whole row in one
+    // readback if any page it touches was drawn into since the last refresh.
+    const uint32_t first_page_y = palette_y / 256;
+    const uint32_t row_page_mask = (0xFFFFu << (first_page_y * 16u));
+    if (m_vram_shadow_dirty_palette_pages & row_page_mask)
+    {
+      ReadVRAM(0, palette_y, VRAM_WIDTH, 1);
+      m_vram_shadow_dirty_palette_pages &= ~row_page_mask;
+      synced = true;
+    }
+  }
+
+  // The shadow contents changed (or may have), so force the replacement cache
+  // to re-hash on the next lookup.
+  if (synced)
+    IncrementVRAMGeneration();
+}
+
+bool GPU_HW_Vulkan::UploadTextureReplacement(const TexturePageReplacement& replacement, TextureReplacementGPUEntry* entry)
+{
+  const Common::RGBA8Image& image = *replacement.image;
+  const uint32_t required_size = image.GetWidth() * image.GetHeight() * sizeof(uint32_t);
+  if (required_size > TEXTURE_REPLACEMENT_BUFFER_SIZE)
+  {
+    Log_ErrorPrintf("Texture replacement page too large for the staging buffer (%ux%u)", image.GetWidth(),
+                    image.GetHeight());
+    return false;
+  }
+
+  if (!entry->texture.Create(image.GetWidth(), image.GetHeight(), 1, 1, VK_FORMAT_R8G8B8A8_UNORM,
+                             VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_TILING_OPTIMAL,
+                             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT))
+  {
+    return false;
+  }
+
+  if (!CreateTextureReplacementStreamBuffer())
+    return false;
+
+  const uint32_t alignment = static_cast<uint32_t>(g_vulkan_context->GetBufferImageGranularity());
+  if (!m_texture_replacment_stream_buffer.ReserveMemory(required_size, alignment))
+  {
+    ExecuteCommandBuffer(false, true);
+    if (!m_texture_replacment_stream_buffer.ReserveMemory(required_size, alignment))
+      return false;
+  }
+
+  const uint32_t buffer_offset = m_texture_replacment_stream_buffer.GetCurrentOffset();
+  std::memcpy(m_texture_replacment_stream_buffer.GetCurrentHostPointer(), image.GetPixels(), required_size);
+  m_texture_replacment_stream_buffer.CommitMemory(required_size);
+
+  VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
+  // Get the new texture into TRANSFER_DST first; UpdateFromBuffer restores the
+  // pre-call layout afterwards, which keeps the uploaded contents valid for the
+  // subsequent shader-read transition.
+  entry->texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  entry->texture.UpdateFromBuffer(cmdbuf, 0, 0, 0, 0, image.GetWidth(), image.GetHeight(),
+                                  m_texture_replacment_stream_buffer.GetBuffer(), buffer_offset, image.GetWidth());
+  entry->texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+  entry->descriptor_set = g_vulkan_context->AllocateGlobalDescriptorSet(m_batch_descriptor_set_layout);
+  if (entry->descriptor_set == VK_NULL_HANDLE)
+    return false;
+
+  Vulkan::DescriptorSetUpdateBuilder dsubuilder;
+  dsubuilder.AddBufferDescriptorWrite(entry->descriptor_set, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                                      m_uniform_stream_buffer.GetBuffer(), 0, sizeof(BatchUBOData));
+  dsubuilder.AddCombinedImageSamplerDescriptorWrite(entry->descriptor_set, 1, entry->texture.GetView(), m_point_sampler,
+                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  dsubuilder.Update(g_vulkan_context->GetDevice());
+  return true;
+}
+
+void GPU_HW_Vulkan::DestroyTextureReplacementEntries()
+{
+  if (m_texture_replacement_entries.empty())
+    return;
+
+  // The caller is responsible for ensuring the GPU is idle (the entries may be
+  // referenced by in-flight command buffers).
+  for (auto& it : m_texture_replacement_entries)
+  {
+    Vulkan::Util::SafeFreeGlobalDescriptorSet(it.second.descriptor_set);
+    it.second.texture.Destroy(false);
+  }
+
+  m_texture_replacement_entries.clear();
+  m_current_replacement_descriptor_set = VK_NULL_HANDLE;
 }
 
 void GPU_HW_Vulkan::DownsampleFramebuffer(Vulkan::Texture& source, uint32_t left, uint32_t top, uint32_t width, uint32_t height)

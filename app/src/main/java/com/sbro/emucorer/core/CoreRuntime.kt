@@ -636,6 +636,11 @@ internal object CoreRuntime {
         runCatching { bridge.setMemoryCardPath(slot, path) }
     }
 
+    fun setTextureReplacementsPathOverride(path: String?) {
+        runCatching { bridge.setTextureReplacementsPathOverride(path?.takeIf(String::isNotBlank)) }
+            .onFailure { Log.w(TAG, "Unable to set texture replacements path", it) }
+    }
+
     fun setPadButtons(port: Int, buttons: Int): Boolean {
         if (port !in 0..1) return false
         pendingPadButtons.set(port, buttons and 0xFFFF)

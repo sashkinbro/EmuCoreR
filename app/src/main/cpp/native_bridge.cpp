@@ -1559,6 +1559,9 @@ extern "C" {
 // lets the app bind explicit memory-card images to the emulated slots.
 extern void EmuCoreRSetMemoryCardPathOverride(unsigned slot, const char* path);
 
+// Implemented by the core: overrides the replacement-texture base directory.
+extern void EmuCoreRSetTextureReplacementsPathOverride(const char* path);
+
 // Implemented by the core: reports whether a disc image is mounted.
 extern bool EmuCoreRHasDiscMedia();
 
@@ -1989,6 +1992,21 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_setMemoryCardPath(JNIEnv* env, jobj
     }
     EmuCoreRSetMemoryCardPathOverride(static_cast<unsigned>(slot),
                                       value.empty() ? nullptr : value.c_str());
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_setTextureReplacementsPathOverride(JNIEnv* env,
+                                                                                jobject,
+                                                                                jstring path) {
+    std::string value;
+    if (path != nullptr) {
+        const char* chars = env->GetStringUTFChars(path, nullptr);
+        if (chars != nullptr) {
+            value = chars;
+            env->ReleaseStringUTFChars(path, chars);
+        }
+    }
+    EmuCoreRSetTextureReplacementsPathOverride(value.empty() ? nullptr : value.c_str());
 }
 
 JNIEXPORT jboolean JNICALL

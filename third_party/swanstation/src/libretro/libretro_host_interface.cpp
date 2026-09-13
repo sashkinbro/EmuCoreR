@@ -18,6 +18,7 @@
 #include "core/pad.h"
 #include "core/playstation_mouse.h"
 #include "core/system.h"
+#include "core/texture_replacements.h"
 #include "libretro_audio_stream.h"
 #include "libretro_game_settings.h"
 #include "libretro_host_display.h"
@@ -61,6 +62,14 @@ static std::string GetMemoryCardPathOverride(unsigned slot)
 
   std::lock_guard<std::mutex> lock(g_memory_card_path_override_mutex);
   return g_memory_card_path_overrides[slot];
+}
+
+// EmuCoreR Android frontend hook: lets the app choose where replacement
+// textures (vram-write-*.png and friends) are loaded from.
+extern "C" __attribute__((visibility("default"))) void EmuCoreRSetTextureReplacementsPathOverride(
+  const char* path)
+{
+  SetTextureReplacementsPathOverride(path ? path : "");
 }
 
 // Reports whether a disc image is actually mounted. The core deliberately

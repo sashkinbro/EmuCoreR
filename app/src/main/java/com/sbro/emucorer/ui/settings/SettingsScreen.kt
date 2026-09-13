@@ -2943,6 +2943,8 @@ private fun CustomizationSettingsTab(
             ),
             stringResource(R.string.shell_tools_section) to listOf(
                 DrawerItemId.MEMORY_CARDS,
+                DrawerItemId.CHEAT_MANAGER,
+                DrawerItemId.TEXTURE_MANAGER,
                 DrawerItemId.SAVE_STATES
             ),
             stringResource(R.string.settings_customization_drawer_other) to listOf(

@@ -5,6 +5,7 @@
 #include "pgxp.h"
 #include "settings.h"
 #include "system.h"
+#include "texture_replacements.h"
 #include <cmath>
 #include <cstring>
 #include <sstream>
@@ -49,6 +50,11 @@ bool GPU_HW::Initialize(HostDisplay* host_display)
 {
   if (!GPU::Initialize(host_display))
     return false;
+
+  // The replacement manager hashes/composites from the CPU-side VRAM shadow.
+  // The software-renderer-for-readbacks path points m_vram_ptr elsewhere, so
+  // replacements are disabled in that configuration (see UpdateTextureReplacement).
+  g_texture_replacements.SetVRAM(m_vram_shadow.data());
 
   m_resolution_scale = CalculateResolutionScale();
   m_multisamples = std::min(g_settings.gpu_multisamples, m_max_multisamples);
@@ -110,6 +116,8 @@ void GPU_HW::Reset(bool clear_vram)
   m_batch_current_vertex_ptr = m_batch_start_vertex_ptr;
 
   m_vram_shadow.fill(0);
+  m_vram_shadow_dirty_pages = 0;
+  m_vram_shadow_dirty_palette_pages = 0;
   if (m_sw_renderer)
     m_sw_renderer->Reset(clear_vram);
 
@@ -143,6 +151,12 @@ void GPU_HW::Reset(bool clear_vram)
   m_batch_ubo_dirty = true;
   m_current_depth = 1;
 
+  // Drop any texture page replacement binding; the VRAM contents have been
+  // cleared and the manager's cache is invalidated by the generation bump.
+  m_current_texture_replacement_id = 0;
+  m_batch_ubo_data.u_replacement_enabled = 0;
+  SetTextureReplacement(nullptr);
+
   SetFullVRAMDirtyRectangle();
 }
 
@@ -155,6 +169,8 @@ bool GPU_HW::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool u
   if (sw.IsReading())
   {
     m_batch_current_vertex_ptr = m_batch_start_vertex_ptr;
+    m_vram_shadow_dirty_pages = 0;
+    m_vram_shadow_dirty_palette_pages = 0;
     SetFullVRAMDirtyRectangle();
     ResetBatchVertexDepth();
   }
@@ -552,6 +568,55 @@ void GPU_HW::CheckForDepthClear(const BatchVertex* vertices, uint32_t num_vertic
   m_last_depth_z = average_z;
 }
 
+void GPU_HW::UpdateTextureReplacement(GPUTextureMode texture_mode)
+{
+  if (!m_texture_replacements_enabled || m_sw_renderer || texture_mode == GPUTextureMode::Disabled ||
+      !g_texture_replacements.HasTexturePageReplacements())
+  {
+    if (m_current_texture_replacement_id != 0)
+    {
+      // Draw any queued geometry with the old binding before we drop it.
+      if (GetBatchVertexCount() > 0)
+        FlushRender();
+
+      m_current_texture_replacement_id = 0;
+      m_batch_ubo_data.u_replacement_enabled = 0;
+      m_batch_ubo_dirty = true;
+      SetTextureReplacement(nullptr);
+    }
+    return;
+  }
+
+  // Refresh the CPU-side shadow for anything the GPU has drawn into since the
+  // last lookup; hashing/compositing below reads from it.
+  const uint8_t base_mode = static_cast<uint8_t>(texture_mode) & 3u;
+  const uint32_t page_width_words = (base_mode == static_cast<uint8_t>(GPUTextureMode::Palette4Bit)) ? 64u :
+                                    (base_mode == static_cast<uint8_t>(GPUTextureMode::Palette8Bit)) ? 128u :
+                                                                                                        256u;
+  const bool has_palette = (base_mode < static_cast<uint8_t>(GPUTextureMode::Direct16Bit));
+  const uint32_t palette_width = has_palette ? ((base_mode == static_cast<uint8_t>(GPUTextureMode::Palette4Bit)) ? 16u : 256u) : 0u;
+  SyncVRAMForTextureReplacement(m_draw_mode.texture_page_x, m_draw_mode.texture_page_y, page_width_words, 256u,
+                                m_draw_mode.texture_palette_x, m_draw_mode.texture_palette_y, palette_width);
+
+  const TexturePageReplacement* replacement = g_texture_replacements.GetTexturePageReplacement(
+    texture_mode, m_draw_mode.texture_page_x, m_draw_mode.texture_page_y, m_draw_mode.texture_palette_x,
+    m_draw_mode.texture_palette_y);
+  const uint64_t replacement_id = replacement ? replacement->id : 0;
+  if (replacement_id == m_current_texture_replacement_id)
+    return;
+
+  // The batch's descriptor binding changes, so anything already queued has to
+  // use the previous binding.
+  if (GetBatchVertexCount() > 0)
+    FlushRender();
+
+  m_current_texture_replacement_id = replacement_id;
+  const bool bound = SetTextureReplacement(replacement);
+  const uint32_t replacement_enabled = (replacement && bound) ? 1u : 0u;
+  m_batch_ubo_dirty |= (m_batch_ubo_data.u_replacement_enabled != replacement_enabled);
+  m_batch_ubo_data.u_replacement_enabled = replacement_enabled;
+}
+
 uint32_t GPU_HW::GetAdaptiveDownsamplingMipLevels() const
 {
   uint32_t levels = 0;
@@ -763,6 +828,7 @@ void GPU_HW::LoadVertices()
           static_cast<uint32_t>(std::clamp<int32_t>(max_y, m_drawing_area.top, m_drawing_area.bottom)) + 1u;
 
         m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
+        MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
         AddDrawTriangleTicks(native_vertex_positions[0][0], native_vertex_positions[0][1],
                              native_vertex_positions[1][0], native_vertex_positions[1][1],
                              native_vertex_positions[2][0], native_vertex_positions[2][1], rc.shading_enable,
@@ -794,6 +860,7 @@ void GPU_HW::LoadVertices()
             static_cast<uint32_t>(std::clamp<int32_t>(max_y_123, m_drawing_area.top, m_drawing_area.bottom)) + 1u;
 
           m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
+          MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
           AddDrawTriangleTicks(native_vertex_positions[2][0], native_vertex_positions[2][1],
                                native_vertex_positions[1][0], native_vertex_positions[1][1],
                                native_vertex_positions[3][0], native_vertex_positions[3][1], rc.shading_enable,
@@ -911,6 +978,7 @@ void GPU_HW::LoadVertices()
         static_cast<uint32_t>(std::clamp<int32_t>(pos_y + rectangle_height, m_drawing_area.top, m_drawing_area.bottom)) + 1u;
 
       m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
+      MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
       AddDrawRectangleTicks(clip_right - clip_left, clip_bottom - clip_top, rc.texture_enable, rc.transparency_enable);
 
       if (m_sw_renderer)
@@ -969,8 +1037,9 @@ void GPU_HW::LoadVertices()
         const uint32_t clip_bottom =
           static_cast<uint32_t>(std::clamp<int32_t>(max_y, m_drawing_area.top, m_drawing_area.bottom)) + 1u;
 
-        m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
-        AddDrawLineTicks(clip_right - clip_left, clip_bottom - clip_top, rc.shading_enable);
+            m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
+            MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
+            AddDrawLineTicks(clip_right - clip_left, clip_bottom - clip_top, rc.shading_enable);
 
         // TODO: Should we do a PGXP lookup here? Most lines are 2D.
         DrawLine(static_cast<float>(start_x), static_cast<float>(start_y), start_color, static_cast<float>(end_x),
@@ -1034,7 +1103,8 @@ void GPU_HW::LoadVertices()
             const uint32_t clip_bottom =
               static_cast<uint32_t>(std::clamp<int32_t>(max_y, m_drawing_area.top, m_drawing_area.bottom)) + 1u;
 
-            m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
+          m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
+          MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
             AddDrawLineTicks(clip_right - clip_left, clip_bottom - clip_top, rc.shading_enable);
 
             // TODO: Should we do a PGXP lookup here? Most lines are 2D.
@@ -1164,6 +1234,27 @@ void GPU_HW::IncludeVRAMDirtyRectangle(const Common::Rectangle<uint32_t>& rect)
   }
 }
 
+void GPU_HW::MarkVRAMShadowDirty(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom)
+{
+  if (!m_texture_replacements_enabled || right <= left || bottom <= top)
+    return;
+
+  left = std::min(left, VRAM_WIDTH - 1);
+  right = std::min(right, VRAM_WIDTH);
+  top = std::min(top, VRAM_HEIGHT - 1);
+  bottom = std::min(bottom, VRAM_HEIGHT);
+
+  for (uint32_t page_y = top / 256; page_y <= (bottom - 1) / 256; page_y++)
+  {
+    for (uint32_t page_x = left / 64; page_x <= (right - 1) / 64; page_x++)
+    {
+      const uint32_t page_bit = (page_y * 16) + page_x;
+      m_vram_shadow_dirty_pages |= (1u << page_bit);
+      m_vram_shadow_dirty_palette_pages |= (1u << page_bit);
+    }
+  }
+}
+
 void GPU_HW::EnsureVertexBufferSpaceForCurrentCommand()
 {
   uint32_t required_vertices;
@@ -1215,6 +1306,10 @@ void GPU_HW::UpdateSoftwareRenderer(bool copy_vram_from_hw)
   const bool new_enabled = g_settings.gpu_use_software_renderer_for_readbacks;
   if (current_enabled == new_enabled)
     return;
+
+  // The shadow source changes; force a refresh before the next replacement lookup.
+  m_vram_shadow_dirty_pages = UINT32_C(0xFFFFFFFF);
+  m_vram_shadow_dirty_palette_pages = UINT32_C(0xFFFFFFFF);
 
   m_vram_ptr = m_vram_shadow.data();
 
@@ -1313,12 +1408,27 @@ void GPU_HW::CopySoftwareRendererVRAM(uint32_t src_x, uint32_t src_y, uint32_t d
 
 void GPU_HW::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t color)
 {
+  IncrementVRAMGeneration();
+
   IncludeVRAMDirtyRectangle(
     Common::Rectangle<uint32_t>::FromExtents(x, y, width, height).Clamped(0, 0, VRAM_WIDTH, VRAM_HEIGHT));
+
+  // Keep the CPU-side VRAM shadow current for texture replacement hashing. The
+  // shadow is otherwise only refreshed by VRAM readbacks. Only the Vulkan
+  // backend consumes it; the software renderer-for-readbacks mode owns a
+  // separate VRAM buffer and is excluded.
+  if (m_texture_replacements_enabled && !m_sw_renderer)
+    GPU::FillVRAM(x, y, width, height, color);
 }
 
 void GPU_HW::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, const void* data, bool set_mask, bool check_mask)
 {
+  IncrementVRAMGeneration();
+
+  // NOTE: coordinate handling here is bounds-relative (the backend has already
+  // mapped the transfer into VRAM by the time it calls this), so the CPU-side
+  // shadow sync for texture replacements happens in the backend override which
+  // still has the original (possibly wrapping) coordinates.
   IncludeVRAMDirtyRectangle(Common::Rectangle<uint32_t>::FromExtents(x, y, width, height));
 
   if (check_mask)
@@ -1330,6 +1440,8 @@ void GPU_HW::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height,
 
 void GPU_HW::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uint32_t dst_y, uint32_t width, uint32_t height)
 {
+  IncrementVRAMGeneration();
+
   IncludeVRAMDirtyRectangle(
     Common::Rectangle<uint32_t>::FromExtents(dst_x, dst_y, width, height).Clamped(0, 0, VRAM_WIDTH, VRAM_HEIGHT));
 
@@ -1383,6 +1495,10 @@ void GPU_HW::DispatchRenderCommand()
   {
     FlushRender();
   }
+
+  // If this draw now uses a different composited texture page, flush the
+  // pending vertices first so they keep the binding they were queued with.
+  UpdateTextureReplacement(texture_mode);
 
   EnsureVertexBufferSpaceForCurrentCommand();
 

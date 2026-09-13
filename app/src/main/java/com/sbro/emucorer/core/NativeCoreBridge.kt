@@ -93,6 +93,12 @@ class NativeCoreBridge {
     /** Binds an explicit memory-card image to a slot (null or blank disables it). */
     external fun setMemoryCardPath(slot: Int, path: String?)
 
+    /**
+     * Sets the base directory replacement textures are loaded from; the core
+     * appends the running game code (null or blank restores the core default).
+     */
+    external fun setTextureReplacementsPathOverride(path: String?)
+
     /** True when the running session has a disc image mounted. */
     external fun hasDiscMedia(handle: Long): Boolean
 

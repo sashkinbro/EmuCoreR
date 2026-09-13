@@ -127,11 +127,20 @@ class RemoteContentCatalogRepository(context: Context) {
         val text = bytes.toString(Charsets.UTF_8).removePrefix("\uFEFF")
         require(
             text.lineSequence().any { line ->
-                val trimmed = line.trimStart()
-                trimmed.startsWith("patch=", ignoreCase = true) ||
-                    trimmed.startsWith("dpatch=", ignoreCase = true)
+                val trimmed = line.trim()
+                if (trimmed.isEmpty() || trimmed.startsWith("//") || trimmed.startsWith("#")) {
+                    return@any false
+                }
+                val candidate = trimmed.substringBefore("//").substringBefore("#").trim()
+                if (candidate.isEmpty()) {
+                    return@any false
+                }
+                candidate.startsWith("patch=", ignoreCase = true) ||
+                    candidate.startsWith("dpatch=", ignoreCase = true) ||
+                    RAW_CHEAT_CODE_REGEX.matchEntire(candidate) != null ||
+                    LIBRETRO_CHEAT_CODE_REGEX.containsMatchIn(candidate)
             }
-        ) { "Downloaded file does not contain supported PNACH patches" }
+        ) { "Downloaded file does not contain supported cheat codes" }
         return text
     }
 
@@ -236,7 +245,7 @@ class RemoteContentCatalogRepository(context: Context) {
                     id = item.requiredString("id"),
                     title = item.requiredString("title"),
                     serials = item.stringList("serials").mapNotNull(::normalizeSerial).distinct(),
-                    crc = item.requiredString("crc").uppercase(Locale.US),
+                    crc = item.string("crc").uppercase(Locale.US),
                     authors = item.stringList("authors").filter(String::isNotBlank),
                     description = item.string("description"),
                     downloadUrl = item.requiredString("downloadUrl").requireHttps(),
@@ -245,7 +254,7 @@ class RemoteContentCatalogRepository(context: Context) {
                     license = item.string("license"),
                     blockCount = item.int("blockCount")
                 ).also { pack ->
-                    require(pack.crc.matches(Regex("[0-9A-F]{8}")))
+                    require(pack.crc.isEmpty() || pack.crc.matches(Regex("[0-9A-F]{8}")))
                     require(pack.authors.isNotEmpty())
                     require(pack.blockCount > 0)
                 }
@@ -408,6 +417,9 @@ class RemoteContentCatalogRepository(context: Context) {
         const val MAX_TEXTURE_ARCHIVE_BYTES = 16L * 1024L * 1024L * 1024L
         const val MAX_TEXTURE_PART_BYTES = 2L * 1024L * 1024L * 1024L
         const val CATALOG_CACHE_TTL_MS = 6L * 60L * 60L * 1000L
+
+        val RAW_CHEAT_CODE_REGEX = Regex("[0-9A-Fa-f]{8}[\\s:+-]+[0-9A-Fa-f]{1,8}")
+        val LIBRETRO_CHEAT_CODE_REGEX = Regex("^cheat\\d+_code\\s*=", RegexOption.IGNORE_CASE)
 
         val TEXTURE_CATALOG_URLS = listOf(
             "https://raw.githubusercontent.com/sashkinbro/EmuCoreR-Textures/main/textures.json",

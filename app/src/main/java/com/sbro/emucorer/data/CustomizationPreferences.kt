@@ -187,6 +187,7 @@ val SupportedGameMenuSections: List<GameMenuSectionId> = listOf(
     GameMenuSectionId.EMULATION_PERFORMANCE,
     GameMenuSectionId.EMULATION_CPU,
     GameMenuSectionId.EMULATION_AUDIO,
+    GameMenuSectionId.EMULATION_CHEATS,
     GameMenuSectionId.GRAPHICS_DISPLAY
 )
 

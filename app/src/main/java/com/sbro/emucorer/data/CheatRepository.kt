@@ -355,7 +355,7 @@ class CheatRepository(private val context: Context) {
     private fun convertCheatBlock(block: CheatBlock): List<String>? {
         val codeLines = mutableListOf<String>()
         block.lines.forEach { rawLine ->
-            val line = rawLine.substringBefore("//").trim()
+            val line = rawLine.substringBefore("//").substringBefore("#").trim()
             if (line.isEmpty()) return@forEach
             if (line.startsWith("//") || line.startsWith("#") || line.startsWith(";")) return@forEach
             val match = PATCH_LINE_REGEX.matchEntire(line)
@@ -450,6 +450,12 @@ class CheatRepository(private val context: Context) {
         val RAW_CODE_REGEX = Regex("[0-9A-Fa-f]{8}[\\s:+-]+[0-9A-Fa-f]{1,8}")
 
         val AUTHOR_LINE_REGEX = Regex("^author\\s*=\\s*(.+)$", RegexOption.IGNORE_CASE)
+
+        val LIBRETRO_DESC_REGEX = Regex("^cheat\\d+_desc\\s*=\\s*\"?(.*?)\"?\\s*$", RegexOption.IGNORE_CASE)
+        val LIBRETRO_CODE_REGEX = Regex("^cheat\\d+_code\\s*=\\s*\"?(.+?)\"?\\s*$", RegexOption.IGNORE_CASE)
+        val LIBRETRO_COUNT_REGEX = Regex("^cheats\\s*=\\s*\\d+\\s*$", RegexOption.IGNORE_CASE)
+        val LIBRETRO_TOGGLE_REGEX = Regex("^cheat\\d+_enable\\s*=.*$", RegexOption.IGNORE_CASE)
+        val METADATA_LINE_REGEX = Regex("^[A-Za-z][A-Za-z0-9 _]*\\s*=.*$")
     }
 
     internal fun parsePatchBlocks(raw: String): List<CheatBlock> = parseCheatBlocks(raw)
@@ -490,16 +496,41 @@ class CheatRepository(private val context: Context) {
 
         lines.forEach { line ->
             val trimmed = line.trim()
+            val libretroDesc = LIBRETRO_DESC_REGEX.matchEntire(trimmed)
+            val libretroCode = LIBRETRO_CODE_REGEX.matchEntire(trimmed)
+            val semicolonLabel = trimmed.takeIf { it.startsWith(";") }
+                ?.removePrefix(";")
+                ?.trim()
+                ?.takeIf { it.startsWith("[") && it.endsWith("]") }
+                ?.removeSurrounding("[", "]")
+                ?.trim()
             val label = when {
                 trimmed.startsWith("//") -> trimmed.removePrefix("//").trim()
                 trimmed.startsWith("comment=", ignoreCase = true) -> trimmed.substringAfter('=').trim()
                 trimmed.startsWith("[") && trimmed.endsWith("]") -> trimmed.removeSurrounding("[", "]").trim()
+                !semicolonLabel.isNullOrBlank() -> semicolonLabel
+                libretroDesc != null -> libretroDesc.groupValues[1].trim()
                 else -> null
             }
             val isPatchLine = trimmed.startsWith("patch=", ignoreCase = true) ||
                 trimmed.startsWith("dpatch=", ignoreCase = true)
-            val isRawCode = RAW_CODE_REGEX.matchEntire(trimmed) != null
+            val codeCandidate = trimmed.substringBefore("//").substringBefore("#").trim()
+            val isRawCode = RAW_CODE_REGEX.matchEntire(codeCandidate) != null
+            val libretroCodes = libretroCode
+                ?.groupValues
+                ?.get(1)
+                ?.split('+')
+                ?.map(String::trim)
+                ?.filter(String::isNotEmpty)
+                .orEmpty()
+                .chunked(2)
+                .filter { it.size == 2 }
+                .map { "${it[0]} ${it[1]}" }
+                .filter { RAW_CODE_REGEX.matchEntire(it) != null }
             when {
+                libretroCode != null -> {
+                    if (libretroCodes.isNotEmpty()) currentLines += libretroCodes
+                }
                 !label.isNullOrBlank() -> {
                     if (currentLines.isNotEmpty()) {
                         flush()
@@ -513,7 +544,10 @@ class CheatRepository(private val context: Context) {
                         ?.takeIf { it.isNotBlank() }
                 }
                 isPatchLine -> currentLines += trimmed
-                isRawCode && currentTitle != null -> currentLines += trimmed
+                METADATA_LINE_REGEX.matchEntire(trimmed) != null ||
+                    LIBRETRO_COUNT_REGEX.matchEntire(trimmed) != null ||
+                    LIBRETRO_TOGGLE_REGEX.matchEntire(trimmed) != null -> Unit
+                isRawCode && currentTitle != null -> currentLines += codeCandidate
             }
         }
         flush()

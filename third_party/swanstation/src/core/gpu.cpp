@@ -1221,6 +1221,8 @@ void GPU::ReadVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {}
 
 void GPU::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t color)
 {
+  IncrementVRAMGeneration();
+
   const uint16_t color16 = VRAMRGBA8888ToRGBA5551(color);
   if ((x + width) <= VRAM_WIDTH && !IsInterlacedRenderingEnabled())
   {
@@ -1268,6 +1270,8 @@ void GPU::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint
 
 void GPU::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, const void* data, bool set_mask, bool check_mask)
 {
+  IncrementVRAMGeneration();
+
   // Fast path when the copy is not oversized.
   if ((x + width) <= VRAM_WIDTH && (y + height) <= VRAM_HEIGHT && !set_mask && !check_mask)
   {
@@ -1304,6 +1308,8 @@ void GPU::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, co
 
 void GPU::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uint32_t dst_y, uint32_t width, uint32_t height)
 {
+  IncrementVRAMGeneration();
+
   // Break up oversized copies. This behavior has not been verified on console.
   if ((src_x + width) > VRAM_WIDTH || (dst_x + width) > VRAM_WIDTH)
   {

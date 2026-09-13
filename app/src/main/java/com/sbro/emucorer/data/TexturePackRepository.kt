@@ -34,11 +34,19 @@ data class TextureImportResult(
     val importedSerials: Set<String> = emptySet()
 )
 
+/**
+ * Installs and manages PlayStation 1 replacement texture packs.
+ *
+ * Packs live under `<emulator data root>/textures/<SERIAL>/` and contain the
+ * `vram-write-<hash>.<png|jpg|tga|bmp>` files the bundled SwanStation core
+ * loads. The core receives this root through the native texture path override,
+ * so the manager and the emulator always agree on the directory.
+ */
 class TexturePackRepository(
     private val context: Context,
     private val preferences: AppPreferences
 ) {
-    private val textureExtensions = setOf("png", "dds")
+    private val textureExtensions = setOf("png", "jpg", "tga", "bmp")
     private val serialPattern = Regex("[A-Z]{4}[-_ ]?\\d{5}", RegexOption.IGNORE_CASE)
     private val libraryCacheRepository = GameLibraryCacheRepository(context.applicationContext)
 
@@ -113,7 +121,7 @@ class TexturePackRepository(
                         if (cleanParts.isEmpty() || !isTextureFile(cleanParts.last())) continue
 
                         val serial = normalizedTargetSerial ?: serialFromParts(cleanParts) ?: fallbackSerial ?: continue
-                        val relativeParts = replacementRelativePath(cleanParts, serial)
+                        val relativeParts = textureRelativePath(cleanParts, serial)
                         if (relativeParts.isEmpty()) continue
                         val stagedRoot = File(canonicalStagingRoot, serial)
                         val stagedTarget = safeChild(stagedRoot, relativeParts)
@@ -140,7 +148,7 @@ class TexturePackRepository(
                 TextureImportResult(success = false)
             } else if (replaceExisting) {
                 importedSerials.forEach { serial ->
-                    replaceReplacementsAtomically(
+                    replacePackAtomically(
                         stagedSerialRoot = File(canonicalStagingRoot, serial),
                         serial = serial
                     )
@@ -155,7 +163,7 @@ class TexturePackRepository(
                     val staged = File(stagedPath)
                     val serial = staged.relativeTo(canonicalStagingRoot).invariantSeparatorsPath.substringBefore('/')
                     val relative = staged.relativeTo(File(canonicalStagingRoot, serial)).invariantSeparatorsPath
-                    val target = safeChild(replacementsDir(serial), relative.split('/'))
+                    val target = safeChild(gameDir(serial), relative.split('/'))
                         ?: error("Invalid staged texture path")
                     target.parentFile?.mkdirs()
                     staged.copyTo(target, overwrite = true)
@@ -173,13 +181,15 @@ class TexturePackRepository(
         }
     }
 
-    private fun replaceReplacementsAtomically(stagedSerialRoot: File, serial: String) {
+    /**
+     * Swaps the whole per-serial pack directory in two renames, keeping the
+     * previous pack as a rollback until the new one is in place.
+     */
+    private fun replacePackAtomically(stagedSerialRoot: File, serial: String) {
         val root = texturesRoot().canonicalFile
-        val targetGame = File(root, serial).canonicalFile
-        require(targetGame.parentFile == root) { "Invalid texture target" }
-        targetGame.mkdirs()
-        val target = File(targetGame, "replacements")
-        val backup = File(targetGame, ".replacements-backup-${UUID.randomUUID()}")
+        val target = File(root, serial).canonicalFile
+        require(target.parentFile == root) { "Invalid texture target" }
+        val backup = File(root, ".texture-backup-${UUID.randomUUID()}")
         var oldMoved = false
         try {
             if (target.exists()) {
@@ -223,11 +233,11 @@ class TexturePackRepository(
 
     private fun buildPackInfo(folder: File, libraryTitles: Map<String, String>): TexturePackInfo? {
         val serial = normalizeSerial(folder.name) ?: return null
-        val replacementDir = File(folder, "replacements")
         val dumpDir = File(folder, "dumps")
-        val replacementFiles = textureFiles(replacementDir)
-        val dumpFiles = textureFiles(dumpDir)
-        val allFiles = replacementFiles + dumpFiles
+        val dumpPrefix = dumpDir.canonicalPath + File.separator
+        val allFiles = textureFiles(folder)
+        val dumpFiles = allFiles.filter { it.canonicalPath.startsWith(dumpPrefix) }
+        val replacementFiles = allFiles.filterNot { it.canonicalPath.startsWith(dumpPrefix) }
         return TexturePackInfo(
             serial = serial,
             gameTitle = libraryTitles[serial],
@@ -267,14 +277,6 @@ class TexturePackRepository(
         return target.takeIf { it.parentFile == root }
     }
 
-    private fun replacementsDir(serial: String): File {
-        return File(gameDir(serial), "replacements").apply { mkdirs() }
-    }
-
-    private fun dumpsDir(serial: String): File {
-        return File(gameDir(serial), "dumps").apply { mkdirs() }
-    }
-
     private fun textureFiles(root: File): List<File> {
         if (!root.exists()) return emptyList()
         return root.walkTopDown()
@@ -311,11 +313,13 @@ class TexturePackRepository(
         return if ('-' in value) value else "${value.take(4)}-${value.drop(4)}"
     }
 
-    private fun replacementRelativePath(parts: List<String>, serial: String): List<String> {
+    private fun textureRelativePath(parts: List<String>, serial: String): List<String> {
         val normalizedParts = parts.map { part -> normalizeSerial(part) ?: part }
         val serialIndex = normalizedParts.indexOfFirst { it.equals(serial, ignoreCase = true) }
-        val replacementIndex = normalizedParts.indexOfFirst { it.equals("replacements", ignoreCase = true) }
-        val startIndex = maxOf(serialIndex, replacementIndex).let { if (it >= 0) it + 1 else 0 }
+        val markerIndex = normalizedParts.indexOfFirst {
+            it.equals("replacements", ignoreCase = true) || it.equals("textures", ignoreCase = true)
+        }
+        val startIndex = maxOf(serialIndex, markerIndex).let { if (it >= 0) it + 1 else 0 }
         val relative = parts.drop(startIndex)
         return if (
             startIndex == 0 &&

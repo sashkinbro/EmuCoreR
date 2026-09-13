@@ -137,7 +137,16 @@ public:
   // Returns the video clock frequency.
   TickCount GetCRTCFrequency() const;
 
+  /// Returns a monotonically increasing counter that is bumped whenever VRAM
+  /// is modified. Used by the texture replacement manager to know when its
+  /// cached pages need to be re-hashed/re-composited.
+  ALWAYS_INLINE uint32_t GetVRAMGeneration() const { return m_vram_generation; }
+
 protected:
+  /// Bumps the VRAM generation counter. Called by every backend path which
+  /// writes VRAM.
+  ALWAYS_INLINE void IncrementVRAMGeneration() { m_vram_generation++; }
+
   TickCount CRTCTicksToSystemTicks(TickCount crtc_ticks, TickCount fractional_ticks) const;
   TickCount SystemTicksToCRTCTicks(TickCount sysclk_ticks, TickCount* fractional_ticks) const;
 
@@ -278,6 +287,10 @@ protected:
 
   // Pointer to VRAM, used for reads/writes. In the hardware backends, this is the shadow buffer.
   uint16_t* m_vram_ptr = nullptr;
+
+  // Bumped on every VRAM write; the texture replacement cache keys off this so
+  // stale pages are never served.
+  uint32_t m_vram_generation = 1;
 
   union GPUSTAT
   {

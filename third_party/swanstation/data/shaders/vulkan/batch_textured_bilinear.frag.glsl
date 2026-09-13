@@ -71,6 +71,9 @@ layout(std140, set = 0, binding = 0) uniform BatchUBOData {
   bool  u_set_mask_while_drawing;
   layout(offset = 52) uint u_pgxp_depth;
   layout(offset = 60) uint u_render_mode;
+  // Non-zero when binding 1 is a composited texture page replacement (see
+  // SampleFromVRAM). Offset 64 matches the C++ BatchUBOData tail.
+  layout(offset = 64) uint u_replacement_enabled;
 };
 
 // ---- VRAM atlas sampler --------------------------------------------
@@ -162,6 +165,25 @@ vec4 SampleFromVRAM(uvec4 texpage, vec2 coords)
 {
   const vec2 rcp_vram_size = vec2(1.0) / vec2(uvec2(1024u, 512u) * RESOLUTION_SCALE);
   bool palette = PALETTE_4_BIT || PALETTE_8_BIT;
+
+  // Texture replacement: when enabled, binding 1 holds a pre-composited RGBA
+  // page (256x256 expanded texels for every mode, possibly upscaled) instead of
+  // the VRAM atlas. Map the page-local texel coordinates 1:1 onto it; the
+  // replacement already contains final pixels, so no palette lookup is applied
+  // here (the texture window is still honoured).
+  if (u_replacement_enabled != 0u)
+  {
+    // Coordinates are page-relative (the page base is added by the VRAM
+    // paths); the composited image is 256x256 expanded texels for all modes.
+    vec2 native_coords;
+    if (PALETTE_4_BIT || PALETTE_8_BIT)
+      native_coords = vec2(ApplyTextureWindow(FloatToIntegerCoords(coords)));
+    else
+      native_coords = vec2(ApplyUpscaledTextureWindow(FloatToIntegerCoords(coords))) / float(RESOLUTION_SCALE);
+
+    return texture(samp0, (native_coords + vec2(0.5, 0.5)) / vec2(256.0, 256.0));
+  }
+
   if (palette)
   {
     uvec2 icoord = ApplyTextureWindow(FloatToIntegerCoords(coords));

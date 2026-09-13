@@ -235,6 +235,8 @@ object NativeApp {
     @JvmStatic fun loadCheats(path: String) = CoreRuntime.loadCheats(path)
     @JvmStatic fun clearCheats() = CoreRuntime.clearCheats()
     @JvmStatic fun setMemoryCardPath(slot: Int, path: String?) = CoreRuntime.setMemoryCardPath(slot, path)
+    @JvmStatic fun setTextureReplacementsPathOverride(path: String?) =
+        CoreRuntime.setTextureReplacementsPathOverride(path)
     @JvmStatic fun hasDiscMedia(): Boolean = CoreRuntime.hasDiscMedia()
     @JvmStatic fun onNativeSurfaceCreated() = Unit
     @JvmStatic fun onNativeSurfaceChanged(surface: Surface, width: Int, height: Int) = CoreRuntime.attachSurface(surface, width, height)

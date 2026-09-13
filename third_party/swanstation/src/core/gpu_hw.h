@@ -11,6 +11,7 @@
 class GPU_SW_Backend;
 struct GPUBackendCommand;
 struct GPUBackendDrawCommand;
+struct TexturePageReplacement;
 
 class GPU_HW : public GPU
 {
@@ -188,6 +189,14 @@ protected:
     // for the D3D12 pre-bake: 288 -> 72 variants per textured
     // filter template (4x reduction).
     uint32_t u_render_mode;
+    // u_replacement_enabled: non-zero when this batch samples a texture page
+    // replacement from binding 1 instead of the VRAM atlas. Appended after
+    // u_render_mode so the existing std140 offsets (0..60) are unchanged;
+    // the three padding words bring the block to 80 bytes (a 16-byte
+    // multiple). Only the pre-baked Vulkan fragment shaders read this field
+    // (offset 64); the D3D/OpenGL runtime-generated shaders ignore it.
+    uint32_t u_replacement_enabled;
+    uint32_t u_replacement_padding[3];
   };
 
   struct VRAMFillUBOData
@@ -328,6 +337,12 @@ protected:
     m_vram_dirty_rect.Set(m_vram_dirty_rect.InvalidMinCoord, m_vram_dirty_rect.InvalidMinCoord, m_vram_dirty_rect.InvalidMaxCoord, m_vram_dirty_rect.InvalidMaxCoord);
   }
   void IncludeVRAMDirtyRectangle(const Common::Rectangle<uint32_t>& rect);
+
+  /// Marks the VRAM pages covered by [left, right) x [top, bottom) as having
+  /// been modified by a draw, so the CPU-side shadow is refreshed before
+  /// texture replacement hashing. Coordinates are top-left inclusive,
+  /// bottom-right exclusive.
+  void MarkVRAMShadowDirty(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom);
 
   uint32_t GetBatchVertexSpace() const { return static_cast<uint32_t>(m_batch_end_vertex_ptr - m_batch_current_vertex_ptr); }
   uint32_t GetBatchVertexCount() const { return static_cast<uint32_t>(m_batch_current_vertex_ptr - m_batch_start_vertex_ptr); }
@@ -490,6 +505,33 @@ protected:
   /// Sets the depth test flag for PGXP depth buffering.
   void SetBatchDepthBuffer(bool enabled);
   void CheckForDepthClear(const BatchVertex* vertices, uint32_t num_vertices);
+
+  /// Texture replacement support. The renderer calls UpdateTextureReplacement()
+  /// before queueing the vertices of a textured draw; if the composited page
+  /// for the current texture page/mode/palette differs from the one bound to
+  /// the batch, the pending batch is flushed and the backend virtual is invoked
+  /// to swap the bound texture. Vulkan overrides the virtual; the other
+  /// backends keep m_texture_replacements_enabled false and never reach it.
+  /// Returns true if the binding was applied (a null replacement always
+  /// "succeeds" by binding the VRAM atlas).
+  virtual bool SetTextureReplacement(const TexturePageReplacement* replacement) { return false; }
+  void UpdateTextureReplacement(GPUTextureMode texture_mode);
+  bool m_texture_replacements_enabled = false;
+  uint64_t m_current_texture_replacement_id = 0;
+
+  /// Refreshes the CPU-side VRAM shadow for the given page (and palette) before
+  /// replacement hashing. Only the Vulkan backend implements this (readback of
+  /// GPU-rendered pages); the base is a no-op.
+  virtual void SyncVRAMForTextureReplacement(uint32_t page_x, uint32_t page_y, uint32_t page_width, uint32_t page_height,
+                                             uint32_t palette_x, uint32_t palette_y, uint32_t palette_width)
+  {
+  }
+
+  // Bitmask of VRAM pages which have been drawn into since the CPU shadow was
+  // last refreshed (32 VRAM pages). Palette pages are tracked separately so a
+  // single-row CLUT refresh doesn't mark entire pages as clean.
+  uint32_t m_vram_shadow_dirty_pages = 0;
+  uint32_t m_vram_shadow_dirty_palette_pages = 0;
 
   /// UBO data for adaptive smoothing.
   struct SmoothingUBOData

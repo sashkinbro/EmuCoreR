@@ -90,9 +90,7 @@ fun TextureManagerScreen(
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
 
     val replacementsEnabled by preferences.textureReplacementsEnabled.collectAsState(initial = false)
-    val asyncLoading by preferences.textureReplacementsAsync.collectAsState(initial = true)
     val precache by preferences.textureReplacementsPrecache.collectAsState(initial = false)
-    val dumpingEnabled by preferences.textureDumpingEnabled.collectAsState(initial = false)
 
     val importSuccessMessage = stringResource(R.string.texture_manager_import_success)
     val importFailureMessage = stringResource(R.string.texture_manager_import_failed)
@@ -213,21 +211,13 @@ fun TextureManagerScreen(
             item {
                 TextureOptionsPanel(
                     replacementsEnabled = replacementsEnabled,
-                    asyncLoading = asyncLoading,
                     precache = precache,
-                    dumpingEnabled = dumpingEnabled,
                     enabled = !isWorking,
                     onReplacementsChanged = { enabled ->
                         scope.launch { preferences.setTextureReplacementsEnabled(enabled) }
                     },
-                    onAsyncChanged = { enabled ->
-                        scope.launch { preferences.setTextureReplacementsAsync(enabled) }
-                    },
                     onPrecacheChanged = { enabled ->
                         scope.launch { preferences.setTextureReplacementsPrecache(enabled) }
-                    },
-                    onDumpingChanged = { enabled ->
-                        scope.launch { preferences.setTextureDumpingEnabled(enabled) }
                     }
                 )
             }
@@ -390,14 +380,10 @@ private fun TextureManagerHeader(
 @Composable
 private fun TextureOptionsPanel(
     replacementsEnabled: Boolean,
-    asyncLoading: Boolean,
     precache: Boolean,
-    dumpingEnabled: Boolean,
     enabled: Boolean,
     onReplacementsChanged: (Boolean) -> Unit,
-    onAsyncChanged: (Boolean) -> Unit,
-    onPrecacheChanged: (Boolean) -> Unit,
-    onDumpingChanged: (Boolean) -> Unit
+    onPrecacheChanged: (Boolean) -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -427,25 +413,11 @@ private fun TextureOptionsPanel(
                 onCheckedChange = onReplacementsChanged
             )
             TextureSwitchRow(
-                title = stringResource(R.string.texture_manager_async_loading),
-                body = stringResource(R.string.texture_manager_async_loading_desc),
-                checked = asyncLoading,
-                enabled = enabled && replacementsEnabled,
-                onCheckedChange = onAsyncChanged
-            )
-            TextureSwitchRow(
                 title = stringResource(R.string.texture_manager_precache),
                 body = stringResource(R.string.texture_manager_precache_desc),
                 checked = precache,
                 enabled = enabled && replacementsEnabled,
                 onCheckedChange = onPrecacheChanged
-            )
-            TextureSwitchRow(
-                title = stringResource(R.string.texture_manager_dumping),
-                body = stringResource(R.string.texture_manager_dumping_desc),
-                checked = dumpingEnabled,
-                enabled = enabled,
-                onCheckedChange = onDumpingChanged
             )
         }
     }

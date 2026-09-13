@@ -121,6 +121,36 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
         cheatRepository.getGameConfig(keys, serial, crc)
     }
 
+    fun syncSelectedGame() {
+        scope.launch {
+            val loaded = loadConfig(identity) ?: return@launch
+            config = loaded
+            withContext(Dispatchers.IO) {
+                cheatWriteMutex.withLock {
+                    val patchBlocks = patchRepository.buildPatchBlocks(
+                        serial = loaded.serial,
+                        crc = loaded.crc,
+                        widescreen = preferences.enableWidescreenPatches.first(),
+                        noInterlacing = preferences.enableNoInterlacingPatches.first()
+                    )
+                    cheatRepository.syncActiveCheats(
+                        loaded.gameKey,
+                        loaded.serial,
+                        loaded.crc,
+                        includeCheats = true,
+                        patchBlocks = patchBlocks
+                    )
+                    val coreFile = cheatRepository.activeCoreCheatFile(loaded.gameKey, loaded.serial, loaded.crc)
+                    if (coreFile != null) {
+                        NativeApp.loadCheats(coreFile.absolutePath)
+                    } else {
+                        NativeApp.clearCheats()
+                    }
+                }
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         games = withContext(Dispatchers.IO) { libraryRepository.loadGames() }
         selectedPath = games.firstOrNull()?.path
@@ -345,6 +375,14 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
                         }
                     }
                 }
+            }
+            item(key = "cheat-online-catalog") {
+                CheatOnlineCatalogSection(
+                    selectedGame = selectedGame,
+                    identity = identity,
+                    resolvingIdentity = resolvingIdentity,
+                    onInstalled = { syncSelectedGame() }
+                )
             }
             config?.let { current ->
                 item(key = "installed-cheats-header") {

@@ -551,6 +551,10 @@ object EmulatorBridge {
         val preferredBiosFile = preparedBios?.fileName
             ?: DocumentPathResolver.findPreferredBiosFileName(resolvedBiosPath)
         val runtimeDirectories = EmulatorStorage.runtimeDirectories(context, emulatorDataPath)
+        // The bundled core reads replacement textures from the app's texture
+        // root (it appends the running game code), so the texture manager and
+        // the emulator share a single directory.
+        NativeApp.setTextureReplacementsPathOverride(runtimeDirectories.textures.absolutePath)
         val manualHardwareFixes = GsHackDefaults.shouldEnableManualHardwareFixes(
             cpuSpriteRenderSize = cpuSpriteRenderSize,
             cpuSpriteRenderLevel = cpuSpriteRenderLevel,
