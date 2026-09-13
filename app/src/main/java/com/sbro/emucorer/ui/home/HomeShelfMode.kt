@@ -69,6 +69,7 @@ import com.sbro.emucorer.core.LocalTvUiEnvironment
 import com.sbro.emucorer.data.CustomGameCoverRepository
 import com.sbro.emucorer.data.GameItem
 import com.sbro.emucorer.ui.common.GameCoverArt
+import com.sbro.emucorer.ui.common.GameCoverAspectRatio
 import com.sbro.emucorer.ui.common.RequestFocusOnResume
 import com.sbro.emucorer.ui.common.gamepadFocusableCard
 import com.sbro.emucorer.ui.common.rememberDebouncedClick
@@ -152,7 +153,7 @@ internal fun HomeShelfMode(
         val coverPromptHeightAllowance = if (isCoverArtDisabled) 58.dp else 0.dp
         val reservedHeight = (if (isLandscape) 124.dp else 164.dp) + coverPromptHeightAllowance
         val maxCardWidthFromHeight =
-            ((maxHeight - topInset - bottomInset - reservedHeight).coerceAtLeast(210.dp)) * (2f / 3f)
+            (maxHeight - topInset - bottomInset - reservedHeight).coerceAtLeast(210.dp)
         val cardWidth = (if (isLandscape) baseCardWidth * 0.84f else baseCardWidth)
             .coerceAtMost(maxCardWidthFromHeight)
         val horizontalPadding = ((maxWidth - cardWidth) / 2).coerceAtLeast(0.dp)
@@ -476,7 +477,7 @@ private fun ShelfCoverCard(
     val interactionSource = remember { MutableInteractionSource() }
     val showMenu = remember(game.path) { mutableStateOf(false) }
     val shape = neonShape(24.dp)
-    val coverAspectRatio = 2f / 3f
+    val coverAspectRatio = GameCoverAspectRatio
     val horizontalCoverPadding = if (isActive) 6.dp else 8.dp
     val verticalCoverPadding = if (isActive) 6.dp else 4.dp
     val shelfCoverPath = rememberShelfCoverPath(game, isCoverArtDisabled)

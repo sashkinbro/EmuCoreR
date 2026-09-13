@@ -2840,8 +2840,7 @@ private fun EmulationSidebarMenu(
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
                             modifier = Modifier
-                                .width(58.dp)
-                                .height(78.dp)
+                                .size(64.dp)
                         ) {
                             GameCoverArt(
                                 coverPath = uiState.currentGameCoverPath,

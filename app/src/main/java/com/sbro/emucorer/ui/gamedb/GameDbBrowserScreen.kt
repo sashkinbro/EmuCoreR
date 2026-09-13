@@ -264,8 +264,7 @@ private fun GameDbEntryCard(entry: GameDbCatalogEntry, loadCover: Boolean) {
                     loadEnabled = loadCover,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .width(88.dp)
-                        .height(126.dp)
+                        .size(88.dp)
                         .clip(neonShape(16.dp))
                 )
                 Column(

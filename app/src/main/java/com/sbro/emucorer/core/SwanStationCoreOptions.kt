@@ -4219,6 +4219,10 @@ object SwanStationCoreOptions {
         "swanstation_Audio_FastHook",
     )
 
+    private val unsupportedKeys = setOf(
+        "swanstation_Display_ShowOSDMessages",
+    )
+
     /**
      * True when the core option is driven by a dedicated app-level setting
      * (renderer, resolution scale, aspect ratio, crop, ...). Per-game
@@ -4241,7 +4245,8 @@ object SwanStationCoreOptions {
 
     /** Graphics tab: visual enhancements and display geometry. */
     fun graphicsOptions(): List<Option> =
-        (forCategory("enhancement") + forCategory("display")).filterNot { it.key in managedKeys }
+        (forCategory("enhancement") + forCategory("display"))
+            .filterNot { it.key in managedKeys || it.key in unsupportedKeys }
 
     /** Emulation tab: console behaviour and advanced CPU/CD-ROM settings. */
     fun emulationOptions(): List<Option> =

@@ -41,6 +41,9 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import com.sbro.emucorer.ui.theme.neon.neonShape
 
+/** PS1 jewel-case covers are square (500x500 flat, 226x226 3D). */
+const val GameCoverAspectRatio: Float = 1f
+
 private val imageLoadingSemaphore = Semaphore(4)
 @Composable
 fun GameCoverArt(

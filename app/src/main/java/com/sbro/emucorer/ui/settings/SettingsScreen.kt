@@ -228,6 +228,7 @@ import com.sbro.emucorer.data.formatDownloadBytes
 import com.sbro.emucorer.ui.common.EmulationSideArtworkOverlay
 import com.sbro.emucorer.ui.common.EmulationSideArtworkThumbnail
 import com.sbro.emucorer.ui.common.EmulatorDataLocationDialog
+import com.sbro.emucorer.ui.common.GameCoverAspectRatio
 import com.sbro.emucorer.ui.common.NavigationBackButton
 import com.sbro.emucorer.ui.common.ProvideGamepadShoulderActions
 import com.sbro.emucorer.ui.common.RequestFocusOnResume
@@ -2447,7 +2448,7 @@ private fun CustomizationSettingsTab(
                             Surface(
                                 modifier = Modifier
                                     .width(52.dp * uiState.homeGridScale)
-                                    .aspectRatio(0.72f),
+                                    .aspectRatio(GameCoverAspectRatio),
                                 shape = neonShape(10.dp),
                                 color = when (index % 3) {
                                     0 -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)

@@ -681,11 +681,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             var removedStalePaths = false
             synchronized(this@HomeViewModel) {
                 allGames = allGames.map { game ->
-                    if (coverRepository.isMissingManagedCover(game.coverArtPath)) {
-                        removedStalePaths = true
-                        game.copy(coverArtPath = null)
-                    } else {
-                        game
+                    val hasSerial = !game.serial.isNullOrBlank()
+                    val resolvedCoverPath = game.serial
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let(coverRepository::findCachedCoverPath)
+                    when {
+                        coverRepository.isMissingManagedCover(game.coverArtPath) -> {
+                            removedStalePaths = true
+                            game.copy(coverArtPath = null)
+                        }
+                        hasSerial && resolvedCoverPath != game.coverArtPath &&
+                            coverRepository.isManagedCoverCachePath(game.coverArtPath) -> {
+                            removedStalePaths = true
+                            game.copy(coverArtPath = resolvedCoverPath)
+                        }
+                        else -> game
                     }
                 }
             }

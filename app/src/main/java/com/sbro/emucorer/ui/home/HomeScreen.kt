@@ -135,6 +135,7 @@ import com.sbro.emucorer.data.GameItem
 import com.sbro.emucorer.data.HomeBackgroundRepository
 import com.sbro.emucorer.data.HomeBackgroundType
 import com.sbro.emucorer.ui.common.GameCoverArt
+import com.sbro.emucorer.ui.common.GameCoverAspectRatio
 import com.sbro.emucorer.ui.common.EmuCoreLoadingAnimation
 import com.sbro.emucorer.ui.common.RequestFocusOnResume
 import com.sbro.emucorer.ui.common.TvStoragePickerHost
@@ -1308,7 +1309,7 @@ private fun RecentGameCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(2f / 3f)
+                    .aspectRatio(GameCoverAspectRatio)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
             ) {
                 if (showCenteredTitlePlaceholder) {
@@ -1423,7 +1424,7 @@ private fun GameCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(2f / 3f)
+                .aspectRatio(GameCoverAspectRatio)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
         ) {
             if (showCenteredTitlePlaceholder) {
@@ -1539,7 +1540,7 @@ private fun GameListCard(
                 Box(
                     modifier = Modifier
                         .width(52.dp)
-                        .aspectRatio(2f / 3f)
+                        .aspectRatio(GameCoverAspectRatio)
                         .clip(neonShape(10.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                 ) {

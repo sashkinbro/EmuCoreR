@@ -109,6 +109,7 @@ import com.sbro.emucorer.core.GamepadManager
 import com.sbro.emucorer.core.LocalTvUiEnvironment
 import com.sbro.emucorer.ui.common.BitmapPathImage
 import com.sbro.emucorer.ui.common.GameCoverArt
+import com.sbro.emucorer.ui.common.GameCoverAspectRatio
 import com.sbro.emucorer.ui.common.NavigationBackButton
 import com.sbro.emucorer.ui.common.RequestFocusOnResume
 import com.sbro.emucorer.ui.common.gamepadFocusableCard
@@ -215,7 +216,7 @@ fun GameDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth(if (isLandscape) 0.4f else 1f)
                         .widthIn(max = heroMaxWidth)
-                        .aspectRatio(2f / 3f)
+                        .aspectRatio(GameCoverAspectRatio)
                         .clip(neonShape(28.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                 ) {
@@ -391,7 +392,7 @@ private fun DetailSkeleton(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = horizontalInset)
-                .aspectRatio(2f / 3f)
+                .aspectRatio(GameCoverAspectRatio)
                 .clip(neonShape(28.dp))
         )
         SkeletonBlock(

@@ -118,7 +118,7 @@ fun LibraryGamePicker(
                             fallbackTitle = game.title,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .size(width = 58.dp, height = 82.dp)
+                                .size(82.dp)
                                 .clip(neonShape(12.dp))
                         )
                         Spacer(Modifier.width(12.dp))
