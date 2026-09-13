@@ -148,6 +148,10 @@
     <string name="settings_about_more_apps_desc">Öffne die Autorenseite bei Google Play, um weitere Apps von Sashkin Apps zu sehen.</string>
     <string name="settings_about_more_apps_link">Entwicklerseite öffnen</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">Offizielle Website</string>
+    <string name="settings_about_website_desc">Öffne die offizielle EmuCoreR-Website mit News, Anleitungen und den neuesten Projekt-Updates.</string>
+    <string name="settings_about_website_link">Offizielle Website öffnen</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">Controller-Vibration</string>
     <string name="settings_pad_vibration_desc">Aktiviere Vibration in unterstützten Spielen und auf unterstützten Geräten.</string>
     <string name="settings_show_fps">FPS-Zähler anzeigen</string>
@@ -1933,4 +1937,29 @@
     <string name="settings_display_crop_top">Oberer Rand</string>
     <string name="settings_display_crop_right">Rechter Rand</string>
     <string name="settings_display_crop_bottom">Unterer Rand</string>
+    <string name="settings_widescreen_patches">Widescreen-Patches</string>
+    <string name="settings_widescreen_patches_desc">Widescreen-Patches für unterstützte Spiele aktivieren</string>
+    <string name="settings_help_widescreen_patches">Lädt Widescreen-Patches, wenn für das aktuelle Spiel einer verfügbar ist. Dies ist meist besser als das Bild zu strecken, da es die Kamera und HUD-Logik des Spiels ändert, anstatt das endgültige Bild einfach nur zu verzerren.</string>
+    <string name="settings_no_interlacing_patches">No-Interlacing-Patches</string>
+    <string name="settings_no_interlacing_patches_desc">No-Interlacing-Patches für unterstützte Spiele aktivieren</string>
+    <string name="settings_help_no_interlacing_patches">Wendet No-Interlacing-Patches an, wo verfügbar. Ein Versuch lohnt sich bei Spielen mit Kamm-Effekten, Flimmern oder Flackern der originalen Interlaced-Ausgabe, aber die Verfügbarkeit hängt vom Titel ab.</string>
+    <string name="settings_patches_tab">Patches</string>
+    <string name="settings_patches_download">Patches herunterladen</string>
+    <string name="settings_patches_download_desc">Community-Patch-Datenbank herunterladen</string>
+    <string name="settings_patches_download_success">Patch-Datenbank aktualisiert: %1$d Dateien</string>
+    <string name="settings_patches_download_failed">Patch-Datenbank konnte nicht heruntergeladen werden</string>
+    <string name="settings_patches_installed_value">%1$d Patch-Dateien verfügbar</string>
+    <string name="settings_patches_source_missing">Zuerst eine Patch-Quelle wählen</string>
+    <string name="settings_patches_source_official">Offizielle Quelle</string>
+    <string name="settings_patches_source_official_desc">Patches aus der offiziellen öffentlichen Datenbank herunterladen</string>
+    <string name="settings_help_patches_source_official">Verwendet die offizielle öffentliche Patch-Datenbank als Download-Quelle. Deaktivieren, um über die eigene URL unten von einem eigenen Mirror zu laden.</string>
+    <string name="settings_patches_custom_url">Eigene URL der Patch-Quelle</string>
+    <string name="settings_patches_custom_url_clear">Offizielle Quelle verwenden</string>
+    <string name="settings_patches_custom_url_dialog_title">Eigene Patch-Quelle</string>
+    <string name="settings_patches_custom_url_dialog_body">Füge einen direkten HTTP- oder HTTPS-Link zu einem ZIP-Archiv mit Patch-Dateien ein. Wird nur verwendet, wenn die offizielle Quelle deaktiviert ist. Leer lassen, um die eigene Quelle zu entfernen.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">Gültige HTTP- oder HTTPS-URL eingeben</string>
+    <string name="settings_patches_attribution_title">Patch-Autoren</string>
+    <string name="settings_patches_attribution">Patches stammen aus der Community und bleiben Eigentum ihrer Autoren. EmuCoreR lädt sie nur aus der öffentlichen Quelle und bündelt oder beansprucht sie nicht.</string>
+    <string name="settings_patches_source_link">Patch-Quellseite öffnen</string>
 </resources>

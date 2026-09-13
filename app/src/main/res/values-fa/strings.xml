@@ -330,6 +330,10 @@
     <string name="settings_about_more_apps_desc">صفحه نویسنده را در Google Play باز کنید تا سایر برنامه‌های Sashkin Apps را ببینید.</string>
     <string name="settings_about_more_apps_link">باز کردن صفحه توسعه‌دهنده</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">وب‌سایت رسمی</string>
+    <string name="settings_about_website_desc">وب‌سایت رسمی EmuCoreR را برای اخبار، راهنماها و آخرین به‌روزرسانی‌های پروژه باز کنید.</string>
+    <string name="settings_about_website_link">باز کردن وب‌سایت رسمی</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">لرزش دسته بازی</string>
     <string name="settings_pad_vibration_desc">لرزش را در بازی‌های پشتیبانی شده و در دستگاه‌های پشتیبانی شده فعال کنید.</string>
     <string name="settings_pad_vibration_strength">قدرت لرزش</string>
@@ -1946,4 +1950,29 @@
     <string name="settings_display_crop_top">لبه بالا</string>
     <string name="settings_display_crop_right">لبه راست</string>
     <string name="settings_display_crop_bottom">لبه پایین</string>
+    <string name="settings_widescreen_patches">پچ‌های صفحه عریض</string>
+    <string name="settings_widescreen_patches_desc">فعال کردن پچ‌های صفحه عریض برای بازی‌های پشتیبانی شده</string>
+    <string name="settings_help_widescreen_patches">زمانی که بازی فعلی پچ عریض داشته باشد، آن را بارگذاری می‌کند.</string>
+    <string name="settings_no_interlacing_patches">پچ‌های بدون درهم‌تنیدگی</string>
+    <string name="settings_no_interlacing_patches_desc">فعال کردن پچ‌های بدون درهم‌تنیدگی برای بازی‌های پشتیبانی شده</string>
+    <string name="settings_help_no_interlacing_patches">در صورت وجود، پچ‌های رفع درهم‌تنیدگی را اعمال می‌کند.</string>
+    <string name="settings_patches_tab">پچ‌ها</string>
+    <string name="settings_patches_download">دانلود پچ‌ها</string>
+    <string name="settings_patches_download_desc">دانلود پایگاه پچ‌های انجمن</string>
+    <string name="settings_patches_download_success">پایگاه پچ به‌روزرسانی شد: %1$d فایل</string>
+    <string name="settings_patches_download_failed">دانلود پایگاه پچ ممکن نشد</string>
+    <string name="settings_patches_installed_value">%1$d فایل پچ موجود است</string>
+    <string name="settings_patches_source_missing">ابتدا یک منبع پچ انتخاب کنید</string>
+    <string name="settings_patches_source_official">منبع رسمی</string>
+    <string name="settings_patches_source_official_desc">دانلود پچ‌ها از پایگاه عمومی رسمی</string>
+    <string name="settings_help_patches_source_official">از پایگاه عمومی رسمی پچ به‌عنوان منبع دانلود استفاده می‌کند. برای دانلود از آینه خودتان با نشانی سفارشی زیر، این گزینه را خاموش کنید.</string>
+    <string name="settings_patches_custom_url">نشانی منبع پچ سفارشی</string>
+    <string name="settings_patches_custom_url_clear">استفاده از منبع رسمی</string>
+    <string name="settings_patches_custom_url_dialog_title">منبع پچ سفارشی</string>
+    <string name="settings_patches_custom_url_dialog_body">پیوند مستقیم HTTP یا HTTPS به یک فایل ZIP حاوی فایل‌های پچ را جای‌گذاری کنید. فقط وقتی منبع رسمی خاموش باشد استفاده می‌شود. برای حذف منبع سفارشی خالی بگذارید.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">یک نشانی معتبر HTTP یا HTTPS وارد کنید</string>
+    <string name="settings_patches_attribution_title">نویسندگان پچ‌ها</string>
+    <string name="settings_patches_attribution">پچ‌ها توسط انجمن ساخته می‌شوند و متعلق به نویسندگانشان می‌مانند. EmuCoreR فقط آن‌ها را از منبع عمومی دانلود می‌کند و آن‌ها را همراه برنامه عرضه یا ادعای مالکیت نمی‌کند.</string>
+    <string name="settings_patches_source_link">باز کردن صفحه منبع پچ‌ها</string>
 </resources>

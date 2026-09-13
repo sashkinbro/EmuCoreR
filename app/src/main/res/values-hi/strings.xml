@@ -197,6 +197,10 @@
     <string name="settings_about_more_apps_desc">Sashkin Apps के अन्य ऐप्स देखने के लिए Google Play पर लेखक का पेज खोलें।</string>
     <string name="settings_about_more_apps_link">डेवलपर पेज खोलें</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">आधिकारिक वेबसाइट</string>
+    <string name="settings_about_website_desc">समाचार, गाइड और परियोजना के नवीनतम अपडेट के लिए आधिकारिक EmuCoreR वेबसाइट खोलें।</string>
+    <string name="settings_about_website_link">आधिकारिक वेबसाइट खोलें</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">पैड वाइब्रेशन</string>
     <string name="settings_pad_vibration_desc">समर्थित गेम्स और समर्थित उपकरणों पर वाइब्रेशन सक्षम करें।</string>
     <string name="settings_show_fps">FPS काउंटर दिखाएं</string>
@@ -1931,4 +1935,29 @@
     <string name="settings_display_crop_top">ऊपरी किनारा</string>
     <string name="settings_display_crop_right">दायाँ किनारा</string>
     <string name="settings_display_crop_bottom">निचला किनारा</string>
+    <string name="settings_widescreen_patches">वाइडस्क्रीन पैच</string>
+    <string name="settings_widescreen_patches_desc">समर्थित गेम्स के लिए वाइडस्क्रीन पैच सक्षम करें</string>
+    <string name="settings_help_widescreen_patches">जब वर्तमान गेम में वाइडस्क्रीन पैच उपलब्ध हो तो वाइडस्क्रीन पैच लोड करता है। यह आमतौर पर छवि को खींचने से बेहतर होता है क्योंकि यह केवल अंतिम चित्र को विकृत करने के बजाय गेम के कैमरा और HUD लॉजिक को बदल देता है।</string>
+    <string name="settings_no_interlacing_patches">नो-इंटरलिंग पैच</string>
+    <string name="settings_no_interlacing_patches_desc">समर्थित गेम्स के लिए नो-इंटरलिंग पैच सक्षम करें</string>
+    <string name="settings_help_no_interlacing_patches">जहां उपलब्ध हो वहां नो-इंटरलिंग पैच लागू करता है। मूल इंटरलेस्ड आउटपुट से कॉम्बिंग, टिमटिमाहट या झिलमिलाहट वाले गेम्स में इसे आज़माना उचित है, लेकिन उपलब्धता शीर्षक पर निर्भर करती है।</string>
+    <string name="settings_patches_tab">पैच</string>
+    <string name="settings_patches_download">पैच डाउनलोड करें</string>
+    <string name="settings_patches_download_desc">समुदाय का पैच डेटाबेस डाउनलोड करें</string>
+    <string name="settings_patches_download_success">पैच डेटाबेस अपडेट हुआ: %1$d फ़ाइलें</string>
+    <string name="settings_patches_download_failed">पैच डेटाबेस डाउनलोड नहीं हो सका</string>
+    <string name="settings_patches_installed_value">%1$d पैच फ़ाइलें उपलब्ध</string>
+    <string name="settings_patches_source_missing">पहले पैच स्रोत चुनें</string>
+    <string name="settings_patches_source_official">आधिकारिक स्रोत</string>
+    <string name="settings_patches_source_official_desc">आधिकारिक सार्वजनिक डेटाबेस से पैच डाउनलोड करें</string>
+    <string name="settings_help_patches_source_official">डाउनलोड स्रोत के रूप में आधिकारिक सार्वजनिक पैच डेटाबेस का उपयोग करता है। नीचे दिए कस्टम URL से अपने मिरर से डाउनलोड करने के लिए इसे बंद करें।</string>
+    <string name="settings_patches_custom_url">कस्टम पैच स्रोत URL</string>
+    <string name="settings_patches_custom_url_clear">आधिकारिक स्रोत का उपयोग करें</string>
+    <string name="settings_patches_custom_url_dialog_title">कस्टम पैच स्रोत</string>
+    <string name="settings_patches_custom_url_dialog_body">पैच फ़ाइलों वाली ZIP संग्रह का सीधा HTTP या HTTPS लिंक चिपकाएँ। यह केवल तब उपयोग होता है जब आधिकारिक स्रोत बंद हो। कस्टम स्रोत हटाने के लिए इसे खाली छोड़ें।</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">मान्य HTTP या HTTPS URL दर्ज करें</string>
+    <string name="settings_patches_attribution_title">पैच लेखक</string>
+    <string name="settings_patches_attribution">पैच समुदाय द्वारा बनाए जाते हैं और उनके लेखकों की संपत्ति रहते हैं। EmuCoreR उन्हें केवल सार्वजनिक स्रोत से डाउनलोड करता है, बंडल नहीं करता और उन पर दावा नहीं करता।</string>
+    <string name="settings_patches_source_link">पैच स्रोत पृष्ठ खोलें</string>
 </resources>

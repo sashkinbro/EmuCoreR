@@ -988,6 +988,28 @@ private fun GameSettingsTabContent(
                             onDraftChange(draft.copy(autoLoadOnStart = defaultProfile.autoLoadOnStart))
                         }
                     )
+                    ToggleRow(
+                        title = stringResource(R.string.settings_widescreen_patches),
+                        checked = draft.enableWidescreenPatches,
+                        onCheckedChange = { onDraftChange(draft.copy(enableWidescreenPatches = it)) },
+                        helpText = stringResource(R.string.settings_help_widescreen_patches),
+                        onResetToDefault = {
+                            onDraftChange(
+                                draft.copy(enableWidescreenPatches = defaultProfile.enableWidescreenPatches)
+                            )
+                        }
+                    )
+                    ToggleRow(
+                        title = stringResource(R.string.settings_no_interlacing_patches),
+                        checked = draft.enableNoInterlacingPatches,
+                        onCheckedChange = { onDraftChange(draft.copy(enableNoInterlacingPatches = it)) },
+                        helpText = stringResource(R.string.settings_help_no_interlacing_patches),
+                        onResetToDefault = {
+                            onDraftChange(
+                                draft.copy(enableNoInterlacingPatches = defaultProfile.enableNoInterlacingPatches)
+                            )
+                        }
+                    )
                 }
 
                 EditorSection(title = stringResource(R.string.settings_core_cpu)) {

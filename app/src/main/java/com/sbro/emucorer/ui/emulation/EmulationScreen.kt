@@ -1358,6 +1358,8 @@ fun EmulationScreen(
                     onSetThreadPinning = { viewModel.setThreadPinning(it) },
                     onSetFastCdvd = { viewModel.setFastCdvd(it) },
                     onSetEnableCheats = { viewModel.setEnableCheats(it) },
+                    onSetWidescreenPatches = { viewModel.setEnableWidescreenPatches(it) },
+                    onSetNoInterlacingPatches = { viewModel.setEnableNoInterlacingPatches(it) },
                     onOpenCheats = { showCheatsDialog = true },
                     onSetEeCycleRate = { viewModel.setEeCycleRate(it) },
                     onSetEeCycleSkip = { viewModel.setEeCycleSkip(it) },
@@ -2719,6 +2721,8 @@ private fun EmulationSidebarMenu(
     onSetThreadPinning: (Boolean) -> Unit,
     onSetFastCdvd: (Boolean) -> Unit,
     onSetEnableCheats: (Boolean) -> Unit,
+    onSetWidescreenPatches: (Boolean) -> Unit,
+    onSetNoInterlacingPatches: (Boolean) -> Unit,
     onOpenCheats: () -> Unit,
     onSetEeCycleRate: (Int) -> Unit,
     onSetEeCycleSkip: (Int) -> Unit,
@@ -3795,6 +3799,28 @@ private fun EmulationSidebarMenu(
                             version = coreOptionsVersion,
                             perGameOverrides = uiState.perGameCoreOptions,
                             onValueChange = onCoreOptionChange
+                        )
+
+                        OverlaySubsectionLabel(text = stringResource(R.string.settings_patches_tab))
+
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_widescreen_patches),
+                            checked = uiState.widescreenPatches,
+                            onCheckedChange = onSetWidescreenPatches,
+                            helpText = stringResource(R.string.settings_help_widescreen_patches),
+                            onResetToDefault = {
+                                onSetWidescreenPatches(globalDefaults.enableWidescreenPatches)
+                            }
+                        )
+
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_no_interlacing_patches),
+                            checked = uiState.noInterlacingPatches,
+                            onCheckedChange = onSetNoInterlacingPatches,
+                            helpText = stringResource(R.string.settings_help_no_interlacing_patches),
+                            onResetToDefault = {
+                                onSetNoInterlacingPatches(globalDefaults.enableNoInterlacingPatches)
+                            }
                         )
 
                                     }

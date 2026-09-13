@@ -12,7 +12,8 @@ data class CheatBlock(
     val id: String,
     val title: String,
     val lines: List<String>,
-    val enabled: Boolean
+    val enabled: Boolean,
+    val author: String? = null
 )
 
 data class CheatGameConfig(
@@ -135,7 +136,10 @@ class CheatRepository(private val context: Context) {
             merged[key] = if (previous == null) {
                 block
             } else {
-                previous.copy(lines = (previous.lines + block.lines).distinct())
+                previous.copy(
+                    lines = (previous.lines + block.lines).distinct(),
+                    author = previous.author ?: block.author
+                )
             }
         }
         return merged.values.toList()
@@ -145,6 +149,9 @@ class CheatRepository(private val context: Context) {
         blocks.forEachIndexed { index, block ->
             if (index > 0) append('\n')
             append("// ").append(block.title).append('\n')
+            block.author?.takeIf { it.isNotBlank() }?.let { author ->
+                append("Author = ").append(author).append('\n')
+            }
             block.lines.forEach { line -> append(line).append('\n') }
         }
     }
@@ -157,22 +164,26 @@ class CheatRepository(private val context: Context) {
         writeEnabledIds(state)
     }
 
-    fun syncActiveCheats(gameKey: String, serial: String?, crc: String?) = synchronized(CHEAT_IO_LOCK) {
+    fun syncActiveCheats(
+        gameKey: String,
+        serial: String?,
+        crc: String?,
+        includeCheats: Boolean = true,
+        patchBlocks: List<CheatBlock> = emptyList()
+    ) = synchronized(CHEAT_IO_LOCK) {
         val source = resolveImportedFile(gameKey)
         val normalizedGameKey = source.nameWithoutExtension
         val normalizedCrc = effectiveCrc(crc, serial, normalizedGameKey)
         val normalizedSerial = serial?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
-        if (!source.exists()) {
-            recordedActiveCheatFiles(normalizedGameKey).forEach { if (it.exists()) it.delete() }
-            recordedActiveCheatFiles(normalizedGameKey).map(::coreCheatFile)
-                .forEach { if (it.exists()) it.delete() }
-            clearRecordedActiveCheatFiles(normalizedGameKey)
-            return@synchronized
+        val enabledCheatBlocks = if (source.exists() && includeCheats) {
+            val enabledIds = storedValues(loadEnabledIds(), normalizedGameKey, gameKey)
+            runCatching { parseCheatBlocks(source.readText()) }
+                .getOrDefault(emptyList())
+                .filter { enabledIds.contains(it.id) }
+        } else {
+            emptyList()
         }
-        val enabledIds = storedValues(loadEnabledIds(), normalizedGameKey, gameKey)
-        val blocks = runCatching { parseCheatBlocks(source.readText()) }
-            .getOrDefault(emptyList())
-            .filter { enabledIds.contains(it.id) }
+        val blocks = (enabledCheatBlocks + patchBlocks).distinctBy(::cheatBlockSignature)
         val candidates = activeCheatFileCandidates(normalizedSerial, normalizedCrc)
         val target = canonicalActiveCheatFile(normalizedSerial, normalizedCrc)
         if (blocks.isEmpty()) {
@@ -187,7 +198,7 @@ class CheatRepository(private val context: Context) {
         activeDir().mkdirs()
         val contents = buildString {
             blocks.forEach { block ->
-                append("// ${block.title}\n")
+                append("// ").append(cheatBlockLabel(block)).append('\n')
                 block.lines.forEach { append(it).append('\n') }
                 append('\n')
             }
@@ -333,7 +344,7 @@ class CheatRepository(private val context: Context) {
         blocks.forEach { block ->
             val codeLines = convertCheatBlock(block) ?: return@forEach
             convertedAny = true
-            val title = block.title.replace('[', '(').replace(']', ')')
+            val title = cheatBlockLabel(block).replace('[', '(').replace(']', ')')
             output.append("[*").append(title).append("]\n")
             codeLines.forEach { output.append(it).append('\n') }
             output.append('\n')
@@ -347,7 +358,14 @@ class CheatRepository(private val context: Context) {
             val line = rawLine.substringBefore("//").trim()
             if (line.isEmpty()) return@forEach
             if (line.startsWith("//") || line.startsWith("#") || line.startsWith(";")) return@forEach
-            val match = PATCH_LINE_REGEX.matchEntire(line) ?: return null
+            val match = PATCH_LINE_REGEX.matchEntire(line)
+            if (match == null) {
+                if (RAW_CODE_REGEX.matchEntire(line) != null) {
+                    codeLines += line.uppercase(Locale.US)
+                    return@forEach
+                }
+                return null
+            }
             val address = match.groupValues[1].toLongOrNull(16) ?: return null
             val value = match.groupValues[3].toLongOrNull(16) ?: return null
             val ramAddress = address and 0x1FFFFFL
@@ -428,12 +446,19 @@ class CheatRepository(private val context: Context) {
                 "([0-9A-Fa-f]{8})\\s*,\\s*(byte|short|word|[0-2])\\s*,\\s*([0-9A-Fa-f]+)",
             option = RegexOption.IGNORE_CASE
         )
+
+        val RAW_CODE_REGEX = Regex("[0-9A-Fa-f]{8}[\\s:+-]+[0-9A-Fa-f]{1,8}")
+
+        val AUTHOR_LINE_REGEX = Regex("^author\\s*=\\s*(.+)$", RegexOption.IGNORE_CASE)
     }
+
+    internal fun parsePatchBlocks(raw: String): List<CheatBlock> = parseCheatBlocks(raw)
 
     private fun parseCheatBlocks(raw: String): List<CheatBlock> {
         val lines = raw.lineSequence().map { it.trimEnd() }.toList()
         val blocks = mutableListOf<CheatBlock>()
         var currentTitle: String? = null
+        var currentAuthor: String? = null
         var currentLines = mutableListOf<String>()
         var index = 1
 
@@ -441,7 +466,8 @@ class CheatRepository(private val context: Context) {
             val usefulLines = currentLines.filter { line ->
                 val trimmed = line.trimStart()
                 trimmed.startsWith("patch=", ignoreCase = true) ||
-                    trimmed.startsWith("dpatch=", ignoreCase = true)
+                    trimmed.startsWith("dpatch=", ignoreCase = true) ||
+                    RAW_CODE_REGEX.matchEntire(trimmed) != null
             }
             if (usefulLines.isEmpty()) {
                 currentLines = mutableListOf()
@@ -453,10 +479,12 @@ class CheatRepository(private val context: Context) {
                 id = "${slug.ifBlank { "cheat" }}_$index",
                 title = title,
                 lines = usefulLines,
-                enabled = false
+                enabled = false,
+                author = currentAuthor?.takeIf { it.isNotBlank() }
             )
             index++
             currentTitle = null
+            currentAuthor = null
             currentLines = mutableListOf()
         }
 
@@ -468,16 +496,24 @@ class CheatRepository(private val context: Context) {
                 trimmed.startsWith("[") && trimmed.endsWith("]") -> trimmed.removeSurrounding("[", "]").trim()
                 else -> null
             }
-            if (!label.isNullOrBlank()) {
-                if (currentLines.any { it.trim().startsWith("patch=", ignoreCase = true) || it.trim().startsWith("dpatch=", ignoreCase = true) }) {
-                    flush()
-                }
-                currentTitle = label
-            } else if (
-                trimmed.startsWith("patch=", ignoreCase = true) ||
+            val isPatchLine = trimmed.startsWith("patch=", ignoreCase = true) ||
                 trimmed.startsWith("dpatch=", ignoreCase = true)
-            ) {
-                currentLines += trimmed
+            val isRawCode = RAW_CODE_REGEX.matchEntire(trimmed) != null
+            when {
+                !label.isNullOrBlank() -> {
+                    if (currentLines.isNotEmpty()) {
+                        flush()
+                    }
+                    currentTitle = label
+                    currentAuthor = null
+                }
+                AUTHOR_LINE_REGEX.matchEntire(trimmed) != null -> {
+                    currentAuthor = AUTHOR_LINE_REGEX.matchEntire(trimmed)
+                        ?.groupValues?.get(1)?.trim()
+                        ?.takeIf { it.isNotBlank() }
+                }
+                isPatchLine -> currentLines += trimmed
+                isRawCode && currentTitle != null -> currentLines += trimmed
             }
         }
         flush()
@@ -486,7 +522,8 @@ class CheatRepository(private val context: Context) {
                 .mapNotNull { line ->
                     line.trim().takeIf { value ->
                         value.startsWith("patch=", ignoreCase = true) ||
-                            value.startsWith("dpatch=", ignoreCase = true)
+                            value.startsWith("dpatch=", ignoreCase = true) ||
+                            RAW_CODE_REGEX.matchEntire(value) != null
                     }
                 }
                 .mapIndexed { idx, line ->
@@ -505,14 +542,24 @@ class CheatRepository(private val context: Context) {
             merged[key] = if (existing == null) {
                 block
             } else {
-                existing.copy(lines = (existing.lines + block.lines).distinct())
+                existing.copy(
+                    lines = (existing.lines + block.lines).distinct(),
+                    author = existing.author ?: block.author
+                )
             }
         }
         return merged.values.toList()
     }
 
+    private fun cheatBlockLabel(block: CheatBlock): String {
+        val author = block.author?.trim().orEmpty()
+        return if (author.isEmpty()) block.title else "${block.title} (by $author)"
+    }
+
     private fun cheatBlockSignature(block: CheatBlock): String {
-        return block.title.trim().lowercase() + "\u0000" + block.lines.joinToString("\n")
+        return block.title.trim().lowercase() + "\u0000" +
+            block.author?.trim().orEmpty() + "\u0000" +
+            block.lines.joinToString("\n")
     }
 }
 

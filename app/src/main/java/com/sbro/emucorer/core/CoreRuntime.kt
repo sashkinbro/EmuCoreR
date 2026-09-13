@@ -614,12 +614,21 @@ internal object CoreRuntime {
         return value
     }
 
+    @Volatile private var lastCheatFilePath: String? = null
+
     fun loadCheats(path: String) {
+        lastCheatFilePath = path
         sessionLock.withLock { runCatching { bridge.loadCheats(path) } }
     }
 
     fun clearCheats() {
+        lastCheatFilePath = null
         sessionLock.withLock { runCatching { bridge.clearCheats() } }
+    }
+
+    fun reloadCheats() {
+        val path = lastCheatFilePath ?: return
+        sessionLock.withLock { runCatching { bridge.loadCheats(path) } }
     }
 
     fun setMemoryCardPath(slot: Int, path: String?) {

@@ -227,6 +227,10 @@
     <string name="settings_about_more_apps_desc">Sashkin Apps\'in diğer uygulamalarını görmek için Google Play\'deki yazar sayfasını açın.</string>
     <string name="settings_about_more_apps_link">Geliştirici Sayfasını Aç</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">Resmî web sitesi</string>
+    <string name="settings_about_website_desc">Haberler, rehberler ve en son proje güncellemeleri için resmî EmuCoreR web sitesini açın.</string>
+    <string name="settings_about_website_link">Resmî web sitesini aç</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">Oyun kolu titreşimi</string>
     <string name="settings_pad_vibration_desc">Desteklenen oyunlarda ve desteklenen cihazlarda titreşimi etkinleştirin.</string>
     <string name="settings_pad_vibration_strength">Titreşim gücü</string>
@@ -1931,4 +1935,29 @@
     <string name="settings_display_crop_top">Üst kenar</string>
     <string name="settings_display_crop_right">Sağ kenar</string>
     <string name="settings_display_crop_bottom">Alt kenar</string>
+    <string name="settings_widescreen_patches">Geniş Ekran Yamaları</string>
+    <string name="settings_widescreen_patches_desc">Desteklenen oyunlar için geniş ekran yamalarını etkinleştir</string>
+    <string name="settings_help_widescreen_patches">Mevcut oyun için bir tane varsa geniş ekran yamalarını yükler. Bu genellikle görüntüyü uzatmaktan daha iyidir çünkü sadece nihai resmi bozmak yerine oyunun kamera ve HUD mantığını değiştirir.</string>
+    <string name="settings_no_interlacing_patches">Titreşim Önleme (No-Interlacing) Yamaları</string>
+    <string name="settings_no_interlacing_patches_desc">Desteklenen oyunlar için titreşim önleme yamalarını etkinleştir</string>
+    <string name="settings_help_no_interlacing_patches">Varsa titreşim önleme (no-interlacing) yamalarını uygular. Orijinal geçmeli (interlaced) çıktıdan kaynaklanan tarama (combing), parlama veya titreme olan oyunlarda denemeye değer, ancak kullanılabilirlik oyuna bağlıdır.</string>
+    <string name="settings_patches_tab">Yamalar</string>
+    <string name="settings_patches_download">Yamaları indir</string>
+    <string name="settings_patches_download_desc">Topluluk yama veritabanını indir</string>
+    <string name="settings_patches_download_success">Yama veritabanı güncellendi: %1$d dosya</string>
+    <string name="settings_patches_download_failed">Yama veritabanı indirilemedi</string>
+    <string name="settings_patches_installed_value">%1$d yama dosyası mevcut</string>
+    <string name="settings_patches_source_missing">Önce bir yama kaynağı seçin</string>
+    <string name="settings_patches_source_official">Resmî kaynak</string>
+    <string name="settings_patches_source_official_desc">Yamaları resmî genel veritabanından indir</string>
+    <string name="settings_help_patches_source_official">İndirme kaynağı olarak resmî genel yama veritabanını kullanır. Aşağıdaki özel URL ile kendi yansınızdan indirmek için kapatın.</string>
+    <string name="settings_patches_custom_url">Özel yama kaynağı URL\'si</string>
+    <string name="settings_patches_custom_url_clear">Resmî kaynağı kullan</string>
+    <string name="settings_patches_custom_url_dialog_title">Özel yama kaynağı</string>
+    <string name="settings_patches_custom_url_dialog_body">Yama dosyaları içeren bir ZIP arşivine doğrudan HTTP veya HTTPS bağlantısı yapıştırın. Yalnızca resmî kaynak kapalıyken kullanılır. Özel kaynağı kaldırmak için boş bırakın.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">Geçerli bir HTTP veya HTTPS URL\'si girin</string>
+    <string name="settings_patches_attribution_title">Yama yazarları</string>
+    <string name="settings_patches_attribution">Yamalar topluluk tarafından oluşturulur ve yazarlarının mülkiyetinde kalır. EmuCoreR bunları yalnızca genel kaynaktan indirir; pakete dahil etmez ve sahiplenmez.</string>
+    <string name="settings_patches_source_link">Yama kaynağı sayfasını aç</string>
 </resources>

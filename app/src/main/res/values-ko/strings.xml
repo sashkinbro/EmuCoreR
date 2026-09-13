@@ -227,6 +227,10 @@
     <string name="settings_about_more_apps_desc">Google Play의 작성자 페이지를 열어 Sashkin Apps의 다른 앱을 확인하세요.</string>
     <string name="settings_about_more_apps_link">개발자 페이지 열기</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">공식 웹사이트</string>
+    <string name="settings_about_website_desc">뉴스, 가이드 및 최신 프로젝트 업데이트를 보려면 EmuCoreR 공식 웹사이트를 여세요.</string>
+    <string name="settings_about_website_link">공식 웹사이트 열기</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">패드 진동</string>
     <string name="settings_pad_vibration_desc">지원되는 게임 및 기기에서 진동을 활성화합니다.</string>
     <string name="settings_pad_vibration_strength">진동 세기</string>
@@ -1930,4 +1934,29 @@
     <string name="settings_display_crop_top">위쪽 가장자리</string>
     <string name="settings_display_crop_right">오른쪽 가장자리</string>
     <string name="settings_display_crop_bottom">아래쪽 가장자리</string>
+    <string name="settings_widescreen_patches">와이드스크린 패치</string>
+    <string name="settings_widescreen_patches_desc">지원되는 게임에 와이드스크린 패치를 활성화합니다.</string>
+    <string name="settings_help_widescreen_patches">현재 게임에 와이드스크린 패치가 제공되는 경우 로드합니다. 단순히 최종 사진을 왜곡하는 대신 게임의 카메라 및 HUD 로직을 변경하므로 일반적으로 이미지를 늘리는 것보다 낫습니다.</string>
+    <string name="settings_no_interlacing_patches">인터레이스 제거 패치</string>
+    <string name="settings_no_interlacing_patches_desc">지원되는 게임에 인터레이스 제거 패치를 활성화합니다.</string>
+    <string name="settings_help_no_interlacing_patches">가능한 경우 인터레이스 제거(no-interlacing) 패치를 적용합니다. 원래 인터레이스 출력으로 인해 빗살무늬(combing), 아른거림(shimmer) 또는 깜박임(flicker)이 있는 게임에서 시도해 볼 가치가 있지만 가용성은 타이틀에 따라 다릅니다.</string>
+    <string name="settings_patches_tab">패치</string>
+    <string name="settings_patches_download">패치 다운로드</string>
+    <string name="settings_patches_download_desc">커뮤니티 패치 데이터베이스 다운로드</string>
+    <string name="settings_patches_download_success">패치 데이터베이스 업데이트됨: %1$d개 파일</string>
+    <string name="settings_patches_download_failed">패치 데이터베이스를 다운로드하지 못했습니다</string>
+    <string name="settings_patches_installed_value">사용 가능한 패치 파일: %1$d개</string>
+    <string name="settings_patches_source_missing">먼저 패치 소스를 선택하세요</string>
+    <string name="settings_patches_source_official">공식 소스</string>
+    <string name="settings_patches_source_official_desc">공식 공개 데이터베이스에서 패치 다운로드</string>
+    <string name="settings_help_patches_source_official">공식 공개 패치 데이터베이스를 다운로드 소스로 사용합니다. 아래 사용자 지정 URL로 자체 미러에서 받으려면 끄세요.</string>
+    <string name="settings_patches_custom_url">사용자 지정 패치 소스 URL</string>
+    <string name="settings_patches_custom_url_clear">공식 소스 사용</string>
+    <string name="settings_patches_custom_url_dialog_title">사용자 지정 패치 소스</string>
+    <string name="settings_patches_custom_url_dialog_body">패치 파일이 있는 ZIP 아카이브의 직접 HTTP 또는 HTTPS 링크를 붙여넣으세요. 공식 소스가 꺼져 있을 때만 사용됩니다. 비워 두면 사용자 지정 소스가 제거됩니다.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">올바른 HTTP 또는 HTTPS URL을 입력하세요</string>
+    <string name="settings_patches_attribution_title">패치 작성자</string>
+    <string name="settings_patches_attribution">패치는 커뮤니티가 만들며 작성자의 소유입니다. EmuCoreR은 공개 소스에서 다운로드만 하며 번들하거나 소유권을 주장하지 않습니다.</string>
+    <string name="settings_patches_source_link">패치 소스 페이지 열기</string>
 </resources>

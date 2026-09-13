@@ -148,6 +148,10 @@
     <string name="settings_about_more_apps_desc">開啟 Google Play 上的作者頁面，查看 Sashkin Apps 的其他應用程式。</string>
     <string name="settings_about_more_apps_link">開啟開發者頁面</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">官方网站</string>
+    <string name="settings_about_website_desc">打开 EmuCoreR 官方网站，查看新闻、指南和最新项目动态。</string>
+    <string name="settings_about_website_link">打开官方网站</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">手把震動</string>
     <string name="settings_pad_vibration_desc">在支援的遊戲和支援的裝置上啟用震動。</string>
     <string name="settings_show_fps">顯示 FPS 計數器</string>
@@ -1932,4 +1936,29 @@
     <string name="settings_display_crop_top">上邊緣</string>
     <string name="settings_display_crop_right">右邊緣</string>
     <string name="settings_display_crop_bottom">下邊緣</string>
+    <string name="settings_widescreen_patches">寬螢幕修補程式</string>
+    <string name="settings_widescreen_patches_desc">為支援的遊戲啟用寬螢幕修補程式</string>
+    <string name="settings_help_widescreen_patches">当当前游戏有可用的宽屏补丁时加载它们。这通常比拉伸图像更好，因为它改变了游戏的相机和 HUD 逻辑，而不仅仅是扭曲最终画面。</string>
+    <string name="settings_no_interlacing_patches">去交錯修補程式</string>
+    <string name="settings_no_interlacing_patches_desc">為支援的遊戲啟用去交錯修補程式</string>
+    <string name="settings_help_no_interlacing_patches">在可用的情况下应用去隔行补丁。这在原生为隔行输出而存在梳齿效果 (combing)、闪烁或抖动的游戏中值得一试，但可用性取决于具体游戏。</string>
+    <string name="settings_patches_tab">补丁</string>
+    <string name="settings_patches_download">下载补丁</string>
+    <string name="settings_patches_download_desc">下载社区补丁数据库</string>
+    <string name="settings_patches_download_success">补丁数据库已更新：%1$d 个文件</string>
+    <string name="settings_patches_download_failed">无法下载补丁数据库</string>
+    <string name="settings_patches_installed_value">可用补丁文件：%1$d 个</string>
+    <string name="settings_patches_source_missing">请先选择补丁来源</string>
+    <string name="settings_patches_source_official">官方来源</string>
+    <string name="settings_patches_source_official_desc">从官方公共数据库下载补丁</string>
+    <string name="settings_help_patches_source_official">使用官方公共补丁数据库作为下载来源。关闭后可通过下方自定义 URL 从你自己的镜像下载。</string>
+    <string name="settings_patches_custom_url">自定义补丁来源 URL</string>
+    <string name="settings_patches_custom_url_clear">使用官方来源</string>
+    <string name="settings_patches_custom_url_dialog_title">自定义补丁来源</string>
+    <string name="settings_patches_custom_url_dialog_body">粘贴指向包含补丁文件的 ZIP 压缩包的 HTTP 或 HTTPS 直链。仅在关闭官方来源时使用。留空即可移除自定义来源。</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">请输入有效的 HTTP 或 HTTPS URL</string>
+    <string name="settings_patches_attribution_title">补丁作者</string>
+    <string name="settings_patches_attribution">补丁由社区创作，版权归其作者所有。EmuCoreR 仅从公共来源下载，不内置也不主张其所有权。</string>
+    <string name="settings_patches_source_link">打开补丁来源页面</string>
 </resources>

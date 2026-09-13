@@ -330,6 +330,10 @@
     <string name="settings_about_more_apps_desc">Buka halaman penulis di Google Play untuk melihat aplikasi lain dari Sashkin Apps.</string>
     <string name="settings_about_more_apps_link">Buka Halaman Pengembang</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">Situs web resmi</string>
+    <string name="settings_about_website_desc">Buka situs web resmi EmuCoreR untuk berita, panduan, dan pembaruan proyek terbaru.</string>
+    <string name="settings_about_website_link">Buka situs web resmi</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">Getaran pad</string>
     <string name="settings_pad_vibration_desc">Aktifkan getaran di game yang didukung dan di perangkat yang didukung.</string>
     <string name="settings_pad_vibration_strength">Kekuatan getaran</string>
@@ -1945,4 +1949,29 @@
     <string name="settings_display_crop_top">Tepi atas</string>
     <string name="settings_display_crop_right">Tepi kanan</string>
     <string name="settings_display_crop_bottom">Tepi bawah</string>
+    <string name="settings_widescreen_patches">Patch Layar Lebar</string>
+    <string name="settings_widescreen_patches_desc">Aktifkan patch layar lebar untuk game yang didukung</string>
+    <string name="settings_help_widescreen_patches">Memuat patch layar lebar ketika game yang saat ini dipilih memilikinya. Ini biasanya lebih baik daripada meregangkan (stretch) gambar karena itu mengubah logika kamera dan HUD game alih-alih hanya merusak atau menggeser gambar akhir.</string>
+    <string name="settings_no_interlacing_patches">Patch Anti-Interlace</string>
+    <string name="settings_no_interlacing_patches_desc">Aktifkan patch anti-interlace untuk game yang didukung</string>
+    <string name="settings_help_no_interlacing_patches">Menerapkan patch anti-interlace jika tersedia. Layak dicoba untuk game yang mengalami masalah seperti gerigi bergelombang (combing), pantulan kilat (shimmer), atau kedipan dari hasil output awal interlace, tetapi keberadaannya bergantung pada tiap judul.</string>
+    <string name="settings_patches_tab">Patch</string>
+    <string name="settings_patches_download">Unduh patch</string>
+    <string name="settings_patches_download_desc">Unduh basis data patch komunitas</string>
+    <string name="settings_patches_download_success">Basis data patch diperbarui: %1$d berkas</string>
+    <string name="settings_patches_download_failed">Gagal mengunduh basis data patch</string>
+    <string name="settings_patches_installed_value">%1$d berkas patch tersedia</string>
+    <string name="settings_patches_source_missing">Pilih sumber patch terlebih dahulu</string>
+    <string name="settings_patches_source_official">Sumber resmi</string>
+    <string name="settings_patches_source_official_desc">Unduh patch dari basis data publik resmi</string>
+    <string name="settings_help_patches_source_official">Menggunakan basis data patch publik resmi sebagai sumber unduhan. Nonaktifkan untuk mengunduh dari cermin Anda sendiri memakai URL khusus di bawah.</string>
+    <string name="settings_patches_custom_url">URL sumber patch khusus</string>
+    <string name="settings_patches_custom_url_clear">Gunakan sumber resmi</string>
+    <string name="settings_patches_custom_url_dialog_title">Sumber patch khusus</string>
+    <string name="settings_patches_custom_url_dialog_body">Tempel tautan HTTP atau HTTPS langsung ke arsip ZIP berisi berkas patch. Hanya dipakai saat sumber resmi dinonaktifkan. Biarkan kosong untuk menghapus sumber khusus.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">Masukkan URL HTTP atau HTTPS yang valid</string>
+    <string name="settings_patches_attribution_title">Penulis patch</string>
+    <string name="settings_patches_attribution">Patch dibuat oleh komunitas dan tetap menjadi milik penulisnya. EmuCoreR hanya mengunduhnya dari sumber publik, tidak menyertakannya, dan tidak mengklaimnya.</string>
+    <string name="settings_patches_source_link">Buka halaman sumber patch</string>
 </resources>

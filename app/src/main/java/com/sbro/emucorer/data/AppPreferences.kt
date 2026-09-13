@@ -180,6 +180,8 @@ data class SettingsSnapshot(
     val shadeBoostGamma: Int = 50,
     val enableWidescreenPatches: Boolean = false,
     val enableNoInterlacingPatches: Boolean = false,
+    val patchDatabaseUseOfficial: Boolean = true,
+    val patchDatabaseCustomUrl: String? = null,
     val deinterlaceMode: Int = GsHackDefaults.DEINTERLACE_MODE_DEFAULT,
     val dithering: Int = GsHackDefaults.DITHERING_DEFAULT,
     val antiBlur: Boolean = GsHackDefaults.ANTI_BLUR_DEFAULT,
@@ -300,7 +302,7 @@ class AppPreferences(private val context: Context) {
 
     companion object {
         const val DEFAULT_LOCAL_LINK_PORT = 19072
-        private const val CURRENT_OVERLAY_LAYOUT_VERSION = 16
+        private const val CURRENT_OVERLAY_LAYOUT_VERSION = 17
         const val DEFAULT_NTSC_FRAMERATE = 59.94f
         const val DEFAULT_THREAD_PINNING = false
         const val DEFAULT_PAL_FRAMERATE = 50f
@@ -415,8 +417,8 @@ class AppPreferences(private val context: Context) {
             "select" to OverlayControlLayout(scale = 80),
             "left_input_toggle" to OverlayControlLayout(scale = 80, visible = true),
             "start" to OverlayControlLayout(scale = 80),
-            "l3" to OverlayControlLayout(scale = 76, visible = true),
-            "r3" to OverlayControlLayout(scale = 76, visible = true)
+            "l3" to OverlayControlLayout(scale = 76, visible = false),
+            "r3" to OverlayControlLayout(scale = 76, visible = false)
         )
 
         private val THEME_MODE = intPreferencesKey("theme_mode")
@@ -591,6 +593,9 @@ class AppPreferences(private val context: Context) {
         private val SHADEBOOST_GAMMA = intPreferencesKey("shadeboost_gamma")
         private val ENABLE_WIDESCREEN_PATCHES = booleanPreferencesKey("enable_widescreen_patches")
         private val ENABLE_NO_INTERLACING_PATCHES = booleanPreferencesKey("enable_no_interlacing_patches")
+        private val PATCH_DATABASE_USE_OFFICIAL = booleanPreferencesKey("patch_database_use_official")
+        private val PATCH_DATABASE_CUSTOM_URL = stringPreferencesKey("patch_database_custom_url")
+        private val PATCH_DATABASE_REVISION = intPreferencesKey("patch_database_revision")
         private val DEINTERLACE_MODE = intPreferencesKey("deinterlace_mode")
         private val DITHERING = intPreferencesKey("dithering")
         private val ANTI_BLUR = booleanPreferencesKey("anti_blur")
@@ -1688,6 +1693,8 @@ class AppPreferences(private val context: Context) {
                 shadeBoostGamma = prefs[SHADEBOOST_GAMMA] ?: 50,
                 enableWidescreenPatches = prefs[ENABLE_WIDESCREEN_PATCHES] ?: false,
                 enableNoInterlacingPatches = prefs[ENABLE_NO_INTERLACING_PATCHES] ?: false,
+                patchDatabaseUseOfficial = prefs[PATCH_DATABASE_USE_OFFICIAL] ?: true,
+                patchDatabaseCustomUrl = prefs[PATCH_DATABASE_CUSTOM_URL],
                 deinterlaceMode = GsHackDefaults.coerceDeinterlaceMode(
                     prefs[DEINTERLACE_MODE] ?: GsHackDefaults.DEINTERLACE_MODE_DEFAULT
                 ),
@@ -2825,6 +2832,51 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[ENABLE_NO_INTERLACING_PATCHES] = enabled }
     }
 
+    // Patch database source
+    val patchDatabaseUseOfficial: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[PATCH_DATABASE_USE_OFFICIAL] ?: true
+    }
+
+    suspend fun setPatchDatabaseUseOfficial(enabled: Boolean) {
+        context.dataStore.edit { it[PATCH_DATABASE_USE_OFFICIAL] = enabled }
+    }
+
+    val patchDatabaseCustomUrl: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[PATCH_DATABASE_CUSTOM_URL]
+    }
+
+    suspend fun setPatchDatabaseCustomUrl(url: String?) {
+        context.dataStore.edit { prefs ->
+            if (url.isNullOrBlank()) {
+                prefs.remove(PATCH_DATABASE_CUSTOM_URL)
+            } else {
+                prefs[PATCH_DATABASE_CUSTOM_URL] = url.trim()
+            }
+        }
+    }
+
+    fun getPatchDatabaseUseOfficialSync(): Boolean {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[PATCH_DATABASE_USE_OFFICIAL] ?: true }.first()
+        }
+    }
+
+    fun getPatchDatabaseCustomUrlSync(): String? {
+        return kotlinx.coroutines.runBlocking {
+            context.dataStore.data.map { it[PATCH_DATABASE_CUSTOM_URL] }.first()
+        }
+    }
+
+    val patchDatabaseRevision: Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[PATCH_DATABASE_REVISION] ?: 0
+    }
+
+    suspend fun bumpPatchDatabaseRevision() {
+        context.dataStore.edit { prefs ->
+            prefs[PATCH_DATABASE_REVISION] = (prefs[PATCH_DATABASE_REVISION] ?: 0) + 1
+        }
+    }
+
     val deinterlaceMode: Flow<Int> = context.dataStore.data.map { prefs ->
         GsHackDefaults.coerceDeinterlaceMode(
             prefs[DEINTERLACE_MODE] ?: GsHackDefaults.DEINTERLACE_MODE_DEFAULT
@@ -3555,6 +3607,16 @@ class AppPreferences(private val context: Context) {
                     prefs.remove(CONTROL_LAYOUTS)
                 }
             }
+            if (currentVersion < 17) {
+                val layouts = decodeControlLayouts(prefs[CONTROL_LAYOUTS]).toMutableMap()
+                listOf("l3", "r3").forEach { id ->
+                    val layout = layouts[id] ?: return@forEach
+                    if (layout == OverlayControlLayout(scale = 76, visible = true)) {
+                        layouts[id] = layout.copy(visible = false)
+                    }
+                }
+                encodeControlLayouts(layouts)?.let { prefs[CONTROL_LAYOUTS] = it }
+            }
             migrateGlobalStickSurfaceMode(prefs)
             prefs[OVERLAY_LAYOUT_VERSION] = CURRENT_OVERLAY_LAYOUT_VERSION
         }
@@ -3768,6 +3830,8 @@ class AppPreferences(private val context: Context) {
             put("tvShader", prefs[TV_SHADER]?.let(GsHackDefaults::coerceTvShader) ?: GsHackDefaults.TV_SHADER_DEFAULT)
             put("enableWidescreenPatches", prefs[ENABLE_WIDESCREEN_PATCHES] ?: false)
             put("enableNoInterlacingPatches", prefs[ENABLE_NO_INTERLACING_PATCHES] ?: false)
+            put("patchDatabaseUseOfficial", prefs[PATCH_DATABASE_USE_OFFICIAL] ?: true)
+            put("patchDatabaseCustomUrl", prefs[PATCH_DATABASE_CUSTOM_URL])
             put("deinterlaceMode", GsHackDefaults.coerceDeinterlaceMode(
                 prefs[DEINTERLACE_MODE] ?: GsHackDefaults.DEINTERLACE_MODE_DEFAULT
             ))
@@ -4148,6 +4212,13 @@ class AppPreferences(private val context: Context) {
             )
             prefs[ENABLE_WIDESCREEN_PATCHES] = json.optBoolean("enableWidescreenPatches", false)
             prefs[ENABLE_NO_INTERLACING_PATCHES] = json.optBoolean("enableNoInterlacingPatches", false)
+            prefs[PATCH_DATABASE_USE_OFFICIAL] = json.optBoolean("patchDatabaseUseOfficial", true)
+            val restoredPatchUrl = json.optString("patchDatabaseCustomUrl").takeIf { it.isNotBlank() }
+            if (restoredPatchUrl != null) {
+                prefs[PATCH_DATABASE_CUSTOM_URL] = restoredPatchUrl
+            } else {
+                prefs.remove(PATCH_DATABASE_CUSTOM_URL)
+            }
             prefs[DEINTERLACE_MODE] = GsHackDefaults.coerceDeinterlaceMode(
                 json.optInt("deinterlaceMode", GsHackDefaults.DEINTERLACE_MODE_DEFAULT)
             )

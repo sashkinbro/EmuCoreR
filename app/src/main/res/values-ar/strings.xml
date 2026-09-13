@@ -227,6 +227,10 @@
     <string name="settings_about_more_apps_desc">افتح صفحة المؤلف على Google Play لرؤية تطبيقات أخرى من Sashkin Apps.</string>
     <string name="settings_about_more_apps_link">فتح صفحة المطور</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">الموقع الرسمي</string>
+    <string name="settings_about_website_desc">افتح موقع EmuCoreR الرسمي للاطلاع على الأخبار والأدلة وأحدث تحديثات المشروع.</string>
+    <string name="settings_about_website_link">فتح الموقع الرسمي</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">اهتزاز وحدة التحكم</string>
     <string name="settings_pad_vibration_desc">تمكين الاهتزاز في الألعاب المدعومة وعلى الأجهزة المدعومة.</string>
     <string name="settings_pad_vibration_strength">قوة الاهتزاز</string>
@@ -1939,4 +1943,29 @@
     <string name="settings_display_crop_top">الحافة العلوية</string>
     <string name="settings_display_crop_right">الحافة اليمنى</string>
     <string name="settings_display_crop_bottom">الحافة السفلية</string>
+    <string name="settings_widescreen_patches">تصحيحات الشاشة العريضة</string>
+    <string name="settings_widescreen_patches_desc">تفعيل تصحيحات الشاشة العريضة للألعاب المدعومة</string>
+    <string name="settings_help_widescreen_patches">يُحمِّل تصحيحات الشاشة العريضة عندما تكون للعبة الحالية تصحيح متاح. عادة ما يكون هذا أفضل من شد الصورة (Stretch) لأنه يغير منطق كاميرا اللعبة وواجهة المستخدم (HUD) بدلاً من مجرد تشويه الصورة النهائية.</string>
+    <string name="settings_no_interlacing_patches">تصحيحات إلغاء التشابك (No-Interlacing)</string>
+    <string name="settings_no_interlacing_patches_desc">تفعيل تصحيحات إلغاء التشابك للألعاب المدعومة</string>
+    <string name="settings_help_no_interlacing_patches">يُطبق تصحيحات إلغاء التشابك (No-interlacing) حيثما أمكن. يستحق التجربة في الألعاب التي تعاني من التمشيط (Combing)، أو الوميض، من المخرجات المتشابكة الأصلية، لكن التوفر يعتمد على العنوان.</string>
+    <string name="settings_patches_tab">الترقيعات</string>
+    <string name="settings_patches_download">تنزيل الترقيعات</string>
+    <string name="settings_patches_download_desc">تنزيل قاعدة ترقيعات المجتمع</string>
+    <string name="settings_patches_download_success">تم تحديث قاعدة الترقيعات: %1$d ملف</string>
+    <string name="settings_patches_download_failed">تعذّر تنزيل قاعدة الترقيعات</string>
+    <string name="settings_patches_installed_value">%1$d ملف ترقيع متاح</string>
+    <string name="settings_patches_source_missing">اختر مصدر الترقيعات أولاً</string>
+    <string name="settings_patches_source_official">المصدر الرسمي</string>
+    <string name="settings_patches_source_official_desc">تنزيل الترقيعات من القاعدة العامة الرسمية</string>
+    <string name="settings_help_patches_source_official">يستخدم قاعدة الترقيعات العامة الرسمية كمصدر للتنزيل. أوقف هذا الخيار للتنزيل من نسختك الخاصة عبر الرابط المخصص أدناه.</string>
+    <string name="settings_patches_custom_url">رابط مصدر الترقيعات المخصص</string>
+    <string name="settings_patches_custom_url_clear">استخدام المصدر الرسمي</string>
+    <string name="settings_patches_custom_url_dialog_title">مصدر ترقيعات مخصص</string>
+    <string name="settings_patches_custom_url_dialog_body">الصق رابط HTTP أو HTTPS مباشراً لملف ZIP يحتوي على ملفات الترقيعات. يُستخدم فقط عند إيقاف المصدر الرسمي. اتركه فارغاً لإزالة المصدر المخصص.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">أدخل رابط HTTP أو HTTPS صالحاً</string>
+    <string name="settings_patches_attribution_title">مؤلفو الترقيعات</string>
+    <string name="settings_patches_attribution">الترقيعات من إنشاء المجتمع وتبقى ملكاً لمؤلفيها. يقوم EmuCoreR بتنزيلها من المصدر العام فقط ولا يضمّنها ولا يدّعي ملكيتها.</string>
+    <string name="settings_patches_source_link">فتح صفحة مصدر الترقيعات</string>
 </resources>

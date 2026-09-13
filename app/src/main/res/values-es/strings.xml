@@ -148,6 +148,10 @@
     <string name="settings_about_more_apps_desc">Abre la página del autor en Google Play para ver otras aplicaciones de Sashkin Apps.</string>
     <string name="settings_about_more_apps_link">Abrir página del desarrollador</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">Sitio web oficial</string>
+    <string name="settings_about_website_desc">Abre el sitio web oficial de EmuCoreR para ver noticias, guías y las últimas novedades del proyecto.</string>
+    <string name="settings_about_website_link">Abrir el sitio web oficial</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">Vibración del mando</string>
     <string name="settings_pad_vibration_desc">Habilita la vibración en juegos compatibles y en dispositivos compatibles.</string>
     <string name="settings_show_fps">Mostrar contador de FPS</string>
@@ -1933,4 +1937,29 @@
     <string name="settings_display_crop_top">Borde superior</string>
     <string name="settings_display_crop_right">Borde derecho</string>
     <string name="settings_display_crop_bottom">Borde inferior</string>
+    <string name="settings_widescreen_patches">Parches panorámicos</string>
+    <string name="settings_widescreen_patches_desc">Habilitar parches panorámicos para juegos compatibles</string>
+    <string name="settings_help_widescreen_patches">Carga parches panorámicos cuando el juego actual tiene uno disponible. Esto suele ser mejor que estirar la imagen porque cambia la cámara del juego y la lógica del HUD en lugar de limitarse a distorsionar la imagen final.</string>
+    <string name="settings_no_interlacing_patches">Parches sin entrelazado</string>
+    <string name="settings_no_interlacing_patches_desc">Habilitar parches sin entrelazado para juegos compatibles</string>
+    <string name="settings_help_no_interlacing_patches">Aplica parches de desentrelazado si están disponibles. Merece la pena probarlo en juegos con efecto de "peine" (combing), brillos o parpadeos de la salida entrelazada original, pero su disponibilidad depende del título.</string>
+    <string name="settings_patches_tab">Parches</string>
+    <string name="settings_patches_download">Descargar parches</string>
+    <string name="settings_patches_download_desc">Descargar la base de parches de la comunidad</string>
+    <string name="settings_patches_download_success">Base de parches actualizada: %1$d archivos</string>
+    <string name="settings_patches_download_failed">No se pudo descargar la base de parches</string>
+    <string name="settings_patches_installed_value">%1$d archivos de parches disponibles</string>
+    <string name="settings_patches_source_missing">Elige primero una fuente de parches</string>
+    <string name="settings_patches_source_official">Fuente oficial</string>
+    <string name="settings_patches_source_official_desc">Descargar parches desde la base pública oficial</string>
+    <string name="settings_help_patches_source_official">Usa la base de parches pública oficial como fuente de descarga. Desactívalo para descargar desde tu propio espejo con la URL personalizada de abajo.</string>
+    <string name="settings_patches_custom_url">URL de fuente de parches personalizada</string>
+    <string name="settings_patches_custom_url_clear">Usar fuente oficial</string>
+    <string name="settings_patches_custom_url_dialog_title">Fuente de parches personalizada</string>
+    <string name="settings_patches_custom_url_dialog_body">Pega un enlace HTTP o HTTPS directo a un archivo ZIP con archivos de parches. Solo se usa cuando la fuente oficial está desactivada. Déjalo vacío para quitar la fuente personalizada.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">Introduce una URL HTTP o HTTPS válida</string>
+    <string name="settings_patches_attribution_title">Autores de los parches</string>
+    <string name="settings_patches_attribution">Los parches son creados por la comunidad y siguen siendo propiedad de sus autores. EmuCoreR solo los descarga de la fuente pública y no los incluye ni reclama.</string>
+    <string name="settings_patches_source_link">Abrir la página de la fuente de parches</string>
 </resources>

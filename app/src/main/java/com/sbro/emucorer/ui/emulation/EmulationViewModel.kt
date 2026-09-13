@@ -38,6 +38,7 @@ import com.sbro.emucorer.data.CheatBlock
 import com.sbro.emucorer.data.DisplayCrop
 import com.sbro.emucorer.data.OverlayControlLayout
 import com.sbro.emucorer.data.CheatRepository
+import com.sbro.emucorer.data.GamePatchRepository
 import com.sbro.emucorer.data.GameRepository
 import com.sbro.emucorer.data.ps1.Ps1TitleIndexRepository
 import com.sbro.emucorer.data.MemoryCardRepository
@@ -68,6 +69,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
@@ -598,6 +600,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val preferences = AppPreferences(application)
     private val cheatRepository = CheatRepository(application)
+    private val gamePatchRepository = GamePatchRepository(application)
     private val memoryCardRepository = MemoryCardRepository(application, preferences)
     private val perGameSettingsRepository = PerGameSettingsRepository(application)
     private val gameRepository = GameRepository()
@@ -1070,6 +1073,17 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             preferences.enableNoInterlacingPatches.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(noInterlacingPatches = value) }
             }
+        }
+        viewModelScope.launch {
+            preferences.patchDatabaseRevision
+                .distinctUntilChanged()
+                .drop(1)
+                .collect {
+                    val state = _uiState.value
+                    if (state.isRunning || state.isPaused) {
+                        withContext(Dispatchers.IO) { syncCheatsForCurrentGame() }
+                    }
+                }
         }
         viewModelScope.launch {
             preferences.cpuSpriteRenderSize.collect { value ->
@@ -2665,12 +2679,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
             EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", enabled.toString())
             withContext(Dispatchers.IO) {
-                if (enabled) {
-                    syncCheatsForCurrentGame()
-                    EmulatorBridge.reloadPatches()
-                } else {
-                    NativeApp.clearCheats()
-                }
+                syncCheatsForCurrentGame()
             }
             updateCrashContext()
         }
@@ -2695,7 +2704,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
             syncCheatsForCurrentGame(gameKey)
             EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", "true")
-            EmulatorBridge.reloadPatches()
         }
     }
 
@@ -3027,7 +3035,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setEnableWidescreenPatches(enabled)
             }
             EmulatorBridge.setSetting("EmuCore", "EnableWideScreenPatches", "bool", enabled.toString())
-            NativeApp.reloadPatches()
+            withContext(Dispatchers.IO) { syncCheatsForCurrentGame() }
             updateCrashContext()
         }
     }
@@ -3040,7 +3048,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 preferences.setEnableNoInterlacingPatches(enabled)
             }
             EmulatorBridge.setSetting("EmuCore", "EnableNoInterlacingPatches", "bool", enabled.toString())
-            NativeApp.reloadPatches()
+            withContext(Dispatchers.IO) { syncCheatsForCurrentGame() }
             updateCrashContext()
         }
     }
@@ -4981,19 +4989,41 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         NativeApp.setPadAnalogMode(1, forceAnalog1)
     }
 
-    private fun syncCheatsForCurrentGame(gameKeyOverride: String? = null) {        val gameKey = gameKeyOverride ?: _uiState.value.cheatsGameKey ?: return
+    private fun syncCheatsForCurrentGame(gameKeyOverride: String? = null) {
+        val state = _uiState.value
         val serial = currentGameSerial.takeIf { it.isNotBlank() }
         val crc = currentGameCrc.takeIf { it.isNotBlank() }
+        val gameKey = gameKeyOverride
+            ?: state.cheatsGameKey
+            ?: serial?.replace('-', '_')
+            ?: crc
+            ?: "game"
+        val patchBlocks = gamePatchRepository.buildPatchBlocks(
+            serial = serial,
+            crc = crc,
+            widescreen = state.widescreenPatches,
+            noInterlacing = state.noInterlacingPatches
+        )
+        val patchDirectives = gamePatchRepository.resolveDirectives(
+            serial = serial,
+            crc = crc,
+            widescreen = state.widescreenPatches,
+            noInterlacing = state.noInterlacingPatches
+        )
+        if (patchDirectives.disableWidescreenHack) {
+            NativeApp.applyCoreOption("swanstation_GPU_WidescreenHack", "false")
+        }
+        if (patchDirectives.aspectRatioOverride?.equals("16:9", ignoreCase = true) == true) {
+            NativeApp.applyCoreOption("swanstation_Display_AspectRatio", "16:9")
+        }
         cheatRepository.syncActiveCheats(
             gameKey = gameKey,
             serial = serial,
-            crc = crc
+            crc = crc,
+            includeCheats = state.enableCheats,
+            patchBlocks = patchBlocks
         )
-        val coreCheatFile = if (_uiState.value.enableCheats) {
-            cheatRepository.activeCoreCheatFile(gameKey, serial, crc)
-        } else {
-            null
-        }
+        val coreCheatFile = cheatRepository.activeCoreCheatFile(gameKey, serial, crc)
         if (coreCheatFile != null) {
             NativeApp.loadCheats(coreCheatFile.absolutePath)
         } else {

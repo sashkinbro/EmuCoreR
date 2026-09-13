@@ -334,6 +334,10 @@
     <string name="settings_about_more_apps_desc">Open the author page on Google Play to see other apps from Sashkin Apps.</string>
     <string name="settings_about_more_apps_link">Open Developer Page</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">Official Website</string>
+    <string name="settings_about_website_desc">Open the official EmuCoreR website for news, guides and the latest project updates.</string>
+    <string name="settings_about_website_link">Open the official website</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">Pad vibration</string>
     <string name="settings_pad_vibration_desc">Enable vibration in supported games and on supported devices.</string>
     <string name="settings_pad_vibration_strength">Vibration strength</string>
@@ -1953,4 +1957,29 @@
     <string name="settings_display_crop_top">Top edge</string>
     <string name="settings_display_crop_right">Right edge</string>
     <string name="settings_display_crop_bottom">Bottom edge</string>
+    <string name="settings_widescreen_patches">Widescreen Patches</string>
+    <string name="settings_widescreen_patches_desc">Enable widescreen patches for supported games</string>
+    <string name="settings_help_widescreen_patches">Loads widescreen patches when the current game has one available. This is usually better than stretching the image because it changes the game\'s camera and HUD logic instead of just distorting the final picture.</string>
+    <string name="settings_no_interlacing_patches">No-Interlacing Patches</string>
+    <string name="settings_no_interlacing_patches_desc">Enable no-interlacing patches for supported games</string>
+    <string name="settings_help_no_interlacing_patches">Applies no-interlacing patches where available. This is worth trying in games with combing, shimmer, or flicker from original interlaced output, but availability depends on the title.</string>
+    <string name="settings_patches_tab">Patches</string>
+    <string name="settings_patches_download">Download patches</string>
+    <string name="settings_patches_download_desc">Fetch the community patch database</string>
+    <string name="settings_patches_download_success">Patch database updated: %1$d files</string>
+    <string name="settings_patches_download_failed">Could not download the patch database</string>
+    <string name="settings_patches_installed_value">%1$d patch files available</string>
+    <string name="settings_patches_source_missing">Choose a patch source first</string>
+    <string name="settings_patches_source_official">Official source</string>
+    <string name="settings_patches_source_official_desc">Download patches from the official public database</string>
+    <string name="settings_help_patches_source_official">Uses the official public patch database as the download source. Turn this off to download from your own mirror using the custom URL below.</string>
+    <string name="settings_patches_custom_url">Custom patch source URL</string>
+    <string name="settings_patches_custom_url_clear">Use official source</string>
+    <string name="settings_patches_custom_url_dialog_title">Custom patch source</string>
+    <string name="settings_patches_custom_url_dialog_body">Paste a direct HTTP or HTTPS link to a ZIP archive with patch files. It is used only when the official source is turned off. Leave it empty to remove the custom source.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">Enter a valid HTTP or HTTPS URL</string>
+    <string name="settings_patches_attribution_title">Patch authors</string>
+    <string name="settings_patches_attribution">Patches are created by the community and remain the property of their authors. EmuCoreR downloads them from the public source and does not bundle or claim them.</string>
+    <string name="settings_patches_source_link">Open the patch source page</string>
 </resources>

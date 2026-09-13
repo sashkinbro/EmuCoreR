@@ -336,6 +336,10 @@
     <string name="settings_about_more_apps_desc">Otwórz stronę autora w Google Play, aby zobaczyć inne aplikacje od Sashkin Apps.</string>
     <string name="settings_about_more_apps_link">Otwórz stronę dewelopera</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">Oficjalna strona</string>
+    <string name="settings_about_website_desc">Otwórz oficjalną stronę EmuCoreR: nowości, poradniki i najnowsze aktualizacje projektu.</string>
+    <string name="settings_about_website_link">Otwórz oficjalną stronę</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">Wibracje pada</string>
     <string name="settings_pad_vibration_desc">Włącz wibracje w obsługiwanych grach i na obsługiwanych urządzeniach.</string>
     <string name="settings_pad_vibration_strength">Siła wibracji</string>
@@ -1952,4 +1956,29 @@
     <string name="settings_display_crop_top">Górna krawędź</string>
     <string name="settings_display_crop_right">Prawa krawędź</string>
     <string name="settings_display_crop_bottom">Dolna krawędź</string>
+    <string name="settings_widescreen_patches">Patche panoramiczne (Widescreen)</string>
+    <string name="settings_widescreen_patches_desc">Włącza oryginalne kody/patche poprawiające ekran w wybranych wspieranych grach z proporcjami dla nowszych telefonów/urządzeń 16:9 / szerokokątnymi.</string>
+    <string name="settings_help_widescreen_patches">Wczytuje patche panoramiczne (widescreen), gdy są one dostępne dla danej gry. Jest to zwykle znacznie lepsze rozwiązanie niż rozciąganie obrazu, ponieważ zmienia logikę pracy kamery i HUD-a w grze, zamiast tylko zniekształcać końcowy obraz.</string>
+    <string name="settings_no_interlacing_patches">Patche usuwające przeplot (No-Interlacing)</string>
+    <string name="settings_no_interlacing_patches_desc">Włącza łatki likwidujące rozmyty ekran usuwając uciążliwy błąd obrazu z przeplotem dla PS1. Działa w obsługiwanych w GameDB tytułach.</string>
+    <string name="settings_help_no_interlacing_patches">Stosuje patche usuwające przeplot (no-interlacing), jeśli są dostępne. Warto spróbować w grach, w których widać \"grzebień\", migotanie lub drżenie wywoływane przez oryginalny obraz z przeplotem, jednak dostępność zależy od konkretnego tytułu.</string>
+    <string name="settings_patches_tab">Patche</string>
+    <string name="settings_patches_download">Pobierz patche</string>
+    <string name="settings_patches_download_desc">Pobierz społecznościową bazę patchy</string>
+    <string name="settings_patches_download_success">Baza patchy zaktualizowana: %1$d plików</string>
+    <string name="settings_patches_download_failed">Nie udało się pobrać bazy patchy</string>
+    <string name="settings_patches_installed_value">Dostępnych plików patchy: %1$d</string>
+    <string name="settings_patches_source_missing">Najpierw wybierz źródło patchy</string>
+    <string name="settings_patches_source_official">Oficjalne źródło</string>
+    <string name="settings_patches_source_official_desc">Pobieraj patche z oficjalnej publicznej bazy</string>
+    <string name="settings_help_patches_source_official">Używa oficjalnej publicznej bazy patchy jako źródła pobierania. Wyłącz, aby pobierać z własnego serwera przez własny URL poniżej.</string>
+    <string name="settings_patches_custom_url">URL własnego źródła patchy</string>
+    <string name="settings_patches_custom_url_clear">Użyj oficjalnego źródła</string>
+    <string name="settings_patches_custom_url_dialog_title">Własne źródło patchy</string>
+    <string name="settings_patches_custom_url_dialog_body">Wklej bezpośredni link HTTP lub HTTPS do archiwum ZIP z plikami patchy. Jest używany tylko, gdy oficjalne źródło jest wyłączone. Pozostaw puste, aby usunąć własne źródło.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">Podaj prawidłowy URL HTTP lub HTTPS</string>
+    <string name="settings_patches_attribution_title">Autorzy patchy</string>
+    <string name="settings_patches_attribution">Patche są tworzone przez społeczność i pozostają własnością ich autorów. EmuCoreR jedynie pobiera je z publicznego źródła i nie dołącza ich ani nie rości sobie do nich praw.</string>
+    <string name="settings_patches_source_link">Otwórz stronę źródła patchy</string>
 </resources>

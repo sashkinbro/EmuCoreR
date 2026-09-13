@@ -227,6 +227,10 @@
     <string name="settings_about_more_apps_desc">Google Playの作者ページを開いて、Sashkin Appsの他のアプリを確認します。</string>
     <string name="settings_about_more_apps_link">開発者ページを開く</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">公式サイト</string>
+    <string name="settings_about_website_desc">EmuCoreR の公式サイトでニュース、ガイド、最新のプロジェクト情報をご覧ください。</string>
+    <string name="settings_about_website_link">公式サイトを開く</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">パッドの振動</string>
     <string name="settings_pad_vibration_desc">対応するゲームおよびデバイスでの振動を有効にします。</string>
     <string name="settings_pad_vibration_strength">振動の強さ</string>
@@ -1930,4 +1934,29 @@
     <string name="settings_display_crop_top">上端</string>
     <string name="settings_display_crop_right">右端</string>
     <string name="settings_display_crop_bottom">下端</string>
+    <string name="settings_widescreen_patches">ワイドスクリーンパッチ</string>
+    <string name="settings_widescreen_patches_desc">サポートされているゲームでワイドスクリーンパッチを有効にします</string>
+    <string name="settings_help_widescreen_patches">現在のゲームで利用可能な場合にワイドスクリーンパッチをロードします。これは、最終的な画像を歪めるだけでなく、ゲームのカメラとHUDのロジックを変更するため、通常は画像を伸ばすよりも優れています。</string>
+    <string name="settings_no_interlacing_patches">ノーインターレースパッチ</string>
+    <string name="settings_no_interlacing_patches_desc">サポートされているゲームでノーインターレースパッチを有効にします</string>
+    <string name="settings_help_no_interlacing_patches">利用可能な場合は、ノーインターレースパッチを適用します。これは、元のインターレース出力からのコーミング、シマー、またはフリッカーがあるゲームで試す価値がありますが、利用できるかどうかはタイトルによって異なります。</string>
+    <string name="settings_patches_tab">パッチ</string>
+    <string name="settings_patches_download">パッチをダウンロード</string>
+    <string name="settings_patches_download_desc">コミュニティのパッチデータベースをダウンロード</string>
+    <string name="settings_patches_download_success">パッチデータベースを更新しました: %1$d 件</string>
+    <string name="settings_patches_download_failed">パッチデータベースをダウンロードできませんでした</string>
+    <string name="settings_patches_installed_value">利用可能なパッチファイル: %1$d 件</string>
+    <string name="settings_patches_source_missing">先にパッチのソースを選択してください</string>
+    <string name="settings_patches_source_official">公式ソース</string>
+    <string name="settings_patches_source_official_desc">公式の公開データベースからパッチをダウンロード</string>
+    <string name="settings_help_patches_source_official">公式の公開パッチデータベースをダウンロード元として使用します。以下のカスタム URL で独自のミラーから取得する場合はオフにしてください。</string>
+    <string name="settings_patches_custom_url">カスタムパッチソース URL</string>
+    <string name="settings_patches_custom_url_clear">公式ソースを使用</string>
+    <string name="settings_patches_custom_url_dialog_title">カスタムパッチソース</string>
+    <string name="settings_patches_custom_url_dialog_body">パッチファイルを含む ZIP アーカイブへの HTTP または HTTPS の直接リンクを貼り付けてください。公式ソースがオフのときのみ使用されます。空欄にするとカスタムソースを削除します。</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">有効な HTTP または HTTPS URL を入力してください</string>
+    <string name="settings_patches_attribution_title">パッチ作者</string>
+    <string name="settings_patches_attribution">パッチはコミュニティによって作成され、その作者に帰属します。EmuCoreR は公開ソースからダウンロードするだけで、同梱や所有権の主張は行いません。</string>
+    <string name="settings_patches_source_link">パッチソースのページを開く</string>
 </resources>

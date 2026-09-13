@@ -339,6 +339,10 @@
     <string name="settings_about_more_apps_desc">Otevřít stránku autora na Google Play a podívat se na další aplikace od Sashkin Apps.</string>
     <string name="settings_about_more_apps_link">Otevřít stránku vývojáře</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">Oficiální web</string>
+    <string name="settings_about_website_desc">Otevřete oficiální web EmuCoreR s novinkami, návody a nejnovějšími aktualizacemi projektu.</string>
+    <string name="settings_about_website_link">Otevřít oficiální web</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">Vibrace ovladače</string>
     <string name="settings_pad_vibration_desc">Povolit vibrace v podporovaných hrách a na podporovaných zařízeních.</string>
     <string name="settings_pad_vibration_strength">Intenzita vibrací</string>
@@ -1952,4 +1956,29 @@
     <string name="settings_display_crop_top">Horní okraj</string>
     <string name="settings_display_crop_right">Pravý okraj</string>
     <string name="settings_display_crop_bottom">Dolní okraj</string>
+    <string name="settings_widescreen_patches">Širokoúhlé patche</string>
+    <string name="settings_widescreen_patches_desc">Povolit širokoúhlé patche pro podporované hry</string>
+    <string name="settings_help_widescreen_patches">Načte patche pro širokoúhlý formát, pokud je má aktuální hra k dispozici. To je obvykle lepší než roztahování obrazu, protože to mění logiku kamery a HUD hry, místo pouhého zkreslování konečného obrazu.</string>
+    <string name="settings_no_interlacing_patches">Patche pro zrušení prokládání (No-Interlacing)</string>
+    <string name="settings_no_interlacing_patches_desc">Povolí odstranění prokládání obrazu (no-interlacing) pro podporované hry</string>
+    <string name="settings_help_no_interlacing_patches">Aplikuje patche pro odstranění prokládání (no-interlacing), pokud jsou k dispozici. Stojí to za vyzkoušení ve hrách s "česáním", třepotáním nebo blikáním způsobeným původním prokládaným výstupem, dostupnost ovšem závisí na konkrétním titulu.</string>
+    <string name="settings_patches_tab">Patche</string>
+    <string name="settings_patches_download">Stáhnout patche</string>
+    <string name="settings_patches_download_desc">Stáhnout komunitní databázi patchů</string>
+    <string name="settings_patches_download_success">Databáze patchů aktualizována: %1$d souborů</string>
+    <string name="settings_patches_download_failed">Databázi patchů se nepodařilo stáhnout</string>
+    <string name="settings_patches_installed_value">K dispozici %1$d souborů patchů</string>
+    <string name="settings_patches_source_missing">Nejprve zvolte zdroj patchů</string>
+    <string name="settings_patches_source_official">Oficiální zdroj</string>
+    <string name="settings_patches_source_official_desc">Stahovat patche z oficiální veřejné databáze</string>
+    <string name="settings_help_patches_source_official">Používá oficiální veřejnou databázi patchů jako zdroj stahování. Vypněte, chcete-li stahovat z vlastního zrcadla pomocí vlastní URL níže.</string>
+    <string name="settings_patches_custom_url">URL vlastního zdroje patchů</string>
+    <string name="settings_patches_custom_url_clear">Použít oficiální zdroj</string>
+    <string name="settings_patches_custom_url_dialog_title">Vlastní zdroj patchů</string>
+    <string name="settings_patches_custom_url_dialog_body">Vložte přímý odkaz HTTP nebo HTTPS na archiv ZIP se soubory patchů. Použije se pouze při vypnutém oficiálním zdroji. Ponechte prázdné pro odebrání vlastního zdroje.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">Zadejte platnou URL HTTP nebo HTTPS</string>
+    <string name="settings_patches_attribution_title">Autoři patchů</string>
+    <string name="settings_patches_attribution">Patche vytváří komunita a zůstávají majetkem jejich autorů. EmuCoreR je pouze stahuje z veřejného zdroje, nebalí je a nečiní si na ně nárok.</string>
+    <string name="settings_patches_source_link">Otevřít stránku zdroje patchů</string>
 </resources>

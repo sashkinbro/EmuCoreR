@@ -216,6 +216,8 @@ import com.sbro.emucorer.data.HomeBackgroundRepository
 import com.sbro.emucorer.data.HomeBackgroundType
 import com.sbro.emucorer.data.MemoryCardRepository
 import com.sbro.emucorer.data.OverlayLayoutSnapshot
+import com.sbro.emucorer.data.PatchDatabaseDownloader
+import com.sbro.emucorer.data.PatchDatabaseInstallStage
 import com.sbro.emucorer.data.PerGameSettingsRepository
 import com.sbro.emucorer.data.PerformanceOverlayMetrics
 import com.sbro.emucorer.data.RetroArchShaderPreset
@@ -269,7 +271,7 @@ import com.sbro.emucorer.ui.theme.neon.neonShape
 import com.sbro.emucorer.ui.theme.neon.neonShapeCorners
 
 private enum class SettingsTab {
-    General, Graphics, Controls, Emulation, Audio, Library, Customization, GameMenu, Updates, About
+    General, Graphics, Patches, Controls, Emulation, Audio, Library, Customization, GameMenu, Updates, About
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
@@ -303,6 +305,8 @@ fun SettingsScreen(
     val showBiosDialog = remember { mutableStateOf(false) }
     var showEmulatorDataLocationDialog by remember { mutableStateOf(false) }
     val pendingCoverUrl = remember { mutableStateOf("") }
+    val showPatchUrlDialog = remember { mutableStateOf(false) }
+    val pendingPatchUrl = remember { mutableStateOf("") }
     var searchEnabled by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val selectedTabFocusRequester = remember { FocusRequester() }
@@ -338,6 +342,16 @@ fun SettingsScreen(
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         viewModel.clearShaderPackMessage()
     }
+    val patchDatabaseMessage = uiState.patchDatabaseMessageResId?.let { resId ->
+        val count = uiState.patchDatabaseMessageCount
+        if (count != null) stringResource(resId, count) else stringResource(resId)
+    }
+    LaunchedEffect(patchDatabaseMessage) {
+        val message = patchDatabaseMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.clearPatchDatabaseMessage()
+    }
+    val patchUrlInvalidMessage = stringResource(R.string.settings_patches_custom_url_invalid)
 
     if (!uiState.isLoaded) {
         Box(
@@ -563,6 +577,10 @@ fun SettingsScreen(
                 onOpenCoverUrlEditor = {
                     pendingCoverUrl.value = uiState.coverDownloadBaseUrl.orEmpty()
                     showCoverUrlDialog.value = true
+                },
+                onOpenPatchUrlEditor = {
+                    pendingPatchUrl.value = uiState.patchDatabaseCustomUrl.orEmpty()
+                    showPatchUrlDialog.value = true
                 },
                 onClearCoverCache = { showClearCoverCacheDialog = true },
                 launchSettingsBackupExport = {
@@ -966,6 +984,79 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showPatchUrlDialog.value) {
+        val patchUrlFocusRequester = remember { FocusRequester() }
+        LaunchedEffect(showPatchUrlDialog.value) {
+            if (showPatchUrlDialog.value) {
+                patchUrlFocusRequester.requestFocus()
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { showPatchUrlDialog.value = false },
+            title = {
+                Text(stringResource(R.string.settings_patches_custom_url_dialog_title))
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_patches_custom_url_dialog_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = pendingPatchUrl.value,
+                        onValueChange = { pendingPatchUrl.value = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(patchUrlFocusRequester),
+                        minLines = 2,
+                        maxLines = 4,
+                        shape = neonShape(18.dp),
+                        label = { Text(stringResource(R.string.settings_patches_custom_url)) },
+                        placeholder = { Text(stringResource(R.string.settings_patches_custom_url_placeholder)) }
+                    )
+                    TextButton(
+                        onClick = {
+                            pendingPatchUrl.value = ""
+                            viewModel.setPatchDatabaseCustomUrl(null)
+                            showPatchUrlDialog.value = false
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.settings_patches_custom_url_clear))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val value = pendingPatchUrl.value.trim()
+                        if (value.isNotBlank() &&
+                            !value.startsWith("http://") &&
+                            !value.startsWith("https://")
+                        ) {
+                            Toast.makeText(
+                                context,
+                                patchUrlInvalidMessage,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@TextButton
+                        }
+                        viewModel.setPatchDatabaseCustomUrl(value.ifBlank { null })
+                        showPatchUrlDialog.value = false
+                    }
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPatchUrlDialog.value = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -1108,6 +1199,7 @@ private fun SettingsContent(
     launchCustomFontPicker: () -> Unit,
     launchShaderPackPicker: () -> Unit,
     onOpenCoverUrlEditor: () -> Unit,
+    onOpenPatchUrlEditor: () -> Unit,
     onClearCoverCache: () -> Unit,
     launchSettingsBackupExport: () -> Unit,
     launchSettingsBackupImport: () -> Unit,
@@ -2116,6 +2208,85 @@ private fun SettingsContent(
 
                 }
 
+                SettingsTab.Patches -> {
+                    SettingsSection(title = stringResource(R.string.settings_patches_tab)) {
+                        SettingsItem(
+                            icon = if (uiState.installedPatchCount > 0) {
+                                Icons.Rounded.CheckCircle
+                            } else {
+                                Icons.Rounded.SystemUpdateAlt
+                            },
+                            label = stringResource(R.string.settings_patches_download),
+                            value = when {
+                                uiState.isPatchDatabaseBusy &&
+                                    uiState.patchDatabaseProgress?.stage == PatchDatabaseInstallStage.DOWNLOADING ->
+                                    stringResource(R.string.texture_download_status_downloading)
+                                uiState.isPatchDatabaseBusy ->
+                                    stringResource(R.string.settings_shader_pack_working)
+                                uiState.installedPatchCount > 0 ->
+                                    stringResource(
+                                        R.string.settings_patches_installed_value,
+                                        uiState.installedPatchCount
+                                    )
+                                !uiState.patchDatabaseUseOfficial &&
+                                    uiState.patchDatabaseCustomUrl.isNullOrBlank() ->
+                                    stringResource(R.string.settings_patches_source_missing)
+                                else -> stringResource(R.string.settings_patches_download_desc)
+                            },
+                            onClick = viewModel::downloadPatchDatabase,
+                            enabled = !uiState.isPatchDatabaseBusy &&
+                                (uiState.patchDatabaseUseOfficial ||
+                                    !uiState.patchDatabaseCustomUrl.isNullOrBlank()),
+                            progressVisible = uiState.isPatchDatabaseBusy,
+                            progress = uiState.patchDatabaseProgress?.fraction
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Language,
+                            title = stringResource(R.string.settings_patches_source_official),
+                            subtitle = stringResource(R.string.settings_patches_source_official_desc),
+                            checked = uiState.patchDatabaseUseOfficial,
+                            onCheckedChange = viewModel::setPatchDatabaseUseOfficial,
+                            helpText = stringResource(R.string.settings_help_patches_source_official),
+                            onResetToDefault = { viewModel.setPatchDatabaseUseOfficial(true) }
+                        )
+                        SettingsItem(
+                            icon = Icons.Rounded.Link,
+                            label = stringResource(R.string.settings_patches_custom_url),
+                            value = uiState.patchDatabaseCustomUrl?.takeIf { it.isNotBlank() }
+                                ?: stringResource(R.string.settings_not_set),
+                            onClick = onOpenPatchUrlEditor
+                        )
+                        AboutNote(
+                            title = stringResource(R.string.settings_patches_attribution_title),
+                            body = stringResource(R.string.settings_patches_attribution),
+                            linkLabel = stringResource(R.string.settings_patches_source_link),
+                            linkUrl = PatchDatabaseDownloader.OFFICIAL_SOURCE_PAGE_URL
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_widescreen_patches),
+                            subtitle = stringResource(R.string.settings_widescreen_patches_desc),
+                            checked = uiState.enableWidescreenPatches,
+                            onCheckedChange = viewModel::setEnableWidescreenPatches,
+                            helpText = stringResource(R.string.settings_help_widescreen_patches),
+                            onResetToDefault = {
+                                viewModel.setEnableWidescreenPatches(defaults.enableWidescreenPatches)
+                            }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.settings_no_interlacing_patches),
+                            subtitle = stringResource(R.string.settings_no_interlacing_patches_desc),
+                            checked = uiState.enableNoInterlacingPatches,
+                            onCheckedChange = viewModel::setEnableNoInterlacingPatches,
+                            helpText = stringResource(R.string.settings_help_no_interlacing_patches),
+                            onResetToDefault = {
+                                viewModel.setEnableNoInterlacingPatches(defaults.enableNoInterlacingPatches)
+                            }
+                        )
+                    }
+                }
+
                 SettingsTab.Emulation -> {
                     SettingsSection(title = stringResource(R.string.emulation_performance_stats)) {
                         ToggleItem(
@@ -2265,6 +2436,12 @@ private fun SettingsContent(
                         AboutNote(
                             title = stringResource(R.string.settings_about_studio),
                             body = stringResource(R.string.settings_about_studio_desc)
+                        )
+                        AboutNote(
+                            title = stringResource(R.string.settings_about_website),
+                            body = stringResource(R.string.settings_about_website_desc),
+                            linkLabel = stringResource(R.string.settings_about_website_link),
+                            linkUrl = stringResource(R.string.settings_about_website_url)
                         )
                         AboutNote(
                             title = stringResource(R.string.settings_about_app_source),
@@ -3975,6 +4152,11 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Graphics, R.string.settings_renderer),
         entry(SettingsTab.Graphics, R.string.settings_upscale),
         entry(SettingsTab.Graphics, R.string.settings_aspect_ratio),
+        entry(SettingsTab.Patches, R.string.settings_patches_download),
+        entry(SettingsTab.Patches, R.string.settings_patches_source_official),
+        entry(SettingsTab.Patches, R.string.settings_patches_custom_url),
+        entry(SettingsTab.Patches, R.string.settings_widescreen_patches),
+        entry(SettingsTab.Patches, R.string.settings_no_interlacing_patches),
         entry(SettingsTab.Emulation, R.string.settings_show_fps),
         entry(SettingsTab.Emulation, R.string.settings_fast_boot),
         entry(SettingsTab.Emulation, R.string.settings_fps_overlay_mode),
@@ -5678,6 +5860,7 @@ private fun SettingsTab.label(): String {
     return when (this) {
         SettingsTab.General -> stringResource(R.string.settings_general_tab)
         SettingsTab.Graphics -> stringResource(R.string.settings_graphics_tab)
+        SettingsTab.Patches -> stringResource(R.string.settings_patches_tab)
         SettingsTab.Customization -> stringResource(R.string.settings_customization_tab)
         SettingsTab.GameMenu -> stringResource(R.string.settings_game_menu_tab)
         SettingsTab.Audio -> stringResource(R.string.settings_audio_tab)
@@ -5693,6 +5876,7 @@ private fun SettingsTab.icon(): ImageVector {
     return when (this) {
         SettingsTab.General -> Icons.Rounded.Tune
         SettingsTab.Graphics -> Icons.Rounded.Wallpaper
+        SettingsTab.Patches -> Icons.Rounded.AutoFixHigh
         SettingsTab.Customization -> Icons.Rounded.Palette
         SettingsTab.GameMenu -> Icons.Rounded.MoreVert
         SettingsTab.Audio -> Icons.AutoMirrored.Rounded.VolumeUp
@@ -5711,6 +5895,7 @@ private fun String.toSettingsTab(): SettingsTab {
         "audio", "sound" -> SettingsTab.Audio
         "controls" -> SettingsTab.Controls
         "graphics", "video", "renderer", "display" -> SettingsTab.Graphics
+        "patches", "patch", "patch_database", "patch-database" -> SettingsTab.Patches
         "paths", "files", "memorycards", "memory_cards", "memory-cards", "memcards", "covers",
         "cover-art", "cover_art", "data_transfer", "transfer", "backup", "data-transfer", "library" -> SettingsTab.Library
         "performance", "emulation" -> SettingsTab.Emulation

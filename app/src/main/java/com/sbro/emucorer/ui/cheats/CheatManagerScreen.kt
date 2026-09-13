@@ -62,6 +62,7 @@ import com.sbro.emucorer.data.CheatGameConfig
 import com.sbro.emucorer.data.CheatRepository
 import com.sbro.emucorer.data.ContentLibraryRepository
 import com.sbro.emucorer.data.GameItem
+import com.sbro.emucorer.data.GamePatchRepository
 import com.sbro.emucorer.core.NativeApp
 import com.sbro.emucorer.data.SelectedGameIdentity
 import com.sbro.emucorer.ui.common.AppAlertDialog
@@ -72,6 +73,7 @@ import com.sbro.emucorer.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorer.ui.theme.ScreenHorizontalPadding
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -86,6 +88,7 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
     val scope = rememberCoroutineScope()
     val preferences = remember(context) { AppPreferences(context) }
     val cheatRepository = remember(context) { CheatRepository(context) }
+    val patchRepository = remember(context) { GamePatchRepository(context) }
     val libraryRepository = remember(context) { ContentLibraryRepository(context) }
     val cheatWriteMutex = remember { Mutex() }
     val cheatsEnabled by preferences.enableCheats.collectAsState(initial = false)
@@ -157,7 +160,8 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
     val visibleInstalledBlocks = remember(installedBlocks, categoryGroups, selectedCheatCategory, cheatSearchQuery) {
         when {
             cheatSearchQuery.isNotBlank() -> installedBlocks.filter { block ->
-                block.title.contains(cheatSearchQuery.trim(), ignoreCase = true)
+                block.title.contains(cheatSearchQuery.trim(), ignoreCase = true) ||
+                    block.author?.contains(cheatSearchQuery.trim(), ignoreCase = true) == true
             }
             selectedCheatCategory != null -> categoryGroups
                 .firstOrNull { it.first == selectedCheatCategory }
@@ -246,11 +250,19 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
                                     scope.launch {
                                         preferences.setEnableCheats(enabled)
                                         val currentConfig = config
-                                        if (enabled && currentConfig != null) {
+                                        if (currentConfig != null) {
+                                            val patchBlocks = patchRepository.buildPatchBlocks(
+                                                serial = currentConfig.serial,
+                                                crc = currentConfig.crc,
+                                                widescreen = preferences.enableWidescreenPatches.first(),
+                                                noInterlacing = preferences.enableNoInterlacingPatches.first()
+                                            )
                                             cheatRepository.syncActiveCheats(
                                                 currentConfig.gameKey,
                                                 currentConfig.serial,
-                                                currentConfig.crc
+                                                currentConfig.crc,
+                                                includeCheats = enabled,
+                                                patchBlocks = patchBlocks
                                             )
                                             val coreFile = cheatRepository.activeCoreCheatFile(
                                                 currentConfig.gameKey,
@@ -662,11 +674,19 @@ private fun CheatToggleCard(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = block.title,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = block.title,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                block.author?.takeIf { it.isNotBlank() }?.let { author ->
+                    Text(
+                        text = author,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Switch(
                 checked = block.enabled,
                 onCheckedChange = onEnabledChange

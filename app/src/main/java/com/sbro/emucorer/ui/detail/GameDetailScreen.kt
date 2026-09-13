@@ -109,7 +109,6 @@ import com.sbro.emucorer.core.GamepadManager
 import com.sbro.emucorer.core.LocalTvUiEnvironment
 import com.sbro.emucorer.ui.common.BitmapPathImage
 import com.sbro.emucorer.ui.common.GameCoverArt
-import com.sbro.emucorer.ui.common.GameCoverAspectRatio
 import com.sbro.emucorer.ui.common.NavigationBackButton
 import com.sbro.emucorer.ui.common.RequestFocusOnResume
 import com.sbro.emucorer.ui.common.gamepadFocusableCard
@@ -147,7 +146,11 @@ fun GameDetailScreen(
     val selectedScreenshotIndex = rememberSaveable { mutableIntStateOf(-1) }
     val selectedVideoIndex = rememberSaveable { mutableIntStateOf(-1) }
     val horizontalInset = ScreenHorizontalPadding
-    val contentMaxWidth = if (isLandscape) 760.dp else Dp.Unspecified
+    val contentMaxWidth = if (isLandscape) {
+        Dp((configuration.screenWidthDp * 0.9f).coerceIn(760f, 1200f))
+    } else {
+        Dp.Unspecified
+    }
     val heroMaxWidth = if (isLandscape) 240.dp else Dp.Unspecified
     val backFocusRequester = remember { FocusRequester() }
     val shouldRequestGamepadFocus =
@@ -216,7 +219,7 @@ fun GameDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth(if (isLandscape) 0.4f else 1f)
                         .widthIn(max = heroMaxWidth)
-                        .aspectRatio(GameCoverAspectRatio)
+                        .aspectRatio(2f / 3f)
                         .clip(neonShape(28.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                 ) {
@@ -230,7 +233,9 @@ fun GameDetailScreen(
             }
 
             Column(
-                modifier = Modifier.padding(vertical = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
@@ -313,7 +318,10 @@ fun GameDetailScreen(
                         )
                     }
                     LazyRow(
-                        modifier = Modifier.tvFocusGroup(),
+                        modifier = Modifier
+                            .then(if (isLandscape) Modifier.align(Alignment.CenterHorizontally) else Modifier)
+                            .then(if (isLandscape) Modifier.widthIn(max = contentMaxWidth) else Modifier)
+                            .tvFocusGroup(),
                         contentPadding = PaddingValues(horizontal = horizontalInset),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -340,7 +348,10 @@ fun GameDetailScreen(
                         )
                     }
                     LazyRow(
-                        modifier = Modifier.tvFocusGroup(),
+                        modifier = Modifier
+                            .then(if (isLandscape) Modifier.align(Alignment.CenterHorizontally) else Modifier)
+                            .then(if (isLandscape) Modifier.widthIn(max = contentMaxWidth) else Modifier)
+                            .tvFocusGroup(),
                         contentPadding = PaddingValues(horizontal = horizontalInset),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -392,7 +403,7 @@ private fun DetailSkeleton(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = horizontalInset)
-                .aspectRatio(GameCoverAspectRatio)
+                .aspectRatio(2f / 3f)
                 .clip(neonShape(28.dp))
         )
         SkeletonBlock(

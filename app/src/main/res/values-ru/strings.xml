@@ -149,6 +149,10 @@
     <string name="settings_about_more_apps_desc">Открыть страницу автора в Google Play и посмотреть другие приложения от Sashkin Apps.</string>
     <string name="settings_about_more_apps_link">Открыть страницу разработчика</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">Официальный сайт</string>
+    <string name="settings_about_website_desc">Откройте официальный сайт EmuCoreR: новости, руководства и последние обновления проекта.</string>
+    <string name="settings_about_website_link">Открыть официальный сайт</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">Вибрация геймпада</string>
     <string name="settings_pad_vibration_desc">Включить вибрацию в поддерживаемых играх и на поддерживаемых устройствах.</string>
     <string name="settings_show_fps">Показывать счетчик FPS</string>
@@ -1935,4 +1939,29 @@
     <string name="settings_display_crop_top">Верхний край</string>
     <string name="settings_display_crop_right">Правый край</string>
     <string name="settings_display_crop_bottom">Нижний край</string>
+    <string name="settings_widescreen_patches">Широкоформатные патчи</string>
+    <string name="settings_widescreen_patches_desc">Включить широкоформатные патчи для поддерживаемых игр</string>
+    <string name="settings_help_widescreen_patches">Загружает широкоэкранные патчи, когда они доступны для текущей игры. Обычно это лучше, чем растягивать изображение, потому что это изменяет логику камеры и HUD игры, а не просто искажает конечное изображение.</string>
+    <string name="settings_no_interlacing_patches">Патчи без чересстрочной развертки</string>
+    <string name="settings_no_interlacing_patches_desc">Включить патчи без чересстрочной развертки для поддерживаемых игр</string>
+    <string name="settings_help_no_interlacing_patches">Применяет патчи без чересстрочной развертки, если они доступны. Стоит попробовать в играх с «гребенкой», мерцанием или дрожанием от оригинального чересстрочного вывода, но доступность зависит от конкретной игры.</string>
+    <string name="settings_patches_tab">Патчи</string>
+    <string name="settings_patches_download">Загрузить патчи</string>
+    <string name="settings_patches_download_desc">Загрузить базу патчей сообщества</string>
+    <string name="settings_patches_download_success">База патчей обновлена: %1$d файлов</string>
+    <string name="settings_patches_download_failed">Не удалось загрузить базу патчей</string>
+    <string name="settings_patches_installed_value">Доступно файлов патчей: %1$d</string>
+    <string name="settings_patches_source_missing">Сначала выберите источник патчей</string>
+    <string name="settings_patches_source_official">Официальный источник</string>
+    <string name="settings_patches_source_official_desc">Загружать патчи из официальной публичной базы</string>
+    <string name="settings_help_patches_source_official">Использует официальную публичную базу патчей как источник загрузки. Отключите, чтобы скачивать со своего зеркала по своему URL ниже.</string>
+    <string name="settings_patches_custom_url">URL своего источника патчей</string>
+    <string name="settings_patches_custom_url_clear">Использовать официальный источник</string>
+    <string name="settings_patches_custom_url_dialog_title">Свой источник патчей</string>
+    <string name="settings_patches_custom_url_dialog_body">Вставьте прямую ссылку HTTP или HTTPS на ZIP-архив с файлами патчей. Используется только когда официальный источник отключён. Оставьте пустым, чтобы убрать свой источник.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">Введите корректный URL HTTP или HTTPS</string>
+    <string name="settings_patches_attribution_title">Авторы патчей</string>
+    <string name="settings_patches_attribution">Патчи созданы сообществом и остаются собственностью их авторов. EmuCoreR только загружает их из публичного источника, не включает в приложение и не претендует на них.</string>
+    <string name="settings_patches_source_link">Открыть страницу источника патчей</string>
 </resources>

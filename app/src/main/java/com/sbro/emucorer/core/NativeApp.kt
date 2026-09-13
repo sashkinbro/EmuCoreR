@@ -231,7 +231,7 @@ object NativeApp {
     @JvmStatic fun setFrameLimitEnabled(enabled: Boolean) =
         CoreRuntime.updateSetting("EmuCore/GS", "FrameLimitEnable", enabled.toString())
     @JvmStatic fun setTurboModeEnabled(enabled: Boolean) = Unit
-    @JvmStatic fun reloadPatches() = Unit
+    @JvmStatic fun reloadPatches() = CoreRuntime.reloadCheats()
     @JvmStatic fun loadCheats(path: String) = CoreRuntime.loadCheats(path)
     @JvmStatic fun clearCheats() = CoreRuntime.clearCheats()
     @JvmStatic fun setMemoryCardPath(slot: Int, path: String?) = CoreRuntime.setMemoryCardPath(slot, path)

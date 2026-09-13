@@ -148,6 +148,10 @@
     <string name="settings_about_more_apps_desc">Abra a página do autor no Google Play para ver outros aplicativos da Sashkin Apps.</string>
     <string name="settings_about_more_apps_link">Abrir Página do Desenvolvedor</string>
     <string name="settings_about_more_apps_url">https://play.google.com/store/apps/dev?id=7136622298887775989</string>
+    <string name="settings_about_website">Site oficial</string>
+    <string name="settings_about_website_desc">Abra o site oficial do EmuCoreR para ver notícias, guias e as últimas atualizações do projeto.</string>
+    <string name="settings_about_website_link">Abrir o site oficial</string>
+    <string name="settings_about_website_url">https://emucorer.web.app/</string>
     <string name="settings_pad_vibration">Vibração do controle</string>
     <string name="settings_pad_vibration_desc">Ative a vibração em jogos compatíveis e em dispositivos suportados.</string>
     <string name="settings_show_fps">Mostrar contador de FPS</string>
@@ -1933,4 +1937,29 @@
     <string name="settings_display_crop_top">Borda superior</string>
     <string name="settings_display_crop_right">Borda direita</string>
     <string name="settings_display_crop_bottom">Borda inferior</string>
+    <string name="settings_widescreen_patches">Patches Widescreen</string>
+    <string name="settings_widescreen_patches_desc">Ativar patches widescreen para jogos compatíveis</string>
+    <string name="settings_help_widescreen_patches">Carrega patches de tela panorâmica quando o jogo atual tiver um disponível. Isso costuma ser melhor do que esticar a imagem, pois altera a lógica da câmera e da interface (HUD) do jogo, em vez de simplesmente distorcer a imagem final.</string>
+    <string name="settings_no_interlacing_patches">Patches sem Entrelaçamento</string>
+    <string name="settings_no_interlacing_patches_desc">Ative patches sem entrelaçamento para jogos compatíveis</string>
+    <string name="settings_help_no_interlacing_patches">Aplica patches sem entrelaçamento quando disponíveis. Vale a pena experimentar em jogos com o efeito de "pente" (combing), cintilação ou trepidação provenientes da saída original entrelaçada, mas a disponibilidade depende do título.</string>
+    <string name="settings_patches_tab">Patches</string>
+    <string name="settings_patches_download">Baixar patches</string>
+    <string name="settings_patches_download_desc">Baixar o banco de patches da comunidade</string>
+    <string name="settings_patches_download_success">Banco de patches atualizado: %1$d arquivos</string>
+    <string name="settings_patches_download_failed">Não foi possível baixar o banco de patches</string>
+    <string name="settings_patches_installed_value">%1$d arquivos de patch disponíveis</string>
+    <string name="settings_patches_source_missing">Escolha uma fonte de patches primeiro</string>
+    <string name="settings_patches_source_official">Fonte oficial</string>
+    <string name="settings_patches_source_official_desc">Baixar patches do banco público oficial</string>
+    <string name="settings_help_patches_source_official">Usa o banco público oficial de patches como fonte de download. Desative para baixar do seu próprio espelho usando a URL personalizada abaixo.</string>
+    <string name="settings_patches_custom_url">URL da fonte personalizada de patches</string>
+    <string name="settings_patches_custom_url_clear">Usar fonte oficial</string>
+    <string name="settings_patches_custom_url_dialog_title">Fonte personalizada de patches</string>
+    <string name="settings_patches_custom_url_dialog_body">Cole um link HTTP ou HTTPS direto para um arquivo ZIP com arquivos de patch. É usado apenas quando a fonte oficial está desativada. Deixe vazio para remover a fonte personalizada.</string>
+    <string name="settings_patches_custom_url_placeholder">https://example.com/patches.zip</string>
+    <string name="settings_patches_custom_url_invalid">Insira uma URL HTTP ou HTTPS válida</string>
+    <string name="settings_patches_attribution_title">Autores dos patches</string>
+    <string name="settings_patches_attribution">Os patches são criados pela comunidade e permanecem propriedade de seus autores. O EmuCoreR apenas os baixa da fonte pública e não os inclui nem reivindica.</string>
+    <string name="settings_patches_source_link">Abrir a página da fonte dos patches</string>
 </resources>

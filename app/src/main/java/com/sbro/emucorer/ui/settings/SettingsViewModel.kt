@@ -35,6 +35,9 @@ import com.sbro.emucorer.data.EmulationSideArtwork
 import com.sbro.emucorer.data.EmulationSideArtworkRepository
 import com.sbro.emucorer.data.RetroArchShaderPreset
 import com.sbro.emucorer.data.RetroArchShaderRepository
+import com.sbro.emucorer.data.PatchDatabaseDownloader
+import com.sbro.emucorer.data.PatchDatabaseInstallProgress
+import com.sbro.emucorer.data.PatchDatabaseInstallStage
 import com.sbro.emucorer.data.ShaderPackInstallProgress
 import com.sbro.emucorer.data.ShaderPackInstallStage
 import com.sbro.emucorer.data.TouchControlVisualStyle
@@ -95,6 +98,13 @@ data class SettingsUiState(
     val isShaderPackBusy: Boolean = false,
     val shaderPackProgress: ShaderPackInstallProgress? = null,
     val shaderPackMessageResId: Int? = null,
+    val patchDatabaseUseOfficial: Boolean = true,
+    val patchDatabaseCustomUrl: String? = null,
+    val installedPatchCount: Int = 0,
+    val isPatchDatabaseBusy: Boolean = false,
+    val patchDatabaseProgress: PatchDatabaseInstallProgress? = null,
+    val patchDatabaseMessageResId: Int? = null,
+    val patchDatabaseMessageCount: Int? = null,
     val touchControlVisualStyle: TouchControlVisualStyle = TouchControlVisualStyle.CLASSIC,
     val touchControlPressEffect: TouchControlPressEffect = TouchControlPressEffect.GROW,
     val gameMenuLayoutStyle: GameMenuLayoutStyle = GameMenuLayoutStyle.SIDEBAR,
@@ -318,13 +328,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val homeBackgroundRepository = HomeBackgroundRepository(application)
     private val emulationSideArtworkRepository = EmulationSideArtworkRepository(application)
     private val retroArchShaderRepository = RetroArchShaderRepository(application)
+    private val patchDatabaseDownloader = PatchDatabaseDownloader(application)
     private val appUpdateRepository = AppUpdateRepository(application)
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     private var mediatekCompatibilityNoticeChecked = false
 
     init {
+        initializeAboutInfo()
         refreshShaderPresets()
+        refreshPatchDatabaseState()
         viewModelScope.launch {
             preferences.cleanupLegacyClampingPreferencesIfNeeded()
             preferences.settingsSnapshot.collect { snapshot ->
@@ -340,15 +353,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
         refreshEmulatorDataLocations()
+    }
 
-        try {
-            val pInfo = application.packageManager.getPackageInfo(application.packageName, 0)
-            _uiState.value = _uiState.value.copy(
-                appVersion = pInfo.versionName?.takeIf { it.isNotBlank() } ?: BuildConfig.VERSION_NAME,
-                coreName = NativeApp.getCoreName() ?: "unknown",
-                coreVersion = NativeApp.getCoreVersion() ?: "unknown"
-            )
-        } catch (_: Exception) { }
+    private fun initializeAboutInfo() {
+        val application = getApplication<Application>()
+        val appVersion = runCatching {
+            application.packageManager.getPackageInfo(application.packageName, 0).versionName
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: BuildConfig.VERSION_NAME
+        _uiState.value = _uiState.value.copy(
+            appVersion = appVersion,
+            coreName = CORE_NAME,
+            coreVersion = CORE_VERSION
+        )
     }
 
     private fun applySettingsSnapshot(snapshot: SettingsSnapshot) {
@@ -468,6 +484,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             shadeBoostGamma = snapshot.shadeBoostGamma,
             enableWidescreenPatches = snapshot.enableWidescreenPatches,
             enableNoInterlacingPatches = snapshot.enableNoInterlacingPatches,
+            patchDatabaseUseOfficial = snapshot.patchDatabaseUseOfficial,
+            patchDatabaseCustomUrl = snapshot.patchDatabaseCustomUrl,
             deinterlaceMode = snapshot.deinterlaceMode,
             dithering = snapshot.dithering,
             anisotropicFiltering = snapshot.anisotropicFiltering,
@@ -871,6 +889,63 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun clearShaderPackMessage() {
         _uiState.value = _uiState.value.copy(shaderPackMessageResId = null)
+    }
+
+    fun refreshPatchDatabaseState() = viewModelScope.launch(Dispatchers.IO) {
+        _uiState.value = _uiState.value.copy(
+            installedPatchCount = patchDatabaseDownloader.installedPatchCount()
+        )
+    }
+
+    fun downloadPatchDatabase() = viewModelScope.launch(Dispatchers.IO) {
+        if (_uiState.value.isPatchDatabaseBusy) return@launch
+        if (!patchDatabaseDownloader.hasConfiguredSource()) {
+            _uiState.value = _uiState.value.copy(
+                patchDatabaseMessageResId = com.sbro.emucorer.R.string.settings_patches_source_missing,
+                patchDatabaseMessageCount = null
+            )
+            return@launch
+        }
+        _uiState.value = _uiState.value.copy(
+            isPatchDatabaseBusy = true,
+            patchDatabaseProgress = PatchDatabaseInstallProgress(PatchDatabaseInstallStage.DOWNLOADING),
+            patchDatabaseMessageResId = null,
+            patchDatabaseMessageCount = null
+        )
+        val result = patchDatabaseDownloader.download { progress ->
+            _uiState.value = _uiState.value.copy(patchDatabaseProgress = progress)
+        }
+        val installedCount = patchDatabaseDownloader.installedPatchCount()
+        _uiState.value = _uiState.value.copy(
+            isPatchDatabaseBusy = false,
+            patchDatabaseProgress = null,
+            installedPatchCount = installedCount,
+            patchDatabaseMessageResId = if (result.isSuccess) {
+                com.sbro.emucorer.R.string.settings_patches_download_success
+            } else {
+                com.sbro.emucorer.R.string.settings_patches_download_failed
+            },
+            patchDatabaseMessageCount = installedCount.takeIf { result.isSuccess }
+        )
+        if (result.isSuccess) {
+            preferences.bumpPatchDatabaseRevision()
+            EmulatorBridge.reloadPatches()
+        }
+    }
+
+    fun clearPatchDatabaseMessage() {
+        _uiState.value = _uiState.value.copy(
+            patchDatabaseMessageResId = null,
+            patchDatabaseMessageCount = null
+        )
+    }
+
+    fun setPatchDatabaseUseOfficial(enabled: Boolean) = viewModelScope.launch {
+        preferences.setPatchDatabaseUseOfficial(enabled)
+    }
+
+    fun setPatchDatabaseCustomUrl(url: String?) = viewModelScope.launch {
+        preferences.setPatchDatabaseCustomUrl(url)
     }
 
     fun resetCustomization() = viewModelScope.launch(Dispatchers.IO) {
@@ -2389,4 +2464,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private companion object {
+        const val CORE_NAME = "SwanStation"
+        const val CORE_VERSION = "1.0.0"
+    }
 }
