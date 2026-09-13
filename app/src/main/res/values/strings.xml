@@ -1714,7 +1714,7 @@
     <string name="ss_core_choice_only_overscan_area">Only Overscan Area</string>
     <string name="ss_core_choice_all_borders">All Borders</string>
     <string name="ss_core_gpu_downsamplemode">Downsampling</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Downsamples the rendered image prior to displaying it. Can improve overall image quality in mixed 2D/3D games, but should be disabled for pure 3D games. Only applies to the hardware renderers.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Downsamples the rendered image prior to displaying it. Can improve overall image quality in mixed 2D/3D games, but should be disabled for pure 3D games. Only applies to the hardware renderers. The downsampling scale follows the Image Quality setting and only applies when it is above Native.</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (Downsample 3D/Smooth All)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Adaptive (Preserve 3D/Smooth 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">Shader Precompilation</string>
@@ -1949,6 +1949,9 @@
     <string name="settings_frame_limit_desc">Caps emulation to the console\'s refresh rate. Turn off to run as fast as the device allows.</string>
     <string name="settings_target_fps">Target frame rate</string>
     <string name="settings_target_fps_desc">Overrides the emulated refresh rate. Auto follows the console region.</string>
+    <string name="settings_vertical_refresh_ntsc">NTSC refresh rate</string>
+    <string name="settings_vertical_refresh_pal">PAL refresh rate</string>
+    <string name="settings_help_vertical_refresh">Overrides the emulated vertical refresh rate for this region. Adjust it slightly if NTSC audio crackles or PAL video stutters; the default follows the console standard.</string>
     <string name="settings_frame_skip">Frame skip</string>
     <string name="settings_frame_skip_desc">Skips presenting rendered frames to reduce host load. Higher values are choppier but faster.</string>
     <string name="settings_display_crop">Display crop</string>

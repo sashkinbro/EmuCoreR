@@ -1713,7 +1713,7 @@
     <string name="ss_core_choice_only_overscan_area">Tylko obszar overscanu</string>
     <string name="ss_core_choice_all_borders">Wszystkie ramki</string>
     <string name="ss_core_gpu_downsamplemode">Zmniejszanie rozdzielczości</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Zmniejsza rozdzielczość renderowanego obrazu przed wyświetleniem. Może poprawić ogólną jakość w mieszanych grach 2D/3D, ale w czystych grach 3D należy ją wyłączyć. Dotyczy tylko rendererów sprzętowych.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Zmniejsza rozdzielczość renderowanego obrazu przed wyświetleniem. Może poprawić jakość w mieszanych grach 2D/3D, ale w grach czysto 3D lepiej go wyłączyć. Dotyczy tylko rendererów sprzętowych. Skala zmniejszania zależy od ustawienia „Jakość obrazu” i działa tylko, gdy jest wyższa niż „Natywna”.</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (zmniejszenie 3D / wygładź wszystko)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Adaptacyjne (zachowaj 3D / wygładź 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">Wstępna kompilacja shaderów</string>
@@ -1948,6 +1948,9 @@
     <string name="settings_frame_limit_desc">Ogranicza emulację do częstotliwości odświeżania konsoli. Wyłącz, aby działać tak szybko, jak pozwala urządzenie.</string>
     <string name="settings_target_fps">Docelowa liczba klatek</string>
     <string name="settings_target_fps_desc">Zastępuje emulowaną częstotliwość odświeżania. Auto podąża za regionem konsoli.</string>
+    <string name="settings_vertical_refresh_ntsc">Częstotliwość odświeżania NTSC</string>
+    <string name="settings_vertical_refresh_pal">Częstotliwość odświeżania PAL</string>
+    <string name="settings_help_vertical_refresh">Zastępuje emulowaną pionową częstotliwość odświeżania dla tego regionu. Dostosuj nieznacznie, jeśli dźwięk NTSC trzeszczy lub obraz PAL przycina; domyślna wartość odpowiada standardowi konsoli.</string>
     <string name="settings_frame_skip">Pomijanie klatek</string>
     <string name="settings_frame_skip_desc">Pomija prezentację wyrenderowanych klatek, zmniejszając obciążenie. Wyższe wartości są mniej płynne, ale szybsze.</string>
     <string name="settings_display_crop">Przycinanie obrazu</string>

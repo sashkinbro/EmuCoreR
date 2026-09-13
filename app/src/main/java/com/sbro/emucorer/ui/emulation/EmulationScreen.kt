@@ -213,6 +213,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import com.sbro.emucorer.ui.theme.neon.LocalNeonTheme
@@ -1325,6 +1326,8 @@ fun EmulationScreen(
                     onSetFrameLimit = { viewModel.toggleFrameLimit() },
                     onSetTargetFps = { viewModel.setTargetFps(it) },
                     onSetFrameSkip = { viewModel.setFrameSkip(it) },
+                    onSetNtscFramerate = { viewModel.setNtscFramerate(it) },
+                    onSetPalFramerate = { viewModel.setPalFramerate(it) },
                     onSetFpsOverlayMode = { viewModel.setFpsOverlayMode(it) },
                     onSetFpsOverlayCorner = { viewModel.setFpsOverlayCorner(it) },
                     onSetFpsOverlayScale = { viewModel.setFpsOverlayScale(it) },
@@ -2688,6 +2691,8 @@ private fun EmulationSidebarMenu(
     onSetFrameLimit: () -> Unit,
     onSetTargetFps: (Int) -> Unit,
     onSetFrameSkip: (Int) -> Unit,
+    onSetNtscFramerate: (Float) -> Unit,
+    onSetPalFramerate: (Float) -> Unit,
     onSetFpsOverlayMode: (Int) -> Unit,
     onSetFpsOverlayCorner: (Int) -> Unit,
     onSetFpsOverlayScale: (Int) -> Unit,
@@ -3516,6 +3521,30 @@ private fun EmulationSidebarMenu(
                             onValueChange = onSetTargetFps,
                             helpText = stringResource(R.string.settings_target_fps_desc),
                             onResetToDefault = { onSetTargetFps(globalDefaults.targetFps) }
+                        )
+
+                        LiveSliderRow(
+                            title = stringResource(R.string.settings_vertical_refresh_ntsc),
+                            valueLabelForValue = { "$it Hz" },
+                            valueLabelForFloat = { refresh -> String.format(Locale.US, "%.2f Hz", refresh) },
+                            value = uiState.ntscFramerate,
+                            range = AppPreferences.MIN_REGION_FRAMERATE..AppPreferences.MAX_REGION_FRAMERATE,
+                            steps = 0,
+                            onValueChange = onSetNtscFramerate,
+                            helpText = stringResource(R.string.settings_help_vertical_refresh),
+                            onResetToDefault = { onSetNtscFramerate(globalDefaults.ntscFramerate) }
+                        )
+
+                        LiveSliderRow(
+                            title = stringResource(R.string.settings_vertical_refresh_pal),
+                            valueLabelForValue = { "$it Hz" },
+                            valueLabelForFloat = { refresh -> String.format(Locale.US, "%.2f Hz", refresh) },
+                            value = uiState.palFramerate,
+                            range = AppPreferences.MIN_REGION_FRAMERATE..AppPreferences.MAX_REGION_FRAMERATE,
+                            steps = 0,
+                            onValueChange = onSetPalFramerate,
+                            helpText = stringResource(R.string.settings_help_vertical_refresh),
+                            onResetToDefault = { onSetPalFramerate(globalDefaults.palFramerate) }
                         )
 
                         LiveSelectionRow(
@@ -5117,6 +5146,7 @@ private fun LiveSliderRow(
     title: String,
     @androidx.annotation.StringRes valueLabelResId: Int? = null,
     valueLabelForValue: (Int) -> String,
+    valueLabelForFloat: ((Float) -> String)? = null,
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     steps: Int,
@@ -5181,6 +5211,7 @@ private fun LiveSliderRow(
             }
             Text(
                 text = valueLabelResId?.let { stringResource(it, displayValue) }
+                    ?: valueLabelForFloat?.invoke(sliderValue)
                     ?: valueLabelForValue(displayValue),
                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                 color = if (enabled) {

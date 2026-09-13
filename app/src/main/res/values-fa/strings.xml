@@ -1707,7 +1707,7 @@
     <string name="ss_core_choice_only_overscan_area">فقط ناحیه اوورسکن</string>
     <string name="ss_core_choice_all_borders">همه حاشیه‌ها</string>
     <string name="ss_core_gpu_downsamplemode">کاهش نمونه</string>
-    <string name="ss_core_gpu_downsamplemode_desc">تصویر رندرشده را پیش از نمایش کاهش نمونه می‌دهد. می‌تواند کیفیت کلی تصویر را در بازی‌های ترکیبی 2D/3D بهبود دهد، اما در بازی‌های کاملاً 3D باید غیرفعال باشد. فقط برای رندررهای سخت‌افزاری اعمال می‌شود.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">پیش از نمایش، وضوح تصویر رندر‌شده را کاهش می‌دهد. می‌تواند کیفیت را در بازی‌های ترکیبی 2D/3D بهبود دهد، اما برای بازی‌های کاملاً 3D بهتر است خاموش باشد. فقط برای رندرکننده‌های سخت‌افزاری اعمال می‌شود. مقیاس کاهش از تنظیم «کیفیت تصویر» پیروی می‌کند و تنها وقتی بالاتر از «بومی» باشد اعمال می‌شود.</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (کاهش 3D / نرم‌کردن همه)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">تطبیقی (حفظ 3D / نرم‌کردن 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">پیش‌کامپایل شیدر</string>
@@ -1942,6 +1942,9 @@
     <string name="settings_frame_limit_desc">شبیه‌سازی را به نرخ نوسازی کنسول محدود می‌کند. برای اجرا با بیشترین سرعت دستگاه، آن را خاموش کنید.</string>
     <string name="settings_target_fps">نرخ فریم هدف</string>
     <string name="settings_target_fps_desc">نرخ نوسازی شبیه‌سازی‌شده را بازنویسی می‌کند. حالت خودکار از منطقه کنسول پیروی می‌کند.</string>
+    <string name="settings_vertical_refresh_ntsc">نرخ تازه‌سازی NTSC</string>
+    <string name="settings_vertical_refresh_pal">نرخ تازه‌سازی PAL</string>
+    <string name="settings_help_vertical_refresh">نرخ تازه‌سازی عمودی شبیه‌سازی‌شده را برای این منطقه بازنویسی می‌کند. اگر صدای NTSC خش می‌اندازد یا تصویر PAL تکه‌تکه می‌شود، آن را کمی تنظیم کنید؛ مقدار پیش‌فرض از استاندارد کنسول پیروی می‌کند.</string>
     <string name="settings_frame_skip">پرش فریم</string>
     <string name="settings_frame_skip_desc">نمایش فریم‌های رندرشده را برای کاهش بار میزبان رد می‌کند. مقادیر بالاتر تکه‌تکه‌تر اما سریع‌تر است.</string>
     <string name="settings_display_crop">برش تصویر</string>

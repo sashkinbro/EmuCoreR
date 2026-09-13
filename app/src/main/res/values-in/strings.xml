@@ -1706,7 +1706,7 @@
     <string name="ss_core_choice_only_overscan_area">Hanya area overscan</string>
     <string name="ss_core_choice_all_borders">Semua tepi</string>
     <string name="ss_core_gpu_downsamplemode">Penurunan sampel</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Menurunkan sampel gambar yang dirender sebelum ditampilkan. Dapat meningkatkan kualitas gambar secara keseluruhan pada game campuran 2D/3D, tetapi harus dinonaktifkan untuk game 3D murni. Hanya berlaku untuk renderer perangkat keras.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Menurunkan resolusi gambar yang dirender sebelum ditampilkan. Dapat meningkatkan kualitas pada game campuran 2D/3D, tetapi sebaiknya dinonaktifkan untuk game 3D murni. Hanya berlaku untuk perender perangkat keras. Skala penurunan mengikuti pengaturan "Kualitas Gambar" dan hanya berlaku bila di atas "Asli".</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (turunkan 3D / haluskan semua)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Adaptif (pertahankan 3D / haluskan 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">Prakompilasi shader</string>
@@ -1941,6 +1941,9 @@
     <string name="settings_frame_limit_desc">Membatasi emulasi ke laju penyegaran konsol. Matikan agar berjalan secepat perangkat.</string>
     <string name="settings_target_fps">Laju bingkai target</string>
     <string name="settings_target_fps_desc">Mengganti laju penyegaran emulasi. Otomatis mengikuti wilayah konsol.</string>
+    <string name="settings_vertical_refresh_ntsc">Laju penyegaran NTSC</string>
+    <string name="settings_vertical_refresh_pal">Laju penyegaran PAL</string>
+    <string name="settings_help_vertical_refresh">Mengganti laju penyegaran vertikal yang diemulasi untuk wilayah ini. Sesuaikan sedikit jika audio NTSC berderak atau video PAL tersendat; nilai bawaan mengikuti standar konsol.</string>
     <string name="settings_frame_skip">Lewati bingkai</string>
     <string name="settings_frame_skip_desc">Melewati penyajian bingkai yang dirender untuk mengurangi beban. Nilai lebih tinggi lebih tersendat tapi cepat.</string>
     <string name="settings_display_crop">Pangkas tampilan</string>

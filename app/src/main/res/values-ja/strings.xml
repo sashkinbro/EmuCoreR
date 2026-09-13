@@ -1691,7 +1691,7 @@
     <string name="ss_core_choice_only_overscan_area">オーバースキャン領域のみ</string>
     <string name="ss_core_choice_all_borders">すべての境界</string>
     <string name="ss_core_gpu_downsamplemode">ダウンサンプリング</string>
-    <string name="ss_core_gpu_downsamplemode_desc">表示前にレンダリング画像をダウンサンプリングします。2D/3D混在ゲームの全体的な画質を改善できますが、純粋な3Dゲームでは無効にしてください。ハードウェアレンダラーにのみ適用されます。</string>
+    <string name="ss_core_gpu_downsamplemode_desc">表示前にレンダリング画像を縮小します。2D/3D 混在のゲームでは画質が向上することがありますが、純粋な 3D ゲームでは無効にすることをおすすめします。ハードウェアレンダラーにのみ適用されます。縮小の倍率は「画質」設定に従い、「ネイティブ」より大きい場合にのみ適用されます。</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box（3Dをダウンサンプル / すべて滑らかに）</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">アダプティブ（3Dを保持 / 2Dを滑らかに）</string>
     <string name="ss_core_gpu_shaderprecompile">シェーダーの事前コンパイル</string>
@@ -1926,6 +1926,9 @@
     <string name="settings_frame_limit_desc">エミュレーションを本体のリフレッシュレートに制限します。オフにするとデバイスの性能に応じて高速に動作します。</string>
     <string name="settings_target_fps">目標フレームレート</string>
     <string name="settings_target_fps_desc">エミュレートするリフレッシュレートを上書きします。自動は本体の地域に従います。</string>
+    <string name="settings_vertical_refresh_ntsc">NTSC リフレッシュレート</string>
+    <string name="settings_vertical_refresh_pal">PAL リフレッシュレート</string>
+    <string name="settings_help_vertical_refresh">この地域のエミュレートされた垂直リフレッシュレートを上書きします。NTSC の音声が割れる、または PAL の映像が途切れる場合に少し調整してください。既定値はコンソール標準に従います。</string>
     <string name="settings_frame_skip">フレームスキップ</string>
     <string name="settings_frame_skip_desc">レンダリング済みフレームの表示を間引き、負荷を軽減します。値が大きいほどカクつきますが高速です。</string>
     <string name="settings_display_crop">表示クロップ</string>

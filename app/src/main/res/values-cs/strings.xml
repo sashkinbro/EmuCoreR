@@ -1713,7 +1713,7 @@
     <string name="ss_core_choice_only_overscan_area">Jen oblast overscanu</string>
     <string name="ss_core_choice_all_borders">Všechny okraje</string>
     <string name="ss_core_gpu_downsamplemode">Snížení rozlišení</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Sníží rozlišení vykresleného obrazu před zobrazením. Může zlepšit celkovou kvalitu v kombinovaných 2D/3D hrách, ale u čistě 3D her by mělo být vypnuté. Platí jen pro hardwarové renderery.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Zmenšuje rozlišení vykresleného obrazu před zobrazením. Může zlepšit kvalitu ve smíšených 2D/3D hrách, u čistě 3D her je však lepší jej vypnout. Platí pouze pro hardwarové renderery. Míra zmenšení odpovídá nastavení „Kvalita obrazu“ a použije se jen, pokud je vyšší než „Nativní“.</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (snížení 3D / vyhladit vše)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Adaptivní (zachovat 3D / vyhladit 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">Předkompilace shaderů</string>
@@ -1948,6 +1948,9 @@
     <string name="settings_frame_limit_desc">Omezuje emulaci na obnovovací frekvenci konzole. Vypnutím poběží tak rychle, jak zařízení dovolí.</string>
     <string name="settings_target_fps">Cílová frekvence snímků</string>
     <string name="settings_target_fps_desc">Nahrazuje emulovanou obnovovací frekvenci. Auto se řídí regionem konzole.</string>
+    <string name="settings_vertical_refresh_ntsc">Obnovovací frekvence NTSC</string>
+    <string name="settings_vertical_refresh_pal">Obnovovací frekvence PAL</string>
+    <string name="settings_help_vertical_refresh">Přepisuje emulovanou vertikální obnovovací frekvenci pro tento region. Mírně ji upravte, pokud zvuk NTSC praská nebo se obraz PAL trhá; výchozí hodnota odpovídá standardu konzole.</string>
     <string name="settings_frame_skip">Přeskakování snímků</string>
     <string name="settings_frame_skip_desc">Přeskakuje zobrazování vykreslených snímků pro snížení zátěže. Vyšší hodnoty jsou trhanější, ale rychlejší.</string>
     <string name="settings_display_crop">Ořez obrazu</string>

@@ -1693,7 +1693,7 @@
     <string name="ss_core_choice_only_overscan_area">仅过扫描区域</string>
     <string name="ss_core_choice_all_borders">所有边框</string>
     <string name="ss_core_gpu_downsamplemode">降采样</string>
-    <string name="ss_core_gpu_downsamplemode_desc">在显示前对渲染图像进行降采样。可改善 2D/3D 混合游戏的整体画质，但纯 3D 游戏应禁用。仅适用于硬件渲染器。</string>
+    <string name="ss_core_gpu_downsamplemode_desc">在显示前降低渲染图像的分辨率。可提升 2D/3D 混合游戏的画质，但纯 3D 游戏建议关闭。仅适用于硬件渲染器。降采样倍率跟随“图像质量”设置，且仅当其高于“原生”时生效。</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box（降采样 3D / 平滑全部）</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">自适应（保留 3D / 平滑 2D）</string>
     <string name="ss_core_gpu_shaderprecompile">着色器预编译</string>
@@ -1928,6 +1928,9 @@
     <string name="settings_frame_limit_desc">將模擬限制在主機的刷新率。關閉後以裝置允許的最高速度運行。</string>
     <string name="settings_target_fps">目標幀率</string>
     <string name="settings_target_fps_desc">覆寫模擬的刷新率。自動會跟隨主機地區。</string>
+    <string name="settings_vertical_refresh_ntsc">NTSC 刷新率</string>
+    <string name="settings_vertical_refresh_pal">PAL 刷新率</string>
+    <string name="settings_help_vertical_refresh">覆盖该地区的模拟垂直刷新率。如果 NTSC 音频出现爆音或 PAL 视频卡顿，可稍作调整；默认值遵循主机标准。</string>
     <string name="settings_frame_skip">跳幀</string>
     <string name="settings_frame_skip_desc">跳過已渲染畫面的顯示以降低主機負載。數值越高越不流暢但更快。</string>
     <string name="settings_display_crop">畫面裁切</string>

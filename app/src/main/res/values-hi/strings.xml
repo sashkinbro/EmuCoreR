@@ -1692,7 +1692,7 @@
     <string name="ss_core_choice_only_overscan_area">केवल ओवरस्कैन क्षेत्र</string>
     <string name="ss_core_choice_all_borders">सभी किनारे</string>
     <string name="ss_core_gpu_downsamplemode">डाउनसैंपलिंग</string>
-    <string name="ss_core_gpu_downsamplemode_desc">दिखाने से पहले रेंडर की गई छवि को डाउनसैंपल करता है। मिश्रित 2D/3D गेम में समग्र छवि गुणवत्ता सुधार सकता है, पर शुद्ध 3D गेम में इसे बंद रखना चाहिए। केवल हार्डवेयर रेंडरर पर लागू होता है।</string>
+    <string name="ss_core_gpu_downsamplemode_desc">प्रदर्शित करने से पहले रेंडर की गई छवि का रिज़ॉल्यूशन घटाता है। मिश्रित 2D/3D गेम में गुणवत्ता सुधार सकता है, लेकिन शुद्ध 3D गेम के लिए इसे बंद रखना बेहतर है। केवल हार्डवेयर रेंडरर पर लागू होता है। घटाने का पैमाना «छवि गुणवत्ता» सेटिंग के अनुसार होता है और केवल तब लागू होता है जब वह «नेटिव» से अधिक हो।</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (3D घटाएँ / सब चिकना करें)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">अनुकूली (3D सुरक्षित / 2D चिकना)</string>
     <string name="ss_core_gpu_shaderprecompile">शेडर प्री-कम्पाइलेशन</string>
@@ -1927,6 +1927,9 @@
     <string name="settings_frame_limit_desc">एमुलेशन को कंसोल की रिफ्रेश दर तक सीमित करता है। डिवाइस की अधिकतम गति से चलाने के लिए इसे बंद करें।</string>
     <string name="settings_target_fps">लक्ष्य फ़्रेम दर</string>
     <string name="settings_target_fps_desc">एमुलेटेड रिफ्रेश दर को ओवरराइड करता है। ऑटो कंसोल क्षेत्र का अनुसरण करता है।</string>
+    <string name="settings_vertical_refresh_ntsc">NTSC रिफ्रेश दर</string>
+    <string name="settings_vertical_refresh_pal">PAL रिफ्रेश दर</string>
+    <string name="settings_help_vertical_refresh">इस क्षेत्र के लिए एम्युलेटेड वर्टिकल रिफ्रेश दर को बदलता है। अगर NTSC ऑडियो में चटकनी आती है या PAL वीडियो अटकता है तो इसे हल्का समायोजित करें; डिफ़ॉल्ट मान कंसोल मानक के अनुसार है।</string>
     <string name="settings_frame_skip">फ़्रेम स्किप</string>
     <string name="settings_frame_skip_desc">होस्ट लोड कम करने के लिए रेंडर किए गए फ़्रेम दिखाना छोड़ता है। बड़े मान अधिक झटकेदार पर तेज़ होते हैं।</string>
     <string name="settings_display_crop">डिस्प्ले क्रॉप</string>

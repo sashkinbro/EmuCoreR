@@ -1694,7 +1694,7 @@
     <string name="ss_core_choice_only_overscan_area">Nur Overscan-Bereich</string>
     <string name="ss_core_choice_all_borders">Alle Ränder</string>
     <string name="ss_core_gpu_downsamplemode">Herunterskalierung</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Skaliert das gerenderte Bild vor der Ausgabe herunter. Kann die Gesamtbildqualität in gemischten 2D/3D-Spielen verbessern, sollte bei reinen 3D-Spielen aber deaktiviert sein. Gilt nur für die Hardware-Renderer.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Verkleinert das gerenderte Bild vor der Ausgabe. Kann die Bildqualität in gemischten 2D/3D-Spielen verbessern, sollte für reine 3D-Spiele aber deaktiviert bleiben. Gilt nur für die Hardware-Renderer. Der Downsampling-Maßstab folgt der Einstellung „Bildqualität“ und gilt nur, wenn diese über „Native“ liegt.</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (3D herunterskalieren / alles glätten)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Adaptiv (3D erhalten / 2D glätten)</string>
     <string name="ss_core_gpu_shaderprecompile">Shader-Vorkompilierung</string>
@@ -1929,6 +1929,9 @@
     <string name="settings_frame_limit_desc">Begrenzt die Emulation auf die Bildwiederholrate der Konsole. Ausschalten, um so schnell wie das Gerät läuft.</string>
     <string name="settings_target_fps">Ziel-Bildrate</string>
     <string name="settings_target_fps_desc">Überschreibt die emulierte Bildwiederholrate. Automatisch folgt der Konsolenregion.</string>
+    <string name="settings_vertical_refresh_ntsc">NTSC-Bildwiederholrate</string>
+    <string name="settings_vertical_refresh_pal">PAL-Bildwiederholrate</string>
+    <string name="settings_help_vertical_refresh">Überschreibt die emulierte vertikale Bildwiederholrate für diese Region. Passe sie leicht an, wenn NTSC-Audio knackt oder PAL-Video ruckelt; der Standardwert entspricht der Konsolennorm.</string>
     <string name="settings_frame_skip">Frames überspringen</string>
     <string name="settings_frame_skip_desc">Überspringt die Ausgabe gerenderter Frames, um die Last zu senken. Höhere Werte ruckeln, sind aber schneller.</string>
     <string name="settings_display_crop">Bildzuschnitt</string>

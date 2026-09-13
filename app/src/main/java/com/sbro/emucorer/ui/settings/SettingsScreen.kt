@@ -269,6 +269,7 @@ import com.sbro.emucorer.ui.theme.neon.neonChipShape
 import com.sbro.emucorer.ui.theme.neon.neonCornerAccent
 import com.sbro.emucorer.ui.theme.neon.neonShape
 import com.sbro.emucorer.ui.theme.neon.neonShapeCorners
+import java.util.Locale
 
 private enum class SettingsTab {
     General, Graphics, Patches, Controls, Emulation, Audio, Library, Customization, GameMenu, Updates, About
@@ -2317,6 +2318,34 @@ private fun SettingsContent(
                             onSelect = viewModel::setTargetFps,
                             helpText = stringResource(R.string.settings_target_fps_desc),
                             onResetToDefault = { viewModel.setTargetFps(defaults.targetFps) }
+                        )
+                        SliderItem(
+                            icon = Icons.Rounded.Timelapse,
+                            title = stringResource(R.string.settings_vertical_refresh_ntsc),
+                            subtitle = String.format(Locale.US, "%.2f Hz", uiState.ntscFramerate),
+                            value = uiState.ntscFramerate,
+                            range = AppPreferences.MIN_REGION_FRAMERATE..AppPreferences.MAX_REGION_FRAMERATE,
+                            steps = 0,
+                            onValueChange = viewModel::setNtscFramerate,
+                            valueLabel = { String.format(Locale.US, "%.2f Hz", it) },
+                            helpText = stringResource(R.string.settings_help_vertical_refresh),
+                            onResetToDefault = {
+                                viewModel.setNtscFramerate(defaults.ntscFramerate)
+                            }
+                        )
+                        SliderItem(
+                            icon = Icons.Rounded.Timelapse,
+                            title = stringResource(R.string.settings_vertical_refresh_pal),
+                            subtitle = String.format(Locale.US, "%.2f Hz", uiState.palFramerate),
+                            value = uiState.palFramerate,
+                            range = AppPreferences.MIN_REGION_FRAMERATE..AppPreferences.MAX_REGION_FRAMERATE,
+                            steps = 0,
+                            onValueChange = viewModel::setPalFramerate,
+                            valueLabel = { String.format(Locale.US, "%.2f Hz", it) },
+                            helpText = stringResource(R.string.settings_help_vertical_refresh),
+                            onResetToDefault = {
+                                viewModel.setPalFramerate(defaults.palFramerate)
+                            }
                         )
                         ChoiceSection(
                             title = stringResource(R.string.settings_frame_skip),

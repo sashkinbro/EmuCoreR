@@ -1697,7 +1697,7 @@
     <string name="ss_core_choice_only_overscan_area">Лише область оверскану</string>
     <string name="ss_core_choice_all_borders">Усі рамки</string>
     <string name="ss_core_gpu_downsamplemode">Зниження роздільності</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Знижує роздільність зображення перед виведенням. Може покращити загальну якість у змішаних 2D/3D-іграх, але слід вимикати для чисто 3D-ігор. Застосовується лише до апаратних рендерерів.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Зменшує роздільність зображення перед виведенням. Може покращити якість у змішаних 2D/3D іграх, але для чисто 3D ігор його краще вимкнути. Застосовується лише до апаратних рендерерів. Масштаб зменшення відповідає налаштуванню «Якість зображення» і діє лише коли воно вище за «Рідне».</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (зниження 3D / згладити все)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Адаптивне (зберегти 3D / згладити 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">Попередня компіляція шейдерів</string>
@@ -1932,6 +1932,9 @@
     <string name="settings_frame_limit_desc">Обмежує емуляцію частотою оновлення консолі. Вимкніть, щоб працювати так швидко, як дозволяє пристрій.</string>
     <string name="settings_target_fps">Цільова частота кадрів</string>
     <string name="settings_target_fps_desc">Перевизначає частоту оновлення емуляції. «Авто» відповідає регіону консолі.</string>
+    <string name="settings_vertical_refresh_ntsc">Частота оновлення NTSC</string>
+    <string name="settings_vertical_refresh_pal">Частота оновлення PAL</string>
+    <string name="settings_help_vertical_refresh">Перевизначає емульовану вертикальну частоту оновлення для цього регіону. Злегка відкоригуйте, якщо звук у NTSC-іграх тріщить або відео PAL смикається; типове значення відповідає стандарту консолі.</string>
     <string name="settings_frame_skip">Пропуск кадрів</string>
     <string name="settings_frame_skip_desc">Пропускає показ зрендерених кадрів, щоб зменшити навантаження. Більші значення — рваніше, але швидше.</string>
     <string name="settings_display_crop">Обрізання зображення</string>

@@ -1692,7 +1692,7 @@
     <string name="ss_core_choice_only_overscan_area">Solo area di overscan</string>
     <string name="ss_core_choice_all_borders">Tutti i bordi</string>
     <string name="ss_core_gpu_downsamplemode">Riduzione della risoluzione</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Riduce la risoluzione dell\'immagine renderizzata prima di visualizzarla. Può migliorare la qualità complessiva nei giochi misti 2D/3D, ma va disattivata per i giochi puramente 3D. Si applica solo ai renderer hardware.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Riduce la risoluzione dell\'immagine renderizzata prima della visualizzazione. Può migliorare la qualità nei giochi misti 2D/3D, ma è meglio disattivarlo per i giochi puramente 3D. Si applica solo ai renderer hardware. La scala di riduzione segue l\'impostazione «Qualità immagine» e si applica solo quando è superiore a «Nativo».</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (riduci 3D / smussa tutto)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Adattiva (preserva 3D / smussa 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">Precompilazione degli shader</string>
@@ -1927,6 +1927,9 @@
     <string name="settings_frame_limit_desc">Limita l\'emulazione alla frequenza di aggiornamento della console. Disattivalo per andare il più veloce possibile.</string>
     <string name="settings_target_fps">Frequenza fotogrammi target</string>
     <string name="settings_target_fps_desc">Sostituisce la frequenza di aggiornamento emulata. Auto segue la regione della console.</string>
+    <string name="settings_vertical_refresh_ntsc">Frequenza di aggiornamento NTSC</string>
+    <string name="settings_vertical_refresh_pal">Frequenza di aggiornamento PAL</string>
+    <string name="settings_help_vertical_refresh">Sostituisce la frequenza di aggiornamento verticale emulata per questa regione. Regolala leggermente se l\'audio NTSC gracchia o il video PAL scatta; il valore predefinito segue lo standard della console.</string>
     <string name="settings_frame_skip">Salto fotogrammi</string>
     <string name="settings_frame_skip_desc">Salta la presentazione dei fotogrammi renderizzati per ridurre il carico. Valori alti sono più scattosi ma veloci.</string>
     <string name="settings_display_crop">Ritaglio immagine</string>

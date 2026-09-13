@@ -1696,7 +1696,7 @@
     <string name="ss_core_choice_only_overscan_area">Только область оверскана</string>
     <string name="ss_core_choice_all_borders">Все рамки</string>
     <string name="ss_core_gpu_downsamplemode">Понижение разрешения</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Понижает разрешение изображения перед выводом. Может улучшить общую картину в смешанных 2D/3D-играх, но для чистых 3D-игр его следует отключать. Применяется только к аппаратным рендерерам.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Уменьшает разрешение изображения перед выводом. Может улучшить качество в смешанных 2D/3D играх, но для чисто 3D игр его лучше отключить. Применяется только к аппаратным рендерерам. Масштаб уменьшения соответствует настройке «Качество изображения» и действует только когда оно выше «Родного».</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (понижение 3D / сгладить всё)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Адаптивное (сохранить 3D / сгладить 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">Предкомпиляция шейдеров</string>
@@ -1931,6 +1931,9 @@
     <string name="settings_frame_limit_desc">Ограничивает эмуляцию частотой обновления консоли. Отключите, чтобы работать так быстро, как позволяет устройство.</string>
     <string name="settings_target_fps">Целевая частота кадров</string>
     <string name="settings_target_fps_desc">Переопределяет частоту обновления эмуляции. «Авто» соответствует региону консоли.</string>
+    <string name="settings_vertical_refresh_ntsc">Частота обновления NTSC</string>
+    <string name="settings_vertical_refresh_pal">Частота обновления PAL</string>
+    <string name="settings_help_vertical_refresh">Переопределяет эмулируемую вертикальную частоту обновления для этого региона. Слегка скорректируйте, если звук в NTSC-играх трещит или видео PAL дёргается; значение по умолчанию соответствует стандарту консоли.</string>
     <string name="settings_frame_skip">Пропуск кадров</string>
     <string name="settings_frame_skip_desc">Пропускает вывод отрисованных кадров, снижая нагрузку. Большие значения — рывками, но быстрее.</string>
     <string name="settings_display_crop">Обрезка изображения</string>

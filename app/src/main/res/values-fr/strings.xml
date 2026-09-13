@@ -1694,7 +1694,7 @@
     <string name="ss_core_choice_only_overscan_area">Zone d\'overscan uniquement</string>
     <string name="ss_core_choice_all_borders">Toutes les bordures</string>
     <string name="ss_core_gpu_downsamplemode">Réduction d\'échelle</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Réduit l\'échelle de l\'image rendue avant de l\'afficher. Peut améliorer la qualité globale dans les jeux mixtes 2D/3D, mais doit être désactivé pour les jeux purement 3D. Ne s\'applique qu\'aux moteurs de rendu matériels.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Réduit la résolution de l\'image rendue avant l\'affichage. Peut améliorer la qualité dans les jeux mixtes 2D/3D, mais mieux vaut le désactiver pour les jeux purement 3D. S\'applique uniquement aux moteurs matériels. L\'échelle de réduction suit le réglage « Qualité de l\'image » et ne s\'applique que s\'il est supérieur à « Native ».</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (réduire la 3D / tout lisser)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Adaptatif (préserver la 3D / lisser la 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">Précompilation des shaders</string>
@@ -1929,6 +1929,9 @@
     <string name="settings_frame_limit_desc">Limite l\'émulation au taux de rafraîchissement de la console. Désactivez pour aller aussi vite que l\'appareil le permet.</string>
     <string name="settings_target_fps">Fréquence d\'images cible</string>
     <string name="settings_target_fps_desc">Remplace la fréquence de rafraîchissement émulée. Auto suit la région de la console.</string>
+    <string name="settings_vertical_refresh_ntsc">Fréquence de rafraîchissement NTSC</string>
+    <string name="settings_vertical_refresh_pal">Fréquence de rafraîchissement PAL</string>
+    <string name="settings_help_vertical_refresh">Remplace la fréquence de rafraîchissement verticale émulée pour cette région. Ajustez-la légèrement si l\'audio NTSC craque ou si la vidéo PAL saccade ; la valeur par défaut suit la norme de la console.</string>
     <string name="settings_frame_skip">Saut d\'images</string>
     <string name="settings_frame_skip_desc">Saute l\'affichage des images rendues pour réduire la charge. Des valeurs élevées saccadent mais accélèrent.</string>
     <string name="settings_display_crop">Rognage de l\'image</string>

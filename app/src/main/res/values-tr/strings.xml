@@ -1692,7 +1692,7 @@
     <string name="ss_core_choice_only_overscan_area">Yalnızca overscan alanı</string>
     <string name="ss_core_choice_all_borders">Tüm kenarlıklar</string>
     <string name="ss_core_gpu_downsamplemode">Alt örnekleme</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Oluşturulan görüntüyü göstermeden önce alt örnekler. Karma 2D/3D oyunlarda genel görüntü kalitesini artırabilir, ancak saf 3D oyunlarda devre dışı bırakılmalıdır. Yalnızca donanım oluşturucuları için geçerlidir.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Görüntülenen görüntüyü göstermeden önce çözünürlüğünü düşürür. Karışık 2D/3D oyunlarda görüntü kalitesini artırabilir, ancak tamamen 3D oyunlarda kapatılmalıdır. Yalnızca donanım oluşturucular için geçerlidir. Küçültme ölçeği “Görüntü Kalitesi” ayarını izler ve yalnızca bu ayar “Yerel” üzerindeyken uygulanır.</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (3D\'yi düşür / tümünü yumuşat)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Uyarlanabilir (3D\'yi koru / 2D\'yi yumuşat)</string>
     <string name="ss_core_gpu_shaderprecompile">Shader ön derlemesi</string>
@@ -1927,6 +1927,9 @@
     <string name="settings_frame_limit_desc">Emülasyonu konsolun yenileme hızıyla sınırlar. Cihazın izin verdiği kadar hızlı çalışması için kapatın.</string>
     <string name="settings_target_fps">Hedef kare hızı</string>
     <string name="settings_target_fps_desc">Emüle edilen yenileme hızını geçersiz kılar. Otomatik, konsol bölgesini izler.</string>
+    <string name="settings_vertical_refresh_ntsc">NTSC yenileme hızı</string>
+    <string name="settings_vertical_refresh_pal">PAL yenileme hızı</string>
+    <string name="settings_help_vertical_refresh">Bu bölge için emüle edilen dikey yenileme hızını geçersiz kılar. NTSC sesi çıtırdıyorsa veya PAL görüntüsü takılıyorsa hafifçe ayarlayın; varsayılan değer konsol standardını izler.</string>
     <string name="settings_frame_skip">Kare atlama</string>
     <string name="settings_frame_skip_desc">Ana makine yükünü azaltmak için oluşturulan karelerin sunumunu atlar. Yüksek değerler daha takılır ama daha hızlıdır.</string>
     <string name="settings_display_crop">Görüntü kırpma</string>

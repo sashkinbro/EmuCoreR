@@ -304,6 +304,8 @@ class AppPreferences(private val context: Context) {
         const val DEFAULT_LOCAL_LINK_PORT = 19072
         private const val CURRENT_OVERLAY_LAYOUT_VERSION = 17
         const val DEFAULT_NTSC_FRAMERATE = 59.94f
+        const val MIN_REGION_FRAMERATE = 50f
+        const val MAX_REGION_FRAMERATE = 65f
         const val DEFAULT_THREAD_PINNING = false
         const val DEFAULT_PAL_FRAMERATE = 50f
         const val DEFAULT_FAST_FORWARD_SPEED = 2.0f

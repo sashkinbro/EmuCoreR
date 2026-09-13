@@ -2811,6 +2811,44 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun setNtscFramerate(value: Float) {
+        viewModelScope.launch {
+            val sanitized = if (value.isFinite()) {
+                value.coerceIn(AppPreferences.MIN_REGION_FRAMERATE, AppPreferences.MAX_REGION_FRAMERATE)
+            } else {
+                AppPreferences.DEFAULT_NTSC_FRAMERATE
+            }
+            persistRuntimeState(_uiState.value.copy(ntscFramerate = sanitized)) {
+                preferences.setNtscFramerate(sanitized)
+            }
+            EmulatorBridge.setTargetFps(
+                _uiState.value.targetFps,
+                sanitized,
+                _uiState.value.palFramerate
+            )
+            updateCrashContext()
+        }
+    }
+
+    fun setPalFramerate(value: Float) {
+        viewModelScope.launch {
+            val sanitized = if (value.isFinite()) {
+                value.coerceIn(AppPreferences.MIN_REGION_FRAMERATE, AppPreferences.MAX_REGION_FRAMERATE)
+            } else {
+                AppPreferences.DEFAULT_PAL_FRAMERATE
+            }
+            persistRuntimeState(_uiState.value.copy(palFramerate = sanitized)) {
+                preferences.setPalFramerate(sanitized)
+            }
+            EmulatorBridge.setTargetFps(
+                _uiState.value.targetFps,
+                _uiState.value.ntscFramerate,
+                sanitized
+            )
+            updateCrashContext()
+        }
+    }
+
     fun setTextureFiltering(value: Int) {
         viewModelScope.launch {
             val newState = markPerformancePresetCustom(_uiState.value).copy(textureFiltering = value)

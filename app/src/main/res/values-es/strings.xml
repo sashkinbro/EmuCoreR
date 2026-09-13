@@ -1694,7 +1694,7 @@
     <string name="ss_core_choice_only_overscan_area">Solo el área de sobreexploración</string>
     <string name="ss_core_choice_all_borders">Todos los bordes</string>
     <string name="ss_core_gpu_downsamplemode">Reducción de resolución</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Reduce la resolución de la imagen renderizada antes de mostrarla. Puede mejorar la calidad general en juegos mixtos 2D/3D, pero debe desactivarse en juegos puramente 3D. Solo se aplica a los renderizadores por hardware.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Reduce la resolución de la imagen renderizada antes de mostrarla. Puede mejorar la calidad en juegos mixtos 2D/3D, pero conviene desactivarlo en juegos puramente 3D. Solo se aplica a los renderizadores por hardware. La escala de reducción sigue el ajuste «Calidad de imagen» y solo se aplica cuando es superior a «Nativo».</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (reducir 3D / suavizar todo)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Adaptativo (preservar 3D / suavizar 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">Precompilación de shaders</string>
@@ -1929,6 +1929,9 @@
     <string name="settings_frame_limit_desc">Limita la emulación a la frecuencia de actualización de la consola. Desactívalo para ir tan rápido como permita el dispositivo.</string>
     <string name="settings_target_fps">Frecuencia de fotogramas objetivo</string>
     <string name="settings_target_fps_desc">Anula la frecuencia de actualización emulada. Auto sigue la región de la consola.</string>
+    <string name="settings_vertical_refresh_ntsc">Frecuencia de refresco NTSC</string>
+    <string name="settings_vertical_refresh_pal">Frecuencia de refresco PAL</string>
+    <string name="settings_help_vertical_refresh">Sustituye la frecuencia de refresco vertical emulada para esta región. Ajústala ligeramente si el audio NTSC chisporrotea o el vídeo PAL se entrecorta; el valor predeterminado sigue el estándar de la consola.</string>
     <string name="settings_frame_skip">Salto de fotogramas</string>
     <string name="settings_frame_skip_desc">Omite la presentación de fotogramas renderizados para reducir la carga. Valores altos son más entrecortados pero rápidos.</string>
     <string name="settings_display_crop">Recorte de imagen</string>

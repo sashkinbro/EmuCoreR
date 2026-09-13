@@ -1694,7 +1694,7 @@
     <string name="ss_core_choice_only_overscan_area">Apenas a área de overscan</string>
     <string name="ss_core_choice_all_borders">Todas as bordas</string>
     <string name="ss_core_gpu_downsamplemode">Redução de resolução</string>
-    <string name="ss_core_gpu_downsamplemode_desc">Reduz a resolução da imagem renderizada antes de exibi-la. Pode melhorar a qualidade geral em jogos mistos de 2D/3D, mas deve ser desativada em jogos puramente 3D. Aplica-se apenas aos renderizadores de hardware.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">Reduz a resolução da imagem renderizada antes de exibi-la. Pode melhorar a qualidade em jogos mistos 2D/3D, mas deve ser desativado para jogos puramente 3D. Aplica-se apenas aos renderizadores de hardware. A escala de redução segue a opção «Qualidade de Imagem» e só se aplica quando esta estiver acima de «Nativo».</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (reduzir 3D / suavizar tudo)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">Adaptativo (preservar 3D / suavizar 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">Pré-compilação de shaders</string>
@@ -1929,6 +1929,9 @@
     <string name="settings_frame_limit_desc">Limita a emulação à taxa de atualização do console. Desative para rodar o mais rápido que o dispositivo permitir.</string>
     <string name="settings_target_fps">Taxa de quadros alvo</string>
     <string name="settings_target_fps_desc">Substitui a taxa de atualização emulada. Auto segue a região do console.</string>
+    <string name="settings_vertical_refresh_ntsc">Taxa de atualização NTSC</string>
+    <string name="settings_vertical_refresh_pal">Taxa de atualização PAL</string>
+    <string name="settings_help_vertical_refresh">Substitui a taxa de atualização vertical emulada para esta região. Ajuste ligeiramente se o áudio NTSC estalar ou o vídeo PAL engasgar; o valor padrão segue o padrão do console.</string>
     <string name="settings_frame_skip">Salto de quadros</string>
     <string name="settings_frame_skip_desc">Pula a apresentação de quadros renderizados para reduzir a carga. Valores altos são mais travados, mas rápidos.</string>
     <string name="settings_display_crop">Recorte da imagem</string>

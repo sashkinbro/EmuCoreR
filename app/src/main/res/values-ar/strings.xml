@@ -1700,7 +1700,7 @@
     <string name="ss_core_choice_only_overscan_area">منطقة الحواف الزائدة فقط</string>
     <string name="ss_core_choice_all_borders">كل الحدود</string>
     <string name="ss_core_gpu_downsamplemode">خفض العينات</string>
-    <string name="ss_core_gpu_downsamplemode_desc">يخفض عينات الصورة المرسومة قبل عرضها. قد يحسّن جودة الصورة العامة في الألعاب المختلطة 2D/3D، لكن يجب تعطيله في الألعاب ثلاثية الأبعاد الخالصة. ينطبق فقط على العارضات العتادية.</string>
+    <string name="ss_core_gpu_downsamplemode_desc">يقلل دقة الصورة المعروضة قبل عرضها. قد يحسّن الجودة في الألعاب المختلطة ثنائية/ثلاثية الأبعاد، لكن يُفضل تعطيله للألعاب ثلاثية الأبعاد بالكامل. ينطبق فقط على محركات العرض المادية. يتبع مقياس التخفيض إعداد "جودة الصورة" ولا ينطبق إلا عندما يكون أعلى من "الأصلي".</string>
     <string name="ss_core_choice_box_downsample_3d_smooth_all">Box (خفض 3D / تنعيم الكل)</string>
     <string name="ss_core_choice_adaptive_preserve_3d_smooth_2d">تكيفي (الحفاظ على 3D / تنعيم 2D)</string>
     <string name="ss_core_gpu_shaderprecompile">الترجمة المسبقة للتظليل</string>
@@ -1935,6 +1935,9 @@
     <string name="settings_frame_limit_desc">يحد من المحاكاة بمعدل تحديث وحدة التحكم. أوقفه للتشغيل بأقصى سرعة يسمح بها الجهاز.</string>
     <string name="settings_target_fps">معدل الإطارات المستهدف</string>
     <string name="settings_target_fps_desc">يتجاوز معدل التحديث المحاكى. يتبع الوضع التلقائي منطقة الجهاز.</string>
+    <string name="settings_vertical_refresh_ntsc">معدل تحديث NTSC</string>
+    <string name="settings_vertical_refresh_pal">معدل تحديث PAL</string>
+    <string name="settings_help_vertical_refresh">يتجاوز معدل التحديث الرأسي المحاكى لهذه المنطقة. اضبطه قليلاً إذا كان صوت NTSC يطقطق أو فيديو PAL يتقطع؛ القيمة الافتراضية تتبع معيار الجهاز.</string>
     <string name="settings_frame_skip">تخطي الإطارات</string>
     <string name="settings_frame_skip_desc">يتخطى عرض الإطارات المعروضة لتقليل الحمل. القيم الأعلى أكثر تقطعًا لكن أسرع.</string>
     <string name="settings_display_crop">قص الصورة</string>
