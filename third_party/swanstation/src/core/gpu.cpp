@@ -1219,9 +1219,91 @@ void GPU::UpdateDisplay() {}
 
 void GPU::ReadVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {}
 
+uint64_t GPU::GetVRAMRegionRevision(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) const
+{
+  if (right <= left || bottom <= top)
+    return 0;
+
+  const uint32_t width = std::min(right - left, VRAM_WIDTH);
+  const uint32_t height = std::min(bottom - top, VRAM_HEIGHT);
+  left %= VRAM_WIDTH;
+  top %= VRAM_HEIGHT;
+
+  uint32_t pages = 0;
+  const auto include_rect = [&pages](uint32_t rect_left, uint32_t rect_top, uint32_t rect_width,
+                                     uint32_t rect_height) {
+    if (rect_width == 0 || rect_height == 0)
+      return;
+
+    for (uint32_t page_y = rect_top / 256u; page_y <= (rect_top + rect_height - 1u) / 256u; page_y++)
+    {
+      for (uint32_t page_x = rect_left / 64u; page_x <= (rect_left + rect_width - 1u) / 64u; page_x++)
+        pages |= (1u << ((page_y * 16u) + page_x));
+    }
+  };
+
+  const uint32_t first_width = std::min(width, VRAM_WIDTH - left);
+  const uint32_t first_height = std::min(height, VRAM_HEIGHT - top);
+  include_rect(left, top, first_width, first_height);
+  include_rect(0, top, width - first_width, first_height);
+  include_rect(left, 0, first_width, height - first_height);
+  include_rect(0, 0, width - first_width, height - first_height);
+
+  // Include both the page number and its full revision in a stable 64-bit
+  // signature. Hash-cache equality additionally includes the logical region.
+  uint64_t signature = UINT64_C(1469598103934665603);
+  while (pages != 0)
+  {
+    const uint32_t page = static_cast<uint32_t>(__builtin_ctz(pages));
+    pages &= ~(1u << page);
+    signature ^= (static_cast<uint64_t>(page) << 32) | m_vram_page_revisions[page];
+    signature *= UINT64_C(1099511628211);
+  }
+  return signature;
+}
+
+void GPU::BumpVRAMPageRevisions(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom)
+{
+  if (right <= left || bottom <= top)
+    return;
+
+  const uint32_t width = std::min(right - left, VRAM_WIDTH);
+  const uint32_t height = std::min(bottom - top, VRAM_HEIGHT);
+  left %= VRAM_WIDTH;
+  top %= VRAM_HEIGHT;
+
+  uint32_t pages = 0;
+  const auto include_rect = [&pages](uint32_t rect_left, uint32_t rect_top, uint32_t rect_width,
+                                     uint32_t rect_height) {
+    if (rect_width == 0 || rect_height == 0)
+      return;
+
+    for (uint32_t page_y = rect_top / 256u; page_y <= (rect_top + rect_height - 1u) / 256u; page_y++)
+    {
+      for (uint32_t page_x = rect_left / 64u; page_x <= (rect_left + rect_width - 1u) / 64u; page_x++)
+        pages |= (1u << ((page_y * 16u) + page_x));
+    }
+  };
+
+  const uint32_t first_width = std::min(width, VRAM_WIDTH - left);
+  const uint32_t first_height = std::min(height, VRAM_HEIGHT - top);
+  include_rect(left, top, first_width, first_height);
+  include_rect(0, top, width - first_width, first_height);
+  include_rect(left, 0, first_width, height - first_height);
+  include_rect(0, 0, width - first_width, height - first_height);
+
+  while (pages != 0)
+  {
+    const uint32_t page = static_cast<uint32_t>(__builtin_ctz(pages));
+    pages &= ~(1u << page);
+    m_vram_page_revisions[page]++;
+  }
+}
+
 void GPU::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t color)
 {
   IncrementVRAMGeneration();
+  BumpVRAMPageRevisions(x, x + width, y, y + height);
 
   const uint16_t color16 = VRAMRGBA8888ToRGBA5551(color);
   if ((x + width) <= VRAM_WIDTH && !IsInterlacedRenderingEnabled())
@@ -1271,6 +1353,7 @@ void GPU::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint
 void GPU::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, const void* data, bool set_mask, bool check_mask)
 {
   IncrementVRAMGeneration();
+  BumpVRAMPageRevisions(x, x + width, y, y + height);
 
   // Fast path when the copy is not oversized.
   if ((x + width) <= VRAM_WIDTH && (y + height) <= VRAM_HEIGHT && !set_mask && !check_mask)
@@ -1309,6 +1392,7 @@ void GPU::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, co
 void GPU::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uint32_t dst_y, uint32_t width, uint32_t height)
 {
   IncrementVRAMGeneration();
+  BumpVRAMPageRevisions(dst_x, dst_x + width, dst_y, dst_y + height);
 
   // Break up oversized copies. This behavior has not been verified on console.
   if ((src_x + width) > VRAM_WIDTH || (dst_x + width) > VRAM_WIDTH)

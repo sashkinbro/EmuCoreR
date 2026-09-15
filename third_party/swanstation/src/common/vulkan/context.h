@@ -126,6 +126,7 @@ public:
   void DeferFramebufferDestruction(VkFramebuffer object);
   void DeferImageDestruction(VkImage object);
   void DeferImageViewDestruction(VkImageView object);
+  void DeferGlobalDescriptorSetDestruction(VkDescriptorSet object);
 
   // Wait for a fence to be completed.
   // Also invokes callbacks for completion.

@@ -21,6 +21,7 @@
 #include <memory>
 #include <tuple>
 #include <string>
+#include <unordered_map>
 #include <libretro.h>
 
 class LibretroOpenGLHostDisplay final : public HostDisplay
@@ -98,6 +99,10 @@ public:
   void ResetGraphicsAPIState() override;
   void RestoreGraphicsAPIState() override;
   void UpdateSettings() override;
+
+  uint64_t QueryTextureReplacement(const TexturePageReplacement* replacement) override;
+  bool SetTextureReplacement(const TexturePageReplacement* replacement) override;
+  void ReadVRAMShadowForReplacements() override;
 
 protected:
   void ClearDisplay() override;
@@ -199,6 +204,29 @@ private:
   bool BlitVRAMReplacementTexture(const TextureReplacementTexture* tex, uint32_t dst_x, uint32_t dst_y, uint32_t width, uint32_t height);
   void DownsampleFramebuffer(GL::Texture& source, uint32_t left, uint32_t top, uint32_t width, uint32_t height);
   void DownsampleFramebufferBoxFilter(GL::Texture& source, uint32_t left, uint32_t top, uint32_t width, uint32_t height);
+
+  // Texture page (texpage-*) replacement support. The composited pages are
+  // uploaded into their own GL textures, one per replacement id, and bound on
+  // texture unit 1 while the batch shader's u_replacement_enabled flag is set.
+  static constexpr size_t MAX_TEXTURE_REPLACEMENTS = 128;
+
+  struct TextureReplacementGPUEntry
+  {
+    GL::Texture texture;
+    uint64_t revision = 0;
+    uint64_t last_used = 0;
+  };
+
+  bool UploadTextureReplacement(const TexturePageReplacement& replacement, TextureReplacementGPUEntry* entry);
+  void DestroyTextureReplacementEntries();
+
+  std::unordered_map<uint64_t, TextureReplacementGPUEntry> m_texture_replacement_entries;
+  std::unordered_map<uint64_t, TexturePageReplacement> m_pending_replacement_uploads;
+  // GL texture id selected by the last SetTextureReplacement(), and the id
+  // currently bound on unit 1.
+  GLuint m_replacement_texture_gl_id = 0;
+  uint64_t m_texture_replacement_used_counter = 0;
+  GLuint m_bound_replacement_texture_gl_id = 0;
 
   // downsample texture - used for readbacks at >1xIR.
   GL::Texture m_vram_texture;

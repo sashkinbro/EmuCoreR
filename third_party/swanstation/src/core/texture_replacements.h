@@ -40,12 +40,13 @@ using TextureReplacementTexture = Common::RGBA8Image;
 // A composited texture page (all matching texpage replacements rasterized into
 // a single RGBA8 image) plus the information the renderer needs to sample it
 // with normalized coordinates. In "expanded" texel space a full page is always
-// 256x256 for every mode (P4/P8/C16), matching DuckStation's texture cache;
+// 256x256 for every mode (P4/P8/C16), matching the texture cache layout;
 // the image is that page upscaled by the replacement's scale.
 struct TexturePageReplacement
 {
   std::shared_ptr<Common::RGBA8Image> image;
-  uint64_t id = 0;                    // unique; changes whenever the page is recomposited
+  uint64_t id = 0;                    // stable per page/mode/palette; id == 0 when there is no match
+  uint64_t revision = 0;              // bumped whenever the composited image changes
   uint32_t vram_page_start_x = 0;     // page origin in VRAM word coordinates
   uint32_t vram_page_start_y = 0;
   uint32_t source_width = 0;          // source hash region size in VRAM words (64/128/256)
@@ -74,7 +75,7 @@ public:
   const TextureReplacementTexture* GetVRAMWriteReplacement(uint32_t width, uint32_t height, const void* pixels);
 
   // Texture page replacement lookup. `mode` may carry GPUTextureMode::RawTextureBit
-  // (DuckStation's ST* variants); page/palette coordinates are in VRAM words.
+  // (ST* variants); page/palette coordinates are in VRAM words.
   // Returns a pointer owned by the internal cache, valid until the next lookup.
   const TexturePageReplacement* GetTexturePageReplacement(GPUTextureMode mode, uint32_t texture_page_x,
                                                           uint32_t texture_page_y, uint32_t palette_x,
@@ -89,6 +90,11 @@ public:
   // Largest texture the renderer can bind; caps the composited page size.
   void SetMaxTextureSize(uint32_t size);
 
+  // Internal rendering resolution. The composited page is capped to this
+  // scale: detail beyond the visible resolution is wasted work (and memory),
+  // and animated pages recompose frequently in some games.
+  void SetResolutionScale(uint32_t scale);
+
   void Shutdown();
 
 private:
@@ -97,8 +103,7 @@ private:
   using TextureLruList = std::list<std::string>;
   using TextureLruPositions = std::unordered_map<std::string, TextureLruList::iterator>;
 
-  // Parsed contents of a texpage-* filename. Mirrors DuckStation's
-  // TextureReplacementName.
+  // Parsed contents of a texpage-* filename.
   struct TexturePageReplacementName
   {
     uint64_t src_hash = 0;
@@ -157,12 +162,16 @@ private:
 
   struct CachedPage
   {
-    TexturePageReplacement replacement; // id == 0 when there was no match
-    uint64_t vram_generation = 0;       // generation the hashes were computed at
-    uint64_t match_signature = 0;       // identity of the matched entry set
+    TexturePageReplacement replacement; // id stays stable; id == 0 when there is no match
+    uint64_t page_hash = 0;
+    uint64_t palette_hash = 0;
     size_t size_bytes = 0;
     uint64_t last_used = 0;
   };
+
+  uint64_t GetCachedPageHash(uint32_t page, GPUTextureMode mode, uint64_t revision);
+  uint64_t GetCachedPaletteHash(uint32_t palette_x, uint32_t palette_y, GPUTextureMode mode, uint64_t revision);
+  uint64_t GetCachedRectHash(uint64_t page_revision, uint32_t left, uint32_t top, uint32_t width, uint32_t height);
 
   static bool ParseReplacementFilename(const std::string& filename, TextureReplacementHash* replacement_hash,
                                        ReplacmentType* replacement_type);
@@ -210,7 +219,7 @@ private:
                                     uint32_t palette_y, const TexturePageReplacementName& name) const;
   void FindTexturePageMatches(std::vector<ReplacementMatch>& matches, uint32_t page, GPUTextureMode mode,
                               uint32_t palette_x, uint32_t palette_y, uint64_t page_hash,
-                              uint64_t full_palette_hash);
+                              uint64_t full_palette_hash, uint64_t page_revision);
 
   void DecodePage(std::vector<uint32_t>& pixels, uint32_t page, GPUTextureMode mode, uint32_t palette_x,
                   uint32_t palette_y) const;
@@ -229,18 +238,52 @@ private:
 
   VRAMWriteReplacementMap m_vram_write_replacements;
 
-  // [base mode 0..2] - DuckStation's ST* (semi-transparent) variants share the
+  // [base mode 0..2] - the ST* (semi-transparent) variants share the
   // bucket with their base mode; the ST bit only affects compositing.
   std::array<std::vector<TexturePageReplacementEntry>, 3> m_texpage_replacements;
   uint32_t m_texupload_replacement_count = 0;
 
   const uint16_t* m_vram = nullptr;
   uint32_t m_max_texture_size = 2048;
+  uint32_t m_resolution_scale = 1;
 
   std::unordered_map<PageCacheKey, CachedPage, PageCacheKeyHash> m_page_cache;
   size_t m_page_cache_bytes = 0;
   uint64_t m_page_cache_used_counter = 0;
   uint64_t m_next_replacement_id = 1;
+
+  struct CachedHash
+  {
+    uint64_t revision;
+    uint64_t hash;
+  };
+
+  // One entry per logical source. The revision signature covers every physical
+  // 64x256 page in that source, including wrapped P8/C16 pages and CLUTs.
+  std::unordered_map<uint32_t, CachedHash> m_page_hash_cache;
+  std::unordered_map<uint32_t, CachedHash> m_palette_hash_cache;
+
+  // Partial-rectangle hashes for texpage matching, memoized by the page
+  // content revision so unchanged pages never re-hash their sub-rectangles.
+  struct RectHashKey
+  {
+    uint32_t left;
+    uint32_t top;
+    uint32_t width;
+    uint32_t height;
+
+    bool operator==(const RectHashKey& rhs) const
+    {
+      return left == rhs.left && top == rhs.top && width == rhs.width && height == rhs.height;
+    }
+  };
+
+  struct RectHashKeyHash
+  {
+    size_t operator()(const RectHashKey& k) const;
+  };
+
+  std::unordered_map<RectHashKey, CachedHash, RectHashKeyHash> m_rect_hash_cache;
 };
 
 extern TextureReplacements g_texture_replacements;

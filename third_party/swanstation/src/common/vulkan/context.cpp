@@ -670,6 +670,13 @@ void Context::DeferImageViewDestruction(VkImageView object)
   resources.cleanup_resources.push_back([this, object]() { vkDestroyImageView(m_device, object, nullptr); });
 }
 
+void Context::DeferGlobalDescriptorSetDestruction(VkDescriptorSet object)
+{
+  FrameResources& resources = m_frame_resources[m_current_frame];
+  resources.cleanup_resources.push_back(
+    [this, object]() { vkFreeDescriptorSets(m_device, m_global_descriptor_pool, 1, &object); });
+}
+
 VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
                                                       VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                       const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,

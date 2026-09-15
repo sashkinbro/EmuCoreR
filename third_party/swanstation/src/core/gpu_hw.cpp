@@ -57,6 +57,7 @@ bool GPU_HW::Initialize(HostDisplay* host_display)
   g_texture_replacements.SetVRAM(m_vram_shadow.data());
 
   m_resolution_scale = CalculateResolutionScale();
+  g_texture_replacements.SetResolutionScale(m_resolution_scale);
   m_multisamples = std::min(g_settings.gpu_multisamples, m_max_multisamples);
   m_render_api = host_display->GetRenderAPI();
   m_per_sample_shading = g_settings.gpu_per_sample_shading && m_supports_per_sample_shading;
@@ -117,7 +118,8 @@ void GPU_HW::Reset(bool clear_vram)
 
   m_vram_shadow.fill(0);
   m_vram_shadow_dirty_pages = 0;
-  m_vram_shadow_dirty_palette_pages = 0;
+  m_replacement_sampled_pages = 0;
+  BumpVRAMPageRevisions(0, VRAM_WIDTH, 0, VRAM_HEIGHT);
   if (m_sw_renderer)
     m_sw_renderer->Reset(clear_vram);
 
@@ -154,6 +156,7 @@ void GPU_HW::Reset(bool clear_vram)
   // Drop any texture page replacement binding; the VRAM contents have been
   // cleared and the manager's cache is invalidated by the generation bump.
   m_current_texture_replacement_id = 0;
+  m_current_texture_replacement_revision = 0;
   m_batch_ubo_data.u_replacement_enabled = 0;
   SetTextureReplacement(nullptr);
 
@@ -170,7 +173,8 @@ bool GPU_HW::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool u
   {
     m_batch_current_vertex_ptr = m_batch_start_vertex_ptr;
     m_vram_shadow_dirty_pages = 0;
-    m_vram_shadow_dirty_palette_pages = 0;
+    m_replacement_sampled_pages = 0;
+    BumpVRAMPageRevisions(0, VRAM_WIDTH, 0, VRAM_HEIGHT);
     SetFullVRAMDirtyRectangle();
     ResetBatchVertexDepth();
   }
@@ -328,6 +332,7 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
   }
 
   m_resolution_scale = resolution_scale;
+  g_texture_replacements.SetResolutionScale(m_resolution_scale);
   m_multisamples = multisamples;
   m_per_sample_shading = per_sample_shading;
   m_true_color = g_settings.gpu_true_color;
@@ -580,6 +585,7 @@ void GPU_HW::UpdateTextureReplacement(GPUTextureMode texture_mode)
         FlushRender();
 
       m_current_texture_replacement_id = 0;
+      m_current_texture_replacement_revision = 0;
       m_batch_ubo_data.u_replacement_enabled = 0;
       m_batch_ubo_dirty = true;
       SetTextureReplacement(nullptr);
@@ -587,23 +593,57 @@ void GPU_HW::UpdateTextureReplacement(GPUTextureMode texture_mode)
     return;
   }
 
-  // Refresh the CPU-side shadow for anything the GPU has drawn into since the
-  // last lookup; hashing/compositing below reads from it.
-  const uint8_t base_mode = static_cast<uint8_t>(texture_mode) & 3u;
-  const uint32_t page_width_words = (base_mode == static_cast<uint8_t>(GPUTextureMode::Palette4Bit)) ? 64u :
-                                    (base_mode == static_cast<uint8_t>(GPUTextureMode::Palette8Bit)) ? 128u :
-                                                                                                        256u;
-  const bool has_palette = (base_mode < static_cast<uint8_t>(GPUTextureMode::Direct16Bit));
-  const uint32_t palette_width = has_palette ? ((base_mode == static_cast<uint8_t>(GPUTextureMode::Palette4Bit)) ? 16u : 256u) : 0u;
-  SyncVRAMForTextureReplacement(m_draw_mode.texture_page_x, m_draw_mode.texture_page_y, page_width_words, 256u,
-                                m_draw_mode.texture_palette_x, m_draw_mode.texture_palette_y, palette_width);
+  // The CPU-side shadow is refreshed in batched readbacks at the frame
+  // boundary (see GPU_HW::ReadVRAMShadowForReplacements) instead of during
+  // draws: mid-frame readbacks both stall the GPU and interrupt the render
+  // pass, which corrupts batching state. Only pages that are actually sampled
+  // by a lookup are scheduled for the next boundary sync.
+  const auto mark_sampled_pages = [this](uint32_t x, uint32_t y, uint32_t width) {
+    width = std::min(width, VRAM_WIDTH);
+    x %= VRAM_WIDTH;
+    const uint32_t page_y = (y % VRAM_HEIGHT) / 256u;
+    while (width > 0)
+    {
+      const uint32_t chunk_width = std::min(width, VRAM_WIDTH - x);
+      for (uint32_t page_x = x / 64u; page_x <= (x + chunk_width - 1u) / 64u; page_x++)
+        m_replacement_sampled_pages |= (1u << ((page_y * 16u) + page_x));
+      width -= chunk_width;
+      x = 0;
+    }
+  };
+
+  uint32_t base_mode = static_cast<uint8_t>(texture_mode) & 3u;
+  if (base_mode == static_cast<uint8_t>(GPUTextureMode::Reserved_Direct16Bit))
+    base_mode = static_cast<uint8_t>(GPUTextureMode::Direct16Bit);
+
+  // A texpage always expands to 256 texels, which occupies 64/128/256
+  // 16-bit VRAM words in P4/P8/C16 respectively.
+  mark_sampled_pages(m_draw_mode.texture_page_x, m_draw_mode.texture_page_y, 64u << base_mode);
+  if (base_mode < static_cast<uint8_t>(GPUTextureMode::Direct16Bit))
+  {
+    const uint32_t palette_width =
+      (base_mode == static_cast<uint8_t>(GPUTextureMode::Palette4Bit)) ? 16u : 256u;
+    mark_sampled_pages(m_draw_mode.texture_palette_x, m_draw_mode.texture_palette_y, palette_width);
+  }
 
   const TexturePageReplacement* replacement = g_texture_replacements.GetTexturePageReplacement(
     texture_mode, m_draw_mode.texture_page_x, m_draw_mode.texture_page_y, m_draw_mode.texture_palette_x,
     m_draw_mode.texture_palette_y);
-  const uint64_t replacement_id = replacement ? replacement->id : 0;
-  if (replacement_id == m_current_texture_replacement_id)
+
+  // Ask the backend whether a texture for the current revision can be bound and
+  // let it schedule an upload for a changed revision. This must not touch any
+  // GPU state: geometry queued against the previous binding has to be drawn
+  // before the descriptor set is swapped, or the batch samples the replacement
+  // page instead of VRAM (wrong colors and torn textures).
+  const uint64_t replacement_revision = QueryTextureReplacement(replacement);
+  const uint64_t replacement_id = (replacement && replacement_revision != 0) ? replacement->id : 0;
+  const uint32_t replacement_enabled = (replacement_id != 0) ? 1u : 0u;
+  if (replacement_id == m_current_texture_replacement_id &&
+      replacement_revision == m_current_texture_replacement_revision &&
+      replacement_enabled == m_batch_ubo_data.u_replacement_enabled)
+  {
     return;
+  }
 
   // The batch's descriptor binding changes, so anything already queued has to
   // use the previous binding.
@@ -611,8 +651,8 @@ void GPU_HW::UpdateTextureReplacement(GPUTextureMode texture_mode)
     FlushRender();
 
   m_current_texture_replacement_id = replacement_id;
-  const bool bound = SetTextureReplacement(replacement);
-  const uint32_t replacement_enabled = (replacement && bound) ? 1u : 0u;
+  m_current_texture_replacement_revision = replacement_revision;
+  SetTextureReplacement(replacement_enabled ? replacement : nullptr);
   m_batch_ubo_dirty |= (m_batch_ubo_data.u_replacement_enabled != replacement_enabled);
   m_batch_ubo_data.u_replacement_enabled = replacement_enabled;
 }
@@ -1239,20 +1279,28 @@ void GPU_HW::MarkVRAMShadowDirty(uint32_t left, uint32_t right, uint32_t top, ui
   if (!m_texture_replacements_enabled || right <= left || bottom <= top)
     return;
 
-  left = std::min(left, VRAM_WIDTH - 1);
-  right = std::min(right, VRAM_WIDTH);
-  top = std::min(top, VRAM_HEIGHT - 1);
-  bottom = std::min(bottom, VRAM_HEIGHT);
+  const uint32_t width = std::min(right - left, VRAM_WIDTH);
+  const uint32_t height = std::min(bottom - top, VRAM_HEIGHT);
+  left %= VRAM_WIDTH;
+  top %= VRAM_HEIGHT;
 
-  for (uint32_t page_y = top / 256; page_y <= (bottom - 1) / 256; page_y++)
-  {
-    for (uint32_t page_x = left / 64; page_x <= (right - 1) / 64; page_x++)
+  const auto mark_rect = [this](uint32_t rect_left, uint32_t rect_top, uint32_t rect_width,
+                                uint32_t rect_height) {
+    if (rect_width == 0 || rect_height == 0)
+      return;
+    for (uint32_t page_y = rect_top / 256u; page_y <= (rect_top + rect_height - 1u) / 256u; page_y++)
     {
-      const uint32_t page_bit = (page_y * 16) + page_x;
-      m_vram_shadow_dirty_pages |= (1u << page_bit);
-      m_vram_shadow_dirty_palette_pages |= (1u << page_bit);
+      for (uint32_t page_x = rect_left / 64u; page_x <= (rect_left + rect_width - 1u) / 64u; page_x++)
+        m_vram_shadow_dirty_pages |= (1u << ((page_y * 16u) + page_x));
     }
-  }
+  };
+
+  const uint32_t first_width = std::min(width, VRAM_WIDTH - left);
+  const uint32_t first_height = std::min(height, VRAM_HEIGHT - top);
+  mark_rect(left, top, first_width, first_height);
+  mark_rect(0, top, width - first_width, first_height);
+  mark_rect(left, 0, first_width, height - first_height);
+  mark_rect(0, 0, width - first_width, height - first_height);
 }
 
 void GPU_HW::EnsureVertexBufferSpaceForCurrentCommand()
@@ -1309,7 +1357,6 @@ void GPU_HW::UpdateSoftwareRenderer(bool copy_vram_from_hw)
 
   // The shadow source changes; force a refresh before the next replacement lookup.
   m_vram_shadow_dirty_pages = UINT32_C(0xFFFFFFFF);
-  m_vram_shadow_dirty_palette_pages = UINT32_C(0xFFFFFFFF);
 
   m_vram_ptr = m_vram_shadow.data();
 

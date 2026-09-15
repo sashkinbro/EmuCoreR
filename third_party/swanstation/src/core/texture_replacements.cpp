@@ -31,7 +31,7 @@ static constexpr size_t TEXTURE_CACHE_BUDGET_BYTES = 128u * 1024u * 1024u;
 // full-page composite is 256x256x4 bytes at 1x, or up to ~64 MiB at 4K packs.
 static constexpr size_t TEXTURE_PAGE_CACHE_BUDGET_BYTES = 256u * 1024u * 1024u;
 
-// VRAM page layout (matches DuckStation's gpu_types.h).
+// VRAM page layout.
 static constexpr uint32_t VRAM_PAGE_WIDTH = 64;
 static constexpr uint32_t VRAM_PAGE_HEIGHT = 256;
 static constexpr uint32_t TEXPAGE_NATIVE_WIDTH = 256;  // expanded texels, all modes
@@ -60,22 +60,6 @@ static std::string GetTextureReplacementsPathOverride()
 {
   std::lock_guard<std::mutex> lock(s_texture_path_override_mutex);
   return s_texture_path_override;
-}
-
-static constexpr uint32_t VRAMRGBA5551ToRGBA8888(uint16_t color)
-{
-  uint8_t r = static_cast<uint8_t>(color & 31);
-  uint8_t g = static_cast<uint8_t>((color >> 5) & 31);
-  uint8_t b = static_cast<uint8_t>((color >> 10) & 31);
-  uint8_t a = static_cast<uint8_t>((color >> 15) & 1);
-
-  // 00012345 -> 1234545
-  b = (b << 3) | (b & 0b111);
-  g = (g << 3) | (g & 0b111);
-  r = (r << 3) | (r & 0b111);
-  a = a ? 255 : 0;
-
-  return static_cast<uint32_t>(r) | (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(a) << 24);
 }
 
 std::string TextureReplacementHash::ToString() const
@@ -134,6 +118,9 @@ void TextureReplacements::Shutdown()
   m_texupload_replacement_count = 0;
   m_page_cache.clear();
   m_page_cache_bytes = 0;
+  m_page_hash_cache.clear();
+  m_palette_hash_cache.clear();
+  m_rect_hash_cache.clear();
   m_vram = nullptr;
   m_game_id.clear();
 }
@@ -165,6 +152,9 @@ void TextureReplacements::Reload()
   m_texupload_replacement_count = 0;
   m_page_cache.clear();
   m_page_cache_bytes = 0;
+  m_page_hash_cache.clear();
+  m_palette_hash_cache.clear();
+  m_rect_hash_cache.clear();
 
   if (g_settings.texture_replacements.AnyReplacementsEnabled())
     FindTextures(GetSourceDirectory());
@@ -477,7 +467,7 @@ bool TextureReplacements::TexturePageReplacementName::operator==(const TexturePa
          pal_max == rhs.pal_max;
 }
 
-// Port of DuckStation's TextureReplacementName::Parse. The token order differs
+// Parser for the texpage-* filename grammar. The token order differs
 // between paletted and direct16 modes: paletted entries carry a palette hash
 // and a palette index range, direct16 entries do not.
 bool TextureReplacements::TexturePageReplacementName::Parse(const std::string_view file_title)
@@ -704,6 +694,55 @@ size_t TextureReplacements::PageCacheKeyHash::operator()(const PageCacheKey& k) 
   return seed;
 }
 
+size_t TextureReplacements::RectHashKeyHash::operator()(const RectHashKey& k) const
+{
+  size_t seed = std::hash<uint32_t>{}(k.left);
+  hash_combine(seed, k.top, k.width, k.height);
+  return seed;
+}
+
+uint64_t TextureReplacements::GetCachedPageHash(uint32_t page, GPUTextureMode mode, uint64_t revision)
+{
+  const uint32_t key = (page << 3) | (static_cast<uint8_t>(mode) & 7u);
+  const auto it = m_page_hash_cache.find(key);
+  if (it != m_page_hash_cache.end() && it->second.revision == revision)
+    return it->second.hash;
+
+  const uint64_t hash = HashPage(page, mode);
+  m_page_hash_cache.insert_or_assign(key, CachedHash{revision, hash});
+  return hash;
+}
+
+uint64_t TextureReplacements::GetCachedPaletteHash(uint32_t palette_x, uint32_t palette_y, GPUTextureMode mode,
+                                                   uint64_t revision)
+{
+  const uint32_t key = ((palette_y & 0x1FFu) << 13) | ((palette_x & 0x3FFu) << 3) |
+                       static_cast<uint32_t>(static_cast<uint8_t>(mode) & 7u);
+  const auto it = m_palette_hash_cache.find(key);
+  if (it != m_palette_hash_cache.end() && it->second.revision == revision)
+    return it->second.hash;
+
+  const uint64_t hash = HashPalette(palette_x, palette_y, mode);
+  m_palette_hash_cache.insert_or_assign(key, CachedHash{revision, hash});
+  return hash;
+}
+
+uint64_t TextureReplacements::GetCachedRectHash(uint64_t page_revision, uint32_t left, uint32_t top, uint32_t width,
+                                                 uint32_t height)
+{
+  const RectHashKey key = {left, top, width, height};
+  const auto it = m_rect_hash_cache.find(key);
+  if (it != m_rect_hash_cache.end() && it->second.revision == page_revision)
+    return it->second.hash;
+
+  if (m_rect_hash_cache.size() > 65536)
+    m_rect_hash_cache.clear();
+
+  const uint64_t hash = HashRect(left, top, width, height);
+  m_rect_hash_cache.insert_or_assign(key, CachedHash{page_revision, hash});
+  return hash;
+}
+
 void TextureReplacements::SetVRAM(const uint16_t* vram)
 {
   if (m_vram == vram)
@@ -712,6 +751,9 @@ void TextureReplacements::SetVRAM(const uint16_t* vram)
   m_vram = vram;
   m_page_cache.clear();
   m_page_cache_bytes = 0;
+  m_page_hash_cache.clear();
+  m_palette_hash_cache.clear();
+  m_rect_hash_cache.clear();
 }
 
 void TextureReplacements::SetMaxTextureSize(uint32_t size)
@@ -720,6 +762,17 @@ void TextureReplacements::SetMaxTextureSize(uint32_t size)
     return;
 
   m_max_texture_size = size;
+  m_page_cache.clear();
+  m_page_cache_bytes = 0;
+}
+
+void TextureReplacements::SetResolutionScale(uint32_t scale)
+{
+  scale = std::max<uint32_t>(1, scale);
+  if (m_resolution_scale == scale)
+    return;
+
+  m_resolution_scale = scale;
   m_page_cache.clear();
   m_page_cache_bytes = 0;
 }
@@ -846,8 +899,9 @@ bool TextureReplacements::IsMatchingReplacementPalette(uint64_t full_palette_has
 }
 
 void TextureReplacements::FindTexturePageMatches(std::vector<ReplacementMatch>& matches, uint32_t page,
-                                                 GPUTextureMode mode, uint32_t palette_x, uint32_t palette_y,
-                                                 uint64_t page_hash, uint64_t full_palette_hash)
+                                                  GPUTextureMode mode, uint32_t palette_x, uint32_t palette_y,
+                                                  uint64_t page_hash, uint64_t full_palette_hash,
+                                                  uint64_t page_revision)
 {
   const auto& entries = m_texpage_replacements[static_cast<uint8_t>(mode) & 3u];
   if (entries.empty())
@@ -880,7 +934,7 @@ void TextureReplacements::FindTexturePageMatches(std::vector<ReplacementMatch>& 
     else
     {
       // Sub-rectangle: hash the rectangle the name describes, mapped into VRAM
-      // coordinates exactly like DuckStation's GetTexturePageTextureReplacements.
+      // coordinates as defined by the replacement matching rules.
       dst_x = name.offset_x;
       dst_y = name.offset_y;
       dst_width = name.width;
@@ -895,7 +949,7 @@ void TextureReplacements::FindTexturePageMatches(std::vector<ReplacementMatch>& 
         continue;
       }
 
-      const uint64_t hash = HashRect(left, top, right - left, dst_height);
+      const uint64_t hash = GetCachedRectHash(page_revision, left, top, right - left, dst_height);
       if (name.src_hash != hash)
         continue;
     }
@@ -923,7 +977,7 @@ void TextureReplacements::DecodePage(std::vector<uint32_t>& pixels, uint32_t pag
 
   const uint16_t* page_ptr = GetPagePointer(page);
   const uint16_t* palette = TextureModeHasPalette(mode) ? GetPalettePointer(palette_x, palette_y) : nullptr;
-  // DuckStation reads palette entries contiguously (a wrapped 8-bit palette
+  // Palette entries are read contiguously (a wrapped 8-bit palette
   // runs into the next VRAM row); clamp to the end of VRAM so a malformed
   // palette at the very last row can never read out of bounds.
   const size_t palette_remaining =
@@ -1004,7 +1058,8 @@ static uint32_t LerpRGBA8(uint32_t a, uint32_t b, float t)
   return ri | (gi << 8) | (bi << 16) | (ai << 24);
 }
 
-static uint32_t SampleImageBilinear(const uint32_t* pixels, uint32_t width, uint32_t height, float u, float v)
+static uint32_t SampleImageBilinear(const uint32_t* pixels, uint32_t width, uint32_t height, float u, float v,
+                                    float* out_coverage = nullptr)
 {
   const float fx = (u * static_cast<float>(width)) - 0.5f;
   const float fy = (v * static_cast<float>(height)) - 0.5f;
@@ -1023,8 +1078,24 @@ static uint32_t SampleImageBilinear(const uint32_t* pixels, uint32_t width, uint
   const uint32_t p01 = pixels[y1 * width + cx0];
   const uint32_t p11 = pixels[y1 * width + x1];
 
+  if (out_coverage)
+  {
+    // Binary per-texel coverage: any non-zero texel counts as covered. This
+    // mirrors the reference merge shader's alpha reconstruction and is what
+    // keeps cut-out edges from averaging in the colour of fully transparent
+    // texels.
+    const float a00 = (p00 != 0) ? 1.0f : 0.0f;
+    const float a10 = (p10 != 0) ? 1.0f : 0.0f;
+    const float a01 = (p01 != 0) ? 1.0f : 0.0f;
+    const float a11 = (p11 != 0) ? 1.0f : 0.0f;
+    const float a0 = a00 + ((a10 - a00) * tx);
+    const float a1 = a01 + ((a11 - a01) * tx);
+    *out_coverage = std::clamp(a0 + ((a1 - a0) * ty), 0.0f, 1.0f);
+  }
+
   return LerpRGBA8(LerpRGBA8(p00, p10, tx), LerpRGBA8(p01, p11, tx), ty);
 }
+
 
 std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::vector<ReplacementMatch>& matches,
                                                                      uint32_t page, GPUTextureMode mode,
@@ -1042,11 +1113,18 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
     max_scale_y = std::max(max_scale_y, match.scale_y);
   }
 
-  // Clamp to the largest texture the renderer can bind. DuckStation does the
-  // same against the device's max texture size.
+  // Clamp to the largest texture the renderer can bind (the device's max
+  // texture size).
   const float max_possible_scale = static_cast<float>(m_max_texture_size) / static_cast<float>(TEXPAGE_NATIVE_WIDTH);
   max_scale_x = std::min(max_scale_x, max_possible_scale);
   max_scale_y = std::min(max_scale_y, max_possible_scale);
+
+  // Cap the composite at the internal rendering resolution. Games with
+  // animated pages can rebuild the same page dozens of times per second, and
+  // detail beyond the visible resolution is wasted memory bandwidth.
+  const float resolution_cap = static_cast<float>(std::max<uint32_t>(1, m_resolution_scale));
+  max_scale_x = std::min(max_scale_x, resolution_cap);
+  max_scale_y = std::min(max_scale_y, resolution_cap);
   if (!(max_scale_x > 0.0f) || !(max_scale_y > 0.0f))
     return nullptr;
 
@@ -1059,8 +1137,8 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
   image->SetSize(out_width, out_height);
   uint32_t* out_pixels = image->GetPixels();
 
-  // Upscale the decoded page with nearest filtering (matches DuckStation's
-  // nearest upscale of the source texture page).
+  // Upscale the decoded page with nearest filtering.
+
   for (uint32_t y = 0; y < out_height; y++)
   {
     const uint32_t src_y = std::min<uint32_t>(
@@ -1105,13 +1183,16 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
       for (uint32_t x = dst_x0; x < dst_x1; x++)
       {
         const float u = (static_cast<float>(x - dst_x0) + 0.5f) * rcp_width;
-        const uint32_t pixel = SampleImageBilinear(src_pixels, src_width, src_height, u, v);
 
         if (semitransparent)
         {
-          // Semitransparent replacement images encode opacity; map anything
-          // which isn't fully opaque to the PSX STP bit (bit 15). 0000h stays
-          // fully transparent. Mirrors DuckStation's replacement merge shader.
+          // Semitransparent replacements encode opacity in the image's alpha
+          // channel and keep the straight bilinear result.
+          const uint32_t pixel = SampleImageBilinear(src_pixels, src_width, src_height, u, v);
+
+          // Anything which isn't fully opaque maps to the PSX STP bit
+          // (bit 15). 0000h stays fully transparent. Mirrors the reference
+          // merge shader's semitransparent path.
           if (pixel == 0)
             dst_row[x] = 0;
           else
@@ -1119,13 +1200,30 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
         }
         else
         {
-          // Opaque replacements: sub-0.5 alpha becomes transparent, everything
-          // else becomes an opaque texel. The low alpha value keeps the texel
-          // from being transparency-culled while leaving bit 15 clear.
-          if ((pixel >> 24) >= 128u)
-            dst_row[x] = (pixel & 0x00FFFFFFu) | 0x02000000u;
+          // Opaque replacements: reconstruct binary alpha coverage and
+          // un-premultiply the bilinear colour by it, so partially covered
+          // edge texels don't pick up the colour of fully transparent
+          // neighbours. Sub-0.5 coverage becomes transparent, everything
+          // else becomes an opaque texel. The low alpha value keeps the
+          // texel from being transparency-culled while leaving bit 15
+          // clear.
+          float coverage = 1.0f;
+          const uint32_t pixel = SampleImageBilinear(src_pixels, src_width, src_height, u, v, &coverage);
+
+          if (coverage >= 0.5f)
+          {
+            const auto unmultiply = [coverage](uint32_t channel) {
+              return static_cast<uint32_t>(
+                std::clamp(static_cast<float>(channel) / coverage, 0.0f, 255.0f));
+            };
+            const uint32_t rgb = unmultiply(pixel & 0xFFu) | (unmultiply((pixel >> 8) & 0xFFu) << 8) |
+                                 (unmultiply((pixel >> 16) & 0xFFu) << 16);
+            dst_row[x] = rgb | 0x02000000u;
+          }
           else
+          {
             dst_row[x] = 0;
+          }
         }
       }
     }
@@ -1164,7 +1262,7 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
 
   // Canonicalize the "reserved" direct16 mode; the runtime never uses it, but
   // the register can technically hold it. The raw_texture/ST bit does not
-  // participate in matching (mirrors DuckStation's GetIndex()), so it is
+  // participate in matching (the replacement index ignores it), so it is
   // dropped here; the entry's own bit selects the alpha compositing path.
   uint32_t mode_bits = static_cast<uint8_t>(mode) & 3u;
   if (mode_bits == static_cast<uint8_t>(GPUTextureMode::Reserved_Direct16Bit))
@@ -1175,45 +1273,118 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
     return nullptr;
 
   const uint32_t page = ((texture_page_y / VRAM_PAGE_HEIGHT) * 16u) + (texture_page_x / VRAM_PAGE_WIDTH);
-  const uint64_t generation = g_gpu ? static_cast<uint64_t>(g_gpu->GetVRAMGeneration()) : 0;
+  const GPUTextureMode canonical_mode = static_cast<GPUTextureMode>(mode_index);
+  const uint32_t source_word_width = VRAM_PAGE_WIDTH << mode_index;
 
+  // Texpage hashes are row-contiguous and packs use those hashes.
+  // A page which crosses the right VRAM edge has no compatible full-page hash,
+  // so leave it on the native path instead of reading past the shadow buffer.
+  if ((texture_page_x + source_word_width) > VRAM_WIDTH)
+    return nullptr;
+
+  // Hash memoization is keyed by the GPU's per-page content revisions, so a
+  // page that has not been written since the last lookup is never re-hashed,
+  // and the completed lookup below is cached purely by content hashes. This
+  // keeps per-draw cost to a handful of map probes for static pages.
+  const uint64_t page_revision =
+    g_gpu ? g_gpu->GetVRAMRegionRevision(texture_page_x, texture_page_x + source_word_width, texture_page_y,
+                                         texture_page_y + VRAM_PAGE_HEIGHT) :
+            0;
+  const uint32_t palette_width = TextureModeHasPalette(canonical_mode) ?
+                                   std::min(GetPaletteWidth(canonical_mode), VRAM_WIDTH - palette_x) :
+                                   0;
+  const uint64_t palette_revision =
+    (g_gpu && palette_width > 0) ?
+      g_gpu->GetVRAMRegionRevision(palette_x, palette_x + palette_width, palette_y, palette_y + 1u) :
+      0;
+  const uint64_t page_hash = GetCachedPageHash(page, canonical_mode, page_revision);
+  const uint64_t full_palette_hash = TextureModeHasPalette(canonical_mode) ?
+                                       GetCachedPaletteHash(palette_x, palette_y, canonical_mode, palette_revision) :
+                                       0;
+
+  // One cache entry per page/mode/palette. Its id is stable for the lifetime
+  // of the entry; a content change only bumps the revision, and the renderer
+  // swaps the GPU texture at the frame boundary. This keeps the batch key
+  // stable for animated pages, so changing content never re-flushes or
+  // flickers between the native and replaced paths.
   const PageCacheKey key = {page, mode_index, palette_x, palette_y};
   auto it = m_page_cache.find(key);
-  if (it != m_page_cache.end() && it->second.vram_generation == generation)
+  if (it != m_page_cache.end())
   {
-    it->second.last_used = ++m_page_cache_used_counter;
-    return (it->second.replacement.id != 0) ? &it->second.replacement : nullptr;
-  }
+    CachedPage& cached = it->second;
+    cached.last_used = ++m_page_cache_used_counter;
+    if (cached.page_hash == page_hash && cached.palette_hash == full_palette_hash)
+      return (cached.replacement.id != 0) ? &cached.replacement : nullptr;
 
-  const GPUTextureMode canonical_mode = static_cast<GPUTextureMode>(mode_index);
-  const uint64_t page_hash = HashPage(page, canonical_mode);
-  const uint64_t full_palette_hash =
-    TextureModeHasPalette(canonical_mode) ? HashPalette(palette_x, palette_y, canonical_mode) : 0;
+    // Content changed since the cached composition; rebuild it in place.
+    std::vector<ReplacementMatch> matches;
+    FindTexturePageMatches(matches, page, canonical_mode, palette_x, palette_y, page_hash, full_palette_hash,
+                           page_revision);
+
+    const size_t old_size = cached.size_bytes;
+    cached.page_hash = page_hash;
+    cached.palette_hash = full_palette_hash;
+    cached.size_bytes = 0;
+
+    if (matches.empty())
+    {
+      cached.replacement.image.reset();
+      cached.replacement.id = 0;
+      m_page_cache_bytes -= old_size;
+      return nullptr;
+    }
+
+    float scale_x = 1.0f;
+    float scale_y = 1.0f;
+    std::shared_ptr<Common::RGBA8Image> image =
+      ComposePage(matches, page, canonical_mode, palette_x, palette_y, &scale_x, &scale_y);
+    if (!image)
+    {
+      cached.replacement.image.reset();
+      cached.replacement.id = 0;
+      m_page_cache_bytes -= old_size;
+      return nullptr;
+    }
+
+    cached.replacement.image = std::move(image);
+    if (cached.replacement.id == 0)
+    {
+      cached.replacement.id = m_next_replacement_id++;
+      cached.replacement.revision = 1;
+    }
+    else
+    {
+      cached.replacement.revision++;
+    }
+    cached.replacement.vram_page_start_x = (page & 15u) * VRAM_PAGE_WIDTH;
+    cached.replacement.vram_page_start_y = (page >> 4) * VRAM_PAGE_HEIGHT;
+    cached.replacement.source_width = TEXPAGE_NATIVE_WIDTH;
+    cached.replacement.source_height = TEXPAGE_NATIVE_HEIGHT;
+    cached.replacement.scale_x = scale_x;
+    cached.replacement.scale_y = scale_y;
+    cached.size_bytes = static_cast<size_t>(cached.replacement.image->GetWidth()) *
+                        static_cast<size_t>(cached.replacement.image->GetHeight()) * sizeof(uint32_t);
+    const size_t new_size = cached.size_bytes;
+    m_page_cache_bytes -= old_size;
+
+    EvictPageReplacementsForBudget(new_size);
+    it = m_page_cache.find(key);
+    if (it == m_page_cache.end())
+      return nullptr;
+
+    m_page_cache_bytes += new_size;
+    return &it->second.replacement;
+  }
 
   std::vector<ReplacementMatch> matches;
-  FindTexturePageMatches(matches, page, canonical_mode, palette_x, palette_y, page_hash, full_palette_hash);
-
-  // The signature covers the matched replacement entries *and* the hashed
-  // source data, because the composite also contains the decoded base page.
-  size_t match_signature = 0;
-  hash_combine(match_signature, page_hash, full_palette_hash);
-  for (const ReplacementMatch& match : matches)
-    hash_combine(match_signature, match.entry);
-
-  if (it != m_page_cache.end() && match_signature == it->second.match_signature)
-  {
-    // Same match set as last time; the generation bump was caused by VRAM
-    // writes elsewhere, so the cached composite is still valid.
-    it->second.vram_generation = generation;
-    it->second.last_used = ++m_page_cache_used_counter;
-    return (it->second.replacement.id != 0) ? &it->second.replacement : nullptr;
-  }
+  FindTexturePageMatches(matches, page, canonical_mode, palette_x, palette_y, page_hash, full_palette_hash,
+                         page_revision);
 
   CachedPage cached;
-  cached.match_signature = match_signature;
-  cached.vram_generation = generation;
   cached.last_used = ++m_page_cache_used_counter;
   cached.replacement.id = 0;
+  cached.page_hash = page_hash;
+  cached.palette_hash = full_palette_hash;
 
   if (!matches.empty())
   {
@@ -1225,6 +1396,7 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
     {
       cached.replacement.image = std::move(image);
       cached.replacement.id = m_next_replacement_id++;
+      cached.replacement.revision = 1;
       cached.replacement.vram_page_start_x = (page & 15u) * VRAM_PAGE_WIDTH;
       cached.replacement.vram_page_start_y = (page >> 4) * VRAM_PAGE_HEIGHT;
       // In expanded texel space a page is 256x256 for every mode.
@@ -1234,24 +1406,11 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
       cached.replacement.scale_y = scale_y;
       cached.size_bytes = static_cast<size_t>(cached.replacement.image->GetWidth()) *
                           static_cast<size_t>(cached.replacement.image->GetHeight()) * sizeof(uint32_t);
-
-      Log_InfoPrintf("TexPage replacement: page=%u mode=%s %ux%u scale=%.2fx%.2f matches=%zu",
-                     page, s_texture_replacement_mode_names[mode_index], cached.replacement.image->GetWidth(),
-                     cached.replacement.image->GetHeight(), scale_x, scale_y, matches.size());
     }
   }
 
-  if (it != m_page_cache.end())
-  {
-    m_page_cache_bytes -= it->second.size_bytes;
-    it->second = std::move(cached);
-  }
-  else
-  {
-    EvictPageReplacementsForBudget(cached.size_bytes);
-    it = m_page_cache.emplace(key, std::move(cached)).first;
-  }
-
+  EvictPageReplacementsForBudget(cached.size_bytes);
+  it = m_page_cache.emplace(key, std::move(cached)).first;
   m_page_cache_bytes += it->second.size_bytes;
   return (it->second.replacement.id != 0) ? &it->second.replacement : nullptr;
 }

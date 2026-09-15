@@ -142,10 +142,22 @@ public:
   /// cached pages need to be re-hashed/re-composited.
   ALWAYS_INLINE uint32_t GetVRAMGeneration() const { return m_vram_generation; }
 
+  /// Per-page content revision. The replacement manager caches page hashes by
+  /// revision, so unchanged pages (the vast majority of draws) never re-hash.
+  ALWAYS_INLINE uint32_t GetVRAMPageRevision(uint32_t page) const { return m_vram_page_revisions[page & 31u]; }
+
+  /// Returns a signature for all 64x256-word shadow pages touched by a VRAM
+  /// rectangle. Right/bottom may extend past VRAM to describe wrapped regions.
+  uint64_t GetVRAMRegionRevision(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) const;
+
 protected:
   /// Bumps the VRAM generation counter. Called by every backend path which
   /// writes VRAM.
   ALWAYS_INLINE void IncrementVRAMGeneration() { m_vram_generation++; }
+
+  /// Bumps the per-page revisions after the CPU shadow has actually changed.
+  /// Right/bottom may extend past VRAM to describe wrapped regions.
+  void BumpVRAMPageRevisions(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom);
 
   TickCount CRTCTicksToSystemTicks(TickCount crtc_ticks, TickCount fractional_ticks) const;
   TickCount SystemTicksToCRTCTicks(TickCount sysclk_ticks, TickCount* fractional_ticks) const;
@@ -291,6 +303,10 @@ protected:
   // Bumped on every VRAM write; the texture replacement cache keys off this so
   // stale pages are never served.
   uint32_t m_vram_generation = 1;
+
+  // Per-page CPU-shadow content revisions (32 pages of 64x256 words). They are
+  // bumped only after the corresponding shadow data is current.
+  uint32_t m_vram_page_revisions[32] = {};
 
   union GPUSTAT
   {

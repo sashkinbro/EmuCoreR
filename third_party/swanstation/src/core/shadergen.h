@@ -1,8 +1,11 @@
 #pragma once
 #include "gpu_hw.h"
 #include "host_display.h"
+#include <initializer_list>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 class ShaderGen
 {
@@ -27,6 +30,11 @@ protected:
   void WriteHeader(std::stringstream& ss);
   void WriteUniformBufferDeclaration(std::stringstream& ss, bool push_constant_on_vulkan);
   void DeclareUniformBuffer(std::stringstream& ss, const std::initializer_list<const char*>& members,
+                            bool push_constant_on_vulkan);
+  // Same as above, for callers which build the member list dynamically (the
+  // batch UBO appends the texture replacement flag on backends that support
+  // it).
+  void DeclareUniformBuffer(std::stringstream& ss, const std::vector<const char*>& members,
                             bool push_constant_on_vulkan);
   void DeclareTexture(std::stringstream& ss, const char* name, uint32_t index, bool multisampled = false);
   void DeclareTextureBuffer(std::stringstream& ss, const char* name, uint32_t index, bool is_int, bool is_unsigned);

@@ -507,31 +507,45 @@ protected:
   void CheckForDepthClear(const BatchVertex* vertices, uint32_t num_vertices);
 
   /// Texture replacement support. The renderer calls UpdateTextureReplacement()
-  /// before queueing the vertices of a textured draw; if the composited page
-  /// for the current texture page/mode/palette differs from the one bound to
-  /// the batch, the pending batch is flushed and the backend virtual is invoked
-  /// to swap the bound texture. Vulkan overrides the virtual; the other
-  /// backends keep m_texture_replacements_enabled false and never reach it.
+  /// Checks whether a composited page can be bound for the draw that is about
+  /// to be queued, and lets the backend schedule an upload when the page
+  /// content changed since the bound texture was created. This must be free of
+  /// side effects on the current batch: the renderer calls it before flushing,
+  /// and the actual descriptor swap happens in SetTextureReplacement once the
+  /// previously queued geometry has been drawn with its old binding.
+  /// Returns the revision currently available for binding, or zero when no GPU
+  /// texture is ready yet. A backend may queue the requested newer revision
+  /// while returning the older one that remains valid for this frame.
+  virtual uint64_t QueryTextureReplacement(const TexturePageReplacement* replacement) { return 0; }
+
+  /// Binds the texture that the *next* flushed batch should sample. Called
+  /// only after the pending batch has been flushed, so a descriptor swap can
+  /// never leak into geometry queued against the previous texture. A null
+  /// replacement binds the VRAM atlas.
   /// Returns true if the binding was applied (a null replacement always
   /// "succeeds" by binding the VRAM atlas).
   virtual bool SetTextureReplacement(const TexturePageReplacement* replacement) { return false; }
   void UpdateTextureReplacement(GPUTextureMode texture_mode);
   bool m_texture_replacements_enabled = false;
   uint64_t m_current_texture_replacement_id = 0;
+  /// Revision of the composited image the bound texture was created from. A
+  /// content update keeps the id but bumps the revision; the new revision is
+  /// uploaded at the frame boundary and bound on the next flush.
+  uint64_t m_current_texture_replacement_revision = 0;
 
-  /// Refreshes the CPU-side VRAM shadow for the given page (and palette) before
-  /// replacement hashing. Only the Vulkan backend implements this (readback of
-  /// GPU-rendered pages); the base is a no-op.
-  virtual void SyncVRAMForTextureReplacement(uint32_t page_x, uint32_t page_y, uint32_t page_width, uint32_t page_height,
-                                             uint32_t palette_x, uint32_t palette_y, uint32_t palette_width)
-  {
-  }
+  /// Batched shadow refresh for replacement hashing, called once per frame at
+  /// the frame boundary. Only pages that were actually sampled by a lookup and
+  /// were drawn into since the last refresh are read back, so no GPU stalls
+  /// happen in the middle of rendering. The base is a no-op.
+  virtual void ReadVRAMShadowForReplacements() {}
+
+  /// Shadow pages sampled by replacement lookups since the last frame boundary.
+  /// This includes every page spanned by 8/16-bit sources and their palettes.
+  uint32_t m_replacement_sampled_pages = 0;
 
   // Bitmask of VRAM pages which have been drawn into since the CPU shadow was
-  // last refreshed (32 VRAM pages). Palette pages are tracked separately so a
-  // single-row CLUT refresh doesn't mark entire pages as clean.
+  // last refreshed (32 pages of 64x256 words).
   uint32_t m_vram_shadow_dirty_pages = 0;
-  uint32_t m_vram_shadow_dirty_palette_pages = 0;
 
   /// UBO data for adaptive smoothing.
   struct SmoothingUBOData

@@ -1014,10 +1014,9 @@ void GPU_HW_Vulkan::UploadUniformBuffer(const void* data, uint32_t data_size)
   std::memcpy(m_uniform_stream_buffer.GetCurrentHostPointer(), data, data_size);
   m_uniform_stream_buffer.CommitMemory(data_size);
 
-  const VkDescriptorSet batch_set =
-    (m_current_replacement_descriptor_set != VK_NULL_HANDLE) ? m_current_replacement_descriptor_set : m_batch_descriptor_set;
-  vkCmdBindDescriptorSets(g_vulkan_context->GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          m_batch_pipeline_layout, 0, 1, &batch_set, 1, &m_current_uniform_buffer_offset);
+  // The descriptor set itself is (re)bound by DrawBatchVertices: the
+  // replacement texture can change between two batches without the UBO
+  // becoming dirty, so binding only on upload left a stale sampler bound.
 }
 
 void GPU_HW_Vulkan::SetCapabilities()
@@ -3097,6 +3096,20 @@ void GPU_HW_Vulkan::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base
                      static_cast<uint8_t>(m_batch.transparency_mode), m_batch.dithering, m_batch.interlacing);
 
   vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+  // Bind the descriptor set for this batch. The batch UBO is uploaded lazily
+  // (only when its contents change), but the slot-1 sampler changes whenever
+  // the draw samples a different composited texture page. Binding it here,
+  // immediately before the draw, guarantees the sampler always matches the
+  // u_replacement_enabled value the shader reads: two consecutive batches can
+  // both have replacements enabled while pointing at different pages, and in
+  // that case only the descriptor set changes - the UBO stays clean.
+  const VkDescriptorSet batch_set =
+    (m_current_replacement_descriptor_set != VK_NULL_HANDLE) ? m_current_replacement_descriptor_set :
+                                                               m_batch_descriptor_set;
+  vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_batch_pipeline_layout, 0, 1, &batch_set, 1,
+                          &m_current_uniform_buffer_offset);
+
   vkCmdDraw(cmdbuf, num_vertices, 1, base_vertex, 0);
 }
 
@@ -3126,6 +3139,11 @@ void GPU_HW_Vulkan::UpdateDisplay()
 {
   GPU_HW::UpdateDisplay();
   EndRenderPass();
+
+  // Replacement shadow sync runs at the frame boundary, after all rendering
+  // for this frame has been recorded. Never during draws: mid-frame readbacks
+  // stall the GPU and interrupt the render pass.
+  ReadVRAMShadowForReplacements();
 
   VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
 
@@ -3366,8 +3384,13 @@ void GPU_HW_Vulkan::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uin
   VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
   if (IsUsingSoftwareRendererForReadbacks())
     CopySoftwareRendererVRAM(src_x, src_y, dst_x, dst_y, width, height);
-  else
-    GPU::CopyVRAM(src_x, src_y, dst_x, dst_y, width, height);
+
+  // Common bookkeeping is needed for both Vulkan copy paths. The CPU shadow
+  // cannot safely emulate this copy because the source may contain newer GPU
+  // draws, so mark the destination for a deferred readback instead.
+  GPU_HW::CopyVRAM(src_x, src_y, dst_x, dst_y, width, height);
+  if (!IsUsingSoftwareRendererForReadbacks())
+    MarkVRAMShadowDirty(dst_x, dst_x + width, dst_y, dst_y + height);
 
   if (UseVRAMCopyShader(src_x, src_y, dst_x, dst_y, width, height) || IsUsingMultisampling())
   {
@@ -3398,8 +3421,6 @@ void GPU_HW_Vulkan::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uin
 
     return;
   }
-
-  GPU_HW::CopyVRAM(src_x, src_y, dst_x, dst_y, width, height);
 
   src_x *= m_resolution_scale;
   src_y *= m_resolution_scale;
@@ -3566,6 +3587,26 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
   return true;
 }
 
+uint64_t GPU_HW_Vulkan::QueryTextureReplacement(const TexturePageReplacement* replacement)
+{
+  if (!replacement || !replacement->image || replacement->image->GetWidth() == 0 || replacement->image->GetHeight() == 0)
+    return 0;
+
+  auto it = m_texture_replacement_entries.find(replacement->id);
+  if (it == m_texture_replacement_entries.end() || it->second.revision != replacement->revision)
+  {
+    // Upload the new revision at the frame boundary; until then the previous
+    // revision stays bound, and a page that has never been uploaded renders
+    // through VRAM for one frame.
+    if (m_pending_replacement_uploads.size() < 1024)
+      m_pending_replacement_uploads.insert_or_assign(replacement->id, *replacement);
+
+    return (it != m_texture_replacement_entries.end()) ? it->second.revision : 0;
+  }
+
+  return it->second.revision;
+}
+
 bool GPU_HW_Vulkan::SetTextureReplacement(const TexturePageReplacement* replacement)
 {
   if (!replacement || !replacement->image || replacement->image->GetWidth() == 0 || replacement->image->GetHeight() == 0)
@@ -3574,25 +3615,13 @@ bool GPU_HW_Vulkan::SetTextureReplacement(const TexturePageReplacement* replacem
     return true;
   }
 
+  // The entry must exist by now: QueryTextureReplacement ran before the batch
+  // was flushed. If it was evicted in between, fall back to the VRAM path.
   auto it = m_texture_replacement_entries.find(replacement->id);
   if (it == m_texture_replacement_entries.end())
   {
-    // Very simple bounded cache: when full, submit and wait for the GPU, then
-    // drop everything. Replacement textures are re-uploaded on demand.
-    if (m_texture_replacement_entries.size() >= MAX_TEXTURE_REPLACEMENTS)
-    {
-      ExecuteCommandBuffer(true, true);
-      DestroyTextureReplacementEntries();
-    }
-
-    TextureReplacementGPUEntry entry;
-    if (!UploadTextureReplacement(*replacement, &entry))
-    {
-      m_current_replacement_descriptor_set = VK_NULL_HANDLE;
-      return false;
-    }
-
-    it = m_texture_replacement_entries.emplace(replacement->id, std::move(entry)).first;
+    m_current_replacement_descriptor_set = VK_NULL_HANDLE;
+    return false;
   }
 
   it->second.last_used = ++m_texture_replacement_used_counter;
@@ -3600,48 +3629,102 @@ bool GPU_HW_Vulkan::SetTextureReplacement(const TexturePageReplacement* replacem
   return true;
 }
 
-void GPU_HW_Vulkan::SyncVRAMForTextureReplacement(uint32_t page_x, uint32_t page_y, uint32_t page_width,
-                                                  uint32_t page_height, uint32_t palette_x, uint32_t palette_y,
-                                                  uint32_t palette_width)
+void GPU_HW_Vulkan::DestroyRetiredTextureReplacementEntries()
 {
-  if (!m_texture_replacements_enabled || m_sw_renderer ||
-      (m_vram_shadow_dirty_pages == 0 && m_vram_shadow_dirty_palette_pages == 0))
+  for (TextureReplacementGPUEntry& entry : m_retired_replacement_entries)
   {
+    if (entry.descriptor_set != VK_NULL_HANDLE)
+      g_vulkan_context->DeferGlobalDescriptorSetDestruction(entry.descriptor_set);
+    entry.descriptor_set = VK_NULL_HANDLE;
+    entry.texture.Destroy(true);
+  }
+  m_retired_replacement_entries.clear();
+}
+
+void GPU_HW_Vulkan::ReadVRAMShadowForReplacements()
+{
+  if (!m_texture_replacements_enabled || m_sw_renderer)
     return;
+
+  // Old revisions replaced at the previous boundary are safe to free now.
+  DestroyRetiredTextureReplacementEntries();
+
+  // Upload textures requested during the frame. Deferred to the boundary so we
+  // never submit the command buffer or rebind state mid-draw.
+  if (!m_pending_replacement_uploads.empty())
+  {
+    for (auto& pending : m_pending_replacement_uploads)
+    {
+      auto existing = m_texture_replacement_entries.find(pending.first);
+      if (existing == m_texture_replacement_entries.end() &&
+          m_texture_replacement_entries.size() >= MAX_TEXTURE_REPLACEMENTS)
+      {
+        auto victim = m_texture_replacement_entries.end();
+        for (auto it = m_texture_replacement_entries.begin(); it != m_texture_replacement_entries.end(); ++it)
+        {
+          if (it->first == m_current_texture_replacement_id)
+            continue;
+          if (victim == m_texture_replacement_entries.end() || it->second.last_used < victim->second.last_used)
+            victim = it;
+        }
+
+        if (victim == m_texture_replacement_entries.end())
+          continue;
+
+        m_retired_replacement_entries.push_back(std::move(victim->second));
+        m_texture_replacement_entries.erase(victim);
+      }
+
+      TextureReplacementGPUEntry entry;
+      if (!UploadTextureReplacement(pending.second, &entry))
+      {
+        Log_WarningPrintf("Failed to upload texture replacement %llu",
+                          static_cast<unsigned long long>(pending.first));
+        continue;
+      }
+
+      entry.revision = pending.second.revision;
+      if (existing != m_texture_replacement_entries.end())
+      {
+        entry.last_used = existing->second.last_used;
+        m_retired_replacement_entries.push_back(std::move(existing->second));
+        existing->second = std::move(entry);
+      }
+      else
+      {
+        entry.last_used = ++m_texture_replacement_used_counter;
+        m_texture_replacement_entries.emplace(pending.first, std::move(entry));
+      }
+    }
+    m_pending_replacement_uploads.clear();
   }
 
-  bool synced = false;
-
-  if (page_x < VRAM_WIDTH && page_y < VRAM_HEIGHT)
+  // Read back only pages that were both drawn into and sampled. Adjacent pages
+  // are merged into one transfer, so P8/C16 pages and their palettes require a
+  // single GPU wait instead of one wait per 64-word page.
+  uint32_t pages = m_vram_shadow_dirty_pages & m_replacement_sampled_pages;
+  m_replacement_sampled_pages = 0;
+  for (uint32_t page_y = 0; page_y < 2; page_y++)
   {
-    const uint32_t page_index = ((page_y / 256) * 16u) + (page_x / 64u);
-    if (m_vram_shadow_dirty_pages & (1u << page_index))
+    uint32_t row_pages = (pages >> (page_y * 16u)) & 0xFFFFu;
+    while (row_pages != 0)
     {
-      ReadVRAM(page_x, page_y, page_width, page_height);
-      m_vram_shadow_dirty_pages &= ~(1u << page_index);
-      m_vram_shadow_dirty_palette_pages &= ~(1u << page_index);
-      synced = true;
+      const uint32_t first_page_x = static_cast<uint32_t>(__builtin_ctz(row_pages));
+      uint32_t end_page_x = first_page_x + 1u;
+      while (end_page_x < 16u && (row_pages & (1u << end_page_x)) != 0)
+        end_page_x++;
+
+      const uint32_t run_mask = ((1u << (end_page_x - first_page_x)) - 1u) << first_page_x;
+      row_pages &= ~run_mask;
+      m_vram_shadow_dirty_pages &= ~(run_mask << (page_y * 16u));
+
+      const uint32_t read_x = first_page_x * 64u;
+      const uint32_t read_y = page_y * 256u;
+      const uint32_t read_width = (end_page_x - first_page_x) * 64u;
+      ReadVRAM(read_x, read_y, read_width, 256u);
+      BumpVRAMPageRevisions(read_x, read_x + read_width, read_y, read_y + 256u);
     }
   }
-
-  if (palette_width > 0 && palette_y < VRAM_HEIGHT)
-  {
-    // A palette row spans up to 1024 words; refill the whole row in one
-    // readback if any page it touches was drawn into since the last refresh.
-    const uint32_t first_page_y = palette_y / 256;
-    const uint32_t row_page_mask = (0xFFFFu << (first_page_y * 16u));
-    if (m_vram_shadow_dirty_palette_pages & row_page_mask)
-    {
-      ReadVRAM(0, palette_y, VRAM_WIDTH, 1);
-      m_vram_shadow_dirty_palette_pages &= ~row_page_mask;
-      synced = true;
-    }
-  }
-
-  // The shadow contents changed (or may have), so force the replacement cache
-  // to re-hash on the next lookup.
-  if (synced)
-    IncrementVRAMGeneration();
 }
 
 bool GPU_HW_Vulkan::UploadTextureReplacement(const TexturePageReplacement& replacement, TextureReplacementGPUEntry* entry)
@@ -3701,6 +3784,8 @@ bool GPU_HW_Vulkan::UploadTextureReplacement(const TexturePageReplacement& repla
 
 void GPU_HW_Vulkan::DestroyTextureReplacementEntries()
 {
+  DestroyRetiredTextureReplacementEntries();
+
   if (m_texture_replacement_entries.empty())
     return;
 

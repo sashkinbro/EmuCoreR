@@ -120,13 +120,13 @@ protected:
   void UnmapBatchVertexPointer(uint32_t used_vertices) override;
   void UploadUniformBuffer(const void* data, uint32_t data_size) override;
   void DrawBatchVertices(BatchRenderMode render_mode, uint32_t base_vertex, uint32_t num_vertices) override;
+  uint64_t QueryTextureReplacement(const TexturePageReplacement* replacement) override;
   bool SetTextureReplacement(const TexturePageReplacement* replacement) override;
-  void SyncVRAMForTextureReplacement(uint32_t page_x, uint32_t page_y, uint32_t page_width, uint32_t page_height,
-                                     uint32_t palette_x, uint32_t palette_y, uint32_t palette_width) override;
+  void ReadVRAMShadowForReplacements() override;
 
 private:
-  static constexpr uint32_t MAX_PUSH_CONSTANTS_SIZE = 64, TEXTURE_REPLACEMENT_BUFFER_SIZE = 64 * 1024 * 1024;
-  static constexpr size_t MAX_TEXTURE_REPLACEMENTS = 16;
+  static constexpr uint32_t MAX_PUSH_CONSTANTS_SIZE = 64, TEXTURE_REPLACEMENT_BUFFER_SIZE = 256 * 1024 * 1024;
+  static constexpr size_t MAX_TEXTURE_REPLACEMENTS = 128;
   void SetCapabilities();
   void DestroyResources();
 
@@ -238,16 +238,19 @@ private:
   bool BlitVRAMReplacementTexture(const TextureReplacementTexture* tex, uint32_t dst_x, uint32_t dst_y, uint32_t width, uint32_t height);
 
   // Composited texture page (texpage-*) GPU resources. Keyed by the manager's
-  // replacement id; the descriptor set mirrors m_batch_descriptor_set but
-  // points binding 1 at the replacement image instead of the VRAM atlas.
+  // replacement id, which is stable per page/mode/palette; `revision` detects
+  // content changes so the texture can be refreshed at the frame boundary
+  // while the previous revision stays bound (no native/replacement flicker).
   struct TextureReplacementGPUEntry
   {
     Vulkan::Texture texture;
     VkDescriptorSet descriptor_set = VK_NULL_HANDLE;
+    uint64_t revision = 0;
     uint64_t last_used = 0;
   };
   bool UploadTextureReplacement(const TexturePageReplacement& replacement, TextureReplacementGPUEntry* entry);
   void DestroyTextureReplacementEntries();
+  void DestroyRetiredTextureReplacementEntries();
 
   void DownsampleFramebuffer(Vulkan::Texture& source, uint32_t left, uint32_t top, uint32_t width, uint32_t height);
   void DownsampleFramebufferBoxFilter(Vulkan::Texture& source, uint32_t left, uint32_t top, uint32_t width, uint32_t height);
@@ -416,6 +419,18 @@ private:
   VkDescriptorSet m_current_replacement_descriptor_set = VK_NULL_HANDLE;
   std::unordered_map<uint64_t, TextureReplacementGPUEntry> m_texture_replacement_entries;
   uint64_t m_texture_replacement_used_counter = 0;
+
+  // Replacement page textures are uploaded at the frame boundary. Uploading
+  // while a frame is being recorded can submit the command buffer and rebind
+  // pipeline state in the middle of a batched draw, which shows up as
+  // flickering textures and wrong colors. Draws that reference a not-yet-
+  // uploaded page simply use the VRAM path for that frame.
+  std::unordered_map<uint64_t, TexturePageReplacement> m_pending_replacement_uploads;
+
+  // Entries replaced by a newer revision at the previous frame boundary. They
+  // are kept alive one extra frame so in-flight command buffers that still
+  // reference the old descriptor set/texture cannot use freed resources.
+  std::vector<TextureReplacementGPUEntry> m_retired_replacement_entries;
 
   // downsampling
   Vulkan::Texture m_downsample_texture;

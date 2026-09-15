@@ -282,6 +282,12 @@ void ShaderGen::WriteUniformBufferDeclaration(std::stringstream& ss, bool push_c
 void ShaderGen::DeclareUniformBuffer(std::stringstream& ss, const std::initializer_list<const char*>& members,
                                      bool push_constant_on_vulkan)
 {
+  DeclareUniformBuffer(ss, std::vector<const char*>(members), push_constant_on_vulkan);
+}
+
+void ShaderGen::DeclareUniformBuffer(std::stringstream& ss, const std::vector<const char*>& members,
+                                     bool push_constant_on_vulkan)
+{
   WriteUniformBufferDeclaration(ss, push_constant_on_vulkan);
 
   ss << "{\n";

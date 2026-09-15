@@ -568,6 +568,8 @@ GPU_HW_OpenGL::GPU_HW_OpenGL() : GPU_HW() {}
 
 GPU_HW_OpenGL::~GPU_HW_OpenGL()
 {
+  DestroyTextureReplacementEntries();
+
   // Destroy objects which don't have destructors to clean them up
   if (m_vram_fbo_id != 0)
     glDeleteFramebuffers(1, &m_vram_fbo_id);
@@ -611,6 +613,10 @@ bool GPU_HW_OpenGL::Initialize(HostDisplay* host_display)
   }
 
   SetCapabilities();
+
+  // Texture page (texpage-*) replacements are handled by the shared manager;
+  // this backend uploads the composited pages and binds them on unit 1.
+  m_texture_replacements_enabled = true;
 
   if (!GPU_HW::Initialize(host_display))
     return false;
@@ -889,7 +895,7 @@ void GPU_HW_OpenGL::UpdateSettings()
       m_shadergen = std::make_unique<GPU_HW_ShaderGen>(
         m_host_display->GetRenderAPI(), m_resolution_scale, m_multisamples, m_per_sample_shading, m_true_color,
         m_scaled_dithering, m_texture_filtering, m_using_uv_limits, m_pgxp_depth_buffer, m_disable_color_perspective,
-        m_supports_dual_source_blend);
+        m_supports_dual_source_blend, true);
 
       const uint32_t batch_progress_units =
         (g_settings.gpu_shader_precompile_mode == GPUShaderPrecompileMode::Enabled)
@@ -952,6 +958,9 @@ void GPU_HW_OpenGL::SetCapabilities()
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
   Log_InfoPrintf("Max texture size: %dx%d", max_texture_size, max_texture_size);
   m_max_resolution_scale = static_cast<uint32_t>(max_texture_size / VRAM_WIDTH);
+
+  // Caps the size of composited texture page replacements.
+  g_texture_replacements.SetMaxTextureSize(static_cast<uint32_t>(max_texture_size));
 
   m_max_multisamples = 1;
   if (GLAD_GL_ARB_texture_storage || GLAD_GL_ES_VERSION_3_2)
@@ -1220,7 +1229,7 @@ bool GPU_HW_OpenGL::CompilePrograms()
   m_shadergen = std::make_unique<GPU_HW_ShaderGen>(
     m_host_display->GetRenderAPI(), m_resolution_scale, m_multisamples, m_per_sample_shading, m_true_color,
     m_scaled_dithering, m_texture_filtering, m_using_uv_limits, m_pgxp_depth_buffer, m_disable_color_perspective,
-    m_supports_dual_source_blend);
+    m_supports_dual_source_blend, true);
   GPU_HW_ShaderGen& shadergen = *m_shadergen;
 
   // OpenGL is the odd one out: the libretro hardware-renderer
@@ -1545,7 +1554,7 @@ const GL::Program* GPU_HW_OpenGL::GetBatchProgram(GPUTextureFilter filter, uint8
   GPU_HW_ShaderGen tmp_shadergen(
     m_host_display->GetRenderAPI(), m_resolution_scale, m_multisamples, m_per_sample_shading, m_true_color,
     m_scaled_dithering, filter, m_using_uv_limits, m_pgxp_depth_buffer, m_disable_color_perspective,
-    m_supports_dual_source_blend);
+    m_supports_dual_source_blend, true);
 
   const bool textured = (static_cast<GPUTextureMode>(lookup_mode) != GPUTextureMode::Disabled);
   const std::string batch_vs = tmp_shadergen.GenerateBatchVertexShader(textured);
@@ -1596,6 +1605,10 @@ const GL::Program* GPU_HW_OpenGL::GetBatchProgram(GPUTextureFilter filter, uint8
     {
       prog->Bind();
       prog->Uniform1i("samp0", 0);
+      // The composited texture page replacement lives on texture unit 1.
+      // Without an explicit assignment every sampler defaults to unit 0,
+      // which would make the replacement path sample the VRAM atlas.
+      prog->Uniform1i("samp1", 1);
     }
   }
 
@@ -1632,6 +1645,23 @@ void GPU_HW_OpenGL::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base
   }
 
   SetDepthFunc();
+
+  // Bind the composited texture page replacement on unit 1. The shader only
+  // samples it while u_replacement_enabled is non-zero, but the sampler still
+  // needs a valid binding, so the VRAM read texture doubles as the filler.
+  // The id comparison keeps this off the hot path when the same page stays
+  // bound across batches.
+  const GLuint replacement_gl_id = m_replacement_texture_gl_id;
+  if (m_bound_replacement_texture_gl_id != replacement_gl_id)
+  {
+    glActiveTexture(GL_TEXTURE1);
+    if (replacement_gl_id != 0)
+      glBindTexture(GL_TEXTURE_2D, replacement_gl_id);
+    else
+      m_vram_read_texture.Bind();
+    glActiveTexture(GL_TEXTURE0);
+    m_bound_replacement_texture_gl_id = replacement_gl_id;
+  }
 
   glDrawArrays(GL_TRIANGLES, m_batch_base_vertex, num_vertices);
 }
@@ -1694,11 +1724,171 @@ bool GPU_HW_OpenGL::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
   return true;
 }
 
+uint64_t GPU_HW_OpenGL::QueryTextureReplacement(const TexturePageReplacement* replacement)
+{
+  if (!replacement || !replacement->image || replacement->image->GetWidth() == 0 || replacement->image->GetHeight() == 0)
+    return 0;
+
+  const auto it = m_texture_replacement_entries.find(replacement->id);
+  if (it == m_texture_replacement_entries.end() || it->second.revision != replacement->revision)
+  {
+    // Upload the newer revision at the frame boundary; until then the previous
+    // revision stays bound, and a page that has never been uploaded renders
+    // through VRAM for one frame.
+    if (m_pending_replacement_uploads.size() < 1024)
+      m_pending_replacement_uploads.insert_or_assign(replacement->id, *replacement);
+
+    return (it != m_texture_replacement_entries.end()) ? it->second.revision : 0;
+  }
+
+  return it->second.revision;
+}
+
+bool GPU_HW_OpenGL::SetTextureReplacement(const TexturePageReplacement* replacement)
+{
+  if (!replacement || !replacement->image || replacement->image->GetWidth() == 0 || replacement->image->GetHeight() == 0)
+  {
+    m_replacement_texture_gl_id = 0;
+    return true;
+  }
+
+  // The entry is expected to exist by now: QueryTextureReplacement ran before
+  // the batch was flushed. If it was evicted in between, fall back to VRAM.
+  const auto it = m_texture_replacement_entries.find(replacement->id);
+  if (it == m_texture_replacement_entries.end())
+  {
+    m_replacement_texture_gl_id = 0;
+    return false;
+  }
+
+  it->second.last_used = ++m_texture_replacement_used_counter;
+  m_replacement_texture_gl_id = it->second.texture.GetGLId();
+  return true;
+}
+
+bool GPU_HW_OpenGL::UploadTextureReplacement(const TexturePageReplacement& replacement,
+                                             TextureReplacementGPUEntry* entry)
+{
+  const Common::RGBA8Image& image = *replacement.image;
+
+  if (entry->texture.IsValid())
+  {
+    // Re-specifying the storage keeps the GL texture name (and therefore any
+    // cached binding state) stable across content updates.
+    entry->texture.Replace(image.GetWidth(), image.GetHeight(), GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
+                           image.GetPixels());
+  }
+  else
+  {
+    if (!entry->texture.Create(image.GetWidth(), image.GetHeight(), 1, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
+                               image.GetPixels(), false))
+    {
+      return false;
+    }
+  }
+
+  entry->revision = replacement.revision;
+  return true;
+}
+
+void GPU_HW_OpenGL::DestroyTextureReplacementEntries()
+{
+  m_texture_replacement_entries.clear();
+  m_replacement_texture_gl_id = 0;
+  m_bound_replacement_texture_gl_id = 0;
+}
+
+void GPU_HW_OpenGL::ReadVRAMShadowForReplacements()
+{
+  if (!m_texture_replacements_enabled || m_sw_renderer)
+    return;
+
+  // Upload textures requested during the frame. This runs at the frame
+  // boundary, so it never disturbs a draw that is being recorded.
+  if (!m_pending_replacement_uploads.empty())
+  {
+    for (auto& pending : m_pending_replacement_uploads)
+    {
+      if (m_texture_replacement_entries.find(pending.first) == m_texture_replacement_entries.end() &&
+          m_texture_replacement_entries.size() >= MAX_TEXTURE_REPLACEMENTS)
+      {
+        auto victim = m_texture_replacement_entries.end();
+        for (auto it = m_texture_replacement_entries.begin(); it != m_texture_replacement_entries.end(); ++it)
+        {
+          if (it->first == m_current_texture_replacement_id)
+            continue;
+          if (victim == m_texture_replacement_entries.end() || it->second.last_used < victim->second.last_used)
+            victim = it;
+        }
+
+        if (victim == m_texture_replacement_entries.end())
+          continue;
+
+        // The victim's GL texture may be the one currently bound on unit 1;
+        // deleting it resets that binding to zero, so force a re-bind.
+        m_texture_replacement_entries.erase(victim);
+        m_bound_replacement_texture_gl_id = 0;
+      }
+
+      TextureReplacementGPUEntry* entry;
+      auto it = m_texture_replacement_entries.find(pending.first);
+      if (it != m_texture_replacement_entries.end())
+      {
+        entry = &it->second;
+      }
+      else
+      {
+        entry = &m_texture_replacement_entries.emplace(pending.first, TextureReplacementGPUEntry{}).first->second;
+        entry->last_used = ++m_texture_replacement_used_counter;
+      }
+
+      if (!UploadTextureReplacement(pending.second, entry))
+      {
+        Log_WarningPrintf("Failed to upload texture replacement %llu",
+                          static_cast<unsigned long long>(pending.first));
+        continue;
+      }
+    }
+    m_pending_replacement_uploads.clear();
+
+    // Uploading binds the new texture on the active unit; restore the VRAM
+    // read texture that the batch path expects on unit 0.
+    glActiveTexture(GL_TEXTURE0);
+    m_vram_read_texture.Bind();
+  }
+
+  // Read back only the pages that were both drawn into and sampled. Adjacent
+  // pages are merged into one transfer, so P8/C16 pages and their palettes
+  // require a single readback instead of one per 64-word page.
+  uint32_t pages = m_vram_shadow_dirty_pages & m_replacement_sampled_pages;
+  m_replacement_sampled_pages = 0;
+  for (uint32_t page_y = 0; page_y < 2; page_y++)
+  {
+    uint32_t row_pages = (pages >> (page_y * 16u)) & 0xFFFFu;
+    while (row_pages != 0)
+    {
+      const uint32_t first_page_x = static_cast<uint32_t>(__builtin_ctz(row_pages));
+      uint32_t end_page_x = first_page_x + 1u;
+      while (end_page_x < 16u && (row_pages & (1u << end_page_x)) != 0)
+        end_page_x++;
+
+      const uint32_t run_mask = ((1u << (end_page_x - first_page_x)) - 1u) << first_page_x;
+      row_pages &= ~run_mask;
+      m_vram_shadow_dirty_pages &= ~(run_mask << (page_y * 16u));
+
+      const uint32_t read_x = first_page_x * 64u;
+      const uint32_t read_y = page_y * 256u;
+      const uint32_t read_width = (end_page_x - first_page_x) * 64u;
+      ReadVRAM(read_x, read_y, read_width, 256u);
+      BumpVRAMPageRevisions(read_x, read_x + read_width, read_y, read_y + 256u);
+    }
+  }
+}
+
 void GPU_HW_OpenGL::SetDepthFunc()
 {
   SetDepthFunc(m_batch.use_depth_buffer ? GL_LEQUAL : (m_batch.check_mask_before_draw ? GL_GEQUAL : GL_ALWAYS));
 }
-
 void GPU_HW_OpenGL::SetDepthFunc(GLenum func)
 {
   if (m_current_depth_test == func)
@@ -1746,6 +1936,10 @@ void GPU_HW_OpenGL::ClearDisplay()
 void GPU_HW_OpenGL::UpdateDisplay()
 {
   GPU_HW::UpdateDisplay();
+
+  // Replacement uploads and the VRAM shadow sync run at the frame boundary,
+  // after all rendering for this frame is done.
+  ReadVRAMShadowForReplacements();
 
     m_host_display->SetDisplayParameters(m_crtc_state.display_width, m_crtc_state.display_height,
                                          m_crtc_state.display_origin_left, m_crtc_state.display_origin_top,
@@ -1933,6 +2127,11 @@ void GPU_HW_OpenGL::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t 
   const Common::Rectangle<uint32_t> bounds = GetVRAMTransferBounds(x, y, width, height);
   GPU_HW::UpdateVRAM(bounds.left, bounds.top, bounds.GetWidth(), bounds.GetHeight(), data, set_mask, check_mask);
 
+  // Keep the CPU-side shadow current for texture replacement hashing. The
+  // original coordinates are needed here (the shadow writer handles wrapping).
+  if (!m_sw_renderer)
+    GPU::UpdateVRAM(x, y, width, height, data, set_mask, check_mask);
+
   if (!check_mask)
   {
     const TextureReplacementTexture* rtex = g_texture_replacements.GetVRAMWriteReplacement(width, height, data);
@@ -2048,6 +2247,12 @@ void GPU_HW_OpenGL::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uin
 {
   if (IsUsingSoftwareRendererForReadbacks())
     CopySoftwareRendererVRAM(src_x, src_y, dst_x, dst_y, width, height);
+
+  // The CPU shadow cannot safely emulate this copy because the source may
+  // contain newer GPU draws, so mark the destination for a deferred readback
+  // instead.
+  if (!IsUsingSoftwareRendererForReadbacks())
+    MarkVRAMShadowDirty(dst_x, dst_x + width, dst_y, dst_y + height);
 
   const Common::Rectangle<uint32_t> dst_bounds = GetVRAMTransferBounds(dst_x, dst_y, width, height);
   const Common::Rectangle<uint32_t> src_bounds = GetVRAMTransferBounds(src_x, src_y, width, height);

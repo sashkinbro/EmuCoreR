@@ -7,7 +7,8 @@ class GPU_HW_ShaderGen : public ShaderGen
 public:
   GPU_HW_ShaderGen(HostDisplay::RenderAPI render_api, uint32_t resolution_scale, uint32_t multisamples, bool per_sample_shading,
                    bool true_color, bool scaled_dithering, GPUTextureFilter texture_filtering, bool uv_limits,
-                   bool pgxp_depth, bool disable_color_perspective, bool supports_dual_source_blend);
+                   bool pgxp_depth, bool disable_color_perspective, bool supports_dual_source_blend,
+                   bool use_texture_replacements = false);
   ~GPU_HW_ShaderGen();
 
   std::string GenerateBatchVertexShader(bool textured);
@@ -52,4 +53,9 @@ private:
   bool m_uv_limits;
   bool m_pgxp_depth;
   bool m_disable_color_perspective;
+  // When set, the batch fragment shader can sample a pre-composited texture
+  // page replacement from the second sampler (samp1) instead of the VRAM
+  // atlas. Only the OpenGL backend consumes the generated source at runtime;
+  // the other backends run pre-baked shaders with their own wire-up.
+  bool m_use_texture_replacements;
 };

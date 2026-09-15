@@ -5,11 +5,13 @@
 GPU_HW_ShaderGen::GPU_HW_ShaderGen(HostDisplay::RenderAPI render_api, uint32_t resolution_scale, uint32_t multisamples,
                                    bool per_sample_shading, bool true_color, bool scaled_dithering,
                                    GPUTextureFilter texture_filtering, bool uv_limits, bool pgxp_depth,
-                                   bool disable_color_perspective, bool supports_dual_source_blend)
+                                   bool disable_color_perspective, bool supports_dual_source_blend,
+                                   bool use_texture_replacements)
   : ShaderGen(render_api, supports_dual_source_blend), m_resolution_scale(resolution_scale),
     m_multisamples(multisamples), m_per_sample_shading(per_sample_shading), m_true_color(true_color),
     m_scaled_dithering(scaled_dithering), m_texture_filter(texture_filtering), m_uv_limits(uv_limits),
-    m_pgxp_depth(pgxp_depth), m_disable_color_perspective(disable_color_perspective)
+    m_pgxp_depth(pgxp_depth), m_disable_color_perspective(disable_color_perspective),
+    m_use_texture_replacements(use_texture_replacements)
 {
 }
 
@@ -80,13 +82,21 @@ float4 RGBA5551ToRGBA8(uint v)
 
 void GPU_HW_ShaderGen::WriteBatchUniformBuffer(std::stringstream& ss)
 {
-  DeclareUniformBuffer(ss,
-                       {"uint2 u_texture_window_and", "uint2 u_texture_window_or", "float u_src_alpha_factor",
-                        "float u_dst_alpha_factor", "uint u_interlaced_displayed_field",
-                        "bool u_set_mask_while_drawing", "uint u_resolution_scale", "uint u_true_color",
-                        "uint u_scaled_dithering", "uint u_dithering",
-                        "uint u_interlacing", "uint u_pgxp_depth", "uint u_uv_limits", "uint u_render_mode"},
-                       false);
+  std::vector<const char*> members = {
+    "uint2 u_texture_window_and", "uint2 u_texture_window_or", "float u_src_alpha_factor",
+    "float u_dst_alpha_factor",   "uint u_interlaced_displayed_field",
+    "bool u_set_mask_while_drawing", "uint u_resolution_scale", "uint u_true_color",
+    "uint u_scaled_dithering",    "uint u_dithering",           "uint u_interlacing",
+    "uint u_pgxp_depth",          "uint u_uv_limits",           "uint u_render_mode"};
+
+  // The texture replacement flag occupies the same byte offset in the batch
+  // UBO as the pre-baked shaders' u_replacement_enabled field. Only emitted on
+  // backends which sample a composited page from the second sampler; the
+  // others leave the field unread.
+  if (m_use_texture_replacements)
+    members.push_back("uint u_replacement_enabled");
+
+  DeclareUniformBuffer(ss, members, false);
 
   // Alias the historical compile-time constants to their cbuffer-
   // backed equivalents. Every existing reference in the shader body
@@ -818,6 +828,12 @@ std::string GPU_HW_ShaderGen::GenerateBatchFragmentShader(GPU_HW::BatchRenderMod
   // so u_uv_limits is guaranteed 1 here) and the non-filtered path
   // (gated by runtime branch on u_uv_limits).
   DefineMacro(ss, "USE_DUAL_SOURCE", use_dual_source);
+  // USE_TEXTURE_REPLACEMENTS: the batch fragment shader gains an optional
+  // second sampler holding a pre-composited texture page. The flag is carried
+  // in the batch UBO (u_replacement_enabled), so enabling a replacement for a
+  // draw never recompiles anything - only the descriptor/texture binding and
+  // one cbuffer word change.
+  DefineMacro(ss, "USE_TEXTURE_REPLACEMENTS", m_use_texture_replacements);
   // PGXP_DEPTH used to live as a compile-time #define driving four
   // `#if !PGXP_DEPTH / o_depth = oalpha * v_pos.z / #endif` writes in
   // the body and the depth_output argument to
@@ -847,6 +863,8 @@ std::string GPU_HW_ShaderGen::GenerateBatchFragmentShader(GPU_HW::BatchRenderMod
   WriteBatchUniformBuffer(ss);
   WriteCommonFunctions(ss, true);
   DeclareTexture(ss, "samp0", 0);
+  if (m_use_texture_replacements)
+    DeclareTexture(ss, "samp1", 1);
 
   if (m_glsl)
     ss << "CONSTANT int[16] s_dither_values = int[16]( ";
@@ -927,6 +945,25 @@ float4 LoadVRAMTexel(uint2 icoord)
 
 float4 SampleFromVRAM(uint4 texpage, float2 coords)
 {
+  #if USE_TEXTURE_REPLACEMENTS
+  // Texture replacement: when the batch was queued with a pre-composited page,
+  // samp1 holds final RGBA pixels for a 256x256 expanded-texel page (possibly
+  // upscaled). Map the page-local native texel coordinates onto it; no palette
+  // lookup is applied because the palette is already baked into the composite.
+  // The texture window is still honoured, exactly like the VRAM path.
+  if (u_replacement_enabled != 0u)
+  {
+    float2 native_coords;
+    #if PALETTE
+      native_coords = float2(ApplyTextureWindow(FloatToIntegerCoords(coords)));
+    #else
+      native_coords = float2(ApplyUpscaledTextureWindow(FloatToIntegerCoords(coords))) / float(RESOLUTION_SCALE);
+    #endif
+
+    return SAMPLE_TEXTURE_LEVEL(samp1, (native_coords + float2(0.5, 0.5)) / float2(256.0, 256.0), 0.0);
+  }
+  #endif
+
   #if PALETTE
     uint2 icoord = ApplyTextureWindow(FloatToIntegerCoords(coords));
     uint2 index_coord = icoord;
