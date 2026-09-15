@@ -852,9 +852,16 @@ internal object CoreRuntime {
                     if (frameRate > 1.0) {
                         val framePeriodNanos = (1_000_000_000.0 / frameRate).toLong()
                         if (frameDeadlineNanos == 0L) frameDeadlineNanos = System.nanoTime()
-                        while (running && !paused && System.nanoTime() < frameDeadlineNanos) {
+                        // Sleeping only has millisecond granularity, so a
+                        // sleep-only wait can overshoot the frame deadline by
+                        // up to a whole millisecond. Sleep while a comfortable
+                        // margin remains, then busy-wait the last stretch so
+                        // the frame lands on its intended boundary.
+                        while (running && !paused) {
+                            val remainingNanos = frameDeadlineNanos - System.nanoTime()
+                            if (remainingNanos <= 0L) break
                             drainFrameTasks()
-                            Thread.sleep(1)
+                            if (remainingNanos > FRAME_PACING_SPIN_NANOS) Thread.sleep(1)
                         }
                         val afterNanos = System.nanoTime()
                         frameDeadlineNanos += framePeriodNanos
@@ -1080,6 +1087,7 @@ internal object CoreRuntime {
     private const val BIOS_BYTES = 512L * 1024L
     private const val PAD_ANALOG_MODE_BIT = 1 shl 16
     private const val AUDIO_PACING_MAX_WAIT_NANOS = 500_000_000L
+    private const val FRAME_PACING_SPIN_NANOS = 2_000_000L
 
     // App aspect-ratio preference values (mirrors the display settings UI).
     private const val ASPECT_RATIO_STRETCH = 0
