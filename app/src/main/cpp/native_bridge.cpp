@@ -640,11 +640,22 @@ bool IsCropActive(const DisplayCropRect& crop) {
 void PresentHardwareFrameEffect(int effect, int win_width, int win_height, const PresentRect& dst,
                                 int src_x, int src_y, int src_width, int src_height) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, win_width, win_height);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
+    glDisable(GL_SCISSOR_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    // The oversize fullscreen triangle is only clipped to the destination rect
+    // by the scissor, so enable it around the draw. Without this the extra
+    // rasterized pixels sample the source rect's edge (CLAMP_TO_EDGE) and paint
+    // the letterbox bars with the frame's edge colours instead of leaving them
+    // black. The viewport is anchored to the rect in GL's bottom-left space so
+    // the vertex shader can work with a unit destination rectangle.
+    const int dst_gl_y = win_height - dst.y - dst.height;
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(dst.x, dst_gl_y, dst.width, dst.height);
+    glViewport(dst.x, dst_gl_y, dst.width, dst.height);
 
     glUseProgram(g_gl_effect.program);
     glActiveTexture(GL_TEXTURE0);
@@ -653,23 +664,20 @@ void PresentHardwareFrameEffect(int effect, int win_width, int win_height, const
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
     glUniform1i(g_gl_effect.u_texture, 0);
-    glUniform4f(g_gl_effect.u_dst_rect,
-                static_cast<float>(dst.x) / static_cast<float>(win_width),
-                static_cast<float>(dst.y) / static_cast<float>(win_height),
-                static_cast<float>(dst.width) / static_cast<float>(win_width),
-                static_cast<float>(dst.height) / static_cast<float>(win_height));
+    glUniform4f(g_gl_effect.u_dst_rect, 0.0f, 0.0f, 1.0f, 1.0f);
     glUniform4f(g_gl_effect.u_src_rect,
                 g_gl.fbo_width > 0 ? static_cast<float>(src_x) / static_cast<float>(g_gl.fbo_width) : 0.0f,
                 g_gl.fbo_height > 0 ? static_cast<float>(src_y) / static_cast<float>(g_gl.fbo_height) : 0.0f,
                 g_gl.fbo_width > 0 ? static_cast<float>(src_width) / static_cast<float>(g_gl.fbo_width) : 1.0f,
                 g_gl.fbo_height > 0 ? static_cast<float>(src_height) / static_cast<float>(g_gl.fbo_height) : 1.0f);
-    glUniform2f(g_gl_effect.u_out_size, static_cast<float>(win_width), static_cast<float>(win_height));
+    glUniform2f(g_gl_effect.u_out_size, static_cast<float>(dst.width), static_cast<float>(dst.height));
     glUniform1i(g_gl_effect.u_effect, effect);
     glBindVertexArray(g_gl_effect.vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
     glUseProgram(0);
     glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_SCISSOR_TEST);
 }
 
 bool CreatePresentFramebuffer() {

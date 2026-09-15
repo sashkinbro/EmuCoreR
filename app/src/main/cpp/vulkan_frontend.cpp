@@ -1258,9 +1258,15 @@ bool RecordPresentEffect(uint32_t swapchain_index, uint32_t source_width, uint32
     render_pass_info.pClearValues = &clear;
     vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
-    const VkViewport viewport{0.0f, 0.0f, static_cast<float>(g_vk.swapchain_extent.width),
-                              static_cast<float>(g_vk.swapchain_extent.height), 0.0f, 1.0f};
-    const VkRect2D scissor{{0, 0}, g_vk.swapchain_extent};
+    // The fullscreen triangle only covers exactly the destination rect when
+    // the viewport is moved to it. Leaving the viewport full-screen lets the
+    // oversized triangle rasterize past the rect, and those extra pixels
+    // sample the source rect's edge (CLAMP_TO_EDGE), painting the letterbox
+    // bars with the frame's edge colours instead of leaving them black. Map
+    // the unit destination rect through a destination-sized viewport instead.
+    const VkViewport viewport{static_cast<float>(dst.x), static_cast<float>(dst.y),
+                              static_cast<float>(dst.width), static_cast<float>(dst.height), 0.0f, 1.0f};
+    const VkRect2D scissor{{dst.x, dst.y}, {static_cast<uint32_t>(dst.width), static_cast<uint32_t>(dst.height)}};
     vkCmdSetViewport(command_buffer, 0, 1, &viewport);
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, g_vk.effect_pipeline);
@@ -1268,18 +1274,20 @@ bool RecordPresentEffect(uint32_t swapchain_index, uint32_t source_width, uint32
                             &g_vk.effect_descriptor_set, 0, nullptr);
 
     PresentPushConstants constants{};
-    constants.dst_x = static_cast<float>(dst.x) / static_cast<float>(g_vk.swapchain_extent.width);
-    constants.dst_y = static_cast<float>(dst.y) / static_cast<float>(g_vk.swapchain_extent.height);
-    constants.dst_w = static_cast<float>(dst.width) / static_cast<float>(g_vk.swapchain_extent.width);
-    constants.dst_h = static_cast<float>(dst.height) / static_cast<float>(g_vk.swapchain_extent.height);
+    constants.dst_x = 0.0f;
+    constants.dst_y = 0.0f;
+    constants.dst_w = 1.0f;
+    constants.dst_h = 1.0f;
     constants.src_x = static_cast<float>(crop.left) * inv_width;
     constants.src_y = static_cast<float>(crop.top) * inv_height;
     constants.src_w = static_cast<float>(static_cast<int32_t>(source_width) - crop.left - crop.right) *
                       inv_width;
     constants.src_h = static_cast<float>(static_cast<int32_t>(source_height) - crop.top - crop.bottom) *
                       inv_height;
-    constants.out_w = static_cast<float>(g_vk.swapchain_extent.width);
-    constants.out_h = static_cast<float>(g_vk.swapchain_extent.height);
+    // Output pixel count of the drawn image, used by the sharpening effect to
+    // derive its texel scale from the on-screen size.
+    constants.out_w = static_cast<float>(dst.width);
+    constants.out_h = static_cast<float>(dst.height);
     constants.effect = static_cast<float>(effect);
     vkCmdPushConstants(command_buffer, g_vk.effect_pipeline_layout,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(constants), &constants);
