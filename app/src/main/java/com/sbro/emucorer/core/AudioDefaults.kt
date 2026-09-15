@@ -29,12 +29,18 @@ object AudioDefaults {
     const val BUFFER_MS_MIN = 10
     const val BUFFER_MS_MAX = 500
 
-    // 50 ms is a stable shared-mode AAudio baseline for slower Android devices. Users can
-    // still lower it explicitly; the separate 100 ms time-stretch buffer is unchanged.
-    const val OUTPUT_LATENCY_MS_DEFAULT = 50
+    // Capacity ceiling for the shared-mode AAudio buffer. The stream is
+    // resized to the device burst afterwards, so this mostly bounds how far
+    // the audio clock may lag; 30 ms keeps a margin for slower devices without
+    // adding audible delay. The separate 100 ms time-stretch buffer is
+    // unchanged.
+    const val OUTPUT_LATENCY_MS_DEFAULT = 30
     const val OUTPUT_LATENCY_MS_MIN = 1
     const val OUTPUT_LATENCY_MS_MAX = 500
-    const val MINIMAL_OUTPUT_LATENCY_DEFAULT = false
+    // Prefer the platform's low latency output path. Devices that cannot give
+    // a fast mixer fall back to the shared path inside the native stream open,
+    // so enabling this by default is safe.
+    const val MINIMAL_OUTPUT_LATENCY_DEFAULT = true
 
     fun coerceVolume(value: Int): Int = value.coerceIn(VOLUME_MIN, VOLUME_MAX)
 

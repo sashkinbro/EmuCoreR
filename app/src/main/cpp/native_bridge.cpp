@@ -179,7 +179,7 @@ struct FrontendState {
     size_t audio_write_frame = 0;
 
     // AAudio output configuration, applied when the next stream is opened.
-    std::atomic<int> audio_output_latency_ms{50};
+    std::atomic<int> audio_output_latency_ms{30};
     std::atomic<bool> audio_low_latency{false};
     std::atomic<float> audio_gain{1.0f};
 
@@ -2229,12 +2229,21 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createAudioOutput(JNIEnv*, jobject)
     if (capacity_frames > 0) {
         AAudioStreamBuilder_setBufferCapacityInFrames(builder, capacity_frames);
     }
+    const bool want_low_latency = g_frontend.audio_low_latency.load();
     AAudioStreamBuilder_setPerformanceMode(
-        builder, g_frontend.audio_low_latency.load() ? AAUDIO_PERFORMANCE_MODE_LOW_LATENCY
-                                                     : AAUDIO_PERFORMANCE_MODE_NONE);
+        builder, want_low_latency ? AAUDIO_PERFORMANCE_MODE_LOW_LATENCY
+                                  : AAUDIO_PERFORMANCE_MODE_NONE);
     AAudioStreamBuilder_setDataCallback(builder, AudioDataCallback, output);
     AAudioStreamBuilder_setErrorCallback(builder, AudioErrorCallback, output);
-    const aaudio_result_t opened = AAudioStreamBuilder_openStream(builder, &output->stream);
+    aaudio_result_t opened = AAudioStreamBuilder_openStream(builder, &output->stream);
+    if (opened != AAUDIO_OK && want_low_latency) {
+        // Some devices refuse the low latency request outright. Retry in the
+        // shared path instead of leaving the user without audio output.
+        LOGI("AAudio low latency open failed (%d); retrying in shared mode", opened);
+        output->stream = nullptr;
+        AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_NONE);
+        opened = AAudioStreamBuilder_openStream(builder, &output->stream);
+    }
     AAudioStreamBuilder_delete(builder);
     if (opened != AAUDIO_OK || output->stream == nullptr) {
         LOGE("AAudio open failed: %d", opened);
@@ -2249,7 +2258,8 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createAudioOutput(JNIEnv*, jobject)
     output->device_buffer_frames.store(device_buffer);
     output->pacing_high_water_frames.store(
         std::min(device_buffer * 2 + 1024, static_cast<int32_t>(kAudioRingCapacityFrames) - 2048));
-    LOGI("AAudio output device buffer = %d frames, pacing high water = %d frames", device_buffer,
+    LOGI("AAudio output performance mode = %d, device buffer = %d frames, pacing high water = %d frames",
+         static_cast<int>(AAudioStream_getPerformanceMode(output->stream)), device_buffer,
          output->pacing_high_water_frames.load());
     return reinterpret_cast<jlong>(output);
 }
