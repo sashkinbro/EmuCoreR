@@ -259,7 +259,15 @@ internal object CoreRuntime {
             val output = NativeAudioOutput()
             audioOutput = output
             output.play()
-            worker = thread(name = "EmuCoreR-Frame", isDaemon = true, start = true) { runLoop(output) }
+            worker = thread(name = "EmuCoreR-Frame", isDaemon = true, start = true) {
+                // The frame loop shares the CPU with the UI, background work
+                // and the audio output. A display-level priority keeps the
+                // emulated frame deadline stable under that contention while
+                // staying below the audio thread, so mixing never waits on us.
+                android.os.Process.setThreadPriority(
+                    android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY)
+                runLoop(output)
+            }
             Log.i(TAG, String.format(Locale.US, "Startup setup %.1f ms",
                 (System.nanoTime() - startupStartedAtNanos) / 1_000_000.0))
             started = true
