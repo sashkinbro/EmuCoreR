@@ -163,6 +163,12 @@ struct FrontendState {
     unsigned frame_width = 0;
     unsigned frame_height = 0;
 
+    // Presentation aspect ratio taken from the core's AV info. The core is
+    // only queried when it announces new geometry or when an option that can
+    // alter the frame aspect changes, instead of on every presented frame.
+    double aspect_ratio = 4.0 / 3.0;
+    std::atomic<bool> av_info_refresh_pending{true};
+
     // Software frame format requested through SET_PIXEL_FORMAT.
     int pixel_format = RETRO_PIXEL_FORMAT_0RGB1555;
 
@@ -1185,6 +1191,7 @@ bool EnvironmentCallback(unsigned cmd, void* data) {
 
         case RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO:
         case RETRO_ENVIRONMENT_SET_GEOMETRY:
+            g_frontend.av_info_refresh_pending.store(true);
             ResizePresentFramebufferIfCurrent();
             return true;
 
@@ -1377,9 +1384,14 @@ void RetroVideoRefresh(const void* data, unsigned width, unsigned height, size_t
                 window_attached = g_frontend.window != nullptr;
             }
             if (!window_attached) return;
-            retro_system_av_info info{};
-            retro_get_system_av_info(&info);
-            vulkan::Present(width, height, info.geometry.aspect_ratio, AspectRatioStretchRequested());
+            // Query the core only after new geometry was announced or an
+            // option changed; the aspect stays valid in between.
+            if (g_frontend.av_info_refresh_pending.exchange(false)) {
+                retro_system_av_info info{};
+                retro_get_system_av_info(&info);
+                g_frontend.aspect_ratio = info.geometry.aspect_ratio;
+            }
+            vulkan::Present(width, height, g_frontend.aspect_ratio, AspectRatioStretchRequested());
             return;
         }
         // Hardware path: the core rendered into the frontend framebuffer; blit
@@ -1679,6 +1691,9 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_nativeSetOption(JNIEnv* env, jobjec
         std::lock_guard<std::mutex> lock(g_frontend.mutex);
         g_frontend.options[key_chars] = value_chars;
         g_frontend.options_dirty.store(true);
+        // Option changes can move the display crop or aspect, so the cached
+        // AV info has to be taken again from the core on the next frame.
+        g_frontend.av_info_refresh_pending.store(true);
     }
     if (value_chars != nullptr) env->ReleaseStringUTFChars(value, value_chars);
     if (key_chars != nullptr) env->ReleaseStringUTFChars(key, key_chars);
