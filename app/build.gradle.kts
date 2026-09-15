@@ -87,6 +87,23 @@ android {
             }
         }
         release {
+            // AGP configures CMake with CMAKE_BUILD_TYPE=RelWithDebInfo, whose
+            // default flags are "-O2 -g -DNDEBUG" and are appended after any -O3
+            // given through cFlags/cppFlags, so that -O2 would win. Replace the
+            // RelWithDebInfo flags outright to keep symbols but compile the
+            // emulator core at the same -O3 as the debug build.
+            //
+            // Overriding -DCMAKE_BUILD_TYPE=Release would also enable the
+            // core's LTO block, but full LTO across the whole vendored machine
+            // is a large build-time cost and stays a separate step.
+            externalNativeBuild {
+                cmake {
+                    arguments += listOf(
+                        "-DCMAKE_C_FLAGS_RELWITHDEBINFO=-O3 -g -DNDEBUG",
+                        "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O3 -g -DNDEBUG"
+                    )
+                }
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
