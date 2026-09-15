@@ -8,6 +8,7 @@
 #include "interrupt_controller.h"
 #include "settings.h"
 #include "system.h"
+#include "texture_replacements.h"
 #include "timers.h"
 #include <cmath>
 #include <cstring>
@@ -1354,6 +1355,11 @@ void GPU::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, co
 {
   IncrementVRAMGeneration();
   BumpVRAMPageRevisions(x, x + width, y, y + height);
+
+  // Let the replacement manager remember this upload so texupload-*
+  // replacements can be matched against it. Cheap no-op when the current pack
+  // has no texupload entries.
+  g_texture_replacements.RecordVRAMWrite(x, y, width, height);
 
   // Fast path when the copy is not oversized.
   if ((x + width) <= VRAM_WIDTH && (y + height) <= VRAM_HEIGHT && !set_mask && !check_mask)

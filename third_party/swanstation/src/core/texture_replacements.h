@@ -4,6 +4,7 @@
 #include "gpu_types.h"
 #include "types.h"
 #include <array>
+#include <deque>
 #include <list>
 #include <memory>
 #include <string>
@@ -75,13 +76,18 @@ public:
   const TextureReplacementTexture* GetVRAMWriteReplacement(uint32_t width, uint32_t height, const void* pixels);
 
   // Texture page replacement lookup. `mode` may carry GPUTextureMode::RawTextureBit
-  // (ST* variants); page/palette coordinates are in VRAM words.
+  // (the ST* variants); page/palette coordinates are in VRAM words.
   // Returns a pointer owned by the internal cache, valid until the next lookup.
   const TexturePageReplacement* GetTexturePageReplacement(GPUTextureMode mode, uint32_t texture_page_x,
                                                           uint32_t texture_page_y, uint32_t palette_x,
                                                           uint32_t palette_y);
 
-  /// True if any texpage-* replacements were loaded for the current game.
+  /// Records a VRAM write (an upload from the CPU) so texupload-* replacements
+  /// can be matched against it. Coordinates may wrap past the VRAM edges.
+  void RecordVRAMWrite(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+
+  /// True if any texpage-* or texupload-* replacements were loaded for the
+  /// current game.
   bool HasTexturePageReplacements() const;
 
   // The CPU-side VRAM shadow the manager hashes/composites from.
@@ -140,6 +146,13 @@ private:
     uint32_t dst_y;
     uint32_t dst_width;
     uint32_t dst_height;
+    // Sub-rect of the replacement image to sample, in image pixels. Matches
+    // that hang over the page edge (texupload writes can start outside it) are
+    // clipped against the page and sample only the visible part.
+    uint32_t src_x;
+    uint32_t src_y;
+    uint32_t src_width;
+    uint32_t src_height;
   };
 
   struct PageCacheKey
@@ -220,6 +233,8 @@ private:
   void FindTexturePageMatches(std::vector<ReplacementMatch>& matches, uint32_t page, GPUTextureMode mode,
                               uint32_t palette_x, uint32_t palette_y, uint64_t page_hash,
                               uint64_t full_palette_hash, uint64_t page_revision);
+  void FindTexuploadMatches(std::vector<ReplacementMatch>& matches, uint32_t page, GPUTextureMode mode,
+                            uint32_t palette_x, uint32_t palette_y, uint64_t full_palette_hash);
 
   void DecodePage(std::vector<uint32_t>& pixels, uint32_t page, GPUTextureMode mode, uint32_t palette_x,
                   uint32_t palette_y) const;
@@ -241,7 +256,27 @@ private:
   // [base mode 0..2] - the ST* (semi-transparent) variants share the
   // bucket with their base mode; the ST bit only affects compositing.
   std::array<std::vector<TexturePageReplacementEntry>, 3> m_texpage_replacements;
+  // texupload-* entries, same bucket layout. These anchor to a VRAM write rect
+  // instead of the page, so they are matched against the recorded uploads.
+  std::array<std::vector<TexturePageReplacementEntry>, 3> m_texupload_replacements;
   uint32_t m_texupload_replacement_count = 0;
+
+  // Uploads seen on the CPU side, keyed by their VRAM rect. Games re-upload
+  // the same texture constantly, so identical rects fold into one record and
+  // the content hash is recomputed from the VRAM shadow at match time.
+  struct VRAMWriteRecord
+  {
+    uint32_t x;
+    uint32_t y;
+    uint32_t width;
+    uint32_t height;
+  };
+
+  static constexpr size_t MAX_VRAM_WRITE_RECORDS = 256;
+  std::unordered_map<uint64_t, VRAMWriteRecord> m_vram_writes;
+  std::deque<uint64_t> m_vram_write_order;
+  void AddVRAMWriteRecord(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+  void ClearVRAMWriteRecords();
 
   const uint16_t* m_vram = nullptr;
   uint32_t m_max_texture_size = 2048;

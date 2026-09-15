@@ -115,7 +115,10 @@ void TextureReplacements::Shutdown()
   m_vram_write_replacements.clear();
   for (auto& entries : m_texpage_replacements)
     entries.clear();
+  for (auto& entries : m_texupload_replacements)
+    entries.clear();
   m_texupload_replacement_count = 0;
+  ClearVRAMWriteRecords();
   m_page_cache.clear();
   m_page_cache_bytes = 0;
   m_page_hash_cache.clear();
@@ -149,7 +152,10 @@ void TextureReplacements::Reload()
   m_vram_write_replacements.clear();
   for (auto& entries : m_texpage_replacements)
     entries.clear();
+  for (auto& entries : m_texupload_replacements)
+    entries.clear();
   m_texupload_replacement_count = 0;
+  ClearVRAMWriteRecords();
   m_page_cache.clear();
   m_page_cache_bytes = 0;
   m_page_hash_cache.clear();
@@ -163,6 +169,68 @@ void TextureReplacements::Reload()
     PreloadTextures();
 
   PurgeUnreferencedTexturesFromCache();
+}
+
+void TextureReplacements::ClearVRAMWriteRecords()
+{
+  m_vram_writes.clear();
+  m_vram_write_order.clear();
+}
+
+void TextureReplacements::RecordVRAMWrite(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+  // Nothing to match against if the pack has no texupload entries; skip the
+  // bookkeeping entirely so packs that don't use them cost nothing.
+  bool any_texupload = false;
+  for (const auto& entries : m_texupload_replacements)
+  {
+    if (!entries.empty())
+    {
+      any_texupload = true;
+      break;
+    }
+  }
+  if (!any_texupload || !m_vram || width == 0 || height == 0)
+    return;
+
+  x %= VRAM_WIDTH;
+  y %= VRAM_HEIGHT;
+  if (x + width <= VRAM_WIDTH && y + height <= VRAM_HEIGHT)
+  {
+    AddVRAMWriteRecord(x, y, width, height);
+    return;
+  }
+
+  // Wrapped uploads are split into per-row/per-column chunks so every record
+  // describes a contiguous VRAM rectangle (the same shape the pack hashes).
+  const uint32_t first_width = std::min(width, VRAM_WIDTH - x);
+  const uint32_t first_height = std::min(height, VRAM_HEIGHT - y);
+  const auto add = [this](uint32_t left, uint32_t top, uint32_t w, uint32_t h) {
+    if (w > 0 && h > 0)
+      AddVRAMWriteRecord(left, top, w, h);
+  };
+  add(x, y, first_width, first_height);
+  add(0, y, width - first_width, first_height);
+  add(x, 0, first_width, height - first_height);
+  add(0, 0, width - first_width, height - first_height);
+}
+
+void TextureReplacements::AddVRAMWriteRecord(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+  const uint64_t key = (static_cast<uint64_t>(x) << 40) | (static_cast<uint64_t>(y) << 30) |
+                       (static_cast<uint64_t>(width) << 15) | static_cast<uint64_t>(height);
+  if (m_vram_writes.find(key) != m_vram_writes.end())
+    return;
+
+  if (m_vram_writes.size() >= MAX_VRAM_WRITE_RECORDS && !m_vram_write_order.empty())
+  {
+    const uint64_t oldest = m_vram_write_order.front();
+    m_vram_write_order.pop_front();
+    m_vram_writes.erase(oldest);
+  }
+
+  m_vram_writes.emplace(key, VRAMWriteRecord{x, y, width, height});
+  m_vram_write_order.push_back(key);
 }
 
 void TextureReplacements::PurgeUnreferencedTexturesFromCache()
@@ -352,21 +420,16 @@ void TextureReplacements::FindTextures(const std::string& dir)
       continue;
     }
 
-    if (is_texupload)
-    {
-      // Parsed for completeness, but texupload (VRAM write) replacements are
-      // not matched in this pass; only texpage-* packs are supported.
-      m_texupload_replacement_count++;
-      continue;
-    }
-
     // ST* variants share the bucket with their base mode (matching ignores the
     // semitransparency bit; it only affects how the replacement is composited).
     uint32_t entry_mode = name.texture_mode & 3u;
     if (entry_mode == static_cast<uint32_t>(GPUTextureMode::Reserved_Direct16Bit))
       entry_mode = static_cast<uint32_t>(GPUTextureMode::Direct16Bit);
 
-    auto& entries = m_texpage_replacements[entry_mode];
+    // texpage entries anchor to the composited page; texupload entries anchor
+    // to the VRAM write rect they were dumped from and are matched against the
+    // recorded uploads at draw time.
+    auto& entries = is_texupload ? m_texupload_replacements[entry_mode] : m_texpage_replacements[entry_mode];
     if (std::find_if(entries.begin(), entries.end(),
                      [&name](const TexturePageReplacementEntry& e) { return (e.name == name); }) != entries.end())
     {
@@ -378,6 +441,8 @@ void TextureReplacements::FindTextures(const std::string& dir)
     entry.name = name;
     entry.filename = std::move(fd.FileName);
     entries.push_back(std::move(entry));
+    if (is_texupload)
+      m_texupload_replacement_count++;
   }
 
   size_t texpage_count = 0;
@@ -785,6 +850,12 @@ bool TextureReplacements::HasTexturePageReplacements() const
       return true;
   }
 
+  for (const auto& entries : m_texupload_replacements)
+  {
+    if (!entries.empty())
+      return true;
+  }
+
   return false;
 }
 
@@ -966,7 +1037,103 @@ void TextureReplacements::FindTexturePageMatches(std::vector<ReplacementMatch>& 
     match.dst_y = dst_y;
     match.dst_width = dst_width;
     match.dst_height = dst_height;
+    match.src_x = 0;
+    match.src_y = 0;
+    match.src_width = image->GetWidth();
+    match.src_height = image->GetHeight();
     matches.push_back(match);
+  }
+}
+
+void TextureReplacements::FindTexuploadMatches(std::vector<ReplacementMatch>& matches, uint32_t page, GPUTextureMode mode,
+                                               uint32_t palette_x, uint32_t palette_y, uint64_t full_palette_hash)
+{
+  if (m_vram_writes.empty() || m_texupload_replacements[static_cast<uint8_t>(mode) & 3u].empty())
+    return;
+
+  const auto& entries = m_texupload_replacements[static_cast<uint8_t>(mode) & 3u];
+  const bool has_palette = TextureModeHasPalette(mode);
+  const uint32_t page_start_x = (page & 15u) * VRAM_PAGE_WIDTH;
+  const uint32_t page_start_y = (page >> 4) * VRAM_PAGE_HEIGHT;
+  const uint32_t page_word_width = VRAM_PAGE_WIDTH << (static_cast<uint8_t>(mode) & 3u);
+  const uint32_t shift = GetTextureModeShift(mode);
+
+  for (const auto& [key, write] : m_vram_writes)
+  {
+    // Only writes that overlap the page can contribute pixels to it. The hash
+    // covers the whole write rect, exactly like the dumped filename does.
+    if (write.x + write.width <= page_start_x || write.x >= page_start_x + page_word_width ||
+        write.y + write.height <= page_start_y || write.y >= page_start_y + VRAM_PAGE_HEIGHT)
+    {
+      continue;
+    }
+
+    if ((write.x + write.width) > VRAM_WIDTH || (write.y + write.height) > VRAM_HEIGHT)
+      continue;
+
+    const uint64_t write_revision =
+      g_gpu ? g_gpu->GetVRAMRegionRevision(write.x, write.x + write.width, write.y, write.y + write.height) : 0;
+    const uint64_t write_hash =
+      GetCachedRectHash(write_revision, write.x, write.y, write.width, write.height);
+
+    for (const TexturePageReplacementEntry& entry : entries)
+    {
+      const TexturePageReplacementName& name = entry.name;
+      if (name.src_hash != write_hash)
+        continue;
+
+      if (has_palette && !IsMatchingReplacementPalette(full_palette_hash, mode, palette_x, palette_y, name))
+        continue;
+
+      const TextureReplacementTexture* image = LoadTexture(entry.filename);
+      if (!image || image->GetWidth() == 0 || image->GetHeight() == 0)
+        continue;
+
+      // Place the replacement in page texel space. The write rect's top-left
+      // maps to the name's (0,0); X offsets are in words -> texels.
+      const int64_t dst_x = static_cast<int64_t>(name.offset_x) +
+                            (static_cast<int64_t>(write.x - page_start_x) << shift);
+      const int64_t dst_y = static_cast<int64_t>(name.offset_y) + static_cast<int64_t>(write.y - page_start_y);
+      const int64_t dst_right = dst_x + name.width;
+      const int64_t dst_bottom = dst_y + name.height;
+      if (dst_right <= 0 || dst_bottom <= 0 || dst_x >= static_cast<int64_t>(TEXPAGE_NATIVE_WIDTH) ||
+          dst_y >= static_cast<int64_t>(TEXPAGE_NATIVE_HEIGHT))
+      {
+        continue;
+      }
+
+      // Clip against the page and crop the source image to the same fraction,
+      // so writes that start before the page (multi-page C16 uploads) still
+      // line up correctly.
+      const int64_t clamped_x = std::max<int64_t>(dst_x, 0);
+      const int64_t clamped_y = std::max<int64_t>(dst_y, 0);
+      const int64_t clamped_right = std::min<int64_t>(dst_right, TEXPAGE_NATIVE_WIDTH);
+      const int64_t clamped_bottom = std::min<int64_t>(dst_bottom, TEXPAGE_NATIVE_HEIGHT);
+      const float scale_x = static_cast<float>(image->GetWidth()) / static_cast<float>(std::max<uint32_t>(1, name.width));
+      const float scale_y =
+        static_cast<float>(image->GetHeight()) / static_cast<float>(std::max<uint32_t>(1, name.height));
+
+      ReplacementMatch match;
+      match.entry = &entry;
+      match.scale_x = scale_x;
+      match.scale_y = scale_y;
+      match.dst_x = static_cast<uint32_t>(clamped_x);
+      match.dst_y = static_cast<uint32_t>(clamped_y);
+      match.dst_width = static_cast<uint32_t>(clamped_right - clamped_x);
+      match.dst_height = static_cast<uint32_t>(clamped_bottom - clamped_y);
+      match.src_x = static_cast<uint32_t>(std::max<float>(0.0f, (static_cast<float>(clamped_x - dst_x)) * scale_x));
+      match.src_y = static_cast<uint32_t>(std::max<float>(0.0f, (static_cast<float>(clamped_y - dst_y)) * scale_y));
+      match.src_width = std::min<uint32_t>(
+        image->GetWidth() - match.src_x,
+        static_cast<uint32_t>(std::max<float>(1.0f, static_cast<float>(clamped_right - clamped_x) * scale_x)));
+      match.src_height = std::min<uint32_t>(
+        image->GetHeight() - match.src_y,
+        static_cast<uint32_t>(std::max<float>(1.0f, static_cast<float>(clamped_bottom - clamped_y) * scale_y)));
+      if (match.dst_width == 0 || match.dst_height == 0 || match.src_width == 0 || match.src_height == 0)
+        continue;
+
+      matches.push_back(match);
+    }
   }
 }
 
@@ -1170,25 +1337,41 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
       continue;
 
     const bool semitransparent = match.entry->name.IsSemitransparent();
-    const uint32_t src_width = tex->GetWidth();
-    const uint32_t src_height = tex->GetHeight();
+    const uint32_t src_texture_width = tex->GetWidth();
+    const uint32_t src_texture_height = tex->GetHeight();
     const uint32_t* src_pixels = tex->GetPixels();
-    const float rcp_width = 1.0f / static_cast<float>(dst_x1 - dst_x0);
-    const float rcp_height = 1.0f / static_cast<float>(dst_y1 - dst_y0);
+    // Sample only the requested sub-rect of the replacement image. Matching
+    // rects normally cover the whole image; texupload matches that hang over
+    // the page edge are cropped to the visible part.
+    const uint32_t src_x0 = std::min<uint32_t>(match.src_x, src_texture_width - 1);
+    const uint32_t src_y0 = std::min<uint32_t>(match.src_y, src_texture_height - 1);
+    const uint32_t src_x1 = std::min<uint32_t>(src_x0 + std::max<uint32_t>(1, match.src_width), src_texture_width);
+    const uint32_t src_y1 = std::min<uint32_t>(src_y0 + std::max<uint32_t>(1, match.src_height), src_texture_height);
+    const float rcp_dst_width = 1.0f / static_cast<float>(dst_x1 - dst_x0);
+    const float rcp_dst_height = 1.0f / static_cast<float>(dst_y1 - dst_y0);
+    const float src_step_x = static_cast<float>(src_x1 - src_x0) * rcp_dst_width / static_cast<float>(src_texture_width);
+    const float src_step_y =
+      static_cast<float>(src_y1 - src_y0) * rcp_dst_height / static_cast<float>(src_texture_height);
+    const float src_origin_x =
+      (static_cast<float>(src_x0) + 0.5f * static_cast<float>(src_x1 - src_x0) * rcp_dst_width) /
+      static_cast<float>(src_texture_width);
+    const float src_origin_y =
+      (static_cast<float>(src_y0) + 0.5f * static_cast<float>(src_y1 - src_y0) * rcp_dst_height) /
+      static_cast<float>(src_texture_height);
 
     for (uint32_t y = dst_y0; y < dst_y1; y++)
     {
-      const float v = (static_cast<float>(y - dst_y0) + 0.5f) * rcp_height;
+      const float v = src_origin_y + static_cast<float>(y - dst_y0) * src_step_y;
       uint32_t* dst_row = out_pixels + (static_cast<size_t>(y) * out_width);
       for (uint32_t x = dst_x0; x < dst_x1; x++)
       {
-        const float u = (static_cast<float>(x - dst_x0) + 0.5f) * rcp_width;
+        const float u = src_origin_x + static_cast<float>(x - dst_x0) * src_step_x;
 
         if (semitransparent)
         {
           // Semitransparent replacements encode opacity in the image's alpha
           // channel and keep the straight bilinear result.
-          const uint32_t pixel = SampleImageBilinear(src_pixels, src_width, src_height, u, v);
+          const uint32_t pixel = SampleImageBilinear(src_pixels, src_texture_width, src_texture_height, u, v);
 
           // Anything which isn't fully opaque maps to the PSX STP bit
           // (bit 15). 0000h stays fully transparent. Mirrors the reference
@@ -1208,7 +1391,8 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
           // texel from being transparency-culled while leaving bit 15
           // clear.
           float coverage = 1.0f;
-          const uint32_t pixel = SampleImageBilinear(src_pixels, src_width, src_height, u, v, &coverage);
+          const uint32_t pixel =
+            SampleImageBilinear(src_pixels, src_texture_width, src_texture_height, u, v, &coverage);
 
           if (coverage >= 0.5f)
           {
@@ -1269,7 +1453,7 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
     mode_bits = static_cast<uint8_t>(GPUTextureMode::Direct16Bit);
 
   const uint32_t mode_index = mode_bits;
-  if (m_texpage_replacements[mode_index].empty())
+  if (m_texpage_replacements[mode_index].empty() && m_texupload_replacements[mode_index].empty())
     return nullptr;
 
   const uint32_t page = ((texture_page_y / VRAM_PAGE_HEIGHT) * 16u) + (texture_page_x / VRAM_PAGE_WIDTH);
@@ -1320,6 +1504,7 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
     std::vector<ReplacementMatch> matches;
     FindTexturePageMatches(matches, page, canonical_mode, palette_x, palette_y, page_hash, full_palette_hash,
                            page_revision);
+    FindTexuploadMatches(matches, page, canonical_mode, palette_x, palette_y, full_palette_hash);
 
     const size_t old_size = cached.size_bytes;
     cached.page_hash = page_hash;
@@ -1379,6 +1564,7 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
   std::vector<ReplacementMatch> matches;
   FindTexturePageMatches(matches, page, canonical_mode, palette_x, palette_y, page_hash, full_palette_hash,
                          page_revision);
+  FindTexuploadMatches(matches, page, canonical_mode, palette_x, palette_y, full_palette_hash);
 
   CachedPage cached;
   cached.last_used = ++m_page_cache_used_counter;
