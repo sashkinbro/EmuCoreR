@@ -97,6 +97,7 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
 
     var games by remember { mutableStateOf<List<GameItem>>(emptyList()) }
+    var gamesLoading by remember { mutableStateOf(true) }
     var selectedPath by remember { mutableStateOf<String?>(null) }
     var identity by remember { mutableStateOf<SelectedGameIdentity?>(null) }
     var config by remember { mutableStateOf<CheatGameConfig?>(null) }
@@ -105,6 +106,10 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
     var selectedCheatCategory by remember { mutableStateOf<CheatCategory?>(null) }
     var cheatSearchVisible by remember { mutableStateOf(false) }
     var cheatSearchQuery by remember { mutableStateOf("") }
+    // Metadata resolution reads the disc header, which is too slow to repeat
+    // every time the user flips back and forth between games. Disc images are
+    // immutable here, so cache the resolved identity per library path.
+    val identityCache = remember { mutableMapOf<String, SelectedGameIdentity>() }
 
     val importSuccess = stringResource(R.string.cheat_manager_import_success)
     val importFailure = stringResource(R.string.cheat_manager_import_failed)
@@ -154,6 +159,12 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
     LaunchedEffect(Unit) {
         games = withContext(Dispatchers.IO) { libraryRepository.loadGames() }
         selectedPath = games.firstOrNull()?.path
+        // The identity effect below only starts after this composition, so mark
+        // the resolution as in progress now. Otherwise the catalog section can
+        // flash its "no packs for this game" card for a frame while the
+        // selected game is known but its identity is not resolved yet.
+        resolvingIdentity = games.isNotEmpty()
+        gamesLoading = false
     }
 
     val selectedGame = games.firstOrNull { it.path == selectedPath }
@@ -162,13 +173,18 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
         if (game == null) {
             identity = null
             config = null
+            resolvingIdentity = false
             return@LaunchedEffect
         }
         identity = null
         resolvingIdentity = true
-        val resolved = withContext(Dispatchers.IO) { libraryRepository.resolveIdentity(game) }
+        val cachedIdentity = identityCache[game.path]
+        val resolved = cachedIdentity ?: withContext(Dispatchers.IO) { libraryRepository.resolveIdentity(game) }
+            .also { identityCache[game.path] = it }
         if (selectedPath != game.path) return@LaunchedEffect
         identity = resolved
+        // Keep the previous game's list on screen until the new one is ready,
+        // so switching games doesn't collapse and rebuild the whole list.
         config = loadConfig(resolved)
         resolvingIdentity = false
     }
@@ -326,8 +342,9 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
                     selectedPath = selectedPath,
                     onSelected = { game ->
                         if (game.path != selectedPath) {
+                            // Leave the current list in place; the resolver below
+                            // swaps it once the new game's data is loaded.
                             identity = null
-                            config = null
                             resolvingIdentity = true
                             selectedPath = game.path
                         }
@@ -381,6 +398,7 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
                     selectedGame = selectedGame,
                     identity = identity,
                     resolvingIdentity = resolvingIdentity,
+                    gamesLoading = gamesLoading,
                     onInstalled = { syncSelectedGame() }
                 )
             }

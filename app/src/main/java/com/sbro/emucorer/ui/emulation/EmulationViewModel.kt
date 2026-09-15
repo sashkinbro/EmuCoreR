@@ -5033,7 +5033,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val crc = currentGameCrc.takeIf { it.isNotBlank() }
         val gameKey = gameKeyOverride
             ?: state.cheatsGameKey
-            ?: serial?.replace('-', '_')
+            ?: serial
             ?: crc
             ?: "game"
         val patchBlocks = gamePatchRepository.buildPatchBlocks(

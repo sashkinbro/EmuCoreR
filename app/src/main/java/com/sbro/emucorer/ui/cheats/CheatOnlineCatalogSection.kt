@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
@@ -30,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -125,6 +127,7 @@ internal fun CheatOnlineCatalogSection(
     selectedGame: GameItem?,
     identity: SelectedGameIdentity?,
     resolvingIdentity: Boolean,
+    gamesLoading: Boolean,
     onInstalled: () -> Unit
 ) {
     val context = LocalContext.current
@@ -167,16 +170,32 @@ internal fun CheatOnlineCatalogSection(
 
     val serial = identity?.serial
     val crc = identity?.crc
-    val selection = remember(packs, serial, crc, selectedGame?.title) {
-        selectRemoteCheatPacks(
-            index = indexRemoteCheatCatalog(packs),
-            serial = serial,
-            crc = crc,
-            gameTitle = selectedGame?.title
-        )
+    // The catalog index only depends on the downloaded packs, so it is built
+    // once per catalog (off the main thread) instead of on every game switch.
+    // Rebuilding it during composition made selecting a game stutter on large
+    // catalogs.
+    val catalogIndex by produceState<IndexedRemoteCheatCatalog?>(initialValue = null, key1 = packs) {
+        value = withContext(Dispatchers.Default) { indexRemoteCheatCatalog(packs) }
+    }
+    val selection = remember(catalogIndex, serial, crc, selectedGame?.title) {
+        val index = catalogIndex
+        if (index == null) {
+            RemoteCheatSelection(emptyList(), emptyList())
+        } else {
+            selectRemoteCheatPacks(
+                index = index,
+                serial = serial,
+                crc = crc,
+                gameTitle = selectedGame?.title
+            )
+        }
     }
     val phase = when {
-        loading || resolvingIdentity -> CheatOnlinePhase.LOADING
+        // The library can still be loading when the catalog arrives, so keep
+        // showing the spinner instead of briefly flashing "no packs for this
+        // game" before the selected game is known.
+        gamesLoading || loading || resolvingIdentity || (catalogIndex == null && packs.isNotEmpty()) ->
+            CheatOnlinePhase.LOADING
         selectedGame == null -> CheatOnlinePhase.NO_GAME
         loadFailed -> CheatOnlinePhase.ERROR
         selection.matchingPacks.isEmpty() && selection.otherVersionPacks.isEmpty() -> CheatOnlinePhase.EMPTY
@@ -214,7 +233,7 @@ internal fun CheatOnlineCatalogSection(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.width(22.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                         Text(stringResource(R.string.content_catalog_loading))
                     }
                     CheatOnlinePhase.NO_GAME, CheatOnlinePhase.EMPTY -> CheatCatalogEmptyState()
@@ -407,7 +426,7 @@ private fun CheatCatalogCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     if (installing) {
-                        CircularProgressIndicator(modifier = Modifier.width(18.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     } else {
                         Icon(Icons.Rounded.CloudDownload, contentDescription = null)
                     }

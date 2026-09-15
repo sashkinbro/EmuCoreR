@@ -271,14 +271,27 @@ class CheatRepository(private val context: Context) {
     private fun importedFile(gameKey: String): File = File(importedDir, "${sanitizeFileName(gameKey)}.pnach")
 
     private fun resolveImportedFile(gameKey: String): File {
+        // Serial-style keys reach this point with either '-' or '_' as the
+        // separator depending on whether they came from the imported file
+        // name, the game metadata or the cheat catalog. Try every spelling
+        // before giving up, otherwise an existing pack is ignored (and its
+        // active cheats get cleared) on a mere formatting difference.
         val exact = importedFile(normalizeGameKey(gameKey))
-        val candidates = importedDir.listFiles { file ->
-            file.isFile && file.extension.equals("pnach", ignoreCase = true) &&
-                file.nameWithoutExtension.equals(exact.nameWithoutExtension, ignoreCase = true)
-        }.orEmpty()
-        return candidates.firstOrNull { it.name == exact.name }
-            ?: candidates.firstOrNull()
-            ?: exact
+        val variants = linkedSetOf(
+            exact.nameWithoutExtension,
+            sanitizeFileName(gameKey.replace('-', '_')),
+            sanitizeFileName(gameKey.replace('_', '-'))
+        )
+        for (variant in variants) {
+            val candidate = importedFile(variant)
+            val matches = importedDir.listFiles { file ->
+                file.isFile && file.extension.equals("pnach", ignoreCase = true) &&
+                    file.nameWithoutExtension.equals(candidate.nameWithoutExtension, ignoreCase = true)
+            }.orEmpty()
+            matches.firstOrNull { it.name == candidate.name }?.let { return it }
+            matches.firstOrNull()?.let { return it }
+        }
+        return exact
     }
 
     private fun loadEnabledIds(): JSONObject {

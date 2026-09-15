@@ -207,9 +207,10 @@ class GameRepository {
 
                 file.isFile && file.extension.lowercase() in SUPPORTED_EXTENSIONS &&
                     libraryIdentity(file.absolutePath) !in cueTrackPaths -> {
+                    val entrySize = cueIndex.sizeByCue[libraryIdentity(file.absolutePath)] ?: file.length()
                     val cachedGame = cachedGamesByPath[file.absolutePath]
                     val canReuseCachedMetadata = cachedGame != null &&
-                        cachedGame.fileSize == file.length() &&
+                        cachedGame.fileSize == entrySize &&
                         cachedGame.lastModified == file.lastModified() &&
                         cachedGame.fileName == file.name &&
                         !cachedGame.serial.isNullOrBlank()
@@ -244,7 +245,7 @@ class GameRepository {
                         title = title,
                         path = file.absolutePath,
                         fileName = file.name,
-                        fileSize = file.length(),
+                        fileSize = entrySize,
                         lastModified = file.lastModified(),
                         coverArtPath = customCoverRepository.findCustomCoverPath(file.absolutePath)
                             ?: coverRepository.findCachedCoverPath(serial)
@@ -308,11 +309,12 @@ class GameRepository {
                     val uriPath = file.uri.toString()
                     if (libraryIdentity(uriPath) in cueTrackIdentities) continue
                     val fileSize = runCatching { file.length() }.getOrDefault(0L)
+                    val entrySize = cueIndex.sizeByCue[libraryIdentity(uriPath)] ?: fileSize
                     val lastModified = runCatching { file.lastModified() }.getOrDefault(0L)
 
                     val cachedGame = cachedGamesByPath[uriPath]
                     val canReuseCachedMetadata = cachedGame != null &&
-                        cachedGame.fileSize == fileSize &&
+                        cachedGame.fileSize == entrySize &&
                         cachedGame.lastModified == lastModified &&
                         cachedGame.fileName == name &&
                         !cachedGame.serial.isNullOrBlank()
@@ -348,7 +350,7 @@ class GameRepository {
                         title = title,
                         path = uriPath,
                         fileName = name,
-                        fileSize = fileSize,
+                        fileSize = entrySize,
                         lastModified = lastModified,
                         coverArtPath = customCoverRepository.findCustomCoverPath(uriPath)
                             ?: coverRepository.findCachedCoverUri(serial)
@@ -367,12 +369,16 @@ class GameRepository {
 
     private data class CueIndex(
         val trackIdentities: Set<String>,
-        val metadataSourceByCue: Map<String, String>
+        val metadataSourceByCue: Map<String, String>,
+        // Total size of the files a cue sheet references, so the library shows
+        // the disc image size instead of the few bytes of the cue itself.
+        val sizeByCue: Map<String, Long>
     )
 
     private fun buildLocalCueIndex(children: Array<out File>): CueIndex {
         val trackIdentities = LinkedHashSet<String>()
         val metadataSourceByCue = HashMap<String, String>()
+        val sizeByCue = HashMap<String, Long>()
         children.asSequence()
             .filter { it.isFile && it.extension.equals("cue", ignoreCase = true) }
             .forEach { cue ->
@@ -389,8 +395,12 @@ class GameRepository {
                     metadataSourceByCue[libraryIdentity(cue.absolutePath)] =
                         metadataTrack.absolutePath
                 }
+                val trackBytes = tracks.filter { it.isFile }.sumOf { it.length() }
+                if (trackBytes > 0L) {
+                    sizeByCue[libraryIdentity(cue.absolutePath)] = trackBytes
+                }
             }
-        return CueIndex(trackIdentities, metadataSourceByCue)
+        return CueIndex(trackIdentities, metadataSourceByCue, sizeByCue)
     }
 
     private fun buildDocumentCueIndex(
@@ -400,6 +410,7 @@ class GameRepository {
     ): CueIndex {
         val trackIdentities = LinkedHashSet<String>()
         val metadataSourceByCue = HashMap<String, String>()
+        val sizeByCue = HashMap<String, Long>()
         children.asSequence()
             .filter { document ->
                 documentDisplayName(context, document)
@@ -423,8 +434,12 @@ class GameRepository {
                     metadataSourceByCue[libraryIdentity(cue.uri.toString())] =
                         metadataTrack.uri.toString()
                 }
+                val trackBytes = tracks.sumOf { runCatching { it.length() }.getOrDefault(0L) }
+                if (trackBytes > 0L) {
+                    sizeByCue[libraryIdentity(cue.uri.toString())] = trackBytes
+                }
             }
-        return CueIndex(trackIdentities, metadataSourceByCue)
+        return CueIndex(trackIdentities, metadataSourceByCue, sizeByCue)
     }
 
     private fun resolveDocumentReference(
