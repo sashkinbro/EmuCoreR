@@ -897,9 +897,14 @@ bool CreateSwapchain() {
     }
     std::vector<VkPresentModeKHR> modes(mode_count);
     g_vk.pfn_surface_present_modes(g_vk.physical_device, g_vk.surface, &mode_count, modes.data());
+    // Mailbox hands the newest finished frame to the display instead of
+    // queueing behind the previous one, which shortens the path between the
+    // emulated frame and the panel. FIFO is the fallback and the only mode
+    // the specification guarantees, so it stays the default when mailbox is
+    // not advertised.
     VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
     for (VkPresentModeKHR mode : modes) {
-        if (mode == VK_PRESENT_MODE_FIFO_KHR) {
+        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
             present_mode = mode;
             break;
         }
@@ -984,8 +989,9 @@ bool CreateSwapchain() {
         }
     }
 
-    VK_LOGI("Vulkan swapchain %ux%u, %u images, format %u, transform %u", extent.width, extent.height, actual_count,
-            static_cast<unsigned>(format.format), static_cast<unsigned>(capabilities.currentTransform));
+    VK_LOGI("Vulkan swapchain %ux%u, %u images, format %u, transform %u, present mode %u", extent.width,
+            extent.height, actual_count, static_cast<unsigned>(format.format),
+            static_cast<unsigned>(capabilities.currentTransform), static_cast<unsigned>(present_mode));
     return true;
 }
 
