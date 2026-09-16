@@ -4,7 +4,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/c5EBeNRpz2)
 [![Support on Patreon](https://img.shields.io/badge/Patreon-Support%20EmuCore-ff424d?logo=patreon&logoColor=white)](https://www.patreon.com/c/emucore/membership)
 
-EmuCoreR is a PlayStation 1 emulator and game library for Android, built around the [SwanStation](https://github.com/libretro/swanstation) libretro core (a DuckStation-derived PS1 emulator) and a purpose-built Compose interface for phones, tablets, and Android TV.
+EmuCoreR is a PlayStation 1 emulator and game library for Android, built around the [SwanStation](https://github.com/libretro/swanstation) libretro PS1 core and a purpose-built Compose interface for phones, tablets, and Android TV.
 
 ## Website and Releases
 
@@ -96,9 +96,9 @@ EmuCoreR version `0.0.3` currently targets Android with:
 
 ## Credits
 
-EmuCoreR builds on the open-source [SwanStation](https://github.com/libretro/swanstation) project, the libretro port of [DuckStation](https://github.com/stenzek/duckstation), together with its own Android interface, library system, runtime controls, and handheld-focused UX. The Kotlin bridge, game library, libretro frontend, and renderer integration are maintained in this repository.
+EmuCoreR builds on the open-source [SwanStation](https://github.com/libretro/swanstation) project together with its own Android interface, library system, runtime controls, and handheld-focused UX. The Kotlin bridge, game library, libretro frontend, and renderer integration are maintained in this repository.
 
-Thanks to the SwanStation and DuckStation developers, to the libretro team, and to everyone who contributes to keeping PlayStation emulation open and alive.
+Thanks to the SwanStation developers, to the libretro team, and to everyone who contributes to keeping PlayStation emulation open and alive.
 
 ## Support
 
@@ -111,6 +111,6 @@ If you want to support ongoing development:
 
 ## License
 
-The bundled emulation core derives from [SwanStation](https://github.com/libretro/swanstation) and [DuckStation](https://github.com/stenzek/duckstation), which are distributed under the GNU General Public License v3.0 or later. The core sources, including EmuCoreR adaptations, are published with the app at https://github.com/sashkinbro/EmuCoreR.
+The bundled emulation core derives from [SwanStation](https://github.com/libretro/swanstation), which is distributed under the GNU General Public License v3.0 or later. The core sources, including EmuCoreR adaptations, are published with the app at https://github.com/sashkinbro/EmuCoreR.
 
 The EmuCoreR Android application code is not open source and is distributed under its own terms.
