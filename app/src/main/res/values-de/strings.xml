@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">Die R3000A-Ausführung nutzt einen auf Korrektheit ausgelegten Interpreter und einen ARM64-JIT.</string>
     <string name="onboarding_core_card_gpu">Die PS1-GPU wird über Vulkan mit einem Software-Referenzpfad gerendert.</string>
     <string name="onboarding_core_card_reference">Es ist keine Kaufstufe erforderlich; jede Kernfunktion ist verfügbar.</string>
-    <string name="settings_fps_metric_core">Emulationskern-Zeit</string>
     <string name="formats_ps1_supported_title">Verifizierte PS1-Formate</string>
     <string name="formats_ps1_supported_body">Der aktuelle Kern scannt und startet CUE-, BIN-, ISO-, IMG-, CHD- und PBP, ECM, MDS-Disc-Abbilder.</string>
     <string name="formats_ps1_recommended_title">Empfohlenes Dump-Layout</string>
@@ -971,14 +970,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Ändert die Textgröße sowohl der einfachen FPS-Anzeige als auch der detaillierten Statistiken. Größere Werte verbreitern auch das detaillierte Overlay, um Zeilenumbrüche zu reduzieren.</string>
     <string name="settings_fps_overlay_metrics">Sichtbare Statistiken</string>
-    <string name="settings_help_fps_overlay_metrics">Wähle die einzelnen Werte aus, die im detaillierten Statistik-Overlay angezeigt werden sollen. Dies wirkt sich weder auf die Erfassung der Messwerte noch auf die Emulationsleistung aus.</string>
+    <string name="settings_help_fps_overlay_metrics">Wähle die einzelnen Werte aus, die im detaillierten Statistik-Overlay angezeigt werden sollen. Dies wirkt sich weder auf die Erfassung der Messwerte noch auf die Emulationsleistung aus. CPU- und GPU-Modell und Auslastung werden vom Gerät gelesen, sofern verfügbar.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">Geschwindigkeit</string>
     <string name="settings_fps_metric_renderer">Renderer</string>
     <string name="settings_fps_metric_audio">Audio</string>
     <string name="settings_fps_metric_frame_time">Framezeit</string>
     <string name="settings_fps_metric_resolution">Auflösung</string>
-    <string name="settings_fps_metric_host_cpu">CPU-Modell und Auslastung</string>
+    <string name="settings_fps_metric_host_cpu">CPU- und GPU-Modell und Auslastung</string>
     <string name="controls_editor_global_scope">Standard für alle Spiele</string>
     <string name="controls_editor_game_scope">Nur für %1$s</string>
     <string name="controls_editor_game_inherited">%1$s verwendet das globale Layout</string>

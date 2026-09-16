@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">Выполнение R3000A использует интерпретатор с приоритетом точности и ARM64 JIT.</string>
     <string name="onboarding_core_card_gpu">GPU PS1 рендерится через Vulkan с программным эталонным путём.</string>
     <string name="onboarding_core_card_reference">Платные уровни не требуются; все функции ядра доступны.</string>
-    <string name="settings_fps_metric_core">Время ядра эмуляции</string>
     <string name="formats_ps1_supported_title">Проверенные форматы PS1</string>
     <string name="formats_ps1_supported_body">Текущее ядро сканирует и загружает образы дисков CUE, BIN, ISO, IMG, CHD и PBP, ECM, MDS.</string>
     <string name="formats_ps1_recommended_title">Рекомендуемое расположение дампа</string>
@@ -973,14 +972,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Изменяет размер текста как для простого счетчика FPS, так и для подробной статистики. Большие значения также расширяют подробный оверлей, чтобы уменьшить перенос строк.</string>
     <string name="settings_fps_overlay_metrics">Видимая статистика</string>
-    <string name="settings_help_fps_overlay_metrics">Выберите отдельные значения, которые будут включены в подробный оверлей статистики. Это не влияет на сбор метрик или производительность эмуляции.</string>
+    <string name="settings_help_fps_overlay_metrics">Выберите отдельные значения, которые будут включены в подробный оверлей статистики. Это не влияет на сбор метрик или производительность эмуляции. Модель и загрузка CPU и GPU считываются с устройства, когда это возможно.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">Скорость</string>
     <string name="settings_fps_metric_renderer">Рендерер</string>
     <string name="settings_fps_metric_audio">Аудио</string>
     <string name="settings_fps_metric_frame_time">Время кадра</string>
     <string name="settings_fps_metric_resolution">Разрешение</string>
-    <string name="settings_fps_metric_host_cpu">Модель и загрузка CPU</string>
+    <string name="settings_fps_metric_host_cpu">Модель и загрузка CPU и GPU</string>
     <string name="controls_editor_global_scope">По умолчанию для всех игр</string>
     <string name="controls_editor_game_scope">Только для %1$s</string>
     <string name="controls_editor_game_inherited">%1$s использует глобальный макет</string>

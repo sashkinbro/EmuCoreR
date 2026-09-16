@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">اجرای R3000A از یک مفسر با اولویت صحت و JIT ARM64 استفاده می‌کند.</string>
     <string name="onboarding_core_card_gpu">GPU پلی‌استیشن 1 از طریق Vulkan با یک مسیر مرجع نرم‌افزاری رندر می‌شود.</string>
     <string name="onboarding_core_card_reference">هیچ سطح پرداختی لازم نیست؛ همه ویژگی‌های هسته در دسترس هستند.</string>
-    <string name="settings_fps_metric_core">زمان هسته شبیه‌سازی</string>
     <string name="formats_ps1_supported_title">فرمت‌های تأییدشده PS1</string>
     <string name="formats_ps1_supported_body">هسته کنونی تصاویر دیسک CUE، BIN، ISO، IMG، CHD و PBP, ECM, MDS را اسکن و بوت می‌کند.</string>
     <string name="formats_ps1_recommended_title">چیدمان پیشنهادی دامپ</string>
@@ -984,14 +983,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">اندازه متن شمارشگر ساده FPS و آمار دقیق را تغییر می‌دهد. مقادیر بزرگ‌تر همچنین روکش آمار دقیق را برای کاهش شکست خطوط عریض‌تر می‌کنند.</string>
     <string name="settings_fps_overlay_metrics">آمار قابل مشاهده</string>
-    <string name="settings_help_fps_overlay_metrics">مقادیر نمایش‌داده‌شده در روکش آمار دقیق را انتخاب کنید. این تنظیم بر جمع‌آوری معیارها یا عملکرد شبیه‌سازی تأثیری ندارد.</string>
+    <string name="settings_help_fps_overlay_metrics">مقادیر نمایش‌داده‌شده در روکش آمار دقیق را انتخاب کنید. این تنظیم بر جمع‌آوری معیارها یا عملکرد شبیه‌سازی تأثیری ندارد. مدل و بار CPU و GPU در صورت پشتیبانی از دستگاه خوانده می‌شود.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">سرعت</string>
     <string name="settings_fps_metric_renderer">رندرکننده</string>
     <string name="settings_fps_metric_audio">صدا</string>
     <string name="settings_fps_metric_frame_time">زمان فریم</string>
     <string name="settings_fps_metric_resolution">وضوح</string>
-    <string name="settings_fps_metric_host_cpu">مدل و بار CPU</string>
+    <string name="settings_fps_metric_host_cpu">مدل و بار CPU و GPU</string>
     <string name="controls_editor_global_scope">پیش‌فرض برای همه بازی‌ها</string>
     <string name="controls_editor_game_scope">فقط برای %1$s</string>
     <string name="controls_editor_game_inherited">%1$s در حال استفاده از طرح‌بندی سراسری است</string>

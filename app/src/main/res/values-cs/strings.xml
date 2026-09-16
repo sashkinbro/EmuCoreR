@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">Spouštění R3000A používá interpret kladoucí důraz na správnost a JIT ARM64.</string>
     <string name="onboarding_core_card_gpu">GPU PS1 je vykreslováno přes Vulkan se softwarovou referenční cestou.</string>
     <string name="onboarding_core_card_reference">Není vyžadována žádná placená úroveň; všechny funkce jádra jsou dostupné.</string>
-    <string name="settings_fps_metric_core">Čas emulačního jádra</string>
     <string name="formats_ps1_supported_title">Ověřené formáty PS1</string>
     <string name="formats_ps1_supported_body">Současné jádro prohledává a spouští diskové obrazy CUE, BIN, ISO, IMG, CHD a PBP, ECM, MDS.</string>
     <string name="formats_ps1_recommended_title">Doporučené uspořádání dumpu</string>
@@ -423,14 +422,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Změní velikost textu jednoduchého počítadla FPS i podrobných statistik. Větší hodnoty rovněž rozšíří detailní překrytí (overlay), aby se zamezilo zalamování řádků.</string>
     <string name="settings_fps_overlay_metrics">Viditelné statistiky</string>
-    <string name="settings_help_fps_overlay_metrics">Vyberte jednotlivé hodnoty, jež budou zahrnuty do detailního překrytí statistik. Verze aplikace, sestavení (build) a verze jádra jsou vždy na prvním místě. Časování GPU se shromažďuje pouze tehdy, když je vybrána metrika GPU.</string>
+    <string name="settings_help_fps_overlay_metrics">Vyberte jednotlivé hodnoty, jež budou zahrnuty do detailního překrytí statistik. Verze aplikace, sestavení (build) a verze jádra jsou vždy na prvním místě. Model a zatížení CPU a GPU se načítají ze zařízení, pokud jsou k dispozici.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">Rychlost</string>
     <string name="settings_fps_metric_renderer">Renderer</string>
     <string name="settings_fps_metric_audio">Zvuk</string>
     <string name="settings_fps_metric_frame_time">Čas snímku (Frame time)</string>
     <string name="settings_fps_metric_resolution">Rozlišení</string>
-    <string name="settings_fps_metric_host_cpu">Model a zatížení CPU</string>
+    <string name="settings_fps_metric_host_cpu">Model a zatížení CPU a GPU</string>
     <string name="shell_quick_actions">Rychlé akce</string>
     <string name="shell_executables_section">Spustitelné soubory</string>
     <string name="shell_launch_game">Spustit hru</string>

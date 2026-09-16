@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">L’esecuzione del R3000A usa un interprete orientato alla correttezza e un JIT ARM64.</string>
     <string name="onboarding_core_card_gpu">La GPU PS1 viene renderizzata tramite Vulkan con un percorso di riferimento software.</string>
     <string name="onboarding_core_card_reference">Non è richiesto alcun livello a pagamento; tutte le funzionalità del core sono disponibili.</string>
-    <string name="settings_fps_metric_core">Tempo del core di emulazione</string>
     <string name="formats_ps1_supported_title">Formati PS1 verificati</string>
     <string name="formats_ps1_supported_body">Il core attuale analizza e avvia immagini disco CUE, BIN, ISO, IMG, CHD e PBP, ECM, MDS.</string>
     <string name="formats_ps1_recommended_title">Layout di dump consigliato</string>
@@ -969,14 +968,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Modifica le dimensioni del testo sia del semplice contatore FPS che delle statistiche dettagliate. Valori più grandi allargano anche l\'overlay dettagliato per ridurre l\'andata a capo.</string>
     <string name="settings_fps_overlay_metrics">Statistiche visibili</string>
-    <string name="settings_help_fps_overlay_metrics">Scegli i singoli valori inclusi nell\'overlay delle statistiche dettagliate. Questo non influisce sulla raccolta delle metriche o sulle prestazioni dell\'emulazione.</string>
+    <string name="settings_help_fps_overlay_metrics">Scegli i singoli valori inclusi nell\'overlay delle statistiche dettagliate. Questo non influisce sulla raccolta delle metriche o sulle prestazioni dell\'emulazione. Il modello e il carico di CPU e GPU vengono letti dal dispositivo quando disponibili.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">Velocità</string>
     <string name="settings_fps_metric_renderer">Renderer</string>
     <string name="settings_fps_metric_audio">Audio</string>
     <string name="settings_fps_metric_frame_time">Tempo del fotogramma</string>
     <string name="settings_fps_metric_resolution">Risoluzione</string>
-    <string name="settings_fps_metric_host_cpu">Modello e carico della CPU</string>
+    <string name="settings_fps_metric_host_cpu">Modello e carico di CPU e GPU</string>
     <string name="controls_editor_global_scope">Predefinito per tutti i giochi</string>
     <string name="controls_editor_game_scope">Solo per %1$s</string>
     <string name="controls_editor_game_inherited">%1$s sta usando il layout globale</string>

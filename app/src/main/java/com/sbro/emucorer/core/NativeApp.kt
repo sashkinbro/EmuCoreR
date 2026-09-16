@@ -106,7 +106,7 @@ object NativeApp {
             }
         }
     }.getOrDefault(false)
-    @JvmStatic fun setPerformanceMetricsEnabled(visible: Boolean, detailed: Boolean, gpuTiming: Boolean) {
+    @JvmStatic fun setPerformanceMetricsEnabled(visible: Boolean, detailed: Boolean) {
         CoreRuntime.setPerformanceMetricsEnabled(visible, detailed)
     }
     @JvmStatic fun getPerformanceMetricsSnapshot(): String? = CoreRuntime.performanceMetricsSnapshot()

@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">R3000A निष्पादन शुद्धता-प्राथमिकता वाले इंटरप्रेटर और ARM64 JIT का उपयोग करता है।</string>
     <string name="onboarding_core_card_gpu">PS1 GPU को सॉफ़्टवेयर रेफ़रेंस पथ के साथ Vulkan के ज़रिए रेंडर किया जाता है।</string>
     <string name="onboarding_core_card_reference">किसी भुगतान स्तर की आवश्यकता नहीं है; कोर की हर सुविधा उपलब्ध है।</string>
-    <string name="settings_fps_metric_core">एमुलेशन कोर समय</string>
     <string name="formats_ps1_supported_title">सत्यापित PS1 प्रारूप</string>
     <string name="formats_ps1_supported_body">मौजूदा कोर CUE, BIN, ISO, IMG, CHD और PBP, ECM, MDS डिस्क छवियों को स्कैन और बूट करता है।</string>
     <string name="formats_ps1_recommended_title">अनुशंसित डंप लेआउट</string>
@@ -969,14 +968,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">साधारण FPS काउंटर और विस्तृत आँकड़े दोनों के टेक्स्ट का आकार बदलता है। बड़े मान विस्तृत ओवरले को भी चौड़ा करते हैं ताकि टेक्स्ट रैपिंग कम हो सके।</string>
     <string name="settings_fps_overlay_metrics">दिखाई देने वाले आँकड़े</string>
-    <string name="settings_help_fps_overlay_metrics">विस्तृत आँकड़े ओवरले में शामिल व्यक्तिगत मानों को चुनें। यह मीट्रिक संग्रह या एमुलेशन प्रदर्शन को प्रभावित नहीं करता है।</string>
+    <string name="settings_help_fps_overlay_metrics">विस्तृत आँकड़े ओवरले में शामिल व्यक्तिगत मानों को चुनें। यह मीट्रिक संग्रह या एमुलेशन प्रदर्शन को प्रभावित नहीं करता है। उपलब्ध होने पर CPU और GPU का मॉडल और लोड डिवाइस से पढ़ा जाता है।</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">गति</string>
     <string name="settings_fps_metric_renderer">रेंडरर</string>
     <string name="settings_fps_metric_audio">ऑडियो</string>
     <string name="settings_fps_metric_frame_time">फ़्रेम का समय</string>
     <string name="settings_fps_metric_resolution">रिज़ॉल्यूशन</string>
-    <string name="settings_fps_metric_host_cpu">CPU मॉडल और लोड</string>
+    <string name="settings_fps_metric_host_cpu">CPU और GPU मॉडल और लोड</string>
     <string name="controls_editor_global_scope">सभी गेम के लिए डिफ़ॉल्ट</string>
     <string name="controls_editor_game_scope">केवल %1$s के लिए</string>
     <string name="controls_editor_game_inherited">%1$s वैश्विक लेआउट का उपयोग कर रहा है</string>

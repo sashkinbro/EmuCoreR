@@ -64,8 +64,6 @@ internal fun buildPerformanceOverlayLayout(
             line.startsWith("Frame:") -> PerformanceOverlayMetrics.FRAME_TIME
             line.startsWith("Queue:") -> PerformanceOverlayMetrics.QUEUE
             line.startsWith("Res:") -> PerformanceOverlayMetrics.RESOLUTION
-            line.startsWith("Core:") -> PerformanceOverlayMetrics.CORE
-            line.startsWith("Load:") -> PerformanceOverlayMetrics.CORE
             line.startsWith("GPU Core:") -> PerformanceOverlayMetrics.GPU_CORE
             line.startsWith("JIT:") -> PerformanceOverlayMetrics.JIT
             line.startsWith("CD-ROM:") -> PerformanceOverlayMetrics.CDROM
@@ -104,8 +102,7 @@ internal fun buildPerformanceOverlayLayout(
             line.startsWith("Speed:") || line.startsWith("Target:")
     }
     val processorLines = filtered.filter { line ->
-        line.startsWith("Core:") || line.startsWith("Load:") || line.startsWith("GPU Core:") ||
-            line.startsWith("JIT:") || line.startsWith("CD-ROM:")
+        line.startsWith("GPU Core:") || line.startsWith("JIT:") || line.startsWith("CD-ROM:")
     }
     val hardwareLines = filtered.filter { line ->
         line.startsWith("CPU:") || line.startsWith("GPU:")

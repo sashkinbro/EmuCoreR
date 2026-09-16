@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">Eksekusi R3000A menggunakan interpreter yang mengutamakan ketepatan dan JIT ARM64.</string>
     <string name="onboarding_core_card_gpu">GPU PS1 dirender melalui Vulkan dengan jalur referensi perangkat lunak.</string>
     <string name="onboarding_core_card_reference">Tidak diperlukan tingkat pembelian; semua fitur core tersedia.</string>
-    <string name="settings_fps_metric_core">Waktu core emulasi</string>
     <string name="formats_ps1_supported_title">Format PS1 terverifikasi</string>
     <string name="formats_ps1_supported_body">Core saat ini memindai dan mem-boot image disk CUE, BIN, ISO, IMG, CHD, dan PBP, ECM, MDS.</string>
     <string name="formats_ps1_recommended_title">Tata letak dump yang disarankan</string>
@@ -983,14 +982,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Mengubah ukuran teks untuk penghitung FPS sederhana dan statistik mendetail. Nilai yang lebih besar juga memperlebar hamparan mendetail untuk mengurangi pembungkusan teks.</string>
     <string name="settings_fps_overlay_metrics">Statistik yang terlihat</string>
-    <string name="settings_help_fps_overlay_metrics">Pilih nilai individual yang disertakan dalam hamparan statistik mendetail. Hal ini tidak memengaruhi pengumpulan metrik atau performa emulasi.</string>
+    <string name="settings_help_fps_overlay_metrics">Pilih nilai individual yang disertakan dalam hamparan statistik mendetail. Hal ini tidak memengaruhi pengumpulan metrik atau performa emulasi. Model dan beban CPU serta GPU dibaca dari perangkat jika tersedia.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">Kecepatan</string>
     <string name="settings_fps_metric_renderer">Perender</string>
     <string name="settings_fps_metric_audio">Audio</string>
     <string name="settings_fps_metric_frame_time">Waktu bingkai</string>
     <string name="settings_fps_metric_resolution">Resolusi</string>
-    <string name="settings_fps_metric_host_cpu">Model dan beban CPU</string>
+    <string name="settings_fps_metric_host_cpu">Model dan beban CPU dan GPU</string>
     <string name="controls_editor_global_scope">Default untuk semua game</string>
     <string name="controls_editor_game_scope">Hanya untuk %1$s</string>
     <string name="controls_editor_game_inherited">%1$s menggunakan tata letak global</string>

@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">R3000A 执行采用正确性优先的解释器和 ARM64 JIT。</string>
     <string name="onboarding_core_card_gpu">PS1 GPU 通过 Vulkan 渲染，并提供软件参考路径。</string>
     <string name="onboarding_core_card_reference">无需付费层级；所有核心功能均可使用。</string>
-    <string name="settings_fps_metric_core">模拟核心时间</string>
     <string name="formats_ps1_supported_title">已验证的 PS1 格式</string>
     <string name="formats_ps1_supported_body">当前核心可扫描并启动 CUE、BIN、ISO、IMG、CHD 和 PBP, ECM, MDS 光盘映像。</string>
     <string name="formats_ps1_recommended_title">推荐的转储布局</string>
@@ -970,14 +969,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">更改简单 FPS 计数器和详细统计数据的文本大小。较大的值还会加宽详细覆盖层以减少文本换行。</string>
     <string name="settings_fps_overlay_metrics">可见统计数据</string>
-    <string name="settings_help_fps_overlay_metrics">选择详细统计数据覆盖层中包含的各项数值。这不会影响指标收集或模拟器性能。</string>
+    <string name="settings_help_fps_overlay_metrics">选择详细统计数据覆盖层中包含的各项数值。这不会影响指标收集或模拟器性能。在设备支持时，会读取 CPU 和 GPU 的型号与负载。</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">速度</string>
     <string name="settings_fps_metric_renderer">渲染器</string>
     <string name="settings_fps_metric_audio">音频</string>
     <string name="settings_fps_metric_frame_time">帧时间</string>
     <string name="settings_fps_metric_resolution">分辨率</string>
-    <string name="settings_fps_metric_host_cpu">CPU 型号和负载</string>
+    <string name="settings_fps_metric_host_cpu">CPU 和 GPU 型号与负载</string>
     <string name="controls_editor_global_scope">所有游戏的默认设置</string>
     <string name="controls_editor_game_scope">仅适用于 %1$s</string>
     <string name="controls_editor_game_inherited">%1$s 正在使用全局布局</string>

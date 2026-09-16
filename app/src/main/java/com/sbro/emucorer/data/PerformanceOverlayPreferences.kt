@@ -12,7 +12,6 @@ object PerformanceOverlayMetrics {
     const val RESOLUTION = 1 shl 8
     // Keep the bit positions stable so existing user selections migrate from
     // the old PS2 frontend without resetting the whole overlay configuration.
-    const val CORE = 1 shl 9
     const val GPU_CORE = 1 shl 10
     const val JIT = 1 shl 11
     const val CDROM = 1 shl 12
@@ -21,12 +20,12 @@ object PerformanceOverlayMetrics {
     const val AUDIO = 1 shl 15
 
     const val ALL = FPS or VPS or SPEED or TARGET or RENDERER or VRAM or FRAME_TIME or QUEUE or
-        RESOLUTION or CORE or GPU_CORE or JIT or CDROM or HOST_CPU or HOST_GPU or AUDIO
+        RESOLUTION or GPU_CORE or JIT or CDROM or HOST_CPU or HOST_GPU or AUDIO
 
     // Audio remains opt-in; the default mask only contains metrics the runtime
-    // currently publishes (FPS/Speed, renderer+resolution, frame time+load,
-    // host CPU/GPU names).
-    const val DEFAULT = FPS or SPEED or RENDERER or FRAME_TIME or RESOLUTION or CORE or HOST_CPU or HOST_GPU
+    // currently publishes (FPS/Speed, renderer+resolution, frame time, host
+    // CPU/GPU names and load).
+    const val DEFAULT = FPS or SPEED or RENDERER or FRAME_TIME or RESOLUTION or HOST_CPU or HOST_GPU
 
     fun sanitize(mask: Int): Int = mask and ALL
 

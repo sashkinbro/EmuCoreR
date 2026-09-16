@@ -679,14 +679,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun syncNativePerformanceOverlayState(state: EmulationUiState) {
         val detailed = state.showFps && state.fpsOverlayMode != FPS_OVERLAY_MODE_SIMPLE
-        NativeApp.setPerformanceMetricsEnabled(
-            visible = state.showFps,
-            detailed = detailed,
-            gpuTiming = detailed && PerformanceOverlayMetrics.isEnabled(
-                state.fpsOverlayMetrics,
-                PerformanceOverlayMetrics.HOST_GPU
-            )
-        )
+        NativeApp.setPerformanceMetricsEnabled(visible = state.showFps, detailed = detailed)
     }
 
     private fun syncGamepadRightStickTriggerMapping(state: EmulationUiState) {
@@ -5498,7 +5491,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     override fun onCleared() {
         DiscordIntegration.clearGame()
         androidGamePerformance.update(AndroidGamePhase.Idle)
-        NativeApp.setPerformanceMetricsEnabled(visible = false, detailed = false, gpuTiming = false)
+        NativeApp.setPerformanceMetricsEnabled(visible = false, detailed = false)
         fastForwardRequested = false
         if (_uiState.value.isRunning) {
             EmulatorBridge.resetKeyStatus()

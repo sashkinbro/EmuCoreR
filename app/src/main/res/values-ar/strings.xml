@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">يستخدم تنفيذ R3000A مفسّرًا يركز على الدقة وARM64 JIT.</string>
     <string name="onboarding_core_card_gpu">تُعرض وحدة GPU الخاصة بـ PS1 عبر Vulkan مع مسار مرجعي برمجي.</string>
     <string name="onboarding_core_card_reference">لا حاجة إلى أي مستوى مدفوع؛ فجميع ميزات النواة متاحة.</string>
-    <string name="settings_fps_metric_core">زمن نواة المحاكاة</string>
     <string name="formats_ps1_supported_title">تنسيقات PS1 الموثوقة</string>
     <string name="formats_ps1_supported_body">تفحص النواة الحالية صور أقراص CUE وBIN وISO وIMG وCHD وPBP, ECM, MDS وتشغّلها.</string>
     <string name="formats_ps1_recommended_title">تخطيط النسخ الموصى به</string>
@@ -973,14 +972,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">يغير حجم نص عداد FPS البسيط والإحصائيات التفصيلية. تعمل القيم الأكبر أيضًا على توسيع طبقة الإحصائيات التفصيلية لتقليل التفاف النص.</string>
     <string name="settings_fps_overlay_metrics">الإحصائيات المرئية</string>
-    <string name="settings_help_fps_overlay_metrics">اختر القيم التي تظهر في طبقة الإحصائيات التفصيلية. لا يؤثر هذا على جمع المقاييس أو أداء المحاكاة.</string>
+    <string name="settings_help_fps_overlay_metrics">اختر القيم التي تظهر في طبقة الإحصائيات التفصيلية. لا يؤثر هذا على جمع المقاييس أو أداء المحاكاة. يتم قراءة طراز وحمل CPU وGPU من الجهاز عند توفرهما.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">السرعة</string>
     <string name="settings_fps_metric_renderer">العارض</string>
     <string name="settings_fps_metric_audio">الصوت</string>
     <string name="settings_fps_metric_frame_time">وقت الإطار</string>
     <string name="settings_fps_metric_resolution">الدقة</string>
-    <string name="settings_fps_metric_host_cpu">طراز CPU والحمل</string>
+    <string name="settings_fps_metric_host_cpu">طراز وحمل CPU وGPU</string>
     <string name="controls_editor_global_scope">الافتراضي لجميع الألعاب</string>
     <string name="controls_editor_game_scope">فقط لـ %1$s</string>
     <string name="controls_editor_game_inherited">يستخدم %1$s التخطيط العام</string>

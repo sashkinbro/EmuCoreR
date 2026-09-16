@@ -779,7 +779,7 @@ internal object CoreRuntime {
         else -> if (filter <= 0) "Nearest" else "xBR"
     }
 
-    private fun publishPerformanceMetrics(fps: Double, frames: Int, frameNanos: Long, coreNanos: Long,
+    private fun publishPerformanceMetrics(fps: Double, frames: Int, frameNanos: Long,
                                           audioStats: LongArray?, cpuLoadPercent: Double) {
         if (frames <= 0 || !performanceMetricsEnabled) return
         val softwareRenderer = activeCoreRenderer == RendererDefaults.CORE_SOFTWARE
@@ -787,8 +787,7 @@ internal object CoreRuntime {
         val speed = fps / targetFps * 100.0
         val renderer = RendererDefaults.coreRendererName(activeCoreRenderer)
         val frameMs = frameNanos / frames / 1_000_000.0
-        val coreMs = coreNanos / frames / 1_000_000.0
-        val coreLoad = if (frameNanos > 0) coreNanos * 100.0 / frameNanos else 0.0
+        val gpuLoad = if (detailedPerformanceMetrics) GpuLoadReader.loadPercent() else null
         val overlay = buildString {
             append(String.format(Locale.US, "FPS:%.1f | Speed:%.1f%% | Target:%.2f", fps, speed, targetFps))
             if (detailedPerformanceMetrics) {
@@ -797,8 +796,8 @@ internal object CoreRuntime {
                 // its own bottom line instead of duplicating it inline.
                 append('\n').append(renderer).append(if (softwareRenderer) " SW |" else " HW |")
                 append('\n').append("CPU:Host | ").append(String.format(Locale.US, "%.1f%%", cpuLoadPercent))
-                append('\n').append("GPU:Unknown")
-                append('\n').append(String.format(Locale.US, "Core:%.1f%% (%.2f ms)", coreLoad, coreMs))
+                append('\n').append("GPU:Host")
+                if (gpuLoad != null) append(String.format(Locale.US, " | %.1f%%", gpuLoad))
                 append('\n').append("Res:").append(frameWidth).append('x').append(frameHeight)
                 append('\n').append(String.format(Locale.US, "Frame:%.1f ms", frameMs))
                 if (audioStats != null && audioStats.size >= 8) {
@@ -824,7 +823,6 @@ internal object CoreRuntime {
         var metricsStartNanos = System.nanoTime()
         var metricsFrames = 0
         var metricsFrameTotalNanos = 0L
-        var metricsCoreTotalNanos = 0L
         var metricsStartCpuMs = android.os.Process.getElapsedCpuTime()
         var frameDeadlineNanos = 0L
         try {
@@ -918,13 +916,11 @@ internal object CoreRuntime {
 
                 metricsFrames++
                 metricsFrameTotalNanos += frameNanos
-                metricsCoreTotalNanos += coreNanos
                 val now = System.nanoTime()
                 if (!performanceMetricsEnabled) {
                     metricsStartNanos = now
                     metricsFrames = 0
                     metricsFrameTotalNanos = 0L
-                    metricsCoreTotalNanos = 0L
                     metricsStartCpuMs = android.os.Process.getElapsedCpuTime()
                 } else if (now - metricsStartNanos >= 1_000_000_000L) {
                     val elapsed = now - metricsStartNanos
@@ -938,12 +934,11 @@ internal object CoreRuntime {
                         0.0
                     }
                     publishPerformanceMetrics(fps, metricsFrames, metricsFrameTotalNanos,
-                        metricsCoreTotalNanos, output.stats(), cpuLoad)
+                        output.stats(), cpuLoad)
                     metricsStartNanos = now
                     metricsStartCpuMs = cpuNowMs
                     metricsFrames = 0
                     metricsFrameTotalNanos = 0L
-                    metricsCoreTotalNanos = 0L
                 }
             }
         } catch (error: InterruptedException) {

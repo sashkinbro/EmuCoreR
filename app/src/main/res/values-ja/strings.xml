@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">R3000Aの実行には、正確さを優先したインタプリタとARM64 JITを使用します。</string>
     <string name="onboarding_core_card_gpu">PS1 GPUはソフトウェアリファレンスパスを備えたVulkanでレンダリングされます。</string>
     <string name="onboarding_core_card_reference">有料プランは不要で、すべてのコア機能を利用できます。</string>
-    <string name="settings_fps_metric_core">エミュレーションコア時間</string>
     <string name="formats_ps1_supported_title">検証済みのPS1形式</string>
     <string name="formats_ps1_supported_body">現在のコアはCUE、BIN、ISO、IMG、CHD、PBP, ECM, MDSディスクイメージをスキャンして起動します。</string>
     <string name="formats_ps1_recommended_title">推奨ダンプ構成</string>
@@ -968,14 +967,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">シンプルなFPSカウンターと詳細な統計の両方のテキストサイズを変更します。数値を大きくすると、折り返しを減らすために詳細オーバーレイの幅も広がります。</string>
     <string name="settings_fps_overlay_metrics">表示される統計</string>
-    <string name="settings_help_fps_overlay_metrics">詳細な統計オーバーレイに含まれる個別の値を選択します。これは、指標の収集やエミュレーションのパフォーマンスには影響しません。</string>
+    <string name="settings_help_fps_overlay_metrics">詳細な統計オーバーレイに含まれる個別の値を選択します。これは、指標の収集やエミュレーションのパフォーマンスには影響しません。CPUとGPUのモデルと負荷は、利用可能な場合にデバイスから読み取られます。</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">速度</string>
     <string name="settings_fps_metric_renderer">レンダラー</string>
     <string name="settings_fps_metric_audio">オーディオ</string>
     <string name="settings_fps_metric_frame_time">フレームタイム</string>
     <string name="settings_fps_metric_resolution">解像度</string>
-    <string name="settings_fps_metric_host_cpu">CPUモデルと負荷</string>
+    <string name="settings_fps_metric_host_cpu">CPUとGPUのモデルと負荷</string>
     <string name="controls_editor_global_scope">すべてのゲームのデフォルト</string>
     <string name="controls_editor_game_scope">%1$s 専用</string>
     <string name="controls_editor_game_inherited">%1$s はグローバルレイアウトを使用しています</string>

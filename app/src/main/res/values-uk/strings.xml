@@ -988,15 +988,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Змінює розмір тексту як простого лічильника кадрів (FPS), так і детальної статистики. Більші значення також розширюють детальний оверлей, щоб зменшити перенесення рядків.</string>
     <string name="settings_fps_overlay_metrics">Видима статистика</string>
-    <string name="settings_help_fps_overlay_metrics">Виберіть окремі значення, що відображатимуться в детальному оверлеї статистики. Це не впливає на збір показників або продуктивність емуляції.</string>
+    <string name="settings_help_fps_overlay_metrics">Виберіть окремі значення, що відображатимуться в детальному оверлеї статистики. Це не впливає на збір показників або продуктивність емуляції. Модель та завантаження CPU і GPU зчитуються з пристрою, коли це можливо.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">Швидкість</string>
     <string name="settings_fps_metric_renderer">Рендерер</string>
     <string name="settings_fps_metric_audio">Аудіо</string>
     <string name="settings_fps_metric_frame_time">Час кадру</string>
     <string name="settings_fps_metric_resolution">Роздільна здатність</string>
-    <string name="settings_fps_metric_host_cpu">Модель та завантаження CPU</string>
-    <string name="settings_fps_metric_core">Час ядра емуляції</string>
+    <string name="settings_fps_metric_host_cpu">Модель та завантаження CPU і GPU</string>
     <string name="controls_editor_global_scope">За замовчуванням для всіх ігор</string>
     <string name="controls_editor_game_scope">Тільки для %1$s</string>
     <string name="controls_editor_game_inherited">%1$s використовує глобальний макет</string>

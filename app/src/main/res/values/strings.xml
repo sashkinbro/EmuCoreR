@@ -418,15 +418,15 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Changes the text size of both the simple FPS counter and detailed statistics. Larger values also widen the detailed overlay to reduce wrapping.</string>
     <string name="settings_fps_overlay_metrics">Visible statistics</string>
-    <string name="settings_help_fps_overlay_metrics">Choose the individual values included in the detailed statistics overlay. App, build, and core versions are always shown first. GPU timing is collected only while the GPU metric is selected.</string>
+    <string name="settings_help_fps_overlay_metrics">Choose the individual values included in the detailed statistics overlay. App, build, and core versions are always shown first. CPU and GPU names with their load are read from the device when available.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">Speed</string>
     <string name="settings_fps_metric_renderer">Renderer</string>
     <string name="settings_fps_metric_audio">Audio</string>
     <string name="settings_fps_metric_frame_time">Frame time</string>
     <string name="settings_fps_metric_resolution">Resolution</string>
-    <string name="settings_fps_metric_host_cpu">CPU model and load</string>
-    <string name="settings_fps_metric_core">Emulation core time</string>
+    <string name="settings_fps_metric_host_cpu">CPU and GPU model and load</string>
+
     <string name="shell_quick_actions">Quick actions</string>
     <string name="shell_executables_section">Executable Files</string>
     <string name="shell_launch_game">Launch Game</string>

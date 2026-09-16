@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">R3000A yürütmesi, doğruluk öncelikli bir yorumlayıcı ve ARM64 JIT kullanır.</string>
     <string name="onboarding_core_card_gpu">PS1 GPU’su, yazılım referans yoluyla Vulkan üzerinden işlenir.</string>
     <string name="onboarding_core_card_reference">Ücretli bir kademe gerekmez; tüm çekirdek özellikleri kullanılabilir.</string>
-    <string name="settings_fps_metric_core">Emülasyon çekirdeği süresi</string>
     <string name="formats_ps1_supported_title">Doğrulanmış PS1 formatları</string>
     <string name="formats_ps1_supported_body">Geçerli çekirdek CUE, BIN, ISO, IMG, CHD ve PBP, ECM, MDS disk görüntülerini tarar ve başlatır.</string>
     <string name="formats_ps1_recommended_title">Önerilen döküm düzeni</string>
@@ -969,14 +968,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Hem basit FPS sayacının hem de ayrıntılı istatistiklerin metin boyutunu değiştirir. Daha büyük değerler, satır kaydırmayı azaltmak için ayrıntılı istatistik katmanını da genişletir.</string>
     <string name="settings_fps_overlay_metrics">Görünür istatistikler</string>
-    <string name="settings_help_fps_overlay_metrics">Ayrıntılı istatistik katmanında gösterilecek değerleri seçin. Bu, metrik toplamayı veya emülasyon performansını etkilemez.</string>
+    <string name="settings_help_fps_overlay_metrics">Ayrıntılı istatistik katmanında gösterilecek değerleri seçin. Bu, metrik toplamayı veya emülasyon performansını etkilemez. CPU ve GPU modeli ve yükü destekleniyorsa cihazdan okunur.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">Hız</string>
     <string name="settings_fps_metric_renderer">Oluşturucu</string>
     <string name="settings_fps_metric_audio">Ses</string>
     <string name="settings_fps_metric_frame_time">Kare süresi</string>
     <string name="settings_fps_metric_resolution">Çözünürlük</string>
-    <string name="settings_fps_metric_host_cpu">CPU modeli ve yükü</string>
+    <string name="settings_fps_metric_host_cpu">CPU ve GPU modeli ve yükü</string>
     <string name="controls_editor_global_scope">Tüm oyunlar için varsayılan</string>
     <string name="controls_editor_game_scope">Sadece %1$s için</string>
     <string name="controls_editor_game_inherited">%1$s küresel düzeni kullanıyor</string>

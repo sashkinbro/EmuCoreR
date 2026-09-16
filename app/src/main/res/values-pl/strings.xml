@@ -7,7 +7,6 @@
     <string name="onboarding_core_card_cpu">Wykonywanie R3000A korzysta z interpretera nastawionego na poprawność i JIT ARM64.</string>
     <string name="onboarding_core_card_gpu">GPU PS1 jest renderowane przez Vulkan ze ścieżką referencyjną w oprogramowaniu.</string>
     <string name="onboarding_core_card_reference">Żaden płatny poziom nie jest wymagany; wszystkie funkcje jądra są dostępne.</string>
-    <string name="settings_fps_metric_core">Czas jądra emulacji</string>
     <string name="formats_ps1_supported_title">Zweryfikowane formaty PS1</string>
     <string name="formats_ps1_supported_body">Bieżące jądro skanuje i uruchamia obrazy dysków CUE, BIN, ISO, IMG, CHD i PBP, ECM, MDS.</string>
     <string name="formats_ps1_recommended_title">Zalecany układ zrzutu</string>
@@ -420,14 +419,14 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Zmienia rozmiar tekstu zarówno dla prostego licznika FPS, jak i szczegółowych statystyk. Większe wartości poszerzają również szczegółową nakładkę, aby uniknąć zawijania tekstu.</string>
     <string name="settings_fps_overlay_metrics">Widoczne statystyki</string>
-    <string name="settings_help_fps_overlay_metrics">Wybierz poszczególne wartości, które znajdą się w szczegółowej nakładce statystyk. Wersje aplikacji, kompilacji i rdzenia są zawsze pokazywane na początku. Czasy GPU są zbierane tylko wtedy, gdy wybrana jest metryka GPU.</string>
+    <string name="settings_help_fps_overlay_metrics">Wybierz poszczególne wartości, które znajdą się w szczegółowej nakładce statystyk. Wersje aplikacji, kompilacji i rdzenia są zawsze pokazywane na początku. Model i obciążenie CPU i GPU są odczytywane z urządzenia, gdy jest to możliwe.</string>
     <string name="settings_fps_metric_fps">FPS</string>
     <string name="settings_fps_metric_speed">Prędkość</string>
     <string name="settings_fps_metric_renderer">Silnik renderujący</string>
     <string name="settings_fps_metric_audio">Dźwięk</string>
     <string name="settings_fps_metric_frame_time">Czas klatki</string>
     <string name="settings_fps_metric_resolution">Rozdzielczość</string>
-    <string name="settings_fps_metric_host_cpu">Model i obciążenie CPU</string>
+    <string name="settings_fps_metric_host_cpu">Model i obciążenie CPU i GPU</string>
     <string name="shell_quick_actions">Szybkie akcje</string>
     <string name="shell_executables_section">Pliki wykonywalne</string>
     <string name="shell_launch_game">Uruchom grę</string>
