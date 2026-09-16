@@ -96,6 +96,7 @@ TextureReplacements::TextureReplacements() = default;
 TextureReplacements::~TextureReplacements()
 {
   StopTextureLoader();
+  StopComposeWorker();
 }
 
 void TextureReplacements::SetGameID(std::string game_id)
@@ -121,6 +122,7 @@ const TextureReplacementTexture* TextureReplacements::GetVRAMWriteReplacement(ui
 void TextureReplacements::Shutdown()
 {
   StopTextureLoader();
+  StopComposeWorker();
   m_texture_pending_hit = false;
   m_texture_cache.clear();
   m_texture_lru.clear();
@@ -182,6 +184,13 @@ void TextureReplacements::Reload()
     m_texture_loader_completed.clear();
   }
   m_texture_load_pending.clear();
+  {
+    // Jobs running against the old game's packs are dropped by the key lookup
+    // or the serial comparison when they complete.
+    std::lock_guard<std::mutex> lock(m_compose_mutex);
+    m_compose_queue.clear();
+    m_compose_completed.clear();
+  }
 
   if (g_settings.texture_replacements.AnyReplacementsEnabled())
     FindTextures(GetSourceDirectory());
@@ -279,7 +288,7 @@ void TextureReplacements::ResetTextureCacheOrdering()
   {
     m_texture_lru.push_back(it.first);
     m_texture_lru_positions.emplace(it.first, std::prev(m_texture_lru.end()));
-    m_texture_cache_bytes += static_cast<size_t>(it.second.GetWidth()) * it.second.GetHeight() * 4;
+    m_texture_cache_bytes += static_cast<size_t>(it.second->GetWidth()) * it.second->GetHeight() * 4;
   }
 }
 
@@ -306,7 +315,7 @@ void TextureReplacements::EvictTexturesForBudget(size_t incoming_bytes, const st
     const auto it = m_texture_cache.find(victim);
     if (it != m_texture_cache.end())
     {
-      m_texture_cache_bytes -= static_cast<size_t>(it->second.GetWidth()) * it->second.GetHeight() * 4;
+      m_texture_cache_bytes -= static_cast<size_t>(it->second->GetWidth()) * it->second->GetHeight() * 4;
       m_texture_cache.erase(it);
     }
   }
@@ -474,31 +483,34 @@ void TextureReplacements::FindTextures(const std::string& dir)
                  m_vram_write_replacements.size(), texpage_count, m_texupload_replacement_count, m_game_id.c_str());
 }
 
-const TextureReplacementTexture* TextureReplacements::LoadTexture(const std::string& filename)
+std::shared_ptr<TextureReplacementTexture> TextureReplacements::AcquireTexture(const std::string& filename)
 {
   auto it = m_texture_cache.find(filename);
-  if (it != m_texture_cache.end())
+  if (it == m_texture_cache.end())
   {
-    TouchTextureCacheEntry(filename);
-    return &it->second;
+    // Pick up anything the worker finished since the last lookup. Decoded
+    // images enter the cache on this thread only.
+    DrainLoadedTextures();
+    it = m_texture_cache.find(filename);
   }
 
-  // Pick up anything the worker finished since the last lookup. Decoded images
-  // enter the cache on this thread only.
-  DrainLoadedTextures();
-
-  it = m_texture_cache.find(filename);
-  if (it != m_texture_cache.end())
+  if (it == m_texture_cache.end())
   {
-    TouchTextureCacheEntry(filename);
-    return &it->second;
+    // Never decode on the emulation thread. The caller treats the texture as
+    // missing for this frame and the page is recomposited once it arrives.
+    QueueTextureLoad(filename);
+    m_texture_pending_hit = true;
+    return nullptr;
   }
 
-  // Never decode on the emulation thread. The caller treats the texture as
-  // missing for this frame and the page is recomposited once it arrives.
-  QueueTextureLoad(filename);
-  m_texture_pending_hit = true;
-  return nullptr;
+  TouchTextureCacheEntry(filename);
+  return it->second;
+}
+
+const TextureReplacementTexture* TextureReplacements::LoadTexture(const std::string& filename)
+{
+  const std::shared_ptr<TextureReplacementTexture> texture = AcquireTexture(filename);
+  return texture ? texture.get() : nullptr;
 }
 
 void TextureReplacements::InsertDecodedTexture(std::string filename, TextureReplacementTexture image)
@@ -510,7 +522,8 @@ void TextureReplacements::InsertDecodedTexture(std::string filename, TextureRepl
   const size_t image_bytes = static_cast<size_t>(image.GetWidth()) * image.GetHeight() * 4;
   EvictTexturesForBudget(image_bytes, filename);
 
-  auto inserted = m_texture_cache.emplace(std::move(filename), std::move(image)).first;
+  auto inserted =
+    m_texture_cache.emplace(std::move(filename), std::make_shared<TextureReplacementTexture>(std::move(image))).first;
   m_texture_lru.push_back(inserted->first);
   m_texture_lru_positions[inserted->first] = std::prev(m_texture_lru.end());
   m_texture_cache_bytes += image_bytes;
@@ -621,6 +634,217 @@ void TextureReplacements::DrainLoadedTextures()
 
   // Pages composited while these images were still loading need a rebuild.
   m_texture_load_generation.fetch_add(1, std::memory_order_relaxed);
+}
+
+bool TextureReplacements::BuildComposeJob(const PageCacheKey& key, uint64_t page_hash, uint64_t palette_hash,
+                                          uint32_t mode_index, uint32_t page, uint32_t palette_x, uint32_t palette_y,
+                                          const std::vector<ReplacementMatch>& matches, ComposeJob* job)
+{
+  job->key = key;
+  job->page_hash = page_hash;
+  job->palette_hash = palette_hash;
+  job->max_texture_size = m_max_texture_size;
+  job->resolution_scale = m_resolution_scale;
+  job->textures_missing = false;
+
+  const GPUTextureMode mode = static_cast<GPUTextureMode>(mode_index);
+  const uint32_t page_row_words = VRAM_PAGE_WIDTH << mode_index;
+  job->page_row_words = page_row_words;
+  job->page_words.resize(static_cast<size_t>(TEXPAGE_NATIVE_HEIGHT) * page_row_words);
+  const uint16_t* page_ptr = GetPagePointer(page);
+  for (uint32_t y = 0; y < TEXPAGE_NATIVE_HEIGHT; y++)
+  {
+    std::memcpy(&job->page_words[static_cast<size_t>(y) * page_row_words],
+                page_ptr + static_cast<size_t>(y) * VRAM_WIDTH,
+                static_cast<size_t>(page_row_words) * sizeof(uint16_t));
+  }
+
+  if (TextureModeHasPalette(mode))
+  {
+    const uint16_t* palette_ptr = GetPalettePointer(palette_x, palette_y);
+    const size_t remaining = (static_cast<size_t>(VRAM_WIDTH) * VRAM_HEIGHT) -
+                             ((static_cast<size_t>(palette_y) * VRAM_WIDTH) + palette_x);
+    const size_t palette_words = std::min<size_t>(GetPaletteWidth(mode), remaining);
+    job->palette_words.assign(palette_ptr, palette_ptr + palette_words);
+  }
+  else
+  {
+    job->palette_words.clear();
+  }
+
+  job->matches.clear();
+  job->matches.reserve(matches.size());
+  for (const ReplacementMatch& match : matches)
+  {
+    const std::shared_ptr<TextureReplacementTexture> image = AcquireTexture(match.entry->filename);
+    if (!image || image->GetWidth() == 0 || image->GetHeight() == 0)
+    {
+      job->textures_missing = true;
+      continue;
+    }
+
+    ResolvedMatch resolved;
+    resolved.image = image;
+    resolved.semitransparent = match.entry->name.IsSemitransparent();
+    resolved.scale_x = match.scale_x;
+    resolved.scale_y = match.scale_y;
+    resolved.dst_x = match.dst_x;
+    resolved.dst_y = match.dst_y;
+    resolved.dst_width = match.dst_width;
+    resolved.dst_height = match.dst_height;
+    resolved.src_x = match.src_x;
+    resolved.src_y = match.src_y;
+    resolved.src_width = match.src_width;
+    resolved.src_height = match.src_height;
+    job->matches.push_back(std::move(resolved));
+  }
+
+  return !job->matches.empty();
+}
+
+void TextureReplacements::StartComposeWorker()
+{
+  if (m_compose_thread.joinable())
+    return;
+
+  m_compose_stop = false;
+  m_compose_thread = std::thread(&TextureReplacements::ComposeWorkerEntry, this);
+}
+
+void TextureReplacements::StopComposeWorker()
+{
+  if (m_compose_thread.joinable())
+  {
+    {
+      std::lock_guard<std::mutex> lock(m_compose_mutex);
+      m_compose_stop = true;
+    }
+    m_compose_cv.notify_all();
+    m_compose_thread.join();
+  }
+
+  std::lock_guard<std::mutex> lock(m_compose_mutex);
+  m_compose_queue.clear();
+  m_compose_completed.clear();
+  m_compose_stop = false;
+}
+
+bool TextureReplacements::TryQueueCompose(ComposeJob job)
+{
+  StartComposeWorker();
+
+  {
+    std::lock_guard<std::mutex> lock(m_compose_mutex);
+    if (m_compose_queue.size() >= MAX_COMPOSE_QUEUE)
+      return false;
+    m_compose_queue.push_back(std::move(job));
+  }
+  m_compose_cv.notify_one();
+  return true;
+}
+
+void TextureReplacements::ComposeWorkerEntry(TextureReplacements* self)
+{
+  for (;;)
+  {
+    ComposeJob job;
+    {
+      std::unique_lock<std::mutex> lock(self->m_compose_mutex);
+      self->m_compose_cv.wait(lock, [self] {
+        return self->m_compose_stop || !self->m_compose_queue.empty();
+      });
+
+      if (self->m_compose_queue.empty())
+      {
+        if (self->m_compose_stop)
+          return;
+        continue;
+      }
+
+      job = std::move(self->m_compose_queue.front());
+      self->m_compose_queue.pop_front();
+    }
+
+    CompletedCompose completed;
+    completed.key = job.key;
+    completed.serial = job.serial;
+    completed.page_hash = job.page_hash;
+    completed.palette_hash = job.palette_hash;
+    completed.textures_missing = job.textures_missing;
+
+    std::vector<uint32_t> base_pixels;
+    DecodeExpandedPage(base_pixels, static_cast<GPUTextureMode>(job.key.mode), job.page_words.data(),
+                       job.page_row_words, job.palette_words.empty() ? nullptr : job.palette_words.data(),
+                       job.palette_words.size());
+    completed.image = ComposePageImage(job.matches, base_pixels, job.max_texture_size, job.resolution_scale,
+                                       &completed.scale_x, &completed.scale_y);
+
+    {
+      std::lock_guard<std::mutex> lock(self->m_compose_mutex);
+      self->m_compose_completed.push_back(std::move(completed));
+    }
+  }
+}
+
+void TextureReplacements::DrainComposedPages()
+{
+  std::deque<CompletedCompose> completed;
+  {
+    std::lock_guard<std::mutex> lock(m_compose_mutex);
+    if (m_compose_completed.empty())
+      return;
+    completed.swap(m_compose_completed);
+  }
+
+  for (CompletedCompose& done : completed)
+  {
+    auto it = m_page_cache.find(done.key);
+    if (it == m_page_cache.end())
+      continue; // page evicted, or the game changed while the job was running
+
+    CachedPage& cached = it->second;
+    if (cached.in_flight_serial != done.serial)
+      continue; // superseded by a newer rebuild request
+
+    cached.in_flight_serial = 0;
+    cached.pending_rebuild = false;
+    cached.incomplete = done.textures_missing;
+    cached.load_generation = m_texture_load_generation.load(std::memory_order_relaxed);
+
+    const size_t old_size = cached.size_bytes;
+    cached.page_hash = done.page_hash;
+    cached.palette_hash = done.palette_hash;
+    cached.size_bytes = 0;
+    m_page_cache_bytes -= old_size;
+
+    if (!done.image)
+    {
+      cached.replacement.image.reset();
+      cached.replacement.id = 0;
+      continue;
+    }
+
+    cached.replacement.image = std::move(done.image);
+    if (cached.replacement.id == 0)
+    {
+      cached.replacement.id = m_next_replacement_id++;
+      cached.replacement.revision = 1;
+    }
+    else
+    {
+      cached.replacement.revision++;
+    }
+    cached.replacement.vram_page_start_x = (done.key.page & 15u) * VRAM_PAGE_WIDTH;
+    cached.replacement.vram_page_start_y = (done.key.page >> 4) * VRAM_PAGE_HEIGHT;
+    cached.replacement.source_width = TEXPAGE_NATIVE_WIDTH;
+    cached.replacement.source_height = TEXPAGE_NATIVE_HEIGHT;
+    cached.replacement.scale_x = done.scale_x;
+    cached.replacement.scale_y = done.scale_y;
+    cached.size_bytes = static_cast<size_t>(cached.replacement.image->GetWidth()) *
+                        static_cast<size_t>(cached.replacement.image->GetHeight()) * sizeof(uint32_t);
+    m_page_cache_bytes += cached.size_bytes;
+    EvictPageReplacementsForBudget(0);
+  }
 }
 
 void TextureReplacements::PreloadTextures()
@@ -1297,17 +1521,22 @@ void TextureReplacements::FindTexuploadMatches(std::vector<ReplacementMatch>& ma
 void TextureReplacements::DecodePage(std::vector<uint32_t>& pixels, uint32_t page, GPUTextureMode mode,
                                      uint32_t palette_x, uint32_t palette_y) const
 {
-  pixels.resize(TEXPAGE_NATIVE_WIDTH * TEXPAGE_NATIVE_HEIGHT);
-
-  const uint16_t* page_ptr = GetPagePointer(page);
   const uint16_t* palette = TextureModeHasPalette(mode) ? GetPalettePointer(palette_x, palette_y) : nullptr;
   // Palette entries are read contiguously (a wrapped 8-bit palette
   // runs into the next VRAM row); clamp to the end of VRAM so a malformed
   // palette at the very last row can never read out of bounds.
-  const size_t palette_remaining =
+  const size_t palette_words =
     TextureModeHasPalette(mode) ? ((static_cast<size_t>(VRAM_WIDTH) * VRAM_HEIGHT) -
                                    ((static_cast<size_t>(palette_y) * VRAM_WIDTH) + palette_x)) :
                                   0;
+  DecodeExpandedPage(pixels, mode, GetPagePointer(page), VRAM_WIDTH, palette, palette_words);
+}
+
+void TextureReplacements::DecodeExpandedPage(std::vector<uint32_t>& pixels, GPUTextureMode mode, const uint16_t* page_ptr,
+                                             size_t page_row_stride_words, const uint16_t* palette,
+                                             size_t palette_words)
+{
+  pixels.resize(TEXPAGE_NATIVE_WIDTH * TEXPAGE_NATIVE_HEIGHT);
   uint32_t* dest = pixels.data();
 
   switch (static_cast<uint8_t>(mode) & 3u)
@@ -1321,12 +1550,12 @@ void TextureReplacements::DecodePage(std::vector<uint32_t>& pixels, uint32_t pag
         {
           const uint16_t word = row[x >> 2];
           uint32_t index = (word >> ((x & 3u) * 4u)) & 0x0Fu;
-          if (index >= palette_remaining)
+          if (index >= palette_words)
             index = 0;
           *(dest++) = VRAMRGBA5551ToRGBA8888(palette[index]);
         }
 
-        page_ptr += VRAM_WIDTH;
+        page_ptr += page_row_stride_words;
       }
     }
     break;
@@ -1340,12 +1569,12 @@ void TextureReplacements::DecodePage(std::vector<uint32_t>& pixels, uint32_t pag
         {
           const uint16_t word = row[x >> 1];
           uint32_t index = (word >> ((x & 1u) * 8u)) & 0xFFu;
-          if (index >= palette_remaining)
+          if (index >= palette_words)
             index = 0;
           *(dest++) = VRAMRGBA5551ToRGBA8888(palette[index]);
         }
 
-        page_ptr += VRAM_WIDTH;
+        page_ptr += page_row_stride_words;
       }
     }
     break;
@@ -1358,7 +1587,7 @@ void TextureReplacements::DecodePage(std::vector<uint32_t>& pixels, uint32_t pag
         for (uint32_t x = 0; x < TEXPAGE_NATIVE_WIDTH; x++)
           *(dest++) = VRAMRGBA5551ToRGBA8888(row[x]);
 
-        page_ptr += VRAM_WIDTH;
+        page_ptr += page_row_stride_words;
       }
     }
     break;
@@ -1426,12 +1655,46 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
                                                                      uint32_t palette_x, uint32_t palette_y,
                                                                      float* out_scale_x, float* out_scale_y)
 {
+  // Resolve the replacement images on this thread; the compose worker only
+  // ever touches its own snapshot and reference-counted images.
+  std::vector<ResolvedMatch> resolved;
+  resolved.reserve(matches.size());
+  for (const ReplacementMatch& match : matches)
+  {
+    const std::shared_ptr<TextureReplacementTexture> image = AcquireTexture(match.entry->filename);
+    if (!image || image->GetWidth() == 0 || image->GetHeight() == 0)
+      continue;
+
+    ResolvedMatch out;
+    out.image = image;
+    out.semitransparent = match.entry->name.IsSemitransparent();
+    out.scale_x = match.scale_x;
+    out.scale_y = match.scale_y;
+    out.dst_x = match.dst_x;
+    out.dst_y = match.dst_y;
+    out.dst_width = match.dst_width;
+    out.dst_height = match.dst_height;
+    out.src_x = match.src_x;
+    out.src_y = match.src_y;
+    out.src_width = match.src_width;
+    out.src_height = match.src_height;
+    resolved.push_back(std::move(out));
+  }
+
   std::vector<uint32_t> base_pixels;
   DecodePage(base_pixels, page, mode, palette_x, palette_y);
+  return ComposePageImage(resolved, base_pixels, m_max_texture_size, m_resolution_scale, out_scale_x, out_scale_y);
+}
 
+std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePageImage(const std::vector<ResolvedMatch>& matches,
+                                                                          const std::vector<uint32_t>& base_pixels,
+                                                                          uint32_t max_texture_size,
+                                                                          uint32_t resolution_scale,
+                                                                          float* out_scale_x, float* out_scale_y)
+{
   float max_scale_x = 1.0f;
   float max_scale_y = 1.0f;
-  for (const ReplacementMatch& match : matches)
+  for (const ResolvedMatch& match : matches)
   {
     max_scale_x = std::max(max_scale_x, match.scale_x);
     max_scale_y = std::max(max_scale_y, match.scale_y);
@@ -1439,14 +1702,14 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
 
   // Clamp to the largest texture the renderer can bind (the device's max
   // texture size).
-  const float max_possible_scale = static_cast<float>(m_max_texture_size) / static_cast<float>(TEXPAGE_NATIVE_WIDTH);
+  const float max_possible_scale = static_cast<float>(max_texture_size) / static_cast<float>(TEXPAGE_NATIVE_WIDTH);
   max_scale_x = std::min(max_scale_x, max_possible_scale);
   max_scale_y = std::min(max_scale_y, max_possible_scale);
 
   // Cap the composite at the internal rendering resolution, and at the hard
   // memory/bandwidth bound above it.
   const float resolution_cap =
-    std::min(static_cast<float>(std::max<uint32_t>(1, m_resolution_scale)), TEXPAGE_COMPOSITE_MAX_SCALE);
+    std::min(static_cast<float>(std::max<uint32_t>(1, resolution_scale)), TEXPAGE_COMPOSITE_MAX_SCALE);
   max_scale_x = std::min(max_scale_x, resolution_cap);
   max_scale_y = std::min(max_scale_y, resolution_cap);
   if (!(max_scale_x > 0.0f) || !(max_scale_y > 0.0f))
@@ -1503,9 +1766,9 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
   }
 
   // Overlay each matching replacement image, scaled to its destination rect.
-  for (const ReplacementMatch& match : matches)
+  for (const ResolvedMatch& match : matches)
   {
-    const TextureReplacementTexture* tex = LoadTexture(match.entry->filename);
+    const TextureReplacementTexture* tex = match.image.get();
     if (!tex || tex->GetWidth() == 0 || tex->GetHeight() == 0)
       continue;
 
@@ -1518,7 +1781,7 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
     if (dst_x1 <= dst_x0 || dst_y1 <= dst_y0)
       continue;
 
-    const bool semitransparent = match.entry->name.IsSemitransparent();
+    const bool semitransparent = match.semitransparent;
     const uint32_t src_texture_width = tex->GetWidth();
     const uint32_t src_texture_height = tex->GetHeight();
     const uint32_t* src_pixels = tex->GetPixels();
@@ -1659,10 +1922,18 @@ void TextureReplacements::EvictPageReplacementsForBudget(size_t incoming_bytes)
   }
 }
 
+void TextureReplacements::BeginFrame()
+{
+  m_composes_remaining = MAX_COMPOSES_PER_FRAME;
+}
+
 const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPUTextureMode mode, uint32_t texture_page_x,
                                                                              uint32_t texture_page_y, uint32_t palette_x,
                                                                              uint32_t palette_y)
 {
+  // Install anything the compose worker finished since the last lookup.
+  DrainComposedPages();
+
   if (!m_vram || m_game_id.empty() || texture_page_x >= VRAM_WIDTH || texture_page_y >= VRAM_HEIGHT ||
       palette_x >= VRAM_WIDTH || palette_y >= VRAM_HEIGHT)
   {
@@ -1724,7 +1995,14 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
     cached.last_used = ++m_page_cache_used_counter;
     const uint64_t texture_generation = m_texture_load_generation.load(std::memory_order_relaxed);
     const bool waiting_for_textures = cached.incomplete && cached.load_generation != texture_generation;
-    if (cached.page_hash == page_hash && cached.palette_hash == full_palette_hash && !waiting_for_textures)
+    if (cached.page_hash == page_hash && cached.palette_hash == full_palette_hash && !waiting_for_textures &&
+        !cached.pending_rebuild)
+    {
+      return (cached.replacement.id != 0) ? &cached.replacement : nullptr;
+    }
+
+    // A worker rebuild may already be producing the next image for this page.
+    if (cached.in_flight_serial != 0)
       return (cached.replacement.id != 0) ? &cached.replacement : nullptr;
 
     // Content changed since the cached composition, or a replacement texture
@@ -1735,10 +2013,57 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
                            page_revision);
     FindTexuploadMatches(matches, page, canonical_mode, palette_x, palette_y, full_palette_hash);
 
+    if (matches.empty())
+    {
+      const size_t old_size = cached.size_bytes;
+      cached.page_hash = page_hash;
+      cached.palette_hash = full_palette_hash;
+      cached.size_bytes = 0;
+      cached.pending_rebuild = false;
+      cached.replacement.image.reset();
+      cached.replacement.id = 0;
+      cached.incomplete = false;
+      cached.load_generation = texture_generation;
+      m_page_cache_bytes -= old_size;
+      return nullptr;
+    }
+
+    // Offload the composition to the worker. The frame thread only snapshots
+    // the page and queues; the entry keeps serving its previous composite.
+    ComposeJob job;
+    const uint64_t compose_serial = m_next_compose_serial++;
+    if (BuildComposeJob(key, page_hash, full_palette_hash, mode_index, page, palette_x, palette_y, matches, &job))
+    {
+      job.serial = compose_serial;
+      if (TryQueueCompose(std::move(job)))
+      {
+        cached.in_flight_serial = compose_serial;
+        cached.pending_rebuild = false;
+        return (cached.replacement.id != 0) ? &cached.replacement : nullptr;
+      }
+    }
+    else
+    {
+      // Every matched image is still decoding; retry once one arrives.
+      cached.pending_rebuild = false;
+      cached.incomplete = true;
+      cached.load_generation = m_texture_load_generation.load(std::memory_order_relaxed);
+      return (cached.replacement.id != 0) ? &cached.replacement : nullptr;
+    }
+
+    // The worker queue is saturated; fall back to an in-place compose, subject
+    // to the per-frame budget so a burst cannot stall the frame.
+    if (m_composes_remaining == 0)
+    {
+      cached.pending_rebuild = true;
+      return (cached.replacement.id != 0) ? &cached.replacement : nullptr;
+    }
+
     const size_t old_size = cached.size_bytes;
     cached.page_hash = page_hash;
     cached.palette_hash = full_palette_hash;
     cached.size_bytes = 0;
+    cached.pending_rebuild = false;
 
     if (matches.empty())
     {
@@ -1752,6 +2077,8 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
 
     float scale_x = 1.0f;
     float scale_y = 1.0f;
+    if (m_composes_remaining != 0)
+      m_composes_remaining--;
     std::shared_ptr<Common::RGBA8Image> image =
       ComposePage(matches, page, canonical_mode, palette_x, palette_y, &scale_x, &scale_y);
     if (!image)
@@ -1807,32 +2134,56 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
   cached.replacement.id = 0;
   cached.page_hash = page_hash;
   cached.palette_hash = full_palette_hash;
+  cached.incomplete = m_texture_pending_hit;
+  cached.load_generation = m_texture_load_generation.load(std::memory_order_relaxed);
 
   if (!matches.empty())
   {
-    float scale_x = 1.0f;
-    float scale_y = 1.0f;
-    std::shared_ptr<Common::RGBA8Image> image =
-      ComposePage(matches, page, canonical_mode, palette_x, palette_y, &scale_x, &scale_y);
-    if (image)
+    ComposeJob job;
+    const uint64_t compose_serial = m_next_compose_serial++;
+    if (BuildComposeJob(key, page_hash, full_palette_hash, mode_index, page, palette_x, palette_y, matches, &job))
     {
-      cached.replacement.image = std::move(image);
-      cached.replacement.id = m_next_replacement_id++;
-      cached.replacement.revision = 1;
-      cached.replacement.vram_page_start_x = (page & 15u) * VRAM_PAGE_WIDTH;
-      cached.replacement.vram_page_start_y = (page >> 4) * VRAM_PAGE_HEIGHT;
-      // In expanded texel space a page is 256x256 for every mode.
-      cached.replacement.source_width = TEXPAGE_NATIVE_WIDTH;
-      cached.replacement.source_height = TEXPAGE_NATIVE_HEIGHT;
-      cached.replacement.scale_x = scale_x;
-      cached.replacement.scale_y = scale_y;
-      cached.size_bytes = static_cast<size_t>(cached.replacement.image->GetWidth()) *
-                          static_cast<size_t>(cached.replacement.image->GetHeight()) * sizeof(uint32_t);
+      job.serial = compose_serial;
+      if (TryQueueCompose(std::move(job)))
+      {
+        cached.in_flight_serial = compose_serial;
+      }
+      else if (m_composes_remaining != 0)
+      {
+        // Worker queue is saturated; compose here while the budget allows.
+        m_composes_remaining--;
+        float scale_x = 1.0f;
+        float scale_y = 1.0f;
+        std::shared_ptr<Common::RGBA8Image> image =
+          ComposePage(matches, page, canonical_mode, palette_x, palette_y, &scale_x, &scale_y);
+        if (image)
+        {
+          cached.replacement.image = std::move(image);
+          cached.replacement.id = m_next_replacement_id++;
+          cached.replacement.revision = 1;
+          cached.replacement.vram_page_start_x = (page & 15u) * VRAM_PAGE_WIDTH;
+          cached.replacement.vram_page_start_y = (page >> 4) * VRAM_PAGE_HEIGHT;
+          // In expanded texel space a page is 256x256 for every mode.
+          cached.replacement.source_width = TEXPAGE_NATIVE_WIDTH;
+          cached.replacement.source_height = TEXPAGE_NATIVE_HEIGHT;
+          cached.replacement.scale_x = scale_x;
+          cached.replacement.scale_y = scale_y;
+          cached.size_bytes = static_cast<size_t>(cached.replacement.image->GetWidth()) *
+                              static_cast<size_t>(cached.replacement.image->GetHeight()) * sizeof(uint32_t);
+        }
+      }
+      else
+      {
+        cached.pending_rebuild = true;
+      }
+    }
+    else
+    {
+      // Every matched image is still decoding; rebuild once one arrives.
+      cached.incomplete = true;
+      cached.load_generation = m_texture_load_generation.load(std::memory_order_relaxed);
     }
   }
-
-  cached.incomplete = m_texture_pending_hit;
-  cached.load_generation = m_texture_load_generation.load(std::memory_order_relaxed);
 
   EvictPageReplacementsForBudget(cached.size_bytes);
   it = m_page_cache.emplace(key, std::move(cached)).first;

@@ -1842,6 +1842,8 @@ void GPU_HW_OpenGL::ReadVRAMShadowForReplacements()
   if (!m_texture_replacements_enabled || m_sw_renderer)
     return;
 
+  g_texture_replacements.BeginFrame();
+
   // Upload textures requested during the frame. This runs at the frame
   // boundary, so it never disturbs a draw that is being recorded.
   if (!m_pending_replacement_uploads.empty())

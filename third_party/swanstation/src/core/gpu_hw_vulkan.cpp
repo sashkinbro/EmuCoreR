@@ -3769,6 +3769,8 @@ void GPU_HW_Vulkan::ReadVRAMShadowForReplacements()
   if (!m_texture_replacements_enabled || m_sw_renderer)
     return;
 
+  g_texture_replacements.BeginFrame();
+
   // Old revisions replaced at the previous boundary are safe to free now.
   DestroyRetiredTextureReplacementEntries();
 

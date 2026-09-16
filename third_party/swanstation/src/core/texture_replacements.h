@@ -108,9 +108,16 @@ public:
 
   void Shutdown();
 
+  // Called by the renderer at each frame boundary. Resets the per-frame
+  // recomposition budget so animated pages spread their rebuilds over several
+  // frames instead of stalling one.
+  void BeginFrame();
+
 private:
   using VRAMWriteReplacementMap = std::unordered_map<TextureReplacementHash, std::string>;
-  using TextureCache = std::unordered_map<std::string, TextureReplacementTexture>;
+  // Reference-counted so a compose job on the worker keeps its images alive
+  // even if the LRU evicts them from the cache meanwhile.
+  using TextureCache = std::unordered_map<std::string, std::shared_ptr<TextureReplacementTexture>>;
   using TextureLruList = std::list<std::string>;
   using TextureLruPositions = std::unordered_map<std::string, TextureLruList::iterator>;
 
@@ -160,6 +167,25 @@ private:
     uint32_t src_height;
   };
 
+  // ReplacementMatch with the replacement image resolved to a reference-counted
+  // pointer, so the compositor can run on a worker thread without racing the
+  // texture cache LRU (evicting an image must not free it mid-compose).
+  struct ResolvedMatch
+  {
+    std::shared_ptr<TextureReplacementTexture> image;
+    bool semitransparent = false;
+    float scale_x = 1.0f;
+    float scale_y = 1.0f;
+    uint32_t dst_x = 0;
+    uint32_t dst_y = 0;
+    uint32_t dst_width = 0;
+    uint32_t dst_height = 0;
+    uint32_t src_x = 0;
+    uint32_t src_y = 0;
+    uint32_t src_width = 0;
+    uint32_t src_height = 0;
+  };
+
   struct PageCacheKey
   {
     uint32_t page;
@@ -193,7 +219,54 @@ private:
     // texture generation advances past load_generation.
     bool incomplete = false;
     uint64_t load_generation = 0;
+    // Set when a rebuild was deferred because the per-frame recomposition
+    // budget ran out. The page keeps serving its previous composite until the
+    // next frame picks the rebuild up again.
+    bool pending_rebuild = false;
+    // Serial of the compose job currently producing this entry's next image
+    // (0 = none). Completions with a stale serial are discarded.
+    uint64_t in_flight_serial = 0;
   };
+
+  // A page recomposition queued for the compose worker. Everything the worker
+  // needs is snapshotted: the page and palette words (the live VRAM shadow
+  // keeps changing on the emulation thread) and the resolved replacement
+  // images (reference-counted, so LRU eviction cannot free them mid-compose).
+  struct ComposeJob
+  {
+    PageCacheKey key;
+    uint64_t serial = 0;
+    uint64_t page_hash = 0;
+    uint64_t palette_hash = 0;
+    uint32_t page_row_words = 0;
+    uint32_t max_texture_size = 2048;
+    uint32_t resolution_scale = 1;
+    std::vector<uint16_t> page_words;
+    std::vector<uint16_t> palette_words;
+    std::vector<ResolvedMatch> matches;
+    bool textures_missing = false;
+  };
+
+  struct CompletedCompose
+  {
+    PageCacheKey key;
+    uint64_t serial = 0;
+    uint64_t page_hash = 0;
+    uint64_t palette_hash = 0;
+    float scale_x = 1.0f;
+    float scale_y = 1.0f;
+    std::shared_ptr<Common::RGBA8Image> image;
+    bool textures_missing = false;
+  };
+
+  void StartComposeWorker();
+  void StopComposeWorker();
+  bool TryQueueCompose(ComposeJob job);
+  void DrainComposedPages();
+  static void ComposeWorkerEntry(TextureReplacements* self);
+  bool BuildComposeJob(const PageCacheKey& key, uint64_t page_hash, uint64_t palette_hash, uint32_t mode_index,
+                       uint32_t page, uint32_t palette_x, uint32_t palette_y,
+                       const std::vector<ReplacementMatch>& matches, ComposeJob* job);
 
   uint64_t GetCachedPageHash(uint32_t page, GPUTextureMode mode, uint64_t revision);
   uint64_t GetCachedPaletteHash(uint32_t palette_x, uint32_t palette_y, GPUTextureMode mode, uint64_t revision);
@@ -223,6 +296,7 @@ private:
 
   void FindTextures(const std::string& dir);
 
+  std::shared_ptr<TextureReplacementTexture> AcquireTexture(const std::string& filename);
   const TextureReplacementTexture* LoadTexture(const std::string& filename);
   void PreloadTextures();
   void PurgeUnreferencedTexturesFromCache();
@@ -268,9 +342,18 @@ private:
 
   void DecodePage(std::vector<uint32_t>& pixels, uint32_t page, GPUTextureMode mode, uint32_t palette_x,
                   uint32_t palette_y) const;
+  // Shared by the synchronous path and the compose worker; reads the page from
+  // a caller-provided (possibly packed) snapshot instead of the live shadow.
+  static void DecodeExpandedPage(std::vector<uint32_t>& pixels, GPUTextureMode mode, const uint16_t* page_ptr,
+                                 size_t page_row_stride_words, const uint16_t* palette, size_t palette_words);
+
   std::shared_ptr<Common::RGBA8Image> ComposePage(const std::vector<ReplacementMatch>& matches, uint32_t page,
                                                   GPUTextureMode mode, uint32_t palette_x, uint32_t palette_y,
                                                   float* scale_x, float* scale_y);
+  static std::shared_ptr<Common::RGBA8Image> ComposePageImage(const std::vector<ResolvedMatch>& matches,
+                                                              const std::vector<uint32_t>& base_pixels,
+                                                              uint32_t max_texture_size, uint32_t resolution_scale,
+                                                              float* scale_x, float* scale_y);
 
   void EvictPageReplacementsForBudget(size_t incoming_bytes);
 
@@ -294,6 +377,19 @@ private:
   bool m_texture_pending_hit = false;
 
   static constexpr size_t MAX_TEXTURE_LOAD_REQUESTS = 192;
+
+  // Compose worker. Keeping page composition off the emulation thread means a
+  // burst of animated pages never delays a frame; the frame only snapshots the
+  // page (a few tens of KB) and enqueues a job.
+  std::thread m_compose_thread;
+  std::mutex m_compose_mutex;
+  std::condition_variable m_compose_cv;
+  bool m_compose_stop = false;
+  std::deque<ComposeJob> m_compose_queue;
+  std::deque<CompletedCompose> m_compose_completed;
+  uint64_t m_next_compose_serial = 1;
+
+  static constexpr size_t MAX_COMPOSE_QUEUE = 32;
 
   VRAMWriteReplacementMap m_vram_write_replacements;
 
@@ -326,10 +422,17 @@ private:
   uint32_t m_max_texture_size = 2048;
   uint32_t m_resolution_scale = 1;
 
+  // Cap the number of page recompositions per frame. Composing a page costs a
+  // few hundred microseconds of emulation-thread time, and a scene change can
+  // mark dozens of animated pages dirty at once; without a cap those rebuilds
+  // stack up into one long frame (a visible drop with an audible audio hitch).
+  static constexpr uint32_t MAX_COMPOSES_PER_FRAME = 4;
+
   std::unordered_map<PageCacheKey, CachedPage, PageCacheKeyHash> m_page_cache;
   size_t m_page_cache_bytes = 0;
   uint64_t m_page_cache_used_counter = 0;
   uint64_t m_next_replacement_id = 1;
+  uint32_t m_composes_remaining = MAX_COMPOSES_PER_FRAME;
 
   struct CachedHash
   {
