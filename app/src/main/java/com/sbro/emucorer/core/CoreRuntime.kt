@@ -819,6 +819,33 @@ internal object CoreRuntime {
         }
     }
 
+    /**
+     * Audio-clock driven frame pacing. Returns [basePeriodNanos] trimmed by up
+     * to [AUDIO_PACING_MAX_TRIM] so the queued sample level moves towards
+     * [AUDIO_PACING_TARGET_FRACTION] of the output's pacing high water mark.
+     * A queue above the target stretches the period (emulation slows down), a
+     * queue below it shortens the period (emulation speeds up). The trim is far
+     * too small to be heard, but it removes the slow buffer drain that would
+     * otherwise end in periodic underruns.
+     *
+     * When the queue falls below a quarter of the high water mark, the frame
+     * deadline is dropped entirely: emulation runs flat out for the moment or
+     * two it takes to refill the buffer. That turns a dropped frame into a
+     * couple of imperceptibly fast frames instead of tens of seconds of
+     * stuttering audio while a proportional refill slowly catches up.
+     */
+    private fun audioAdjustedFramePeriod(output: NativeAudioOutput, basePeriodNanos: Long): Long {
+        val highWater = runCatching { output.pacingHighWaterFrames() }.getOrDefault(0)
+        if (highWater <= 0) return basePeriodNanos
+        val queued = runCatching { output.bufferedFrames() }.getOrDefault(-1)
+        if (queued < 0) return basePeriodNanos
+        if (queued < highWater / 4) return 0L
+        val target = (highWater * AUDIO_PACING_TARGET_FRACTION).toInt()
+        val error = (queued - target).toDouble() / highWater.toDouble()
+        val trim = (error * AUDIO_PACING_MAX_TRIM).coerceIn(-AUDIO_PACING_MAX_TRIM, AUDIO_PACING_MAX_TRIM)
+        return (basePeriodNanos * (1.0 + trim)).toLong()
+    }
+
     private fun runLoop(output: NativeAudioOutput) {
         var metricsStartNanos = System.nanoTime()
         var metricsFrames = 0
@@ -848,8 +875,13 @@ internal object CoreRuntime {
                         runCatching { bridge.getFrameRate(session) }.getOrDefault(0.0)
                     }
                     if (frameRate > 1.0) {
-                        val framePeriodNanos = (1_000_000_000.0 / frameRate).toLong()
+                        val basePeriodNanos = (1_000_000_000.0 / frameRate).toLong()
                         if (frameDeadlineNanos == 0L) frameDeadlineNanos = System.nanoTime()
+                        // Trim the frame period by a fraction of a percent to
+                        // keep the sample queue near its target. Emulation then
+                        // follows the audio clock, so slow drift and short
+                        // scheduling hiccups can no longer drain the buffer.
+                        val framePeriodNanos = audioAdjustedFramePeriod(output, basePeriodNanos)
                         // Sleeping only has millisecond granularity, so a
                         // sleep-only wait can overshoot the frame deadline by
                         // up to a whole millisecond. Sleep while a comfortable
@@ -1083,6 +1115,11 @@ internal object CoreRuntime {
     private const val PAD_ANALOG_MODE_BIT = 1 shl 16
     private const val AUDIO_PACING_MAX_WAIT_NANOS = 500_000_000L
     private const val FRAME_PACING_SPIN_NANOS = 2_000_000L
+    // Maximum frame-period trim used to follow the audio clock (0.5%, which is
+    // an order of magnitude below the audible pitch threshold).
+    private const val AUDIO_PACING_MAX_TRIM = 0.005
+    // Portion of the output high water mark the sample queue is steered to.
+    private const val AUDIO_PACING_TARGET_FRACTION = 0.75
 
     // App aspect-ratio preference values (mirrors the display settings UI).
     private const val ASPECT_RATIO_STRETCH = 0

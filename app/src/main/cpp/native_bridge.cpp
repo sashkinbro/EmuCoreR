@@ -79,6 +79,9 @@ constexpr int kOpenGl = 2;
 namespace {
 
 constexpr size_t kAudioRingCapacityFrames = 48000;  // ~1s at 48 kHz stereo.
+// Number of frames used to ramp audio in/out around a discontinuity. Long
+// enough to remove the click, short enough to stay imperceptible.
+constexpr int32_t kAudioDeclickFrames = 48;
 
 // PlayStation memory card image geometry (128 KiB = 1024 frames of 128 bytes).
 constexpr size_t kMemoryCardSize = 128 * 1024;
@@ -177,6 +180,11 @@ struct FrontendState {
     std::vector<int16_t> audio_ring;
     size_t audio_read_frame = 0;
     size_t audio_write_frame = 0;
+
+    // Declick counter shared between the producer (ring drops) and the output
+    // callback (underruns). While it is non-zero the callback ramps real
+    // samples back in so a discontinuity never turns into an audible click.
+    std::atomic<int32_t> audio_declick_frames{0};
 
     // AAudio output configuration, applied when the next stream is opened.
     std::atomic<int> audio_output_latency_ms{30};
@@ -1417,9 +1425,11 @@ void AudioRingEnsureCapacity(size_t additional_frames) {
     const size_t used = (g_frontend.audio_write_frame + kAudioRingCapacityFrames -
                          g_frontend.audio_read_frame) % kAudioRingCapacityFrames;
     if (used + additional_frames <= kAudioRingCapacityFrames) return;
-    // Drop the oldest frames to make room rather than stalling the core.
+    // Drop the oldest frames to make room rather than stalling the core. Mark
+    // the discontinuity so the output ramps instead of clicking.
     const size_t drop = std::min(used + additional_frames - kAudioRingCapacityFrames, used);
     g_frontend.audio_read_frame = (g_frontend.audio_read_frame + drop) % kAudioRingCapacityFrames;
+    g_frontend.audio_declick_frames.store(kAudioDeclickFrames, std::memory_order_relaxed);
 }
 
 size_t RetroAudioSampleBatch(const int16_t* data, size_t frames) {
@@ -1528,23 +1538,39 @@ aaudio_data_callback_result_t AudioDataCallback(AAudioStream*, void* user_data, 
                               g_frontend.audio_read_frame) % kAudioRingCapacityFrames;
     const size_t to_read = std::min(static_cast<size_t>(num_frames), available);
     const float gain = g_frontend.audio_gain.load(std::memory_order_relaxed);
+    int32_t declick = g_frontend.audio_declick_frames.exchange(0, std::memory_order_relaxed);
+
     for (size_t i = 0; i < to_read; ++i) {
         const size_t slot = (g_frontend.audio_read_frame + i) % kAudioRingCapacityFrames;
-        if (gain >= 1.0f) {
-            out[i * 2 + 0] = g_frontend.audio_ring[slot * 2 + 0];
-            out[i * 2 + 1] = g_frontend.audio_ring[slot * 2 + 1];
-        } else {
-            out[i * 2 + 0] = static_cast<int16_t>(
-                static_cast<int32_t>(g_frontend.audio_ring[slot * 2 + 0] * gain));
-            out[i * 2 + 1] = static_cast<int16_t>(
-                static_cast<int32_t>(g_frontend.audio_ring[slot * 2 + 1] * gain));
+        float frame_gain = gain;
+        if (declick > 0) {
+            // Ramp back in after a discontinuity so the first real sample
+            // after silence cannot click.
+            frame_gain *= 1.0f - static_cast<float>(declick) / static_cast<float>(kAudioDeclickFrames);
+            --declick;
         }
+        out[i * 2 + 0] = static_cast<int16_t>(g_frontend.audio_ring[slot * 2 + 0] * frame_gain);
+        out[i * 2 + 1] = static_cast<int16_t>(g_frontend.audio_ring[slot * 2 + 1] * frame_gain);
     }
     g_frontend.audio_read_frame = (g_frontend.audio_read_frame + to_read) % kAudioRingCapacityFrames;
+
     if (to_read < static_cast<size_t>(num_frames)) {
+        // Ramp the real tail down before padding with silence; a hard cut
+        // from a non-zero sample is audible as a click.
+        const size_t fade = std::min<size_t>(to_read, static_cast<size_t>(kAudioDeclickFrames));
+        for (size_t i = 0; i < fade; ++i) {
+            const size_t index = to_read - fade + i;
+            const float ramp = static_cast<float>(fade - i) / static_cast<float>(fade);
+            out[index * 2 + 0] = static_cast<int16_t>(out[index * 2 + 0] * ramp);
+            out[index * 2 + 1] = static_cast<int16_t>(out[index * 2 + 1] * ramp);
+        }
+
         std::memset(out + to_read * 2, 0,
                     (static_cast<size_t>(num_frames) - to_read) * 2 * sizeof(int16_t));
         output->silence_frames.fetch_add(static_cast<uint64_t>(num_frames) - to_read);
+        g_frontend.audio_declick_frames.store(kAudioDeclickFrames, std::memory_order_relaxed);
+    } else {
+        g_frontend.audio_declick_frames.store(declick, std::memory_order_relaxed);
     }
     output->callback_frames.fetch_add(static_cast<uint64_t>(num_frames));
     output->queued_frames.store(static_cast<uint64_t>(available - to_read));
@@ -2251,15 +2277,25 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createAudioOutput(JNIEnv*, jobject)
         return 0;
     }
     output->sample_rate.store(AAudioStream_getSampleRate(output->stream));
-    int32_t device_buffer = std::max(128, std::min(AAudioStream_getFramesPerBurst(output->stream) * 2, 1024));
-    if (capacity_frames > 0) device_buffer = std::min(device_buffer, capacity_frames);
+    // Size the device buffer from the burst, but never let it collapse to the
+    // platform minimum: emulation frames are not isochronous, and a couple of
+    // bursts is not enough to absorb shader work or a garbage collection
+    // pause. The floor keeps crackling away even in low latency mode.
+    const int32_t burst_frames = AAudioStream_getFramesPerBurst(output->stream);
+    int32_t device_buffer = std::clamp(burst_frames * 2, 512, 1024);
+    const int32_t stream_capacity = AAudioStream_getBufferCapacityInFrames(output->stream);
+    if (stream_capacity > 0) device_buffer = std::min(device_buffer, stream_capacity);
+    else if (capacity_frames > 0) device_buffer = std::min(device_buffer, capacity_frames);
     const aaudio_result_t resized = AAudioStream_setBufferSizeInFrames(output->stream, device_buffer);
     if (resized > 0) device_buffer = resized;
     output->device_buffer_frames.store(device_buffer);
+    // The frame loop paces against this level. Keeping it several device
+    // buffers deep leaves room for a frame-time spike such as first-use shader
+    // compilation to be absorbed by the queue instead of cutting the audio.
     output->pacing_high_water_frames.store(
-        std::min(device_buffer * 2 + 1024, static_cast<int32_t>(kAudioRingCapacityFrames) - 2048));
-    LOGI("AAudio output performance mode = %d, device buffer = %d frames, pacing high water = %d frames",
-         static_cast<int>(AAudioStream_getPerformanceMode(output->stream)), device_buffer,
+        std::min(device_buffer * 4, std::min(6144, static_cast<int32_t>(kAudioRingCapacityFrames) - 2048)));
+    LOGI("AAudio output mode = %d, rate = %d Hz, device buffer = %d frames, pacing high water = %d frames",
+         static_cast<int>(AAudioStream_getPerformanceMode(output->stream)), output->sample_rate.load(), device_buffer,
          output->pacing_high_water_frames.load());
     return reinterpret_cast<jlong>(output);
 }

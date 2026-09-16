@@ -29,18 +29,17 @@ object AudioDefaults {
     const val BUFFER_MS_MIN = 10
     const val BUFFER_MS_MAX = 500
 
-    // Capacity ceiling for the shared-mode AAudio buffer. The stream is
-    // resized to the device burst afterwards, so this mostly bounds how far
-    // the audio clock may lag; 30 ms keeps a margin for slower devices without
-    // adding audible delay. The separate 100 ms time-stretch buffer is
-    // unchanged.
-    const val OUTPUT_LATENCY_MS_DEFAULT = 30
+    // Capacity ceiling for the shared-mode AAudio buffer. Emulation frames are
+    // not isochronous (shader compilation, GC, DVFS), so the stable shared-mode
+    // baseline with a comfortable margin beats a tight low-latency stream that
+    // crackles under load. The native layer still sizes the stream from the
+    // device burst. The separate time-stretch buffer is unchanged.
+    const val OUTPUT_LATENCY_MS_DEFAULT = 50
     const val OUTPUT_LATENCY_MS_MIN = 1
     const val OUTPUT_LATENCY_MS_MAX = 500
-    // Prefer the platform's low latency output path. Devices that cannot give
-    // a fast mixer fall back to the shared path inside the native stream open,
-    // so enabling this by default is safe.
-    const val MINIMAL_OUTPUT_LATENCY_DEFAULT = true
+    // Do not request the platform's low latency path by default; the smaller
+    // device buffer it produces leaves no room for frame-time spikes.
+    const val MINIMAL_OUTPUT_LATENCY_DEFAULT = false
 
     fun coerceVolume(value: Int): Int = value.coerceIn(VOLUME_MIN, VOLUME_MAX)
 
