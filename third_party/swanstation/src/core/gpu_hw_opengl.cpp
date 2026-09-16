@@ -898,7 +898,7 @@ void GPU_HW_OpenGL::UpdateSettings()
         m_supports_dual_source_blend, true);
 
       const uint32_t batch_progress_units =
-        (g_settings.gpu_shader_precompile_mode == GPUShaderPrecompileMode::Enabled)
+        (g_settings.gpu_shader_precompile_mode != GPUShaderPrecompileMode::Disabled)
           ? CountReachableBatchShaders(m_supports_dual_source_blend)
           : 0u;
       ShaderCompileProgressTracker progress("Compiling Programs", batch_progress_units);
@@ -1236,13 +1236,16 @@ bool GPU_HW_OpenGL::CompilePrograms()
   // protocol exposes only a single GL context bound to the
   // runloop, so there's no way to spin up a worker that compiles
   // in the background like D3D11/D3D12/Vulkan do. 'Lazy' therefore
-  // degrades to the same shape as 'Disabled': skip the matrix at
-  // CompilePrograms time, fault each combo in on the runloop the
-  // first time the game dispatches a draw using it.
+  // blocks once here to precompile the current filter's sub-cube -
+  // the one the game is about to draw with - so gameplay never
+  // stutters on a first-use program compile. Programs for the other
+  // filters still fault in on the runloop if the user cycles to
+  // them. 'Disabled' keeps the true fault-in behaviour.
   //
-  // 'Enabled' still does the full synchronous walk via
-  // PrecompileBatchPrograms below, mirroring the D3D11/D3D12/Vulkan
-  // commits.
+  // 'Enabled' does the same synchronous walk via
+  // PrecompileBatchPrograms below; the two modes only differ in
+  // intent (and this backend currently behaves identically for
+  // them, unlike the worker-thread backends).
   //
   // Structurally unreachable cells (reserved texture modes, two-pass
   // fallback modes for untextured polys, single-pass dual-source on
@@ -1250,7 +1253,7 @@ bool GPU_HW_OpenGL::CompilePrograms()
   // batch_progress_units is sized to the same reachable count so the
   // progress bar lands at 100%.
   const uint32_t batch_progress_units =
-    (g_settings.gpu_shader_precompile_mode == GPUShaderPrecompileMode::Enabled)
+    (g_settings.gpu_shader_precompile_mode != GPUShaderPrecompileMode::Disabled)
       ? CountReachableBatchShaders(m_supports_dual_source_blend)
       : 0u;
 
@@ -1259,9 +1262,11 @@ bool GPU_HW_OpenGL::CompilePrograms()
 
   if (!PrecompileBatchPrograms(progress))
     return false;
-  // For Lazy and Disabled: m_render_programs stays default-
-  // constructed (program id 0); each cell is filled on first draw
-  // by GetBatchProgram on the runloop thread.
+  // After this, the current filter's sub-cube is filled in Enabled and Lazy
+  // mode. In Disabled mode the matrix stays default-constructed (program id
+  // 0) and each cell is filled on first draw by GetBatchProgram on the
+  // runloop thread; the same applies to non-current filters in the other two
+  // modes.
 
   if (!RebuildDisplayPrograms())
     return false;
@@ -1463,12 +1468,18 @@ bool GPU_HW_OpenGL::RebuildDisplayPrograms()
 bool GPU_HW_OpenGL::PrecompileBatchPrograms(ShaderCompileProgressTracker& progress)
 {
   // Walk the current m_texture_filtering sub-cube of m_render_programs
-  // synchronously in Enabled mode; do nothing in Lazy / Disabled
-  // (OpenGL has no background-compile worker - the libretro
+  // synchronously in Enabled and Lazy mode; do nothing in Disabled.
+  //
+  // OpenGL cannot run a background-compile worker: the libretro
   // hardware-renderer protocol gives one GL context bound to the
-  // runloop, so 'Lazy' degrades to the same shape as 'Disabled':
-  // fault each combo in on the runloop the first time the game
-  // dispatches a draw using it).
+  // runloop, so there is no way to hand a second context to a worker.
+  // 'Lazy' therefore blocks once at init to fill the sub-cube the game
+  // is most likely to draw with, instead of faulting each combination
+  // in mid-game on the runloop the first time a draw needs it. The
+  // disk-backed program cache means this is usually a fast
+  // glProgramBinary reload of programs compiled on a previous run.
+  // 'Disabled' keeps the true fault-in behaviour for users who prefer
+  // the shorter startup.
   //
   // Extracted from CompilePrograms so the only_dim_changed fast
   // path in UpdateSettings can call just this helper without
@@ -1492,8 +1503,11 @@ bool GPU_HW_OpenGL::PrecompileBatchPrograms(ShaderCompileProgressTracker& progre
   // cell so the bar lands at batch_progress_units =
   // CountReachableBatchShaders(dual_source).
   const GPUShaderPrecompileMode precompile_mode = g_settings.gpu_shader_precompile_mode;
-  if (precompile_mode != GPUShaderPrecompileMode::Enabled)
+  if (precompile_mode == GPUShaderPrecompileMode::Disabled)
     return true;
+
+  const Common::Timer::Value start_value = Common::Timer::GetValue();
+  uint32_t compiled_programs = 0;
 
   const bool dual_source = m_supports_dual_source_blend;
   const GPUTextureFilter cur_filter = m_texture_filtering;
@@ -1512,11 +1526,17 @@ bool GPU_HW_OpenGL::PrecompileBatchPrograms(ShaderCompileProgressTracker& progre
                                                     static_cast<bool>(interlacing));
           if (!prog)
             return false;
+          compiled_programs++;
           progress.Increment();
         }
       }
     }
   }
+
+  const int64_t elapsed_ns =
+    static_cast<int64_t>(Common::Timer::GetValue() - start_value);
+  Log_InfoPrintf("Batch program precompile: %u programs for filter %u in %.0f ms", compiled_programs,
+                 static_cast<unsigned>(cur_filter), static_cast<double>(elapsed_ns) / 1000000.0);
   return true;
 }
 
