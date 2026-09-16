@@ -79,7 +79,7 @@ union GPURenderCommand
   BitField<uint32_t, bool, 27, 1> quad_polygon;                   // only for polygons
   BitField<uint32_t, bool, 27, 1> polyline;                       // only for lines
   BitField<uint32_t, bool, 28, 1> shading_enable;                 // 0 - flat, 1 = gouroud
-  BitField<uint32_t, GPUPrimitive, 29, 21> primitive;
+  BitField<uint32_t, GPUPrimitive, 29, 3> primitive;
 
   /// Returns true if texturing should be enabled. Depends on the primitive type.
   ALWAYS_INLINE bool IsTexturingEnabled() const { return (primitive != GPUPrimitive::Line) ? texture_enable : false; }

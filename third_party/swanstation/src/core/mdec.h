@@ -27,6 +27,10 @@ public:
   void DMARead(uint32_t* words, uint32_t word_count);
   void DMAWrite(const uint32_t* words, uint32_t word_count);
 
+  // The decoder is currently consuming input data. Used to keep DMA bursts
+  // from overfilling the input FIFO while the CPU needs servicing.
+  ALWAYS_INLINE bool IsDecodingMacroblock() const { return (m_state == State::DecodingMacroblock); }
+
 private:
   static constexpr uint32_t DATA_IN_FIFO_SIZE = 1024;
   static constexpr uint32_t DATA_OUT_FIFO_SIZE = 768;

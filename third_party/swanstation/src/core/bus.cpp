@@ -435,7 +435,9 @@ void UpdateFastmemViews(CPUFastmemMode mode)
 
 bool CanUseFastmemForAddress(VirtualMemoryAddress address)
 {
-  const PhysicalMemoryAddress paddr = address & CPU::PHYSICAL_MEMORY_ADDRESS_MASK;
+  // Resolve through the virtual-to-physical mapping so that unmapped KUSEG
+  // ranges (above 512MB) don't alias low RAM and get fastmem-cached.
+  const PhysicalMemoryAddress paddr = CPU::VirtualAddressToPhysical(address);
 
   switch (m_fastmem_mode)
   {
@@ -737,7 +739,10 @@ ALWAYS_INLINE static TickCount DoMemoryControlAccess(uint32_t offset, uint32_t& 
     const uint32_t index = FIXUP_WORD_OFFSET(size, offset) / 4;
     value = FIXUP_WORD_WRITE_VALUE(size, offset, value);
 
-    const uint32_t write_mask = (index == 8) ? COMDELAY::WRITE_MASK : MEMDELAY::WRITE_MASK;
+    // The EXP1/EXP2 base address registers are full 32-bit, the remaining
+    // entries only expose their documented fields.
+    const uint32_t write_mask =
+      (index < 2) ? 0xFFFFFFFFu : ((index == 8) ? COMDELAY::WRITE_MASK : MEMDELAY::WRITE_MASK);
     const uint32_t new_value = (m_MEMCTRL.regs[index] & ~write_mask) | (value & write_mask);
     if (m_MEMCTRL.regs[index] != new_value)
     {
@@ -1075,7 +1080,6 @@ uint32_t FillICache(VirtualMemoryAddress address)
       line_tag = GetICacheTagForAddress(address) | 0x3;
       break;
     case 3:
-    default:
       DoInstructionRead<true, true, 1, false>(address & (~(ICACHE_LINE_SIZE - 1u) | 0xC), line_data + 0xC);
       line_tag = GetICacheTagForAddress(address) | 0x7;
       break;

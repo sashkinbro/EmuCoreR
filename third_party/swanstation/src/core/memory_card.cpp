@@ -144,7 +144,7 @@ bool MemoryCard::Transfer(const uint8_t data_in, uint8_t* data_out)
     break;
 
       FIXED_REPLY_STATE(State::ReadChecksum, m_checksum, true, State::ReadEnd);
-      FIXED_REPLY_STATE(State::ReadEnd, 0x47, true, State::Idle);
+      FIXED_REPLY_STATE(State::ReadEnd, 0x47, false, State::Idle);
 
       // write state
 
@@ -184,7 +184,7 @@ bool MemoryCard::Transfer(const uint8_t data_in, uint8_t* data_out)
     }
     break;
 
-      FIXED_REPLY_STATE(State::WriteChecksum, m_checksum, true, State::WriteACK1);
+      FIXED_REPLY_STATE(State::WriteChecksum, m_last_byte, true, State::WriteACK1);
       FIXED_REPLY_STATE(State::WriteACK1, 0x5C, true, State::WriteACK2);
       FIXED_REPLY_STATE(State::WriteACK2, 0x5D, true, State::WriteEnd);
       FIXED_REPLY_STATE(State::WriteEnd, 0x47, false, State::Idle);

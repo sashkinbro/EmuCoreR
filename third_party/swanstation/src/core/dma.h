@@ -62,7 +62,7 @@ private:
   void UpdateIRQ();
 
   // returns false if the DMA should now be halted
-  TickCount GetTransferSliceTicks() const;
+  TickCount GetTransferSliceTicks(Channel channel) const;
   TickCount GetTransferHaltTicks() const;
   bool TransferChannel(Channel channel);
   void HaltTransfer(TickCount duration);
@@ -118,6 +118,12 @@ private:
       BitField<uint32_t, bool, 28, 1> start_trigger;
 
       static constexpr uint32_t WRITE_MASK = 0b01110001'01110111'00000111'00000011;
+
+      // The OTC channel only exposes bits 24, 28 and 30 to software, and its
+      // reverse-direction bit is hardwired to 1 since the clear ordering table
+      // always walks downwards.
+      static constexpr uint32_t OTC_WRITE_MASK = 0b01010001'00000000'00000000'00000000;
+      static constexpr uint32_t OTC_FIXED_BITS = 0b00000000'00000000'00000000'00000010;
     } channel_control = {};
 
     bool request = false;
@@ -134,7 +140,7 @@ private:
     BitField<uint32_t, uint8_t, 4, 3> MDECout_priority;
     BitField<uint32_t, bool, 7, 1> MDECout_master_enable;
     BitField<uint32_t, uint8_t, 8, 3> GPU_priority;
-    BitField<uint32_t, bool, 10, 1> GPU_master_enable;
+    BitField<uint32_t, bool, 11, 1> GPU_master_enable;
     BitField<uint32_t, uint8_t, 12, 3> CDROM_priority;
     BitField<uint32_t, bool, 15, 1> CDROM_master_enable;
     BitField<uint32_t, uint8_t, 16, 3> SPU_priority;
@@ -152,7 +158,7 @@ private:
     }
   } m_DPCR = {};
 
-  static constexpr uint32_t DICR_WRITE_MASK = 0b00000000'11111111'10000000'00111111;
+  static constexpr uint32_t DICR_WRITE_MASK = 0b00000000'11111111'10000000'01111111;
   static constexpr uint32_t DICR_RESET_MASK = 0b01111111'00000000'00000000'00000000;
   union DICR
   {

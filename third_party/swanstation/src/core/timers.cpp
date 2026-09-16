@@ -104,7 +104,7 @@ void Timers::SetGate(uint32_t timer, bool state)
     }
   }
 
-  UpdateCountingEnabled(cs);
+  UpdateCountingEnabled(timer, cs);
   UpdateSysClkEvent();
 }
 
@@ -313,11 +313,15 @@ void Timers::WriteRegister(uint32_t offset, uint32_t value)
       static constexpr uint32_t WRITE_MASK = 0b1110001111111111;
 
       cs.mode.bits = (value & WRITE_MASK) | (cs.mode.bits & ~WRITE_MASK);
+
+      // The latched interrupt request is cleared by any mode write.
+      cs.mode.interrupt_request_n = true;
+
       cs.use_external_clock = (cs.mode.clock_source & (timer_index == 2 ? 2 : 1)) != 0;
       cs.counter = 0;
       cs.irq_done = false;
 
-      UpdateCountingEnabled(cs);
+      UpdateCountingEnabled(timer_index, cs);
       CheckForIRQ(timer_index, cs.counter);
       UpdateIRQ(timer_index);
       UpdateSysClkEvent();
@@ -337,28 +341,40 @@ void Timers::WriteRegister(uint32_t offset, uint32_t value)
   }
 }
 
-void Timers::UpdateCountingEnabled(CounterState& cs)
+void Timers::UpdateCountingEnabled(uint32_t index, CounterState& cs)
 {
-  if (cs.mode.sync_enable)
+  if (index != 2)
   {
-    switch (cs.mode.sync_mode)
+    if (cs.mode.sync_enable)
     {
-      case SyncMode::PauseOnGate:
-        cs.counting_enabled = !cs.gate;
-        break;
+      switch (cs.mode.sync_mode)
+      {
+        case SyncMode::PauseOnGate:
+          cs.counting_enabled = !cs.gate;
+          break;
 
-      case SyncMode::ResetOnGate:
-        cs.counting_enabled = true;
-        break;
+        case SyncMode::ResetOnGate:
+          cs.counting_enabled = true;
+          break;
 
-      case SyncMode::ResetAndRunOnGate:
-      case SyncMode::FreeRunOnGate:
-        cs.counting_enabled = cs.gate;
-        break;
+        case SyncMode::ResetAndRunOnGate:
+        case SyncMode::FreeRunOnGate:
+          cs.counting_enabled = cs.gate;
+          break;
+      }
+    }
+    else
+    {
+      cs.counting_enabled = true;
     }
   }
   else
-    cs.counting_enabled = true;
+  {
+    // Timer 2 has no gate input, so its sync modes behave differently: modes
+    // 0 and 3 stop the counter entirely, while 1 and 2 let it free-run.
+    cs.counting_enabled = (!cs.mode.sync_enable || cs.mode.sync_mode == SyncMode::ResetOnGate ||
+                           cs.mode.sync_mode == SyncMode::ResetAndRunOnGate);
+  }
 
   cs.external_counting_enabled = cs.use_external_clock && cs.counting_enabled;
 }
@@ -381,7 +397,7 @@ TickCount Timers::GetTicksUntilNextInterrupt() const
   {
     const CounterState& cs = m_states[i];
     if (!cs.counting_enabled || (i < 2 && cs.external_counting_enabled) ||
-        (!cs.mode.irq_at_target && !cs.mode.irq_on_overflow && (cs.mode.irq_repeat || !cs.irq_done)))
+        (!cs.mode.irq_at_target && !cs.mode.irq_on_overflow) || (!cs.mode.irq_repeat && cs.irq_done))
     {
       continue;
     }

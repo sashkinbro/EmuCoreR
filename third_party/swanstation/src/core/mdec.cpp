@@ -310,7 +310,7 @@ void MDEC::Execute()
         const uint32_t words_to_consume = std::min(m_remaining_halfwords, m_data_in_fifo.GetSize());
         m_data_in_fifo.Remove(words_to_consume);
         m_remaining_halfwords -= words_to_consume;
-        if (m_remaining_halfwords == 0)
+        if (m_remaining_halfwords > 0)
           goto finished;
 
         m_state = State::Idle;
@@ -868,6 +868,7 @@ void MDEC::HandleSetQuantTableCommand()
   if (m_remaining_halfwords > 0)
   {
     m_data_in_fifo.PopRange(packed_data.data(), static_cast<uint32_t>(packed_data.size()));
+    m_remaining_halfwords -= 32;
     std::memcpy(m_iq_uv.data(), packed_data.data(), m_iq_uv.size());
   }
 }
@@ -877,6 +878,6 @@ void MDEC::HandleSetScaleCommand()
   // TODO: Remove extra copies..
   std::array<uint16_t, 64> packed_data;
   m_data_in_fifo.PopRange(packed_data.data(), static_cast<uint32_t>(packed_data.size()));
-  m_remaining_halfwords -= 32;
+  m_remaining_halfwords -= 64;
   std::memcpy(m_scale_table.data(), packed_data.data(), m_scale_table.size() * sizeof(int16_t));
 }

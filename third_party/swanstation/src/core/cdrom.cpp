@@ -1203,6 +1203,10 @@ void CDROM::ExecuteCommand(TickCount ticks_late)
       {
         SendErrorResponse(STAT_ERROR, ERROR_REASON_INCORRECT_NUMBER_OF_PARAMETERS);
       }
+      else if (!CanReadMedia())
+      {
+        SendErrorResponse(STAT_ERROR, ERROR_REASON_NOT_READY);
+      }
       else
       {
         SendACKAndStat();
@@ -1210,8 +1214,10 @@ void CDROM::ExecuteCommand(TickCount ticks_late)
         // still pending?
         if (m_command_second_response != Command::MotorOn)
         {
-          if (CanReadMedia())
-            StartMotor();
+          // The motor bit has to be visible immediately; titles that poll the
+          // status right after MotorOn expect it to already be set.
+          m_secondary_status.motor_on = true;
+          StartMotor();
 
           QueueCommandSecondResponse(Command::MotorOn, MOTOR_ON_RESPONSE_TICKS);
         }
@@ -1388,7 +1394,6 @@ void CDROM::ExecuteTestCommand(uint8_t subcommand)
 
     case 0x05: // Read SCEx counters
     {
-      m_response_fifo.Push(m_secondary_status.bits);
       m_response_fifo.Push(0); // # of TOC reads?
       m_response_fifo.Push(0); // # of SCEx strings received
       SetInterrupt(Interrupt::ACK);

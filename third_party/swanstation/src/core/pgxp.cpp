@@ -1284,11 +1284,22 @@ void CPU_SLL(uint32_t instr, uint32_t rtVal)
 void CPU_SRL(uint32_t instr, uint32_t rtVal)
 {
   // Rd = Rt >> Sa
-  const uint32_t rdVal = rtVal >> sa(instr);
   PGXP_value ret;
-  uint32_t sh = sa(instr);
+  const uint32_t sh = sa(instr);
   Validate(&CPU_reg[rt(instr)], rtVal);
 
+  // A zero shift is a straight copy, so preserve the source value as-is
+  // instead of running it through the precision maths.
+  if (sh == 0)
+  {
+    // Carry the low precision value over untouched; only the raw register
+    // value needs refreshing.
+    CPU_reg[rd(instr)] = CPU_reg[rt(instr)];
+    CPU_reg[rd(instr)].value = rtVal;
+    return;
+  }
+
+  const uint32_t rdVal = rtVal >> sh;
   ret = CPU_reg[rt(instr)];
 
   double x = CPU_reg[rt(instr)].x, y = f16Unsign(CPU_reg[rt(instr)].y);
@@ -1348,10 +1359,22 @@ void CPU_SRL(uint32_t instr, uint32_t rtVal)
 void CPU_SRA(uint32_t instr, uint32_t rtVal)
 {
   // Rd = Rt >> Sa
-  const uint32_t rdVal = static_cast<uint32_t>(static_cast<int32_t>(rtVal) >> sa(instr));
   PGXP_value ret;
-  uint32_t sh = sa(instr);
+  const uint32_t sh = sa(instr);
   Validate(&CPU_reg[rt(instr)], rtVal);
+
+  // A zero shift is a straight copy, so preserve the source value as-is
+  // instead of running it through the precision maths.
+  if (sh == 0)
+  {
+    // Carry the low precision value over untouched; only the raw register
+    // value needs refreshing.
+    CPU_reg[rd(instr)] = CPU_reg[rt(instr)];
+    CPU_reg[rd(instr)].value = rtVal;
+    return;
+  }
+
+  const uint32_t rdVal = static_cast<uint32_t>(static_cast<int32_t>(rtVal) >> sh);
   ret = CPU_reg[rt(instr)];
 
   double x = CPU_reg[rt(instr)].x, y = CPU_reg[rt(instr)].y;
@@ -1414,9 +1437,9 @@ void CPU_SRA(uint32_t instr, uint32_t rtVal)
 void CPU_SLLV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
 {
   // Rd = Rt << Rs
-  const uint32_t rdVal = rtVal << rsVal;
   PGXP_value ret;
-  uint32_t sh = rsVal & 0x1F;
+  const uint32_t sh = rsVal & 0x1F;
+  const uint32_t rdVal = rtVal << sh;
   Validate(&CPU_reg[rt(instr)], rtVal);
   Validate(&CPU_reg[rs(instr)], rsVal);
 
@@ -1459,12 +1482,23 @@ void CPU_SLLV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
 void CPU_SRLV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
 {
   // Rd = Rt >> Sa
-  const uint32_t rdVal = rtVal >> rsVal;
   PGXP_value ret;
-  uint32_t sh = rsVal & 0x1F;
+  const uint32_t sh = rsVal & 0x1F;
   Validate(&CPU_reg[rt(instr)], rtVal);
   Validate(&CPU_reg[rs(instr)], rsVal);
 
+  // A zero shift is a straight copy, so preserve the source value as-is
+  // instead of running it through the precision maths.
+  if (sh == 0)
+  {
+    // Carry the low precision value over untouched; only the raw register
+    // value needs refreshing.
+    CPU_reg[rd(instr)] = CPU_reg[rt(instr)];
+    CPU_reg[rd(instr)].value = rtVal;
+    return;
+  }
+
+  const uint32_t rdVal = rtVal >> sh;
   ret = CPU_reg[rt(instr)];
 
   double x = CPU_reg[rt(instr)].x, y = f16Unsign(CPU_reg[rt(instr)].y);
@@ -1524,12 +1558,23 @@ void CPU_SRLV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
 void CPU_SRAV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
 {
   // Rd = Rt >> Sa
-  const uint32_t rdVal = static_cast<uint32_t>(static_cast<int32_t>(rtVal) >> rsVal);
   PGXP_value ret;
-  uint32_t sh = rsVal & 0x1F;
+  const uint32_t sh = rsVal & 0x1F;
   Validate(&CPU_reg[rt(instr)], rtVal);
   Validate(&CPU_reg[rs(instr)], rsVal);
 
+  // A zero shift is a straight copy, so preserve the source value as-is
+  // instead of running it through the precision maths.
+  if (sh == 0)
+  {
+    // Carry the low precision value over untouched; only the raw register
+    // value needs refreshing.
+    CPU_reg[rd(instr)] = CPU_reg[rt(instr)];
+    CPU_reg[rd(instr)].value = rtVal;
+    return;
+  }
+
+  const uint32_t rdVal = static_cast<uint32_t>(static_cast<int32_t>(rtVal) >> sh);
   ret = CPU_reg[rt(instr)];
 
   double x = CPU_reg[rt(instr)].x, y = CPU_reg[rt(instr)].y;

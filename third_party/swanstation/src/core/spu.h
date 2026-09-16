@@ -188,15 +188,13 @@ private:
     uint8_t data[NUM_SAMPLES_PER_ADPCM_BLOCK / 2];
 
     // For both 4bit and 8bit ADPCM, reserved shift values 13..15 will act same as shift=9).
-    uint8_t GetShift() const
+    ALWAYS_INLINE uint8_t GetShift() const
     {
       const uint8_t shift = shift_filter.shift;
       return (shift > 12) ? 9 : shift;
     }
 
-    uint8_t GetFilter() const { return std::min<uint8_t>(shift_filter.filter, 4); }
-
-    uint8_t GetNibble(uint32_t index) const { return (data[index / 2] >> ((index % 2) * 4)) & 0x0F; }
+    ALWAYS_INLINE uint8_t GetFilter() const { return std::min<uint8_t>(shift_filter.filter, 4); }
   };
 
   struct VolumeEnvelope
@@ -329,11 +327,12 @@ private:
   ALWAYS_INLINE bool CheckRAMIRQ(uint32_t address) const { return ((static_cast<uint32_t>(m_irq_address) * 8) == address); }
   void CheckForLateRAMIRQs();
 
-  void WriteToCaptureBuffer(uint32_t index, int16_t value);
-  void IncrementCaptureBufferPosition();
+  void WriteToCaptureBuffers(int16_t cd_left, int16_t cd_right, int16_t voice_1, int16_t voice_3);
 
   void ReadADPCMBlock(uint16_t address, ADPCMBlock* block);
-  std::tuple<int32_t, int32_t> SampleVoice(uint32_t voice_index);
+  std::tuple<int32_t, int32_t> SampleVoice(Voice& voice, uint32_t voice_index, bool noise_enabled,
+                                           bool pitch_modulation_enabled, bool irq9_enabled,
+                                           int32_t previous_voice_last_volume);
 
   void UpdateNoise();
 

@@ -85,7 +85,10 @@ ALWAYS_INLINE Segment GetSegmentForAddress(VirtualMemoryAddress address)
 
 ALWAYS_INLINE PhysicalMemoryAddress VirtualAddressToPhysical(VirtualMemoryAddress address)
 {
-  return (address & PHYSICAL_MEMORY_ADDRESS_MASK);
+  // KUSEG is the full lower 2GB of the virtual space, while the kernel
+  // segments only mirror the first 512MB. Masking both with the physical mask
+  // would alias KUSEG addresses above 512MB back into the low 512MB.
+  return (address & ((address & 0x80000000u) ? PHYSICAL_MEMORY_ADDRESS_MASK : 0x7FFFFFFFu));
 }
 
 // defined in bus.cpp - memory access functions which return false if an exception was thrown.

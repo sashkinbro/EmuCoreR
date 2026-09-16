@@ -363,7 +363,9 @@ void Pad::BeginTransfer()
 
 void Pad::DoTransfer(TickCount ticks_late)
 {
-  const uint8_t device_index = m_multitaps[0].IsEnabled() ? 4u : m_JOY_CTRL.SLOT;
+  // Which multitap a slot belongs to depends on the slot number itself, not
+  // on whether the first multitap happens to be enabled.
+  const uint8_t device_index = m_multitaps[m_JOY_CTRL.SLOT].IsEnabled() ? 4u : m_JOY_CTRL.SLOT;
   Controller* const controller = m_controllers[device_index].get();
   MemoryCard* const memory_card = m_memory_cards[device_index].get();
 

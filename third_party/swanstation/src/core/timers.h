@@ -82,7 +82,7 @@ private:
     bool irq_done;
   };
 
-  void UpdateCountingEnabled(CounterState& cs);
+  void UpdateCountingEnabled(uint32_t index, CounterState& cs);
   void CheckForIRQ(uint32_t index, uint32_t old_counter);
   void UpdateIRQ(uint32_t index);
 

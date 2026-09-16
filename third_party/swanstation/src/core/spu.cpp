@@ -1,13 +1,22 @@
 #include "spu.h"
 #include "cdrom.h"
 #include "libretro/libretro_audio_stream.h"
+#include "common/platform.h"
 #include "common/state_wrapper.h"
 #include "dma.h"
 #include "host_interface.h"
 #include "interrupt_controller.h"
 #include "system.h"
 #include <cstring>
+#include <iterator>
 #include <limits>
+#if defined(CPU_AARCH64)
+#ifdef _MSC_VER
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
 #define SPU_TriggerRAMIRQ() \
   m_SPUSTAT.irq9_flag = true; \
   g_interrupt_controller.InterruptRequest(InterruptController::IRQ::SPU)
@@ -286,8 +295,8 @@ uint16_t SPU::ReadRegister(uint32_t offset)
         const uint32_t voice_index = (offset - (0x1F801E00 - SPU_BASE)) / 4;
         GeneratePendingSamples();
         if (offset & 0x02)
-          return m_voices[voice_index].left_volume.current_level;
-        return m_voices[voice_index].right_volume.current_level;
+          return m_voices[voice_index].right_volume.current_level;
+        return m_voices[voice_index].left_volume.current_level;
       }
 
       return UINT16_C(0xFFFF);
@@ -678,20 +687,29 @@ void SPU::CheckForLateRAMIRQs()
   }
 }
 
-void SPU::WriteToCaptureBuffer(uint32_t index, int16_t value)
+void SPU::WriteToCaptureBuffers(int16_t cd_left, int16_t cd_right, int16_t voice_1, int16_t voice_3)
 {
-  const uint32_t ram_address = (index * CAPTURE_BUFFER_SIZE_PER_CHANNEL) | static_cast<uint16_t>(m_capture_buffer_position);
-  std::memcpy(&m_ram[ram_address], &value, sizeof(value));
-  if (IsRAMIRQTriggerable() && CheckRAMIRQ(ram_address))
-  {
-    SPU_TriggerRAMIRQ();
-  }
-}
+  // All four capture channels advance in lockstep, so resolve the write
+  // position and the IRQ target once for the whole frame instead of
+  // reloading them (and re-testing the IRQ enable) on every store.
+  const std::array<int16_t, 4> values = {cd_left, cd_right, voice_1, voice_3};
+  const uint32_t position = static_cast<uint16_t>(m_capture_buffer_position);
+  const uint32_t irq_address = static_cast<uint32_t>(m_irq_address) * 8;
+  bool irq_triggerable = IsRAMIRQTriggerable();
 
-void SPU::IncrementCaptureBufferPosition()
-{
-  m_capture_buffer_position += sizeof(int16_t);
-  m_capture_buffer_position %= CAPTURE_BUFFER_SIZE_PER_CHANNEL;
+  for (uint32_t index = 0; index < values.size(); index++)
+  {
+    const uint32_t ram_address = (index * CAPTURE_BUFFER_SIZE_PER_CHANNEL) | position;
+    std::memcpy(&m_ram[ram_address], &values[index], sizeof(values[index]));
+    if (irq_triggerable && irq_address == ram_address)
+    {
+      SPU_TriggerRAMIRQ();
+      irq_triggerable = false;
+    }
+  }
+
+  // A frame is two bytes per channel, and the position is a power-of-two mask.
+  m_capture_buffer_position = (position + sizeof(int16_t)) & (CAPTURE_BUFFER_SIZE_PER_CHANNEL - 1);
   m_SPUSTAT.second_half_capture_buffer = m_capture_buffer_position >= (CAPTURE_BUFFER_SIZE_PER_CHANNEL / 2);
 }
 
@@ -888,7 +906,7 @@ void SPU::DMARead(uint32_t* words, uint32_t word_count)
   uint32_t halfword_count = word_count * 2;
 
   const uint32_t size = m_transfer_fifo.GetSize();
-  if (word_count > size)
+  if (halfword_count > size)
   {
     uint16_t fill_value = 0;
     if (size > 0)
@@ -1184,27 +1202,42 @@ void SPU::Voice::DecodeBlock(const ADPCMBlock& block)
   const uint8_t filter_index = block.GetFilter();
   const int32_t filter_pos = filter_table_pos[filter_index];
   const int32_t filter_neg = filter_table_neg[filter_index];
-  int16_t last_samples[2] = {adpcm_last_samples[0], adpcm_last_samples[1]};
+  int32_t last_sample_0 = adpcm_last_samples[0];
+  int32_t last_sample_1 = adpcm_last_samples[1];
+  int16_t* output = &current_block_samples[NUM_SAMPLES_FROM_LAST_ADPCM_BLOCK];
 
-  // samples
-  for (uint32_t i = 0; i < NUM_SAMPLES_PER_ADPCM_BLOCK; i++)
+  // Decode both nibbles of each packed byte in one pass. Keeping the two
+  // predictor chains live in registers alongside each other exposes more
+  // instruction-level parallelism than alternating through a single sample
+  // slot per iteration, and it halves the packed-byte addressing overhead.
+  for (uint32_t i = 0; i < static_cast<uint32_t>(std::size(block.data)); i++)
   {
-    // extend 4-bit to 16-bit, apply shift from header and mix in previous samples
-    int32_t sample = int32_t(static_cast<int16_t>(static_cast<uint16_t>(block.GetNibble(i)) << 12) >> shift);
-    sample += (last_samples[0] * filter_pos) >> 6;
-    sample += (last_samples[1] * filter_neg) >> 6;
+    const uint8_t data = block.data[i];
 
-    last_samples[1] = last_samples[0];
-    current_block_samples[NUM_SAMPLES_FROM_LAST_ADPCM_BLOCK + i] = last_samples[0] = static_cast<int16_t>(Clamp16(sample));
+    // extend 4-bit to 16-bit, apply shift from header and mix in previous samples
+    int32_t sample_0 = static_cast<int32_t>(static_cast<int16_t>(static_cast<uint16_t>(data & 0x0F) << 12) >> shift);
+    int32_t sample_1 = static_cast<int32_t>(static_cast<int16_t>(static_cast<uint16_t>(data >> 4) << 12) >> shift);
+    sample_0 += (last_sample_0 * filter_pos) >> 6;
+    sample_1 += (last_sample_0 * filter_neg) >> 6;
+    sample_0 += (last_sample_1 * filter_neg) >> 6;
+    sample_0 = Clamp16(sample_0);
+    sample_1 += (sample_0 * filter_pos) >> 6;
+    sample_1 = Clamp16(sample_1);
+
+    last_sample_1 = sample_0;
+    *(output++) = static_cast<int16_t>(sample_0);
+    last_sample_0 = sample_1;
+    *(output++) = static_cast<int16_t>(sample_1);
   }
 
-  std::copy(last_samples, last_samples + countof(last_samples), adpcm_last_samples.begin());
+  adpcm_last_samples[0] = static_cast<int16_t>(last_sample_0);
+  adpcm_last_samples[1] = static_cast<int16_t>(last_sample_1);
   current_block_flags.bits = block.flags.bits;
 }
 
-int32_t SPU::Voice::Interpolate() const
-{
-  static constexpr int16_t gauss[0x200] = {
+// Raw Gaussian interpolation table from the SPU's design. Kept at namespace
+// scope so the per-phase coefficient table below can be built at compile time.
+static constexpr int16_t s_gauss_table[0x200] = {
     -0x001, -0x001, -0x001, -0x001, -0x001, -0x001, -0x001, -0x001, //
     -0x001, -0x001, -0x001, -0x001, -0x001, -0x001, -0x001, -0x001, //
     0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001, //
@@ -1271,14 +1304,43 @@ int32_t SPU::Voice::Interpolate() const
     0x5997, 0x599E, 0x59A4, 0x59A9, 0x59AD, 0x59B0, 0x59B2, 0x59B3  //
   };
 
+// Flatten the four Gaussian taps used by each of the 256 interpolation phases
+// into a contiguous entry. The hot path then needs one 64-bit load for the
+// sample window and one for the weights, with no computed table indexing.
+static constexpr std::array<std::array<int16_t, 4>, 0x100> ComputeInterpolationCoefficients()
+{
+  std::array<std::array<int16_t, 4>, 0x100> coefficients = {};
+  for (uint32_t phase = 0; phase < coefficients.size(); phase++)
+  {
+    coefficients[phase] = {s_gauss_table[0x0FF - phase], s_gauss_table[0x1FF - phase], s_gauss_table[0x100 + phase],
+                           s_gauss_table[phase]};
+  }
+  return coefficients;
+}
+
+static constexpr std::array<std::array<int16_t, 4>, 0x100> s_interpolation_coefficients =
+  ComputeInterpolationCoefficients();
+
+int32_t SPU::Voice::Interpolate() const
+{
   const uint8_t i  = counter.interpolation_index;
   const uint32_t s = NUM_SAMPLES_FROM_LAST_ADPCM_BLOCK + static_cast<uint32_t>(counter.sample_index.GetValue());
 
-  int32_t out     = int32_t(gauss[0x0FF - i]) * int32_t(current_block_samples[s - 3]);
-  out        += int32_t(gauss[0x1FF - i]) * int32_t(current_block_samples[s - 2]);
-  out        += int32_t(gauss[0x100 + i]) * int32_t(current_block_samples[s - 1]);
-  out        += int32_t(gauss[0x000 + i]) * int32_t(current_block_samples[s - 0]);
+  // The output is a four-tap dot product between the sample window and the
+  // phase coefficients. All intermediates fit in 32 bits and the sum of the
+  // four products is bounded by the coefficient sum, so evaluating it as a
+  // vector multiply-accumulate with a horizontal reduction is bit-exact.
+#if defined(CPU_AARCH64)
+  const int16x4_t samples = vld1_s16(&current_block_samples[s - 3]);
+  const int16x4_t weights = vld1_s16(s_interpolation_coefficients[i].data());
+  return vaddvq_s32(vmull_s16(samples, weights)) >> 15;
+#else
+  int32_t out     = int32_t(s_interpolation_coefficients[i][0]) * int32_t(current_block_samples[s - 3]);
+  out        += int32_t(s_interpolation_coefficients[i][1]) * int32_t(current_block_samples[s - 2]);
+  out        += int32_t(s_interpolation_coefficients[i][2]) * int32_t(current_block_samples[s - 1]);
+  out        += int32_t(s_interpolation_coefficients[i][3]) * int32_t(current_block_samples[s - 0]);
   return out >> 15;
+#endif
 }
 
 void SPU::ReadADPCMBlock(uint16_t address, ADPCMBlock* block)
@@ -1290,7 +1352,7 @@ void SPU::ReadADPCMBlock(uint16_t address, ADPCMBlock* block)
   }
 
   // fast path - no wrap-around
-  if ((ram_address + sizeof(ADPCMBlock)) <= RAM_SIZE)
+  if ((ram_address + sizeof(ADPCMBlock)) <= RAM_SIZE) [[likely]]
   {
     std::memcpy(block, &m_ram[ram_address], sizeof(ADPCMBlock));
     return;
@@ -1307,10 +1369,11 @@ void SPU::ReadADPCMBlock(uint16_t address, ADPCMBlock* block)
   }
 }
 
-ALWAYS_INLINE_RELEASE std::tuple<int32_t, int32_t> SPU::SampleVoice(uint32_t voice_index)
+ALWAYS_INLINE_RELEASE std::tuple<int32_t, int32_t> SPU::SampleVoice(Voice& voice, uint32_t voice_index, bool noise_enabled,
+                                                                   bool pitch_modulation_enabled, bool irq9_enabled,
+                                                                   int32_t previous_voice_last_volume)
 {
-  Voice& voice = m_voices[voice_index];
-  if (!voice.IsOn() && !m_SPUCNT.irq9_enable)
+  if (!voice.IsOn() && !irq9_enabled)
   {
     voice.last_volume = 0;
     return {};
@@ -1333,7 +1396,7 @@ ALWAYS_INLINE_RELEASE std::tuple<int32_t, int32_t> SPU::SampleVoice(uint32_t voi
   {
     // interpolate/sample and apply ADSR volume
     int32_t sample;
-    if (IsVoiceNoiseEnabled(voice_index))
+    if (noise_enabled)
       sample = GetVoiceNoiseLevel();
     else
       sample = voice.Interpolate();
@@ -1348,11 +1411,12 @@ ALWAYS_INLINE_RELEASE std::tuple<int32_t, int32_t> SPU::SampleVoice(uint32_t voi
   if (voice.adsr_phase != ADSRPhase::Off)
     voice.TickADSR();
 
-  // Pitch modulation
+  // Pitch modulation. The caller hands us the previous voice's output so the
+  // pitch-modulated chain keeps its ordering without a second array lookup.
   uint16_t step = voice.regs.adpcm_sample_rate;
-  if (IsPitchModulationEnabled(voice_index))
+  if (pitch_modulation_enabled)
   {
-    const int32_t factor = std::clamp<int32_t>(m_voices[voice_index - 1].last_volume, -0x8000, 0x7FFF) + 0x8000;
+    const int32_t factor = std::clamp<int32_t>(previous_voice_last_volume, -0x8000, 0x7FFF) + 0x8000;
     step = static_cast<uint16_t>((static_cast<uint32_t>(static_cast<int16_t>(step)) * factor) >> 15);
   }
   step = std::min<uint16_t>(step, 0x3FFF);
@@ -1616,11 +1680,20 @@ void SPU::Execute(TickCount ticks)
       int32_t reverb_in_left = 0;
       int32_t reverb_in_right = 0;
 
+      // Cache the per-frame voice flags once and shift them down as we walk
+      // the voice array, instead of re-deriving them from each voice index.
+      uint32_t noise_mode = m_noise_mode_register;
+      uint32_t pitch_modulation_enable = m_pitch_modulation_enable_register & ~1u;
       uint32_t reverb_on_register = m_reverb_on_register;
+      const bool irq9_enabled = m_SPUCNT.irq9_enable;
+      int32_t previous_voice_last_volume = 0;
+      uint32_t voice_index = 0;
 
-      for (uint32_t voice = 0; voice < NUM_VOICES; voice++)
+      for (Voice& voice : m_voices)
       {
-        const auto [left, right] = SampleVoice(voice);
+        const auto [left, right] =
+          SampleVoice(voice, voice_index, (noise_mode & 1u) != 0, (pitch_modulation_enable & 1u) != 0, irq9_enabled,
+                      previous_voice_last_volume);
         left_sum += left;
         right_sum += right;
 
@@ -1629,7 +1702,12 @@ void SPU::Execute(TickCount ticks)
           reverb_in_left += left;
           reverb_in_right += right;
         }
+
+        previous_voice_last_volume = voice.last_volume;
+        noise_mode >>= 1;
+        pitch_modulation_enable >>= 1;
         reverb_on_register >>= 1;
+        voice_index++;
       }
 
       if (!m_SPUCNT.mute_n)
@@ -1674,11 +1752,8 @@ void SPU::Execute(TickCount ticks)
       m_main_volume_right.Tick();
 
       // Write to capture buffers.
-      WriteToCaptureBuffer(0, cd_audio_left);
-      WriteToCaptureBuffer(1, cd_audio_right);
-      WriteToCaptureBuffer(2, static_cast<int16_t>(Clamp16(m_voices[1].last_volume)));
-      WriteToCaptureBuffer(3, static_cast<int16_t>(Clamp16(m_voices[3].last_volume)));
-      IncrementCaptureBufferPosition();
+      WriteToCaptureBuffers(cd_audio_left, cd_audio_right, static_cast<int16_t>(Clamp16(m_voices[1].last_volume)),
+                            static_cast<int16_t>(Clamp16(m_voices[3].last_volume)));
 
       // Key off/on voices after the first frame.
       if (i == 0 && (m_key_off_register != 0 || m_key_on_register != 0))

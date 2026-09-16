@@ -52,14 +52,8 @@ void DMA::Reset()
 
 void DMA::ClearState()
 {
-  for (uint32_t i = 0; i < NUM_CHANNELS; i++)
-  {
-    ChannelState& cs = m_state[i];
-    cs.base_address = 0;
-    cs.block_control.bits = 0;
-    cs.channel_control.bits = 0;
-    cs.request = false;
-  }
+  m_state = {};
+  m_state[static_cast<uint32_t>(Channel::OTC)].channel_control.bits = ChannelState::ChannelControl::OTC_FIXED_BITS;
 
   m_DPCR.bits = 0x07654321;
   m_DICR.bits = 0;
@@ -149,8 +143,12 @@ void DMA::WriteRegister(uint32_t offset, uint32_t value)
         // breaks the interrupt.
         const bool ignore_halt = !state.channel_control.enable_busy && (value & (1u << 24));
 
-        state.channel_control.bits = (state.channel_control.bits & ~ChannelState::ChannelControl::WRITE_MASK) |
-                                     (value & ChannelState::ChannelControl::WRITE_MASK);
+        const uint32_t write_mask = (static_cast<Channel>(channel_index) != Channel::OTC) ?
+                                      ChannelState::ChannelControl::WRITE_MASK :
+                                      ChannelState::ChannelControl::OTC_WRITE_MASK;
+        state.channel_control.bits = (state.channel_control.bits & ~write_mask) | (value & write_mask);
+        if (static_cast<Channel>(channel_index) == Channel::OTC)
+          state.channel_control.bits |= ChannelState::ChannelControl::OTC_FIXED_BITS;
 
         // start/trigger bit must be enabled for OTC
         if (static_cast<Channel>(channel_index) == Channel::OTC)
@@ -240,12 +238,28 @@ void DMA::UpdateIRQ()
 // Plenty of games seem to suffer from this issue where they have a linked list DMA going while polling the
 // controller. Using a too-large slice size will result in the serial timing being off, and the game thinking
 // the controller is disconnected. So we don't hurt performance too much for the general case, we reduce this
-// to equal CPU and DMA time when the controller is transferring, but otherwise leave it at the higher size.
+// to equal CPU and DMA time when the controller is transmitting, but otherwise leave it at the higher size.
 static constexpr TickCount SLICE_SIZE_WHEN_TRANSMITTING_PAD = 100, HALT_TICKS_WHEN_TRANSMITTING_PAD = 100;
 
-TickCount DMA::GetTransferSliceTicks() const
+// Fetching a linked list header is cheaper than a data block, matching the
+// de facto hardware timing used by the DMAC state machines.
+static constexpr TickCount LINKED_LIST_HEADER_READ_TICKS = 8;
+
+// During MDEC decoding a large input FIFO would let a single DMA slice steal
+// too many CPU cycles, which makes other interrupt sources miss their window.
+static constexpr TickCount SLICE_SIZE_WHEN_DECODING_MDEC = 100;
+
+TickCount DMA::GetTransferSliceTicks(Channel channel) const
 {
-  return g_pad.IsTransmitting() ? SLICE_SIZE_WHEN_TRANSMITTING_PAD : m_max_slice_ticks;
+  if (g_pad.IsTransmitting())
+    return SLICE_SIZE_WHEN_TRANSMITTING_PAD;
+
+  // MDEC input/output transfers can queue a lot of data in a single slice,
+  // starving the CPU long enough for other interrupts to be missed.
+  if ((channel == Channel::MDECin || channel == Channel::MDECout) && g_mdec.IsDecodingMacroblock())
+    return SLICE_SIZE_WHEN_DECODING_MDEC;
+
+  return m_max_slice_ticks;
 }
 
 TickCount DMA::GetTransferHaltTicks() const
@@ -286,13 +300,13 @@ bool DMA::TransferChannel(Channel channel)
         return true;
 
       uint8_t* ram_pointer = Bus::g_ram;
-      TickCount remaining_ticks = GetTransferSliceTicks();
+      TickCount remaining_ticks = GetTransferSliceTicks(channel);
       while (cs.request && remaining_ticks > 0)
       {
         uint32_t header;
         std::memcpy(&header, &ram_pointer[current_address & mask], sizeof(header));
-        CPU::AddPendingTicks(10);
-        remaining_ticks -= 10;
+        CPU::AddPendingTicks(LINKED_LIST_HEADER_READ_TICKS);
+        remaining_ticks -= LINKED_LIST_HEADER_READ_TICKS;
 
         const uint32_t word_count = header >> 24;
         const uint32_t next_address = header & UINT32_C(0x00FFFFFF);
@@ -331,7 +345,7 @@ bool DMA::TransferChannel(Channel channel)
     {
       const uint32_t block_size = cs.block_control.request.GetBlockSize();
       uint32_t blocks_remaining = cs.block_control.request.GetBlockCount();
-      TickCount ticks_remaining = GetTransferSliceTicks();
+      TickCount ticks_remaining = GetTransferSliceTicks(channel);
 
       if (copy_to_device)
       {
@@ -545,5 +559,12 @@ TickCount DMA::TransferDeviceToMemory(Channel channel, uint32_t address, uint32_
   }
 
   CPU::CodeCache::InvalidateCodePages(address, word_count);
-  return Bus::GetDMARAMTickCount(word_count);
+
+  TickCount ticks = Bus::GetDMARAMTickCount(word_count);
+  // With the drive speedup active the CD-ROM channel should not spend the full
+  // time writing fetched sectors back to RAM.
+  if (channel == Channel::CDROM && g_settings.cdrom_read_speedup != 1)
+    ticks = (g_settings.cdrom_read_speedup == 0) ? 0 : (ticks / g_settings.cdrom_read_speedup);
+
+  return ticks;
 }
