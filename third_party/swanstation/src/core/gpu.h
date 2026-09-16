@@ -72,10 +72,11 @@ public:
   void DMARead(uint32_t* words, uint32_t word_count);
 
   ALWAYS_INLINE bool BeginDMAWrite() const { return (m_GPUSTAT.dma_direction == DMADirection::CPUtoGP0); }
-  ALWAYS_INLINE void DMAWrite(uint32_t address, uint32_t value)
-  {
-    m_fifo.Push((static_cast<uint64_t>(address) << 32) | static_cast<uint64_t>(value));
-  }
+
+  // Queues a linear block of GP0 words together with their source RAM
+  // addresses. Callers must stage wrapping transfers through a bounce buffer
+  // so the data is contiguous.
+  void DMAWrite(const uint32_t* words, uint32_t address, uint32_t increment, uint32_t word_count);
   void EndDMAWrite();
 
   /// Returns true if no data is being sent from VRAM to the DAC or that no portion of VRAM would be visible on screen.

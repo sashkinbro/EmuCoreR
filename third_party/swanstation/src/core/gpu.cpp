@@ -1,4 +1,5 @@
 #include "gpu.h"
+#include "bus.h"
 #include "common/heap_array.h"
 #include "common/state_wrapper.h"
 #include "common/string_util.h"
@@ -393,6 +394,39 @@ void GPU::DMARead(uint32_t* words, uint32_t word_count)
 
   for (uint32_t i = 0; i < word_count; i++)
     words[i] = ReadGPUREAD();
+}
+
+void GPU::DMAWrite(const uint32_t* words, uint32_t address, uint32_t increment, uint32_t word_count)
+{
+  if (m_GPUSTAT.dma_direction != DMADirection::CPUtoGP0)
+    return;
+
+  const uint32_t mask = Bus::g_ram_mask & UINT32_C(0xFFFFFFFC);
+
+  // Bulk-write the address/value pairs straight into the contiguous part of
+  // the FIFO, avoiding the per-word Push() bookkeeping. CPU->VRAM uploads go
+  // through here in large blocks while textures and framebuffers are loaded,
+  // which makes this one of the busier paths during scene transitions.
+  const uint32_t contiguous = std::min(word_count, m_fifo.GetContiguousSpace());
+  if (contiguous > 0)
+  {
+    uint32_t* fifo_ptr = reinterpret_cast<uint32_t*>(m_fifo.GetWritePointer());
+    for (uint32_t i = 0; i < contiguous; i++)
+    {
+      *(fifo_ptr++) = words[i];
+      *(fifo_ptr++) = address;
+      address = (address + increment) & mask;
+    }
+
+    m_fifo.AdvanceTail(contiguous);
+  }
+
+  // Whatever wrapped past the end of the FIFO storage goes the slow way.
+  for (uint32_t i = contiguous; i < word_count; i++)
+  {
+    m_fifo.Push((static_cast<uint64_t>(address) << 32) | words[i]);
+    address = (address + increment) & mask;
+  }
 }
 
 void GPU::EndDMAWrite()

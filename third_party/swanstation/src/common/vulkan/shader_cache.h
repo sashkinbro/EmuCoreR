@@ -32,6 +32,18 @@ public:
   /// Returns a handle to the pipeline cache. Set set_dirty to true if you are planning on writing to it externally.
   VkPipelineCache GetPipelineCache(bool set_dirty = true);
 
+  /// Creates a transient pipeline cache seeded with the current contents of
+  /// the shared cache. Worker threads can then create pipelines with it in
+  /// parallel without serialising on the shared cache, and merge the results
+  /// back with MergeTransientPipelineCache() when they are done. Returns
+  /// VK_NULL_HANDLE if the cache could not be created; passing that to the
+  /// driver simply means "no cache", so callers can proceed regardless.
+  VkPipelineCache CreateTransientPipelineCache();
+
+  /// Merges a cache created by CreateTransientPipelineCache() into the shared
+  /// cache and destroys it. Safe to call with VK_NULL_HANDLE.
+  void MergeTransientPipelineCache(VkPipelineCache cache);
+
   /// Writes pipeline cache to file, saving all newly compiled pipelines.
   bool FlushPipelineCache();
 

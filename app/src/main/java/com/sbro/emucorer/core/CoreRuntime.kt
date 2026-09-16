@@ -338,7 +338,9 @@ internal object CoreRuntime {
         // equivalent GPU shaders. A selected shader preset selects the closest
         // filter; otherwise the app's texture filtering mode is translated.
         bridge.nativeSetOption("swanstation_GPU_TextureFilter", swanStationTextureFilter())
-        bridge.nativeSetOption("swanstation_GPU_ShaderPrecompile", "true")
+        // Warm the batch pipeline matrix on background workers while the
+        // game boots; user overrides from the core option store win below.
+        bridge.nativeSetOption("swanstation_GPU_ShaderPrecompile", "Lazy")
         pushShaderEffect()
         pushShaderPreset()
         settings["EmuCore/GS:LoadTextureReplacements"]?.toBooleanStrictOrNull()?.let { replacements ->

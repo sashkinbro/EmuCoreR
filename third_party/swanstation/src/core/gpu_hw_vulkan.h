@@ -192,9 +192,13 @@ private:
   // slot publish under m_batch_shader_mutex handles the race winner.
   VkShaderModule GetBatchFragmentShader(GPUTextureFilter filter, uint8_t render_mode, uint8_t texture_mode,
                                         bool dithering, bool interlacing);
+  // pipeline_cache_mutex is only required when callers share the global
+  // pipeline cache; background workers pass their own transient cache and
+  // leave it null.
   VkPipeline GetBatchPipeline(GPUTextureFilter filter, bool true_color, bool scaled_dithering,
                               uint8_t depth_test, uint8_t render_mode, uint8_t texture_mode,
-                              uint8_t transparency_mode, bool dithering, bool interlacing);
+                              uint8_t transparency_mode, bool dithering, bool interlacing,
+                              VkPipelineCache pipeline_cache, std::mutex* pipeline_cache_mutex);
 
   // Lazy non-batch PSO compile path. Mirrors the D3D12 backend's
   // GetVRAMFillPipeline / GetVRAMCopyPipeline / GetDisplayPipeline
@@ -224,14 +228,29 @@ private:
   VkPipeline GetDownsampleBlurPassPipeline();
   VkPipeline GetDownsampleCompositePassPipeline();
 
-  // Background-thread worker for 'Lazy' mode: walks the full PSO
-  // matrix and calls GetBatchPipeline on each cell. Main thread
-  // can race ahead and fault in any slot it actually needs at draw
-  // time; the worker observes the filled slot under the lock and
-  // moves on. Quit flag checked between cells so DestroyPipelines
-  // can stop the worker within at most one PSO compile of latency.
+  // Background-thread worker pool for 'Lazy' mode: the precomputed cell list
+  // is walked by several threads at once, each claiming the next cell with an
+  // atomic counter and compiling it through a transient pipeline cache. The
+  // main thread can race ahead and fault in any slot it actually needs at draw
+  // time; the publish step under m_batch_shader_mutex resolves the race.
+  // Quit flag checked between cells so DestroyPipelines can stop the workers
+  // within at most one PSO compile of latency each.
+  void StartShaderCompileThreads();
   void ShaderCompileThreadEntryPoint();
   void StopShaderCompileThread();
+
+  // Packs the batch pipeline dimensions into one 32-bit cell key:
+  // filter(3) | depth(2) | render(2) | texture(4) | transparency(3) |
+  // dither(1) | interlacing(1).
+  static constexpr uint32_t PackBatchCell(uint8_t filter, uint8_t depth_test, uint8_t render_mode,
+                                          uint8_t texture_mode, uint8_t transparency_mode, uint8_t dithering,
+                                          uint8_t interlacing)
+  {
+    return (static_cast<uint32_t>(filter) & 0x7u) | ((static_cast<uint32_t>(depth_test) & 0x3u) << 3) |
+           ((static_cast<uint32_t>(render_mode) & 0x3u) << 5) | ((static_cast<uint32_t>(texture_mode) & 0xFu) << 7) |
+           ((static_cast<uint32_t>(transparency_mode) & 0x7u) << 11) |
+           ((static_cast<uint32_t>(dithering) & 0x1u) << 14) | ((static_cast<uint32_t>(interlacing) & 0x1u) << 15);
+  }
 
   bool CreateTextureReplacementStreamBuffer();
 
@@ -384,8 +403,14 @@ private:
   // itself. See the comment on m_batch_pipelines above for why
   // this matters.
   std::mutex m_batch_shader_mutex;
-  std::thread m_shader_compile_thread;
+  std::vector<std::thread> m_shader_compile_threads;
   std::atomic<bool> m_shader_compile_thread_quit{false};
+  // Flat list of batch pipeline cells to warm, ordered current-filter-first.
+  // Built on the main thread before the workers start.
+  std::vector<uint32_t> m_shader_compile_cells;
+  std::atomic<uint32_t> m_shader_compile_next_cell{0};
+  std::atomic<uint32_t> m_shader_compile_cells_done{0};
+  std::atomic<int64_t> m_shader_compile_start_value{0};
 
   DimensionalArray<std::atomic<VkShaderModule>, 2> m_batch_vertex_shaders{};              // [textured]
   DimensionalArray<std::atomic<VkShaderModule>, 2, 2, 9, 4, 7> m_batch_fragment_shaders{};   // [filter][render][texture][dither][interlace]

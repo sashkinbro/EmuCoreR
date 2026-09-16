@@ -120,6 +120,58 @@ VkPipelineCache ShaderCache::GetPipelineCache(bool set_dirty /*= true*/)
   return m_pipeline_cache;
 }
 
+VkPipelineCache ShaderCache::CreateTransientPipelineCache()
+{
+  const VkDevice device = g_vulkan_context->GetDevice();
+
+  VkPipelineCacheCreateInfo ci = {};
+  ci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+  VkPipelineCache cache = VK_NULL_HANDLE;
+  VkResult res = vkCreatePipelineCache(device, &ci, nullptr, &cache);
+  if (res != VK_SUCCESS)
+  {
+    LOG_VULKAN_ERROR(res, "vkCreatePipelineCache() for worker failed: ");
+    return VK_NULL_HANDLE;
+  }
+
+  // Seed the worker's cache with everything the shared cache already knows,
+  // so the warm-up doesn't recompile pipelines that came from a previous run.
+  // The shared cache is only read here, and both it and the new cache are
+  // accessed under the mutex as required by the pipeline cache rules.
+  {
+    std::lock_guard<std::mutex> lock(m_pipeline_cache_mutex);
+    if (m_pipeline_cache != VK_NULL_HANDLE)
+    {
+      res = vkMergePipelineCaches(device, cache, 1, &m_pipeline_cache);
+      if (res != VK_SUCCESS)
+        LOG_VULKAN_ERROR(res, "vkMergePipelineCaches() seeding worker failed: ");
+    }
+  }
+
+  return cache;
+}
+
+void ShaderCache::MergeTransientPipelineCache(VkPipelineCache cache)
+{
+  if (cache == VK_NULL_HANDLE)
+    return;
+
+  const VkDevice device = g_vulkan_context->GetDevice();
+  {
+    std::lock_guard<std::mutex> lock(m_pipeline_cache_mutex);
+    if (m_pipeline_cache != VK_NULL_HANDLE)
+    {
+      const VkResult res = vkMergePipelineCaches(device, m_pipeline_cache, 1, &cache);
+      if (res == VK_SUCCESS)
+        m_pipeline_cache_dirty = true;
+      else
+        LOG_VULKAN_ERROR(res, "vkMergePipelineCaches() from worker failed: ");
+    }
+  }
+
+  vkDestroyPipelineCache(device, cache, nullptr);
+}
+
 std::string ShaderCache::GetPipelineCacheBaseFileName(const std::string_view& base_path, bool debug)
 {
   std::string base_filename(base_path);

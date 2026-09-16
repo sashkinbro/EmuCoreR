@@ -889,16 +889,16 @@ void GPU_HW_Vulkan::UpdateSettings()
       // 722e98a.
       m_display_pipelines.enumerate(Vulkan::Util::SafeDestroyPipeline);
 
-      // Relaunch the background batch warm-up worker that
+      // Relaunch the background batch warm-up pool that
       // StopShaderCompileThread joined at the top of UpdateSettings;
       // this branch doesn't go through CompilePipelines so its
-      // launch site at line ~1929 isn't reached. The worker only
-      // walks m_batch_pipelines (which doesn't carry SMOOTH_CHROMA
-      // anywhere), so keeping it stopped after a chroma toggle
+      // launch site isn't reached. The workers only walk
+      // m_batch_pipelines (which doesn't carry SMOOTH_CHROMA
+      // anywhere), so keeping them stopped after a chroma toggle
       // would just starve a mid-warmup session of further
       // background fill. Match the precompile_mode gate from
       // CompilePipelines verbatim - Lazy AND Enabled both run the
-      // worker on Vulkan (Enabled's first pass over the current
+      // workers on Vulkan (Enabled's first pass over the current
       // filter sub-cube hits the lock-free fast-return path since
       // precompile_sync already filled it, then warms the other
       // six sub-cubes; that asymmetry is intentional and unrelated
@@ -907,8 +907,7 @@ void GPU_HW_Vulkan::UpdateSettings()
       if (precompile_mode == GPUShaderPrecompileMode::Lazy ||
           precompile_mode == GPUShaderPrecompileMode::Enabled)
       {
-        m_shader_compile_thread_quit.store(false, std::memory_order_relaxed);
-        m_shader_compile_thread = std::thread(&GPU_HW_Vulkan::ShaderCompileThreadEntryPoint, this);
+        StartShaderCompileThreads();
       }
     }
     else if (only_dim_changed)
@@ -1609,9 +1608,6 @@ bool GPU_HW_Vulkan::CompilePipelines()
   // (UpdateSettings triggers DestroyPipelines -> CompilePipelines).
   StopShaderCompileThread();
 
-  VkDevice device = g_vulkan_context->GetDevice();
-  VkPipelineCache pipeline_cache = g_vulkan_shader_cache->GetPipelineCache();
-
   // Three-mode precompile control - see GPUShaderPrecompileMode in
   // core/types.h.
   //
@@ -1754,7 +1750,9 @@ bool GPU_HW_Vulkan::CompilePipelines()
                 VkPipeline pipeline =
                   GetBatchPipeline(m_texture_filtering, m_true_color, m_scaled_dithering,
                                    depth_test, render_mode, texture_mode, transparency_mode,
-                                   static_cast<bool>(dithering), static_cast<bool>(interlacing));
+                                   static_cast<bool>(dithering), static_cast<bool>(interlacing),
+                                   g_vulkan_shader_cache->GetPipelineCache(),
+                                   &g_vulkan_shader_cache->PipelineCacheMutex());
                 if (pipeline == VK_NULL_HANDLE)
                   return false;
                 progress.Increment();
@@ -1962,115 +1960,50 @@ bool GPU_HW_Vulkan::CompilePipelines()
       return false;
   }
 
-  // Background batch warm-up worker. Started for both Lazy and
+  // Background batch warm-up worker pool. Started for both Lazy and
   // Enabled modes; not for Disabled (whose contract is "no compile
   // at init, no background compile - fault in on first use").
-  //
-  // The worker walks every reachable cell across all 7 filter
-  // sub-cubes of m_batch_pipelines, calling GetBatchPipeline (which
-  // is the same lazy-fault-in helper the draw path uses) with each
-  // filter value in turn. Ordering inside ShaderCompileThreadEntry-
-  // Point puts the current m_texture_filtering first so the runloop's
-  // first draws hit populated slots ASAP; the other six filter
-  // values follow in numeric order.
-  //
-  // In Enabled mode the precompile_sync block above already
-  // populated the current filter's sub-cube synchronously, so the
-  // worker's first pass over it hits the lock-free fast-return on
-  // every cell - effectively a free walk that confirms the cache
-  // and then moves on. The real work is populating the OTHER six
-  // sub-cubes so any later filter swap is instant (no progress bar,
-  // no driver compile, no destroy / recreate).
-  //
-  // In Lazy mode the worker is also responsible for the current
-  // filter's sub-cube; nothing has populated it yet. The main
-  // thread can race ahead and lazy-fault any slot it actually
-  // needs at draw time - the worker's recheck-under-lock pattern
-  // observes the filled slot and moves on.
-  //
-  // DestroyPipelines (or the UpdateSettings-level
-  // StopShaderCompileThread we added in Option B) signals
-  // m_shader_compile_thread_quit and joins; the worker checks the
-  // flag between cells and can exit within ~one PSO compile.
   if (precompile_mode == GPUShaderPrecompileMode::Lazy ||
       precompile_mode == GPUShaderPrecompileMode::Enabled)
   {
-    m_shader_compile_thread_quit.store(false, std::memory_order_relaxed);
-    m_shader_compile_thread = std::thread(&GPU_HW_Vulkan::ShaderCompileThreadEntryPoint, this);
+    StartShaderCompileThreads();
   }
 
   return true;
 }
 
-void GPU_HW_Vulkan::StopShaderCompileThread()
+void GPU_HW_Vulkan::StartShaderCompileThreads()
 {
-  if (!m_shader_compile_thread.joinable())
-    return;
+  // Idempotent guard: never stack a second pool on top of a live one.
+  StopShaderCompileThread();
 
-  m_shader_compile_thread_quit.store(true, std::memory_order_relaxed);
-  m_shader_compile_thread.join();
-  m_shader_compile_thread_quit.store(false, std::memory_order_relaxed);
-}
-
-void GPU_HW_Vulkan::ShaderCompileThreadEntryPoint()
-{
-  // Lower this worker's scheduling priority to "below normal" so
-  // it doesn't compete with the runloop / CPU emulation / audio
-  // threads on CPU-contended systems. Best-effort: if the platform
-  // refuses we just keep going at default priority. See
-  // common/thread_priority.h for the per-platform mechanics.
-  ThreadPriority::LowerCurrentThreadPriority();
-
-  // Filter is the outermost loop. Order: current m_texture_filtering
-  // first (so a Lazy-mode launch from a cold cache starts populating
-  // the slots the runloop will actually hit ASAP), then the remaining
-  // six filter values in numeric order. In Enabled mode the current
-  // filter's sub-cube was already filled synchronously by the
-  // precompile_sync block in CompilePipelines, so the worker's
-  // first pass over it hits the lock-free fast-return path on every
-  // cell - effectively a free walk that just verifies the cache and
-  // then moves on to populate the other six.
+  // Flatten the reachable batch matrix on the main thread, current filter
+  // first so the runloop's first draws hit populated slots ASAP; the other
+  // filters follow in numeric order. Each worker claims the next cell with an
+  // atomic counter and builds it through its own transient pipeline cache, so
+  // several driver-side PSO compiles run in parallel; the caches are merged
+  // back into the shared one as workers finish. The main thread can race
+  // ahead and lazy-fault any slot it actually needs at draw time - the
+  // worker's publish-under-lock pattern observes the filled slot and moves
+  // on.
   //
-  // GPUTextureFilter::Count is 7 (Nearest, Bilinear, BilinearBinAlpha,
-  // JINC2, JINC2BinAlpha, xBR, xBRBinAlpha). On hardware that lacks
-  // dual-source blend the *BinAlpha and non-Nearest filters cannot
-  // actually be used at runtime (UpdateHWSettings forces
-  // m_texture_filtering back to Nearest), so skip warming those
-  // sub-cubes - they would never be looked up at draw time and the
-  // PSOs would just sit unused.
+  // In Enabled mode the precompile_sync block already populated the current
+  // filter's sub-cube synchronously, so the workers' first pass over it hits
+  // the lock-free fast-return on every cell - effectively a free walk that
+  // confirms the cache and then moves on. The real work is populating the
+  // OTHER six sub-cubes so any later filter swap is instant (no progress
+  // bar, no driver compile, no destroy / recreate).
   //
-  // The (m_true_color, m_scaled_dithering) snapshot is taken once at
-  // worker entry. The worker is responsible only for the current
-  // (true_color, scaled_dithering) combo's seven filter sub-cubes -
-  // walking all four combos in the background would balloon warm-up
-  // time to several minutes on a cold pipeline cache, well past
-  // "useful". Toggling true_color or scaled_dithering at runtime is
-  // serviced the same way a filter swap is: the previous combo's
-  // sub-cubes stay populated and are instantly addressable on a
-  // cycle-back, while the new combo gets a sync compile of its
-  // current filter sub-cube (Enabled) or lazy fault-in (Lazy /
-  // Disabled), plus a new background worker rooted at the new
-  // (true_color, scaled_dithering) tuple covering the other six
-  // filters.
-  //
-  // The quit flag is checked between cells so DestroyPipelines can
-  // stop the worker within at most one PSO compile of latency
-  // (Vulkan PSO compiles can be ~50-200 ms with the heavier texture
-  // filters).
-  //
-  // Structurally unreachable cells are skipped via
-  // IsBatchShaderReachable.
+  // DestroyPipelines (or the UpdateSettings-level StopShaderCompileThread)
+  // signals the quit flag and joins; each worker checks the flag between
+  // cells and can exit within ~one PSO compile.
+  m_shader_compile_cells.clear();
   const bool dual_source = m_supports_dual_source_blend;
   const uint8_t current_filter = static_cast<uint8_t>(m_texture_filtering);
-  const bool true_color = m_true_color;
-  const bool scaled_dithering = m_scaled_dithering;
   for (uint8_t f_offset = 0; f_offset < static_cast<uint8_t>(GPUTextureFilter::Count); f_offset++)
   {
-    const uint8_t filter_idx =
-      (current_filter + f_offset) % static_cast<uint8_t>(GPUTextureFilter::Count);
-    const GPUTextureFilter filter = static_cast<GPUTextureFilter>(filter_idx);
-
-    if (!dual_source && TextureFilterRequiresDualSourceBlend(filter))
+    const uint8_t filter_idx = (current_filter + f_offset) % static_cast<uint8_t>(GPUTextureFilter::Count);
+    if (!dual_source && TextureFilterRequiresDualSourceBlend(static_cast<GPUTextureFilter>(filter_idx)))
       continue;
 
     for (uint8_t depth_test = 0; depth_test < 3; depth_test++)
@@ -2088,12 +2021,8 @@ void GPU_HW_Vulkan::ShaderCompileThreadEntryPoint()
             {
               for (uint8_t interlacing = 0; interlacing < 2; interlacing++)
               {
-                if (m_shader_compile_thread_quit.load(std::memory_order_relaxed))
-                  return;
-
-                GetBatchPipeline(filter, true_color, scaled_dithering, depth_test, render_mode,
-                                 texture_mode, transparency_mode,
-                                 static_cast<bool>(dithering), static_cast<bool>(interlacing));
+                m_shader_compile_cells.push_back(PackBatchCell(filter_idx, depth_test, render_mode, texture_mode,
+                                                               transparency_mode, dithering, interlacing));
               }
             }
           }
@@ -2101,6 +2030,105 @@ void GPU_HW_Vulkan::ShaderCompileThreadEntryPoint()
       }
     }
   }
+
+  m_shader_compile_next_cell.store(0, std::memory_order_relaxed);
+  m_shader_compile_cells_done.store(0, std::memory_order_relaxed);
+  m_shader_compile_start_value.store(static_cast<int64_t>(Common::Timer::GetValue()), std::memory_order_relaxed);
+  m_shader_compile_thread_quit.store(false, std::memory_order_relaxed);
+
+  // A small pool is plenty: the work is driver-bound and a couple of workers
+  // already saturate the driver's compiler while still leaving the big cores
+  // to emulation.
+  const uint32_t hw_threads = std::max(1u, std::thread::hardware_concurrency());
+  const uint32_t worker_count = std::min(3u, std::max(1u, hw_threads / 2));
+  m_shader_compile_threads.reserve(worker_count);
+  for (uint32_t i = 0; i < worker_count; i++)
+    m_shader_compile_threads.emplace_back(&GPU_HW_Vulkan::ShaderCompileThreadEntryPoint, this);
+}
+
+void GPU_HW_Vulkan::StopShaderCompileThread()
+{
+  if (m_shader_compile_threads.empty())
+    return;
+
+  m_shader_compile_thread_quit.store(true, std::memory_order_relaxed);
+  for (std::thread& thread : m_shader_compile_threads)
+  {
+    if (thread.joinable())
+      thread.join();
+  }
+
+  m_shader_compile_threads.clear();
+  m_shader_compile_thread_quit.store(false, std::memory_order_relaxed);
+}
+
+void GPU_HW_Vulkan::ShaderCompileThreadEntryPoint()
+{
+  // Lower this worker's scheduling priority to "below normal" so
+  // it doesn't compete with the runloop / CPU emulation / audio
+  // threads on CPU-contended systems. Best-effort: if the platform
+  // refuses we just keep going at default priority. See
+  // common/thread_priority.h for the per-platform mechanics.
+  ThreadPriority::LowerCurrentThreadPriority();
+
+  // The cell list was prepared by CompilePipelines on the main thread,
+  // current filter first. Each worker claims the next unclaimed cell with an
+  // atomic counter, so the pool drains the list cooperatively; the quit flag
+  // is checked between cells so DestroyPipelines can stop the workers within
+  // at most one PSO compile of latency each (Vulkan PSO compiles can be
+  // ~50-200 ms with the heavier texture filters).
+  //
+  // The (true_color, scaled_dithering) snapshot is taken once at worker
+  // entry; the pool is responsible only for the current combo - walking all
+  // four combos in the background would balloon warm-up time on a cold
+  // pipeline cache. Toggling either value at runtime is serviced the same
+  // way as a filter swap: the previous combo's sub-cubes stay populated and
+  // are instantly addressable on a cycle-back, while the new combo gets a
+  // sync compile (Enabled) or lazy fault-in (Lazy / Disabled) plus a fresh
+  // background pool.
+  const bool true_color = m_true_color;
+  const bool scaled_dithering = m_scaled_dithering;
+  const size_t worker_count = m_shader_compile_threads.size();
+
+  // Compile through a private pipeline cache. A transient cache per worker
+  // lets the driver run PSO compiles truly in parallel instead of serialising
+  // every worker on the shared cache; results are merged back on exit.
+  VkPipelineCache pipeline_cache = g_vulkan_shader_cache->CreateTransientPipelineCache();
+
+  const uint32_t cell_count = static_cast<uint32_t>(m_shader_compile_cells.size());
+  for (;;)
+  {
+    if (m_shader_compile_thread_quit.load(std::memory_order_relaxed))
+      break;
+
+    const uint32_t index = m_shader_compile_next_cell.fetch_add(1, std::memory_order_relaxed);
+    if (index >= cell_count)
+      break;
+
+    const uint32_t cell = m_shader_compile_cells[index];
+    const uint8_t filter = static_cast<uint8_t>(cell & 0x7u);
+    const uint8_t depth_test = static_cast<uint8_t>((cell >> 3) & 0x3u);
+    const uint8_t render_mode = static_cast<uint8_t>((cell >> 5) & 0x3u);
+    const uint8_t texture_mode = static_cast<uint8_t>((cell >> 7) & 0xFu);
+    const uint8_t transparency_mode = static_cast<uint8_t>((cell >> 11) & 0x7u);
+    const bool dithering = ((cell >> 14) & 0x1u) != 0;
+    const bool interlacing = ((cell >> 15) & 0x1u) != 0;
+
+    GetBatchPipeline(static_cast<GPUTextureFilter>(filter), true_color, scaled_dithering, depth_test, render_mode,
+                     texture_mode, transparency_mode, dithering, interlacing, pipeline_cache, nullptr);
+
+    // Report once the pool has drained the whole list, so the warm-up cost is
+    // visible in the log without spamming per-cell output.
+    if ((m_shader_compile_cells_done.fetch_add(1, std::memory_order_relaxed) + 1) == cell_count)
+    {
+      const int64_t elapsed_ns =
+        static_cast<int64_t>(Common::Timer::GetValue()) - m_shader_compile_start_value.load(std::memory_order_relaxed);
+      Log_InfoPrintf("Batch pipeline warm-up: %u cells across %zu workers in %.0f ms", cell_count, worker_count,
+                     static_cast<double>(elapsed_ns) / 1000000.0);
+    }
+  }
+
+  g_vulkan_shader_cache->MergeTransientPipelineCache(pipeline_cache);
 }
 
 VkShaderModule GPU_HW_Vulkan::GetBatchFragmentShader(GPUTextureFilter filter, uint8_t render_mode, uint8_t texture_mode,
@@ -2212,7 +2240,8 @@ VkShaderModule GPU_HW_Vulkan::GetBatchFragmentShader(GPUTextureFilter filter, ui
 VkPipeline GPU_HW_Vulkan::GetBatchPipeline(GPUTextureFilter filter, bool true_color, bool scaled_dithering,
                                            uint8_t depth_test, uint8_t render_mode,
                                            uint8_t texture_mode, uint8_t transparency_mode,
-                                           bool dithering, bool interlacing)
+                                           bool dithering, bool interlacing,
+                                           VkPipelineCache pipeline_cache, std::mutex* pipeline_cache_mutex)
 {
   // Reserved_*Direct16Bit PSO dedup, applied at the helper entry.
   // Slots for texture_mode 3 / 7 are never written; all accesses
@@ -2406,19 +2435,25 @@ VkPipeline GPU_HW_Vulkan::GetBatchPipeline(GPUTextureFilter filter, bool true_co
 
   gpbuilder.SetDynamicViewportAndScissorState();
 
-  // Take the pipeline-cache mutex only around the actual
-  // vkCreateGraphicsPipelines call. Per Vulkan 1.0 spec section
-  // "Threading Behavior", the pipelineCache parameter to this
-  // function is in the externally-synchronised parameter list -
-  // the application must guarantee no concurrent use of the same
-  // VkPipelineCache. (The
-  // VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT flag from
-  // Vulkan 1.3 would make this a one-line spec opt-in but is not
-  // available here; SwanStation targets VK_API_VERSION_1_0.)
+  // Only serialise around the actual vkCreateGraphicsPipelines call, and only
+  // when the caller shares the global pipeline cache. Per Vulkan 1.0 spec
+  // section "Threading Behavior", the pipelineCache parameter to this function
+  // is in the externally-synchronised parameter list - the application must
+  // guarantee no concurrent use of the same VkPipelineCache. (The
+  // VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT flag from Vulkan 1.3
+  // would make this a one-line spec opt-in but is not available here;
+  // SwanStation targets VK_API_VERSION_1_0.) Background workers pass their own
+  // transient cache, which they own exclusively, so they compile in parallel
+  // without any locking.
   VkPipeline fresh;
+  if (pipeline_cache_mutex != nullptr)
   {
-    std::lock_guard<std::mutex> pc_lock(g_vulkan_shader_cache->PipelineCacheMutex());
-    fresh = gpbuilder.Create(g_vulkan_context->GetDevice(), g_vulkan_shader_cache->GetPipelineCache());
+    std::lock_guard<std::mutex> pc_lock(*pipeline_cache_mutex);
+    fresh = gpbuilder.Create(g_vulkan_context->GetDevice(), pipeline_cache);
+  }
+  else
+  {
+    fresh = gpbuilder.Create(g_vulkan_context->GetDevice(), pipeline_cache);
   }
   if (fresh == VK_NULL_HANDLE)
   {
@@ -3093,7 +3128,8 @@ void GPU_HW_Vulkan::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base
     GetBatchPipeline(m_texture_filtering, m_true_color, m_scaled_dithering,
                      depth_test, static_cast<uint8_t>(render_mode),
                      static_cast<uint8_t>(m_batch.texture_mode),
-                     static_cast<uint8_t>(m_batch.transparency_mode), m_batch.dithering, m_batch.interlacing);
+                     static_cast<uint8_t>(m_batch.transparency_mode), m_batch.dithering, m_batch.interlacing,
+                     g_vulkan_shader_cache->GetPipelineCache(), &g_vulkan_shader_cache->PipelineCacheMutex());
 
   vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 

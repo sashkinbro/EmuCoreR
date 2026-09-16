@@ -438,42 +438,34 @@ void DMA::UnhaltTransfer(TickCount ticks)
 
 TickCount DMA::TransferMemoryToDevice(Channel channel, uint32_t address, uint32_t increment, uint32_t word_count)
 {
-  const uint32_t* src_pointer = reinterpret_cast<uint32_t*>(Bus::g_ram + address);
   const uint32_t mask = GetAddressMask();
-  if (channel != Channel::GPU &&
-      (static_cast<int32_t>(increment) < 0 || ((address + (increment * word_count)) & mask) <= address))
+  const uint32_t* src_pointer = reinterpret_cast<const uint32_t*>(Bus::g_ram + address);
+  if (static_cast<int32_t>(increment) < 0 || ((address + (increment * word_count)) & mask) <= address)
   {
-    // Use temp buffer if it's wrapping around
+    // Use temp buffer if it's wrapping around, so every device gets a linear
+    // view of the block and the FIFO writer can run at full speed.
     if (m_transfer_buffer.size() < word_count)
       m_transfer_buffer.resize(word_count);
     src_pointer = m_transfer_buffer.data();
 
+    uint32_t read_address = address;
     uint8_t* ram_pointer = Bus::g_ram;
     for (uint32_t i = 0; i < word_count; i++)
     {
-      std::memcpy(&m_transfer_buffer[i], &ram_pointer[address], sizeof(uint32_t));
-      address = (address + increment) & mask;
+      std::memcpy(&m_transfer_buffer[i], &ram_pointer[read_address], sizeof(uint32_t));
+      read_address = (read_address + increment) & mask;
     }
   }
 
   switch (channel)
   {
     case Channel::GPU:
-    {
       if (g_gpu->BeginDMAWrite())
       {
-        uint8_t* ram_pointer = Bus::g_ram;
-        for (uint32_t i = 0; i < word_count; i++)
-        {
-          uint32_t value;
-          std::memcpy(&value, &ram_pointer[address], sizeof(uint32_t));
-          g_gpu->DMAWrite(address, value);
-          address = (address + increment) & mask;
-        }
+        g_gpu->DMAWrite(src_pointer, address, increment, word_count);
         g_gpu->EndDMAWrite();
       }
-    }
-    break;
+      break;
 
     case Channel::SPU:
       g_spu.DMAWrite(src_pointer, word_count);
