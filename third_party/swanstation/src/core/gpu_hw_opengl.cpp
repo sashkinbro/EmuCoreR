@@ -1784,10 +1784,23 @@ bool GPU_HW_OpenGL::UploadTextureReplacement(const TexturePageReplacement& repla
 
   if (entry->texture.IsValid())
   {
-    // Re-specifying the storage keeps the GL texture name (and therefore any
-    // cached binding state) stable across content updates.
-    entry->texture.Replace(image.GetWidth(), image.GetHeight(), GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
-                           image.GetPixels());
+    if (entry->texture.GetWidth() == image.GetWidth() && entry->texture.GetHeight() == image.GetHeight())
+    {
+      // Same dimensions: overwrite the texels instead of re-specifying the
+      // storage. Animated pages recompose often, and glTexImage2D reallocates
+      // on every revision while glTexSubImage2D is a plain upload.
+      entry->texture.Bind();
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, image.GetWidth(), image.GetHeight(), GL_RGBA, GL_UNSIGNED_BYTE,
+                      image.GetPixels());
+    }
+    else
+    {
+      // Re-specifying the storage keeps the GL texture name (and therefore any
+      // cached binding state) stable across size changes.
+      entry->texture.Replace(image.GetWidth(), image.GetHeight(), GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
+                             image.GetPixels());
+    }
   }
   else
   {
@@ -1804,6 +1817,21 @@ bool GPU_HW_OpenGL::UploadTextureReplacement(const TexturePageReplacement& repla
 
 void GPU_HW_OpenGL::DestroyTextureReplacementEntries()
 {
+  for (PendingReadback& pending : m_pending_readbacks)
+  {
+    if (pending.fence != nullptr)
+      glDeleteSync(pending.fence);
+    if (pending.pbo != 0)
+      m_free_readback_pbos.push_back(pending.pbo);
+  }
+  m_pending_readbacks.clear();
+
+  if (!m_free_readback_pbos.empty())
+  {
+    glDeleteBuffers(static_cast<GLsizei>(m_free_readback_pbos.size()), m_free_readback_pbos.data());
+    m_free_readback_pbos.clear();
+  }
+
   m_texture_replacement_entries.clear();
   m_replacement_texture_gl_id = 0;
   m_bound_replacement_texture_gl_id = 0;
@@ -1818,8 +1846,18 @@ void GPU_HW_OpenGL::ReadVRAMShadowForReplacements()
   // boundary, so it never disturbs a draw that is being recorded.
   if (!m_pending_replacement_uploads.empty())
   {
+    // Cap the burst: a scene change can queue dozens of animated pages at
+    // once, and uploading them all here stalls the end of a single frame.
+    // Leftovers stay pending and go out on the following frames.
+    static constexpr size_t MAX_UPLOADS_PER_FRAME = 8;
+    std::vector<uint64_t> processed_uploads;
+    processed_uploads.reserve(MAX_UPLOADS_PER_FRAME);
+
     for (auto& pending : m_pending_replacement_uploads)
     {
+      if (processed_uploads.size() >= MAX_UPLOADS_PER_FRAME)
+        break;
+
       if (m_texture_replacement_entries.find(pending.first) == m_texture_replacement_entries.end() &&
           m_texture_replacement_entries.size() >= MAX_TEXTURE_REPLACEMENTS)
       {
@@ -1857,10 +1895,15 @@ void GPU_HW_OpenGL::ReadVRAMShadowForReplacements()
       {
         Log_WarningPrintf("Failed to upload texture replacement %llu",
                           static_cast<unsigned long long>(pending.first));
+        processed_uploads.push_back(pending.first);
         continue;
       }
+
+      processed_uploads.push_back(pending.first);
     }
-    m_pending_replacement_uploads.clear();
+
+    for (uint64_t id : processed_uploads)
+      m_pending_replacement_uploads.erase(id);
 
     // Uploading binds the new texture on the active unit; restore the VRAM
     // read texture that the batch path expects on unit 0.
@@ -1868,9 +1911,14 @@ void GPU_HW_OpenGL::ReadVRAMShadowForReplacements()
     m_vram_read_texture.Bind();
   }
 
+  // Copy any readbacks that completed since the last boundary into the shadow.
+  // This never waits on the GPU for more than a poll.
+  CompleteVRAMReadbacks();
+
   // Read back only the pages that were both drawn into and sampled. Adjacent
   // pages are merged into one transfer, so P8/C16 pages and their palettes
-  // require a single readback instead of one per 64-word page.
+  // require a single readback instead of one per 64-word page. The readbacks
+  // themselves are asynchronous and land in the shadow at a later boundary.
   uint32_t pages = m_vram_shadow_dirty_pages & m_replacement_sampled_pages;
   m_replacement_sampled_pages = 0;
   for (uint32_t page_y = 0; page_y < 2; page_y++)
@@ -1885,13 +1933,16 @@ void GPU_HW_OpenGL::ReadVRAMShadowForReplacements()
 
       const uint32_t run_mask = ((1u << (end_page_x - first_page_x)) - 1u) << first_page_x;
       row_pages &= ~run_mask;
-      m_vram_shadow_dirty_pages &= ~(run_mask << (page_y * 16u));
 
       const uint32_t read_x = first_page_x * 64u;
       const uint32_t read_y = page_y * 256u;
       const uint32_t read_width = (end_page_x - first_page_x) * 64u;
-      ReadVRAM(read_x, read_y, read_width, 256u);
-      BumpVRAMPageRevisions(read_x, read_x + read_width, read_y, read_y + 256u);
+      if (BeginVRAMReadback(read_x, read_y, read_width, 256u))
+      {
+        // The GPU content is captured in the pending readback; the pages are
+        // only clean once it lands in the shadow.
+        m_vram_shadow_dirty_pages &= ~(run_mask << (page_y * 16u));
+      }
     }
   }
 }
@@ -2089,6 +2140,121 @@ void GPU_HW_OpenGL::ReadVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t he
   glPixelStorei(GL_PACK_ALIGNMENT, 4);
   glPixelStorei(GL_PACK_ROW_LENGTH, 0);
   RestoreGraphicsAPIState();
+}
+
+bool GPU_HW_OpenGL::BeginVRAMReadback(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+  if (m_pending_readbacks.size() >= MAX_PENDING_READBACKS)
+    return false;
+
+  const Common::Rectangle<uint32_t> copy_rect = GetVRAMTransferBounds(x, y, width, height);
+  const uint32_t encoded_width = (copy_rect.GetWidth() + 1) / 2;
+  const uint32_t encoded_height = copy_rect.GetHeight();
+  const size_t encoded_bytes = static_cast<size_t>(encoded_width) * encoded_height * 4;
+  if (encoded_bytes == 0 || encoded_bytes > READBACK_PBO_BYTES)
+    return false;
+
+  GLuint pbo;
+  if (!m_free_readback_pbos.empty())
+  {
+    pbo = m_free_readback_pbos.back();
+    m_free_readback_pbos.pop_back();
+  }
+  else
+  {
+    glGenBuffers(1, &pbo);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glBufferData(GL_PIXEL_PACK_BUFFER, READBACK_PBO_BYTES, nullptr, GL_STREAM_READ);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+  }
+
+  // Encode the VRAM region as 16-bit, exactly like the synchronous ReadVRAM.
+  const uint32_t uniforms[6] = {copy_rect.left, VRAM_HEIGHT - copy_rect.top - copy_rect.GetHeight(),
+                                copy_rect.GetWidth(), copy_rect.GetHeight(), m_resolution_scale, 0u};
+  m_vram_encoding_texture.BindFramebuffer(GL_DRAW_FRAMEBUFFER);
+  m_vram_texture.Bind();
+  m_vram_read_program.Bind();
+  UploadUniformBuffer(uniforms, sizeof(uniforms));
+  glDisable(GL_BLEND);
+  glDisable(GL_SCISSOR_TEST);
+  glViewport(0, 0, encoded_width, encoded_height);
+  glBindVertexArray(m_attributeless_vao_id);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  // Pack the encoded pixels into the PBO. glReadPixels returns immediately; the
+  // GPU performs the copy, and the fence records when the data is safe to map.
+  m_vram_encoding_texture.BindFramebuffer(GL_READ_FRAMEBUFFER);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+  glPixelStorei(GL_PACK_ALIGNMENT, 2);
+  glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+  glReadPixels(0, 0, encoded_width, encoded_height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 4);
+  glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+
+  PendingReadback pending;
+  pending.pbo = pbo;
+  pending.fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+  pending.left = copy_rect.left;
+  pending.top = copy_rect.top;
+  pending.width = copy_rect.GetWidth();
+  pending.height = copy_rect.GetHeight();
+  m_pending_readbacks.push_back(pending);
+
+  // Submit the queued commands so the fence can signal without depending on
+  // the next frame's draws.
+  glFlush();
+  RestoreGraphicsAPIState();
+  return true;
+}
+
+void GPU_HW_OpenGL::CompleteVRAMReadbacks()
+{
+  while (!m_pending_readbacks.empty())
+  {
+    PendingReadback& pending = m_pending_readbacks.front();
+
+    if (pending.fence != nullptr)
+    {
+      // A readback is normally a full frame old by the time we get here, so
+      // this returns already-signalled. Never block the emulation thread: if
+      // the GPU is still behind, retry at the next frame boundary.
+      const GLenum wait_result = glClientWaitSync(pending.fence, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+      if (wait_result == GL_TIMEOUT_EXPIRED)
+        break;
+    }
+
+    const uint32_t encoded_width = (pending.width + 1) / 2;
+    const size_t encoded_bytes = static_cast<size_t>(encoded_width) * pending.height * 4;
+
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pending.pbo);
+    void* mapped = glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, static_cast<GLsizeiptr>(encoded_bytes), GL_MAP_READ_BIT);
+    if (mapped == nullptr)
+    {
+      // The buffer is still busy; keep the entry (and its dirty pages) and
+      // retry at the next frame boundary.
+      glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+      break;
+    }
+
+    const uint8_t* src = static_cast<const uint8_t*>(mapped);
+    uint16_t* dst = &m_vram_shadow[static_cast<size_t>(pending.top) * VRAM_WIDTH + pending.left];
+    for (uint32_t row = 0; row < pending.height; row++)
+    {
+      std::memcpy(dst, src, static_cast<size_t>(encoded_width) * 4);
+      src += static_cast<size_t>(encoded_width) * 4;
+      dst += VRAM_WIDTH;
+    }
+    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    BumpVRAMPageRevisions(pending.left, pending.left + pending.width, pending.top, pending.top + pending.height);
+
+    if (pending.fence != nullptr)
+      glDeleteSync(pending.fence);
+
+    m_free_readback_pbos.push_back(pending.pbo);
+    m_pending_readbacks.erase(m_pending_readbacks.begin());
+  }
 }
 
 void GPU_HW_OpenGL::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t color)

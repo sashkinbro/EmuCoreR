@@ -1546,6 +1546,7 @@ void GPU_HW_Vulkan::DestroyFramebuffer()
   m_vram_readback_texture.Destroy(false);
   m_display_texture.Destroy(false);
   m_vram_readback_staging_texture.Destroy(false);
+  DestroyReadbackResources();
 }
 
 bool GPU_HW_Vulkan::CreateVertexBuffer()
@@ -3317,6 +3318,105 @@ void GPU_HW_Vulkan::ReadVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t he
                                              VRAM_WIDTH * sizeof(uint16_t));
 }
 
+bool GPU_HW_Vulkan::BeginVRAMReadback(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+  if (m_pending_readbacks.size() >= MAX_PENDING_READBACKS)
+    return false;
+
+  const Common::Rectangle<uint32_t> copy_rect = GetVRAMTransferBounds(x, y, width, height);
+  const uint32_t encoded_width = (copy_rect.GetWidth() + 1) / 2;
+  const uint32_t encoded_height = copy_rect.GetHeight();
+  if (encoded_width == 0 || encoded_height == 0)
+    return false;
+
+  Vulkan::StagingTexture staging;
+  if (!m_free_readback_staging_textures.empty())
+  {
+    staging = std::move(m_free_readback_staging_textures.back());
+    m_free_readback_staging_textures.pop_back();
+  }
+  else if (!staging.Create(Vulkan::StagingBuffer::Type::Readback, m_vram_readback_texture.GetFormat(),
+                           VRAM_WIDTH / 2, VRAM_HEIGHT))
+  {
+    Log_ErrorPrintf("Failed to allocate a VRAM readback staging texture");
+    return false;
+  }
+
+  EndRenderPass();
+
+  VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
+
+  m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  m_vram_readback_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+  // Work around Mali driver bug: set full framebuffer size for render area. The GPU crashes with a page fault if we use
+  // the actual size we're rendering to...
+  const uint32_t rp_width = std::max<uint32_t>(16, encoded_width);
+  const uint32_t rp_height = std::max<uint32_t>(16, encoded_height);
+  BeginRenderPass(m_vram_readback_render_pass, m_vram_readback_framebuffer, 0, 0, rp_width, rp_height);
+
+  // Encode the 24-bit texture as 16-bit.
+  const uint32_t uniforms[6] = {copy_rect.left, copy_rect.top, copy_rect.GetWidth(), copy_rect.GetHeight(),
+                                m_resolution_scale, 0u /* u_pad0 */};
+  vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, GetVRAMReadbackPipeline());
+  vkCmdPushConstants(cmdbuf, m_single_sampler_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uniforms),
+                     uniforms);
+  vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_single_sampler_pipeline_layout, 0, 1,
+                          &m_vram_read_descriptor_set, 0, nullptr);
+  Vulkan::Util::SetViewportAndScissor(cmdbuf, 0, 0, encoded_width, encoded_height);
+  vkCmdDraw(cmdbuf, 3, 1, 0, 0);
+  EndRenderPass();
+
+  m_vram_readback_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+  m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+  staging.CopyFromTexture(m_vram_readback_texture, 0, 0, 0, 0, 0, 0, encoded_width, encoded_height);
+
+  PendingReadback pending;
+  pending.fence_counter = g_vulkan_context->GetCurrentFenceCounter();
+  pending.left = copy_rect.left;
+  pending.top = copy_rect.top;
+  pending.width = copy_rect.GetWidth();
+  pending.height = copy_rect.GetHeight();
+  pending.staging = std::move(staging);
+  m_pending_readbacks.push_back(std::move(pending));
+  return true;
+}
+
+void GPU_HW_Vulkan::CompleteVRAMReadbacks()
+{
+  while (!m_pending_readbacks.empty())
+  {
+    PendingReadback& pending = m_pending_readbacks.front();
+
+    // Prefer waiting until the next frame boundary: the fence has almost
+    // always signalled by then, so this is a poll rather than a stall. Only
+    // when the queue is full do we fall back to a blocking flush, which bounds
+    // how stale the CPU-side shadow can get.
+    const bool force = (m_pending_readbacks.size() >= MAX_PENDING_READBACKS);
+    if (!force && g_vulkan_context->GetCompletedFenceCounter() < pending.fence_counter)
+      break;
+
+    const uint32_t encoded_width = (pending.width + 1) / 2;
+    pending.staging.Flush();
+    pending.staging.ReadTexels(0, 0, encoded_width, pending.height,
+                               &m_vram_shadow[static_cast<size_t>(pending.top) * VRAM_WIDTH + pending.left],
+                               VRAM_WIDTH * sizeof(uint16_t));
+    BumpVRAMPageRevisions(pending.left, pending.left + pending.width, pending.top, pending.top + pending.height);
+
+    m_free_readback_staging_textures.push_back(std::move(pending.staging));
+    m_pending_readbacks.erase(m_pending_readbacks.begin());
+  }
+}
+
+void GPU_HW_Vulkan::DestroyReadbackResources()
+{
+  m_pending_readbacks.clear();
+  for (Vulkan::StagingTexture& staging : m_free_readback_staging_textures)
+    staging.Destroy(false);
+  m_free_readback_staging_textures.clear();
+}
+
 void GPU_HW_Vulkan::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t color)
 {
   if (IsUsingSoftwareRendererForReadbacks())
@@ -3676,8 +3776,18 @@ void GPU_HW_Vulkan::ReadVRAMShadowForReplacements()
   // never submit the command buffer or rebind state mid-draw.
   if (!m_pending_replacement_uploads.empty())
   {
+    // Cap the burst: a scene change can queue dozens of animated pages at
+    // once, and uploading them all here stalls the end of a single frame.
+    // Leftovers stay pending and go out on the following frames.
+    static constexpr size_t MAX_UPLOADS_PER_FRAME = 8;
+    std::vector<uint64_t> processed_uploads;
+    processed_uploads.reserve(MAX_UPLOADS_PER_FRAME);
+
     for (auto& pending : m_pending_replacement_uploads)
     {
+      if (processed_uploads.size() >= MAX_UPLOADS_PER_FRAME)
+        break;
+
       auto existing = m_texture_replacement_entries.find(pending.first);
       if (existing == m_texture_replacement_entries.end() &&
           m_texture_replacement_entries.size() >= MAX_TEXTURE_REPLACEMENTS)
@@ -3703,6 +3813,7 @@ void GPU_HW_Vulkan::ReadVRAMShadowForReplacements()
       {
         Log_WarningPrintf("Failed to upload texture replacement %llu",
                           static_cast<unsigned long long>(pending.first));
+        processed_uploads.push_back(pending.first);
         continue;
       }
 
@@ -3718,13 +3829,22 @@ void GPU_HW_Vulkan::ReadVRAMShadowForReplacements()
         entry.last_used = ++m_texture_replacement_used_counter;
         m_texture_replacement_entries.emplace(pending.first, std::move(entry));
       }
+
+      processed_uploads.push_back(pending.first);
     }
-    m_pending_replacement_uploads.clear();
+
+    for (uint64_t id : processed_uploads)
+      m_pending_replacement_uploads.erase(id);
   }
+
+  // Copy any readbacks that finished since the last boundary into the shadow.
+  CompleteVRAMReadbacks();
 
   // Read back only pages that were both drawn into and sampled. Adjacent pages
   // are merged into one transfer, so P8/C16 pages and their palettes require a
-  // single GPU wait instead of one wait per 64-word page.
+  // single staging copy instead of one per 64-word page. The readbacks are
+  // asynchronous and land in the shadow at a later boundary.
+  uint32_t readback_count = 0;
   uint32_t pages = m_vram_shadow_dirty_pages & m_replacement_sampled_pages;
   m_replacement_sampled_pages = 0;
   for (uint32_t page_y = 0; page_y < 2; page_y++)
@@ -3739,14 +3859,25 @@ void GPU_HW_Vulkan::ReadVRAMShadowForReplacements()
 
       const uint32_t run_mask = ((1u << (end_page_x - first_page_x)) - 1u) << first_page_x;
       row_pages &= ~run_mask;
-      m_vram_shadow_dirty_pages &= ~(run_mask << (page_y * 16u));
 
       const uint32_t read_x = first_page_x * 64u;
       const uint32_t read_y = page_y * 256u;
       const uint32_t read_width = (end_page_x - first_page_x) * 64u;
-      ReadVRAM(read_x, read_y, read_width, 256u);
-      BumpVRAMPageRevisions(read_x, read_x + read_width, read_y, read_y + 256u);
+      if (BeginVRAMReadback(read_x, read_y, read_width, 256u))
+      {
+        // The GPU content is captured in the pending staging copy; the pages
+        // are only clean once it lands in the shadow.
+        m_vram_shadow_dirty_pages &= ~(run_mask << (page_y * 16u));
+        readback_count++;
+      }
     }
+  }
+
+  if (readback_count > 0)
+  {
+    // Submit the recorded encodes and copies without waiting: the staging
+    // textures are read at a later frame boundary, once their fences signal.
+    ExecuteCommandBuffer(false, true);
   }
 }
 

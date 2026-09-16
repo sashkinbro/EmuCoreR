@@ -126,7 +126,7 @@ protected:
 
 private:
   static constexpr uint32_t MAX_PUSH_CONSTANTS_SIZE = 64, TEXTURE_REPLACEMENT_BUFFER_SIZE = 256 * 1024 * 1024;
-  static constexpr size_t MAX_TEXTURE_REPLACEMENTS = 128;
+  static constexpr size_t MAX_TEXTURE_REPLACEMENTS = 512;
   void SetCapabilities();
   void DestroyResources();
 
@@ -299,6 +299,31 @@ private:
   Vulkan::StagingTexture m_vram_readback_staging_texture;
   Vulkan::Texture m_display_texture;
   bool m_use_ssbos_for_vram_writes = false;
+
+  // VRAM shadow readbacks for texture replacement matching are asynchronous:
+  // the encode and GPU->buffer copy are recorded into the frame's command
+  // buffer and submitted without waiting, and the staging texture is copied
+  // into the shadow at a later frame boundary once its fence has signalled.
+  // Blocking on the copy here stalled the emulation thread and caused dropped
+  // frames and audio underruns.
+  struct PendingReadback
+  {
+    Vulkan::StagingTexture staging;
+    uint64_t fence_counter = 0;
+    uint32_t left = 0;
+    uint32_t top = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+  };
+
+  static constexpr size_t MAX_PENDING_READBACKS = 6;
+
+  bool BeginVRAMReadback(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+  void CompleteVRAMReadbacks();
+  void DestroyReadbackResources();
+
+  std::vector<PendingReadback> m_pending_readbacks;
+  std::vector<Vulkan::StagingTexture> m_free_readback_staging_textures;
 
   VkFramebuffer m_vram_framebuffer = VK_NULL_HANDLE;
   VkFramebuffer m_vram_update_depth_framebuffer = VK_NULL_HANDLE;

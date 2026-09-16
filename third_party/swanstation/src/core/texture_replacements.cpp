@@ -25,11 +25,20 @@ Log_SetChannel(TextureReplacements);
 
 // Decoded replacement textures are kept in memory, and large HD packs can be
 // hundreds of megabytes, so cap the cache and evict the oldest entries first.
-static constexpr size_t TEXTURE_CACHE_BUDGET_BYTES = 128u * 1024u * 1024u;
+static constexpr size_t TEXTURE_CACHE_BUDGET_BYTES = 256u * 1024u * 1024u;
 
 // Composited texture pages (RGBA8, upscaled) get their own budget. A single
 // full-page composite is 256x256x4 bytes at 1x, or up to ~64 MiB at 4K packs.
-static constexpr size_t TEXTURE_PAGE_CACHE_BUDGET_BYTES = 256u * 1024u * 1024u;
+static constexpr size_t TEXTURE_PAGE_CACHE_BUDGET_BYTES = 512u * 1024u * 1024u;
+
+// Upper bound on the composite upscale factor. HD packs ship replacement
+// images at 4x, but a 256x256 page composited at 4x is 4 MiB and games can
+// reference hundreds of distinct page/palette pairs per frame: the working set
+// then dwarfs any sane cache and every draw recomposites and re-uploads
+// multi-megabyte textures. Capping at 2x keeps the images above the native
+// page resolution while cutting composite memory and upload traffic 4x, which
+// is what makes the page cache able to hold a game's live working set.
+static constexpr float TEXPAGE_COMPOSITE_MAX_SCALE = 2.0f;
 
 // VRAM page layout.
 static constexpr uint32_t VRAM_PAGE_WIDTH = 64;
@@ -84,7 +93,10 @@ bool TextureReplacementHash::ParseString(const std::string_view& sv)
 
 TextureReplacements::TextureReplacements() = default;
 
-TextureReplacements::~TextureReplacements() = default;
+TextureReplacements::~TextureReplacements()
+{
+  StopTextureLoader();
+}
 
 void TextureReplacements::SetGameID(std::string game_id)
 {
@@ -108,6 +120,8 @@ const TextureReplacementTexture* TextureReplacements::GetVRAMWriteReplacement(ui
 
 void TextureReplacements::Shutdown()
 {
+  StopTextureLoader();
+  m_texture_pending_hit = false;
   m_texture_cache.clear();
   m_texture_lru.clear();
   m_texture_lru_positions.clear();
@@ -161,6 +175,13 @@ void TextureReplacements::Reload()
   m_page_hash_cache.clear();
   m_palette_hash_cache.clear();
   m_rect_hash_cache.clear();
+  m_texture_pending_hit = false;
+  {
+    std::lock_guard<std::mutex> lock(m_texture_loader_mutex);
+    m_texture_loader_queue.clear();
+    m_texture_loader_completed.clear();
+  }
+  m_texture_load_pending.clear();
 
   if (g_settings.texture_replacements.AnyReplacementsEnabled())
     FindTextures(GetSourceDirectory());
@@ -462,23 +483,144 @@ const TextureReplacementTexture* TextureReplacements::LoadTexture(const std::str
     return &it->second;
   }
 
-  Common::RGBA8Image image;
-  if (!Common::LoadImageFromFile(&image, filename.c_str()))
+  // Pick up anything the worker finished since the last lookup. Decoded images
+  // enter the cache on this thread only.
+  DrainLoadedTextures();
+
+  it = m_texture_cache.find(filename);
+  if (it != m_texture_cache.end())
   {
-    Log_ErrorPrintf("Failed to load '%s'", filename.c_str());
-    return nullptr;
+    TouchTextureCacheEntry(filename);
+    return &it->second;
   }
 
-  const size_t image_bytes = static_cast<size_t>(image.GetWidth()) * image.GetHeight() * 4;
-  Log_InfoPrintf("Loaded '%s': %ux%u", filename.c_str(), image.GetWidth(), image.GetHeight());
+  // Never decode on the emulation thread. The caller treats the texture as
+  // missing for this frame and the page is recomposited once it arrives.
+  QueueTextureLoad(filename);
+  m_texture_pending_hit = true;
+  return nullptr;
+}
 
+void TextureReplacements::InsertDecodedTexture(std::string filename, TextureReplacementTexture image)
+{
+  const auto existing = m_texture_cache.find(filename);
+  if (existing != m_texture_cache.end())
+    return;
+
+  const size_t image_bytes = static_cast<size_t>(image.GetWidth()) * image.GetHeight() * 4;
   EvictTexturesForBudget(image_bytes, filename);
 
-  it = m_texture_cache.emplace(filename, std::move(image)).first;
-  m_texture_lru.push_back(filename);
-  m_texture_lru_positions[filename] = std::prev(m_texture_lru.end());
+  auto inserted = m_texture_cache.emplace(std::move(filename), std::move(image)).first;
+  m_texture_lru.push_back(inserted->first);
+  m_texture_lru_positions[inserted->first] = std::prev(m_texture_lru.end());
   m_texture_cache_bytes += image_bytes;
-  return &it->second;
+}
+
+void TextureReplacements::StartTextureLoader()
+{
+  if (m_texture_loader_thread.joinable())
+    return;
+
+  m_texture_loader_stop = false;
+  m_texture_loader_thread = std::thread(&TextureReplacements::TextureLoaderEntry, this);
+}
+
+void TextureReplacements::StopTextureLoader()
+{
+  if (m_texture_loader_thread.joinable())
+  {
+    {
+      std::lock_guard<std::mutex> lock(m_texture_loader_mutex);
+      m_texture_loader_stop = true;
+    }
+    m_texture_loader_cv.notify_all();
+    m_texture_loader_thread.join();
+  }
+
+  std::lock_guard<std::mutex> lock(m_texture_loader_mutex);
+  m_texture_loader_queue.clear();
+  m_texture_loader_completed.clear();
+  m_texture_loader_stop = false;
+  m_texture_load_pending.clear();
+}
+
+void TextureReplacements::QueueTextureLoad(const std::string& filename)
+{
+  if (m_texture_load_pending.size() >= MAX_TEXTURE_LOAD_REQUESTS)
+    return;
+
+  if (!m_texture_load_pending.insert(filename).second)
+    return;
+
+  StartTextureLoader();
+
+  {
+    std::lock_guard<std::mutex> lock(m_texture_loader_mutex);
+    m_texture_loader_queue.push_back(filename);
+  }
+  m_texture_loader_cv.notify_one();
+}
+
+void TextureReplacements::TextureLoaderEntry(TextureReplacements* self)
+{
+  for (;;)
+  {
+    std::string filename;
+    {
+      std::unique_lock<std::mutex> lock(self->m_texture_loader_mutex);
+      self->m_texture_loader_cv.wait(lock, [self] {
+        return self->m_texture_loader_stop || !self->m_texture_loader_queue.empty();
+      });
+
+      if (self->m_texture_loader_queue.empty())
+      {
+        if (self->m_texture_loader_stop)
+          return;
+        continue;
+      }
+
+      filename = std::move(self->m_texture_loader_queue.front());
+      self->m_texture_loader_queue.pop_front();
+    }
+
+    DecodedTexture decoded;
+    decoded.filename = filename;
+    if (!Common::LoadImageFromFile(&decoded.image, filename.c_str()))
+    {
+      // Cache the failure as an empty image so the page lookup does not keep
+      // waiting for a file that will never decode.
+      Log_ErrorPrintf("Failed to load '%s'", filename.c_str());
+    }
+    else
+    {
+      Log_InfoPrintf("Loaded '%s': %ux%u", filename.c_str(), decoded.image.GetWidth(), decoded.image.GetHeight());
+    }
+
+    {
+      std::lock_guard<std::mutex> lock(self->m_texture_loader_mutex);
+      self->m_texture_loader_completed.push_back(std::move(decoded));
+    }
+  }
+}
+
+void TextureReplacements::DrainLoadedTextures()
+{
+  std::deque<DecodedTexture> completed;
+  {
+    std::lock_guard<std::mutex> lock(m_texture_loader_mutex);
+    if (m_texture_loader_completed.empty())
+      return;
+    completed.swap(m_texture_loader_completed);
+  }
+
+  for (DecodedTexture& decoded : completed)
+  {
+    m_texture_load_pending.erase(decoded.filename);
+    InsertDecodedTexture(std::move(decoded.filename), std::move(decoded.image));
+  }
+
+  // Pages composited while these images were still loading need a rebuild.
+  m_texture_load_generation.fetch_add(1, std::memory_order_relaxed);
 }
 
 void TextureReplacements::PreloadTextures()
@@ -498,11 +640,26 @@ void TextureReplacements::PreloadTextures()
     last_update_time = Common::Timer::GetValue();                                                                     \
   }
 
+  const auto preload_one = [this](const std::string& filename) {
+    if (m_texture_cache.find(filename) != m_texture_cache.end())
+      return;
+
+    Common::RGBA8Image image;
+    if (!Common::LoadImageFromFile(&image, filename.c_str()))
+    {
+      Log_ErrorPrintf("Failed to load '%s'", filename.c_str());
+      return;
+    }
+
+    Log_InfoPrintf("Loaded '%s': %ux%u", filename.c_str(), image.GetWidth(), image.GetHeight());
+    InsertDecodedTexture(filename, std::move(image));
+  };
+
   for (const auto& it : m_vram_write_replacements)
   {
     UPDATE_PROGRESS();
 
-    LoadTexture(it.second);
+    preload_one(it.second);
     num_textures_loaded++;
   }
 
@@ -512,7 +669,7 @@ void TextureReplacements::PreloadTextures()
     {
       UPDATE_PROGRESS();
 
-      LoadTexture(entry.filename);
+      preload_one(entry.filename);
       num_textures_loaded++;
     }
   }
@@ -755,7 +912,7 @@ bool TextureReplacements::TexturePageReplacementName::Parse(const std::string_vi
 size_t TextureReplacements::PageCacheKeyHash::operator()(const PageCacheKey& k) const
 {
   size_t seed = std::hash<uint32_t>{}(k.page);
-  hash_combine(seed, k.mode, k.palette_x, k.palette_y);
+  hash_combine(seed, k.mode, k.palette_hash);
   return seed;
 }
 
@@ -1286,10 +1443,10 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
   max_scale_x = std::min(max_scale_x, max_possible_scale);
   max_scale_y = std::min(max_scale_y, max_possible_scale);
 
-  // Cap the composite at the internal rendering resolution. Games with
-  // animated pages can rebuild the same page dozens of times per second, and
-  // detail beyond the visible resolution is wasted memory bandwidth.
-  const float resolution_cap = static_cast<float>(std::max<uint32_t>(1, m_resolution_scale));
+  // Cap the composite at the internal rendering resolution, and at the hard
+  // memory/bandwidth bound above it.
+  const float resolution_cap =
+    std::min(static_cast<float>(std::max<uint32_t>(1, m_resolution_scale)), TEXPAGE_COMPOSITE_MAX_SCALE);
   max_scale_x = std::min(max_scale_x, resolution_cap);
   max_scale_y = std::min(max_scale_y, resolution_cap);
   if (!(max_scale_x > 0.0f) || !(max_scale_y > 0.0f))
@@ -1304,19 +1461,44 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
   image->SetSize(out_width, out_height);
   uint32_t* out_pixels = image->GetPixels();
 
-  // Upscale the decoded page with nearest filtering.
+  // Upscale the decoded page with nearest filtering. Integer scale factors
+  // (the common case: 2x/3x/4x/5x packs) expand one source row at a time and
+  // duplicate it instead of running a divide per output pixel.
 
-  for (uint32_t y = 0; y < out_height; y++)
+  if ((out_width % TEXPAGE_NATIVE_WIDTH) == 0 && (out_height % TEXPAGE_NATIVE_HEIGHT) == 0)
   {
-    const uint32_t src_y = std::min<uint32_t>(
-      static_cast<uint32_t>((static_cast<uint64_t>(y) * TEXPAGE_NATIVE_HEIGHT) / out_height), TEXPAGE_NATIVE_HEIGHT - 1);
-    const uint32_t* src_row = &base_pixels[static_cast<size_t>(src_y) * TEXPAGE_NATIVE_WIDTH];
-    uint32_t* dst_row = out_pixels + (static_cast<size_t>(y) * out_width);
-    for (uint32_t x = 0; x < out_width; x++)
+    const uint32_t x_repeat = out_width / TEXPAGE_NATIVE_WIDTH;
+    const uint32_t y_repeat = out_height / TEXPAGE_NATIVE_HEIGHT;
+    std::vector<uint32_t> expanded_row(out_width);
+    for (uint32_t src_y = 0; src_y < TEXPAGE_NATIVE_HEIGHT; src_y++)
     {
-      const uint32_t src_x = std::min<uint32_t>(
-        static_cast<uint32_t>((static_cast<uint64_t>(x) * TEXPAGE_NATIVE_WIDTH) / out_width), TEXPAGE_NATIVE_WIDTH - 1);
-      dst_row[x] = src_row[src_x];
+      const uint32_t* src_row = &base_pixels[static_cast<size_t>(src_y) * TEXPAGE_NATIVE_WIDTH];
+      for (uint32_t x = 0; x < TEXPAGE_NATIVE_WIDTH; x++)
+      {
+        uint32_t* dst = &expanded_row[static_cast<size_t>(x) * x_repeat];
+        for (uint32_t i = 0; i < x_repeat; i++)
+          dst[i] = src_row[x];
+      }
+
+      uint32_t* dst_row = out_pixels + (static_cast<size_t>(src_y) * y_repeat * out_width);
+      for (uint32_t i = 0; i < y_repeat; i++, dst_row += out_width)
+        std::memcpy(dst_row, expanded_row.data(), sizeof(uint32_t) * out_width);
+    }
+  }
+  else
+  {
+    for (uint32_t y = 0; y < out_height; y++)
+    {
+      const uint32_t src_y = std::min<uint32_t>(
+        static_cast<uint32_t>((static_cast<uint64_t>(y) * TEXPAGE_NATIVE_HEIGHT) / out_height), TEXPAGE_NATIVE_HEIGHT - 1);
+      const uint32_t* src_row = &base_pixels[static_cast<size_t>(src_y) * TEXPAGE_NATIVE_WIDTH];
+      uint32_t* dst_row = out_pixels + (static_cast<size_t>(y) * out_width);
+      for (uint32_t x = 0; x < out_width; x++)
+      {
+        const uint32_t src_x = std::min<uint32_t>(
+          static_cast<uint32_t>((static_cast<uint64_t>(x) * TEXPAGE_NATIVE_WIDTH) / out_width), TEXPAGE_NATIVE_WIDTH - 1);
+        dst_row[x] = src_row[src_x];
+      }
     }
   }
 
@@ -1347,6 +1529,46 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
     const uint32_t src_y0 = std::min<uint32_t>(match.src_y, src_texture_height - 1);
     const uint32_t src_x1 = std::min<uint32_t>(src_x0 + std::max<uint32_t>(1, match.src_width), src_texture_width);
     const uint32_t src_y1 = std::min<uint32_t>(src_y0 + std::max<uint32_t>(1, match.src_height), src_texture_height);
+
+    // Fast path: when the destination grid advances by an exact integer number
+    // of source texels (1:1 copies and integer downscales alike), sampling
+    // reduces to picking one texel. Packs whose images are integer multiples of
+    // the source rectangles - the common case - hit this for every match, which
+    // skips the per-pixel float sampling entirely.
+    const uint32_t dst_width = dst_x1 - dst_x0;
+    const uint32_t dst_height = dst_y1 - dst_y0;
+    const uint32_t ratio_x = (dst_width != 0) ? (src_x1 - src_x0) / dst_width : 0;
+    const uint32_t ratio_y = (dst_height != 0) ? (src_y1 - src_y0) / dst_height : 0;
+    if (ratio_x != 0 && ratio_y != 0 && (ratio_x * dst_width) == (src_x1 - src_x0) &&
+        (ratio_y * dst_height) == (src_y1 - src_y0))
+    {
+      for (uint32_t y = dst_y0; y < dst_y1; y++)
+      {
+        const uint32_t* src_row =
+          src_pixels + (static_cast<size_t>(src_y0 + (y - dst_y0) * ratio_y) * src_texture_width) + src_x0;
+        uint32_t* dst_row = out_pixels + (static_cast<size_t>(y) * out_width);
+        if (semitransparent)
+        {
+          for (uint32_t x = dst_x0, src_x = 0; x < dst_x1; x++, src_x += ratio_x)
+          {
+            const uint32_t pixel = src_row[src_x];
+            dst_row[x] = (pixel == 0) ?
+                           0 :
+                           ((pixel & 0x00FFFFFFu) | (((pixel >> 24) <= 242u) ? 0xFF000000u : 0x00000000u));
+          }
+        }
+        else
+        {
+          for (uint32_t x = dst_x0, src_x = 0; x < dst_x1; x++, src_x += ratio_x)
+          {
+            const uint32_t pixel = src_row[src_x];
+            dst_row[x] = (pixel != 0) ? ((pixel & 0x00FFFFFFu) | 0x02000000u) : 0u;
+          }
+        }
+      }
+      continue;
+    }
+
     const float rcp_dst_width = 1.0f / static_cast<float>(dst_x1 - dst_x0);
     const float rcp_dst_height = 1.0f / static_cast<float>(dst_y1 - dst_y0);
     const float src_step_x = static_cast<float>(src_x1 - src_x0) * rcp_dst_width / static_cast<float>(src_texture_width);
@@ -1396,9 +1618,12 @@ std::shared_ptr<Common::RGBA8Image> TextureReplacements::ComposePage(const std::
 
           if (coverage >= 0.5f)
           {
-            const auto unmultiply = [coverage](uint32_t channel) {
+            // A single reciprocal is cheaper than three divides on the edge
+            // texels that still take the generic sampling path.
+            const float rcp_coverage = 1.0f / coverage;
+            const auto unmultiply = [rcp_coverage](uint32_t channel) {
               return static_cast<uint32_t>(
-                std::clamp(static_cast<float>(channel) / coverage, 0.0f, 255.0f));
+                std::clamp(static_cast<float>(channel) * rcp_coverage, 0.0f, 255.0f));
             };
             const uint32_t rgb = unmultiply(pixel & 0xFFu) | (unmultiply((pixel >> 8) & 0xFFu) << 8) |
                                  (unmultiply((pixel >> 16) & 0xFFu) << 16);
@@ -1491,16 +1716,20 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
   // swaps the GPU texture at the frame boundary. This keeps the batch key
   // stable for animated pages, so changing content never re-flushes or
   // flickers between the native and replaced paths.
-  const PageCacheKey key = {page, mode_index, palette_x, palette_y};
+  const PageCacheKey key = {page, mode_index, full_palette_hash};
   auto it = m_page_cache.find(key);
   if (it != m_page_cache.end())
   {
     CachedPage& cached = it->second;
     cached.last_used = ++m_page_cache_used_counter;
-    if (cached.page_hash == page_hash && cached.palette_hash == full_palette_hash)
+    const uint64_t texture_generation = m_texture_load_generation.load(std::memory_order_relaxed);
+    const bool waiting_for_textures = cached.incomplete && cached.load_generation != texture_generation;
+    if (cached.page_hash == page_hash && cached.palette_hash == full_palette_hash && !waiting_for_textures)
       return (cached.replacement.id != 0) ? &cached.replacement : nullptr;
 
-    // Content changed since the cached composition; rebuild it in place.
+    // Content changed since the cached composition, or a replacement texture
+    // that was still decoding on the worker has arrived; rebuild in place.
+    m_texture_pending_hit = false;
     std::vector<ReplacementMatch> matches;
     FindTexturePageMatches(matches, page, canonical_mode, palette_x, palette_y, page_hash, full_palette_hash,
                            page_revision);
@@ -1515,6 +1744,8 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
     {
       cached.replacement.image.reset();
       cached.replacement.id = 0;
+      cached.incomplete = false;
+      cached.load_generation = texture_generation;
       m_page_cache_bytes -= old_size;
       return nullptr;
     }
@@ -1527,10 +1758,14 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
     {
       cached.replacement.image.reset();
       cached.replacement.id = 0;
+      cached.incomplete = m_texture_pending_hit;
+      cached.load_generation = m_texture_load_generation.load(std::memory_order_relaxed);
       m_page_cache_bytes -= old_size;
       return nullptr;
     }
 
+    cached.incomplete = m_texture_pending_hit;
+    cached.load_generation = m_texture_load_generation.load(std::memory_order_relaxed);
     cached.replacement.image = std::move(image);
     if (cached.replacement.id == 0)
     {
@@ -1561,6 +1796,7 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
     return &it->second.replacement;
   }
 
+  m_texture_pending_hit = false;
   std::vector<ReplacementMatch> matches;
   FindTexturePageMatches(matches, page, canonical_mode, palette_x, palette_y, page_hash, full_palette_hash,
                          page_revision);
@@ -1594,6 +1830,9 @@ const TexturePageReplacement* TextureReplacements::GetTexturePageReplacement(GPU
                           static_cast<size_t>(cached.replacement.image->GetHeight()) * sizeof(uint32_t);
     }
   }
+
+  cached.incomplete = m_texture_pending_hit;
+  cached.load_generation = m_texture_load_generation.load(std::memory_order_relaxed);
 
   EvictPageReplacementsForBudget(cached.size_bytes);
   it = m_page_cache.emplace(key, std::move(cached)).first;

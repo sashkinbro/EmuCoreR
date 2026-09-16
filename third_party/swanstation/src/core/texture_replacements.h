@@ -4,12 +4,17 @@
 #include "gpu_types.h"
 #include "types.h"
 #include <array>
+#include <atomic>
+#include <condition_variable>
 #include <deque>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 struct TextureReplacementHash
@@ -159,12 +164,15 @@ private:
   {
     uint32_t page;
     uint32_t mode;
-    uint32_t palette_x;
-    uint32_t palette_y;
+    // Palette CONTENT hash, not position: the composite's decoded page only
+    // depends on the palette values, so identical palettes stored at different
+    // VRAM addresses must share one entry. Games scatter CLUTs all over VRAM,
+    // and keying on position turned every draw into a cache miss.
+    uint64_t palette_hash;
 
     bool operator==(const PageCacheKey& rhs) const
     {
-      return page == rhs.page && mode == rhs.mode && palette_x == rhs.palette_x && palette_y == rhs.palette_y;
+      return page == rhs.page && mode == rhs.mode && palette_hash == rhs.palette_hash;
     }
   };
 
@@ -180,6 +188,11 @@ private:
     uint64_t palette_hash = 0;
     size_t size_bytes = 0;
     uint64_t last_used = 0;
+    // Set when the page was composited while one of its replacement images was
+    // still decoding on the worker thread. The page is recomposited once the
+    // texture generation advances past load_generation.
+    bool incomplete = false;
+    uint64_t load_generation = 0;
   };
 
   uint64_t GetCachedPageHash(uint32_t page, GPUTextureMode mode, uint64_t revision);
@@ -220,6 +233,23 @@ private:
   void TouchTextureCacheEntry(const std::string& filename);
   void ResetTextureCacheOrdering();
 
+  // Replacement images are decoded on a worker thread. The emulation thread
+  // never touches the filesystem: a cache miss queues a request and reports the
+  // texture as unavailable for that frame, and the page it belongs to is
+  // recomposited once the decode lands.
+  void StartTextureLoader();
+  void StopTextureLoader();
+  void QueueTextureLoad(const std::string& filename);
+  void DrainLoadedTextures();
+  void InsertDecodedTexture(std::string filename, TextureReplacementTexture image);
+  static void TextureLoaderEntry(TextureReplacements* self);
+
+  struct DecodedTexture
+  {
+    std::string filename;
+    TextureReplacementTexture image;
+  };
+
   // Texture page replacement hashing/compositing.
   const uint16_t* GetPagePointer(uint32_t page) const;
   const uint16_t* GetPalettePointer(uint32_t palette_x, uint32_t palette_y) const;
@@ -250,6 +280,20 @@ private:
   TextureLruList m_texture_lru;
   TextureLruPositions m_texture_lru_positions;
   size_t m_texture_cache_bytes = 0;
+
+  // Decode worker. Queue and completion list are guarded by the mutex; the
+  // cache itself is only mutated on the emulation thread.
+  std::thread m_texture_loader_thread;
+  std::mutex m_texture_loader_mutex;
+  std::condition_variable m_texture_loader_cv;
+  bool m_texture_loader_stop = false;
+  std::deque<std::string> m_texture_loader_queue;
+  std::deque<DecodedTexture> m_texture_loader_completed;
+  std::unordered_set<std::string> m_texture_load_pending;
+  std::atomic<uint64_t> m_texture_load_generation{0};
+  bool m_texture_pending_hit = false;
+
+  static constexpr size_t MAX_TEXTURE_LOAD_REQUESTS = 192;
 
   VRAMWriteReplacementMap m_vram_write_replacements;
 

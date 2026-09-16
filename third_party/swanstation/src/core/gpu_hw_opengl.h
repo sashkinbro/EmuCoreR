@@ -208,7 +208,7 @@ private:
   // Texture page (texpage-*) replacement support. The composited pages are
   // uploaded into their own GL textures, one per replacement id, and bound on
   // texture unit 1 while the batch shader's u_replacement_enabled flag is set.
-  static constexpr size_t MAX_TEXTURE_REPLACEMENTS = 128;
+  static constexpr size_t MAX_TEXTURE_REPLACEMENTS = 512;
 
   struct TextureReplacementGPUEntry
   {
@@ -219,6 +219,30 @@ private:
 
   bool UploadTextureReplacement(const TexturePageReplacement& replacement, TextureReplacementGPUEntry* entry);
   void DestroyTextureReplacementEntries();
+
+  // VRAM shadow readbacks are asynchronous: the encode draw and glReadPixels
+  // land in a pixel-pack buffer and a fence records completion. The emulation
+  // thread never waits on the GPU - it copies a finished readback into the
+  // shadow at the next frame boundary, so a glReadPixels stall cannot delay a
+  // frame (which previously showed up as dropped frames and audio underruns).
+  struct PendingReadback
+  {
+    GLuint pbo = 0;
+    GLsync fence = nullptr;
+    uint32_t left = 0;
+    uint32_t top = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+  };
+
+  static constexpr size_t MAX_PENDING_READBACKS = 6;
+  static constexpr size_t READBACK_PBO_BYTES = 1024 * 1024;
+
+  bool BeginVRAMReadback(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+  void CompleteVRAMReadbacks();
+
+  std::vector<PendingReadback> m_pending_readbacks;
+  std::vector<GLuint> m_free_readback_pbos;
 
   std::unordered_map<uint64_t, TextureReplacementGPUEntry> m_texture_replacement_entries;
   std::unordered_map<uint64_t, TexturePageReplacement> m_pending_replacement_uploads;
