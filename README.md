@@ -50,12 +50,12 @@ This repository contains the Android application, its Compose UI, settings and d
 
 ## Current App Scope
 
-EmuCoreR version `0.0.2` currently targets Android with:
+EmuCoreR version `0.0.3` currently targets Android with:
 
 - `minSdk 26`
 - `targetSdk 37`
 - package id `com.sbro.emucorer`
-- version `0.0.2`
+- version `0.0.3`
 
 ## Building Locally
 
