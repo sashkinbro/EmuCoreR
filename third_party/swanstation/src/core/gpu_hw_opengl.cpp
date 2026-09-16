@@ -1506,9 +1506,6 @@ bool GPU_HW_OpenGL::PrecompileBatchPrograms(ShaderCompileProgressTracker& progre
   if (precompile_mode == GPUShaderPrecompileMode::Disabled)
     return true;
 
-  const Common::Timer::Value start_value = Common::Timer::GetValue();
-  uint32_t compiled_programs = 0;
-
   const bool dual_source = m_supports_dual_source_blend;
   const GPUTextureFilter cur_filter = m_texture_filtering;
   for (uint8_t render_mode = 0; render_mode < 4; render_mode++)
@@ -1526,17 +1523,11 @@ bool GPU_HW_OpenGL::PrecompileBatchPrograms(ShaderCompileProgressTracker& progre
                                                     static_cast<bool>(interlacing));
           if (!prog)
             return false;
-          compiled_programs++;
           progress.Increment();
         }
       }
     }
   }
-
-  const int64_t elapsed_ns =
-    static_cast<int64_t>(Common::Timer::GetValue() - start_value);
-  Log_InfoPrintf("Batch program precompile: %u programs for filter %u in %.0f ms", compiled_programs,
-                 static_cast<unsigned>(cur_filter), static_cast<double>(elapsed_ns) / 1000000.0);
   return true;
 }
 

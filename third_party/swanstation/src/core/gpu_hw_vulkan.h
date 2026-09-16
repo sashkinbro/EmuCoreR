@@ -409,8 +409,6 @@ private:
   // Built on the main thread before the workers start.
   std::vector<uint32_t> m_shader_compile_cells;
   std::atomic<uint32_t> m_shader_compile_next_cell{0};
-  std::atomic<uint32_t> m_shader_compile_cells_done{0};
-  std::atomic<int64_t> m_shader_compile_start_value{0};
 
   DimensionalArray<std::atomic<VkShaderModule>, 2> m_batch_vertex_shaders{};              // [textured]
   DimensionalArray<std::atomic<VkShaderModule>, 2, 2, 9, 4, 7> m_batch_fragment_shaders{};   // [filter][render][texture][dither][interlace]

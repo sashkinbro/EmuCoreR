@@ -2032,8 +2032,6 @@ void GPU_HW_Vulkan::StartShaderCompileThreads()
   }
 
   m_shader_compile_next_cell.store(0, std::memory_order_relaxed);
-  m_shader_compile_cells_done.store(0, std::memory_order_relaxed);
-  m_shader_compile_start_value.store(static_cast<int64_t>(Common::Timer::GetValue()), std::memory_order_relaxed);
   m_shader_compile_thread_quit.store(false, std::memory_order_relaxed);
 
   // A small pool is plenty: the work is driver-bound and a couple of workers
@@ -2088,7 +2086,6 @@ void GPU_HW_Vulkan::ShaderCompileThreadEntryPoint()
   // background pool.
   const bool true_color = m_true_color;
   const bool scaled_dithering = m_scaled_dithering;
-  const size_t worker_count = m_shader_compile_threads.size();
 
   // Compile through a private pipeline cache. A transient cache per worker
   // lets the driver run PSO compiles truly in parallel instead of serialising
@@ -2116,16 +2113,6 @@ void GPU_HW_Vulkan::ShaderCompileThreadEntryPoint()
 
     GetBatchPipeline(static_cast<GPUTextureFilter>(filter), true_color, scaled_dithering, depth_test, render_mode,
                      texture_mode, transparency_mode, dithering, interlacing, pipeline_cache, nullptr);
-
-    // Report once the pool has drained the whole list, so the warm-up cost is
-    // visible in the log without spamming per-cell output.
-    if ((m_shader_compile_cells_done.fetch_add(1, std::memory_order_relaxed) + 1) == cell_count)
-    {
-      const int64_t elapsed_ns =
-        static_cast<int64_t>(Common::Timer::GetValue()) - m_shader_compile_start_value.load(std::memory_order_relaxed);
-      Log_InfoPrintf("Batch pipeline warm-up: %u cells across %zu workers in %.0f ms", cell_count, worker_count,
-                     static_cast<double>(elapsed_ns) / 1000000.0);
-    }
   }
 
   g_vulkan_shader_cache->MergeTransientPipelineCache(pipeline_cache);
