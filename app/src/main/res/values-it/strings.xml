@@ -274,6 +274,17 @@
     <string name="settings_gamepad_mode_desc">Scegli se un gamepad collegato sostituisce i controlli touch o funziona insieme a essi.</string>
     <string name="settings_gamepad_mode_replace_touch">Sostituisci touch</string>
     <string name="settings_gamepad_mode_touch_plus_gamepad">Touch + Gamepad</string>
+    <string name="settings_gamepad_assignment_title">Assegnazione controller</string>
+    <string name="settings_gamepad_assignment_desc">Scegli quale controller controlla ciascun giocatore.</string>
+    <string name="settings_help_gamepad_assignment">Mantieni l\'assegnazione automatica a meno che un controller sbagliato non occupi il Giocatore 1. La modalità automatica segue l\'ordine di connessione e preferisce i controller esterni quando l\'opzione è attiva. Scegli un giocatore per ogni controller rilevato oppure disattiva un controller per ignorarne l\'input. Le assegnazioni vengono ricordate per questo dispositivo.</string>
+    <string name="settings_gamepad_assignment_auto">Automatico</string>
+    <string name="settings_gamepad_assignment_custom">Personalizzato</string>
+    <string name="settings_gamepad_assignment_off">Disattivato</string>
+    <string name="settings_gamepad_assignment_external">Esterno</string>
+    <string name="settings_gamepad_assignment_built_in">Integrato</string>
+    <string name="settings_gamepad_assignment_empty">Nessun controller rilevato. Collega un controller per assegnarlo.</string>
+    <string name="settings_gamepad_assignment_note">Suggerimento: alcuni handheld espongono i controlli integrati come più dispositivi di input. Se un gioco non risponde al Giocatore 1, assegna qui al Giocatore 1 il controller che invia davvero l\'input.</string>
+    <string name="settings_gamepad_assignment_reset">Ripristina automatico</string>
     <string name="settings_gamepad_hide_overlay">Nascondi overlay con Gamepad</string>
 
     <string name="settings_ee_cycle_rate">EE Cycle Rate</string>

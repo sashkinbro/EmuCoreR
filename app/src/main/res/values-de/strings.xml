@@ -561,6 +561,17 @@
     <string name="settings_gamepad_mode_desc">Wähle, ob ein verbundenes Gamepad die Touch-Steuerung ersetzt oder parallel dazu funktioniert.</string>
     <string name="settings_gamepad_mode_replace_touch">Touch ersetzen</string>
     <string name="settings_gamepad_mode_touch_plus_gamepad">Touch + Gamepad</string>
+    <string name="settings_gamepad_assignment_title">Controller-Zuordnung</string>
+    <string name="settings_gamepad_assignment_desc">Wähle, welcher Controller welchen Spieler steuert.</string>
+    <string name="settings_help_gamepad_assignment">Lass die automatische Zuordnung aktiv, außer ein falscher Controller übernimmt Spieler 1. Der Automatikmodus folgt der Verbindungsreihenfolge und bevorzugt externe Controller, wenn diese Option aktiviert ist. Wähle für jeden erkannten Controller einen Spieler oder schalte einen Controller aus, um seine Eingaben zu ignorieren. Die Zuordnungen werden für dieses Gerät gespeichert.</string>
+    <string name="settings_gamepad_assignment_auto">Automatisch</string>
+    <string name="settings_gamepad_assignment_custom">Benutzerdefiniert</string>
+    <string name="settings_gamepad_assignment_off">Aus</string>
+    <string name="settings_gamepad_assignment_external">Extern</string>
+    <string name="settings_gamepad_assignment_built_in">Integriert</string>
+    <string name="settings_gamepad_assignment_empty">Keine Controller erkannt. Verbinde einen Controller, um ihn zuzuordnen.</string>
+    <string name="settings_gamepad_assignment_note">Tipp: Manche Handhelds melden die integrierten Steuerelemente als mehrere Eingabegeräte. Wenn ein Spiel nicht auf Spieler 1 reagiert, ordne hier den Controller Spieler 1 zu, der tatsächlich Eingaben sendet.</string>
+    <string name="settings_gamepad_assignment_reset">Auf Automatisch zurücksetzen</string>
     <string name="settings_emulation_tab">Emulation</string>
     <string name="settings_library_tab">Bibliothek</string>
     <string name="settings_rendering_section">Rendering</string>

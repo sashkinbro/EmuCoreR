@@ -289,6 +289,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val gamepadDeviceAssignments by GamepadManager.gamepadDeviceAssignmentsState.collectAsState()
+    val ignoredGamepadDevices by GamepadManager.ignoredGamepadDevicesState.collectAsState()
     val context = LocalContext.current
     val tvUiEnabled = LocalTvUiEnvironment.current.enabled
     val topInset = appScreenTopPadding()
@@ -297,6 +299,7 @@ fun SettingsScreen(
     var selectedTab by rememberSaveable(initialTab) { mutableStateOf(initialTab.toSettingsTab()) }
     val pendingGamepadActionId = remember { mutableStateOf<String?>(null) }
     var pendingGamepadPadIndex by rememberSaveable { mutableIntStateOf(0) }
+    var showGamepadAssignmentDialog by rememberSaveable { mutableStateOf(false) }
     var showTopBarMenu by remember { mutableStateOf(false) }
     val showResetAllSettingsDialog = remember { mutableStateOf(false) }
     var showBackupExportDialog by rememberSaveable { mutableStateOf(false) }
@@ -594,6 +597,7 @@ fun SettingsScreen(
                     pendingGamepadPadIndex = padIndex
                     pendingGamepadActionId.value = actionId
                 },
+                onOpenGamepadAssignment = { showGamepadAssignmentDialog = true },
                 searchQuery = searchQuery,
                 onSearchResultSelected = { tab ->
                     selectedTab = tab
@@ -613,6 +617,17 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(bottomInset))
         }
+    }
+
+    if (showGamepadAssignmentDialog) {
+        GamepadAssignmentDialog(
+            assignments = gamepadDeviceAssignments,
+            ignoredDevices = ignoredGamepadDevices,
+            onAssign = viewModel::setGamepadDeviceAssignment,
+            onIgnore = viewModel::setGamepadDeviceIgnored,
+            onReset = viewModel::resetGamepadDeviceAssignments,
+            onDismiss = { showGamepadAssignmentDialog = false }
+        )
     }
 
     if (uiState.showMediatekCompatibilityNotice) {
@@ -1206,6 +1221,7 @@ private fun SettingsContent(
     launchSettingsBackupImport: () -> Unit,
     openLanguageSheet: () -> Unit,
     onRequestGamepadBinding: (Int, String) -> Unit,
+    onOpenGamepadAssignment: () -> Unit,
     onSearchResultSelected: (SettingsTab) -> Unit,
     viewModel: SettingsViewModel,
     topInset: androidx.compose.ui.unit.Dp,
@@ -1217,6 +1233,8 @@ private fun SettingsContent(
     onOpenTouchControlCreator: (() -> Unit)? = null
 ) {
     val gamepadActions = remember { GamepadManager.mappableButtonActions() }
+    val gamepadDeviceAssignments by GamepadManager.gamepadDeviceAssignmentsState.collectAsState()
+    val ignoredGamepadDevices by GamepadManager.ignoredGamepadDevicesState.collectAsState()
     val defaults = remember { SettingsSnapshot() }
     val overlayDefaults = remember { OverlayLayoutSnapshot() }
     val searchEntries = rememberSettingsSearchEntries()
@@ -1710,6 +1728,20 @@ private fun SettingsContent(
                             onResetToDefault = { viewModel.setEnableAutoGamepad(defaults.enableAutoGamepad) }
                         )
                         SettingsInlineNote(text = stringResource(R.string.settings_gamepad_mode_desc))
+                        SettingsItem(
+                            icon = Icons.Rounded.Gamepad,
+                            label = stringResource(R.string.settings_gamepad_assignment_title),
+                            value = if (
+                                gamepadDeviceAssignments.isEmpty() &&
+                                ignoredGamepadDevices.isEmpty()
+                            ) {
+                                stringResource(R.string.settings_gamepad_assignment_auto)
+                            } else {
+                                stringResource(R.string.settings_gamepad_assignment_custom)
+                            },
+                            onClick = onOpenGamepadAssignment,
+                            helpText = stringResource(R.string.settings_help_gamepad_assignment)
+                        )
                         ToggleItem(
                             icon = Icons.Rounded.Visibility,
                             title = stringResource(R.string.settings_gamepad_hide_overlay),
@@ -4165,6 +4197,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Controls, R.string.settings_invert_right_stick),
         entry(SettingsTab.Controls, R.string.settings_invert_right_stick_horizontal),
         entry(SettingsTab.Controls, R.string.settings_gamepad_mode),
+        entry(SettingsTab.Controls, R.string.settings_gamepad_assignment_title),
         entry(SettingsTab.Controls, R.string.settings_gamepad_hide_overlay),
         entry(SettingsTab.Controls, R.string.settings_touch_haptics),
         entry(SettingsTab.Controls, R.string.settings_touch_haptics_preset),
@@ -5704,6 +5737,178 @@ private fun gamepadActionLabel(actionId: String): String = when (actionId) {
 private fun gamepadPlayerLabel(padIndex: Int): String {
     return stringResource(
         if (padIndex == 0) R.string.settings_gamepad_player_1 else R.string.settings_gamepad_player_2
+    )
+}
+
+@Composable
+private fun GamepadAssignmentDialog(
+    assignments: Map<Int, String>,
+    ignoredDevices: Set<String>,
+    onAssign: (Int, String?) -> Unit,
+    onIgnore: (String, Boolean) -> Unit,
+    onReset: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val gamepads by GamepadManager.availableGamepadsState.collectAsState()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Rounded.Gamepad,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = { Text(stringResource(R.string.settings_gamepad_assignment_title)) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_gamepad_assignment_desc),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (gamepads.isEmpty()) {
+                    SettingsInlineNote(text = stringResource(R.string.settings_gamepad_assignment_empty))
+                } else {
+                    for (gamepad in gamepads) {
+                        GamepadAssignmentRow(
+                            gamepad = gamepad,
+                            assignments = assignments,
+                            ignoredDevices = ignoredDevices,
+                            onAssign = onAssign,
+                            onIgnore = onIgnore
+                        )
+                    }
+                    SettingsInlineNote(text = stringResource(R.string.settings_gamepad_assignment_note))
+                }
+            }
+        },
+        confirmButton = {
+            if (gamepads.isNotEmpty() || assignments.isNotEmpty() || ignoredDevices.isNotEmpty()) {
+                TextButton(onClick = onReset) {
+                    Text(stringResource(R.string.settings_gamepad_assignment_reset))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.close))
+            }
+        }
+    )
+}
+
+@Composable
+private fun GamepadAssignmentRow(
+    gamepad: GamepadManager.AvailableGamepad,
+    assignments: Map<Int, String>,
+    ignoredDevices: Set<String>,
+    onAssign: (Int, String?) -> Unit,
+    onIgnore: (String, Boolean) -> Unit
+) {
+    val assignedPadIndex = assignments.entries.firstOrNull { it.value == gamepad.key }?.key
+    val ignored = gamepad.key in ignoredDevices
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = neonShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.padding(start = 14.dp, top = 12.dp, end = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Gamepad,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = gamepad.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = stringResource(
+                            if (gamepad.isExternal) {
+                                R.string.settings_gamepad_assignment_external
+                            } else {
+                                R.string.settings_gamepad_assignment_built_in
+                            }
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp, bottom = 12.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    GamepadAssignmentChip(
+                        label = stringResource(R.string.settings_gamepad_assignment_auto),
+                        selected = assignedPadIndex == null && !ignored,
+                        onClick = {
+                            assignedPadIndex?.let { onAssign(it, null) }
+                            if (ignored) onIgnore(gamepad.key, false)
+                        }
+                    )
+                }
+                items(listOf(0, 1)) { padIndex ->
+                    GamepadAssignmentChip(
+                        label = gamepadPlayerLabel(padIndex),
+                        selected = assignedPadIndex == padIndex && !ignored,
+                        onClick = {
+                            if (ignored) onIgnore(gamepad.key, false)
+                            onAssign(padIndex, gamepad.key)
+                        }
+                    )
+                }
+                item {
+                    GamepadAssignmentChip(
+                        label = stringResource(R.string.settings_gamepad_assignment_off),
+                        selected = ignored,
+                        onClick = {
+                            assignedPadIndex?.let { onAssign(it, null) }
+                            onIgnore(gamepad.key, true)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GamepadAssignmentChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    FilterChip(
+        modifier = Modifier.tvGamepadFocusableCard(
+            shape = neonShape(16.dp),
+            interactionSource = interactionSource,
+            addFocusTarget = false
+        ),
+        shape = neonChipShape(),
+        selected = selected,
+        onClick = onClick,
+        interactionSource = interactionSource,
+        label = { Text(label) }
     )
 }
 

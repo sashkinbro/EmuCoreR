@@ -561,6 +561,17 @@
     <string name="settings_gamepad_mode_desc">Выберите, должен ли один подключенный геймпад заменять сенсорное управление или работать параллельно с ним.</string>
     <string name="settings_gamepad_mode_replace_touch">Заменить сенсор</string>
     <string name="settings_gamepad_mode_touch_plus_gamepad">Сенсор + Геймпад</string>
+    <string name="settings_gamepad_assignment_title">Назначение контроллеров</string>
+    <string name="settings_gamepad_assignment_desc">Выберите, какой контроллер управляет каждым игроком.</string>
+    <string name="settings_help_gamepad_assignment">Оставьте автоматическое назначение, если только неверный контроллер не занимает Игрока 1. Автоматический режим учитывает порядок подключения и предпочитает внешние контроллеры, когда эта опция включена. Выберите игрока для каждого обнаруженного контроллера или отключите контроллер, чтобы игнорировать его ввод. Назначения запоминаются для этого устройства.</string>
+    <string name="settings_gamepad_assignment_auto">Автоматически</string>
+    <string name="settings_gamepad_assignment_custom">Вручную</string>
+    <string name="settings_gamepad_assignment_off">Выкл.</string>
+    <string name="settings_gamepad_assignment_external">Внешний</string>
+    <string name="settings_gamepad_assignment_built_in">Встроенный</string>
+    <string name="settings_gamepad_assignment_empty">Контроллеры не обнаружены. Подключите контроллер, чтобы назначить его.</string>
+    <string name="settings_gamepad_assignment_note">Совет: некоторые портативные консоли представляют встроенное управление как несколько устройств ввода. Если игра не реагирует на Игрока 1, назначьте здесь Игроку 1 контроллер, который действительно передаёт ввод.</string>
+    <string name="settings_gamepad_assignment_reset">Сбросить на автоматически</string>
     <string name="settings_emulation_tab">Эмуляция</string>
     <string name="settings_library_tab">Библиотека</string>
     <string name="settings_rendering_section">Рендеринг</string>

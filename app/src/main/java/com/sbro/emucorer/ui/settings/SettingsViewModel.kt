@@ -1118,6 +1118,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setGamepadDeviceAssignment(padIndex: Int, deviceKey: String?) {
+        viewModelScope.launch { preferences.setGamepadDeviceAssignment(padIndex, deviceKey) }
+    }
+
+    fun setGamepadDeviceIgnored(deviceKey: String, ignored: Boolean) {
+        viewModelScope.launch { preferences.setGamepadDeviceIgnored(deviceKey, ignored) }
+    }
+
+    fun resetGamepadDeviceAssignments() {
+        viewModelScope.launch { preferences.resetGamepadDeviceAssignments() }
+    }
+
     fun resetAllSettings() {
         viewModelScope.launch {
             preferences.resetAllSettings()

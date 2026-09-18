@@ -561,6 +561,17 @@
     <string name="settings_gamepad_mode_desc">选择连接的一个手柄是替换触屏控制还是与触屏控制同时工作。</string>
     <string name="settings_gamepad_mode_replace_touch">替换触控</string>
     <string name="settings_gamepad_mode_touch_plus_gamepad">触控 + 手柄</string>
+    <string name="settings_gamepad_assignment_title">控制器分配</string>
+    <string name="settings_gamepad_assignment_desc">选择由哪个控制器控制每位玩家。</string>
+    <string name="settings_help_gamepad_assignment">除非错误的控制器占用了玩家 1，否则请保持自动分配。自动模式按连接顺序分配，并在启用该选项时优先使用外部控制器。为每个检测到的控制器选择玩家，或关闭控制器以忽略其输入。分配会在此设备上记住。</string>
+    <string name="settings_gamepad_assignment_auto">自动</string>
+    <string name="settings_gamepad_assignment_custom">自定义</string>
+    <string name="settings_gamepad_assignment_off">关闭</string>
+    <string name="settings_gamepad_assignment_external">外接</string>
+    <string name="settings_gamepad_assignment_built_in">内置</string>
+    <string name="settings_gamepad_assignment_empty">未检测到控制器。连接控制器以进行分配。</string>
+    <string name="settings_gamepad_assignment_note">提示：部分掌机会将内置控制识别为多个输入设备。如果游戏对玩家 1 没有反应，请在此处将实际发送输入的控制器分配给玩家 1。</string>
+    <string name="settings_gamepad_assignment_reset">重置为自动</string>
     <string name="settings_emulation_tab">模拟</string>
     <string name="settings_library_tab">游戏库</string>
     <string name="settings_rendering_section">渲染</string>

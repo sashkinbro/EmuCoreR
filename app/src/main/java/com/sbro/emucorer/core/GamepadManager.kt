@@ -47,6 +47,14 @@ object GamepadManager {
         val name: String
     )
 
+    data class AvailableGamepad(
+        val key: String,
+        val deviceId: Int,
+        val name: String,
+        val isExternal: Boolean,
+        val padIndex: Int? = null
+    )
+
     private data class BindingCaptureState(
         val padIndex: Int,
         val onCaptured: (Int) -> Unit
@@ -207,6 +215,10 @@ object GamepadManager {
     private var rightStickDownToL2 = false
     @Volatile
     private var singleGamepadReplacesTouch = true
+    @Volatile
+    private var deviceAssignmentKeysByPad: Map<Int, String> = emptyMap()
+    @Volatile
+    private var ignoredDeviceKeys: Set<String> = emptySet()
 
     @Volatile
     private var perGameBindingsActive = false
@@ -284,6 +296,12 @@ object GamepadManager {
     val gamepadShortcutActions: SharedFlow<GamepadShortcutAction> = _gamepadShortcutActions
     private val _connectedGamepadCountState = MutableStateFlow(0)
     val connectedGamepadCountState: StateFlow<Int> = _connectedGamepadCountState
+    private val _availableGamepadsState = MutableStateFlow<List<AvailableGamepad>>(emptyList())
+    val availableGamepadsState: StateFlow<List<AvailableGamepad>> = _availableGamepadsState
+    private val _gamepadDeviceAssignmentsState = MutableStateFlow<Map<Int, String>>(emptyMap())
+    val gamepadDeviceAssignmentsState: StateFlow<Map<Int, String>> = _gamepadDeviceAssignmentsState
+    private val _ignoredGamepadDevicesState = MutableStateFlow<Set<String>>(emptySet())
+    val ignoredGamepadDevicesState: StateFlow<Set<String>> = _ignoredGamepadDevicesState
     private var connectedGamepadSnapshot: List<ConnectedGamepad> = emptyList()
 
     fun ensureInitialized(context: Context) {
@@ -322,6 +340,20 @@ object GamepadManager {
                 if (!enabled) {
                     stopAllGamepadVibrations()
                 }
+            }
+        }
+        scope.launch {
+            preferences.gamepadDeviceAssignments.collectLatest { assignments ->
+                deviceAssignmentKeysByPad = assignments
+                _gamepadDeviceAssignmentsState.value = assignments
+                refreshConnectedGamepads()
+            }
+        }
+        scope.launch {
+            preferences.ignoredGamepadDevices.collectLatest { ignored ->
+                ignoredDeviceKeys = ignored
+                _ignoredGamepadDevicesState.value = ignored
+                refreshConnectedGamepads()
             }
         }
         // Runtime-only gamepad controls are pushed by EmulationViewModel so per-game
@@ -966,6 +998,16 @@ object GamepadManager {
         }
     }
 
+    private fun gamepadDeviceKey(device: InputDevice): String {
+        val descriptor = runCatching { device.descriptor }.getOrNull()
+        if (!descriptor.isNullOrBlank()) return descriptor
+        return "${device.vendorId}:${device.productId}:${device.name}"
+    }
+
+    @SuppressLint("NewApi")
+    private fun isExternalDevice(device: InputDevice): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && device.isExternal
+
     private fun hasRecognizedJoystickAxis(device: InputDevice): Boolean {
         return device.motionRanges.any { range ->
             (range.source and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK &&
@@ -1005,10 +1047,18 @@ object GamepadManager {
                 }
             }
             val previousAssignments = deviceToPadIndex.toMap()
+            val deviceKeysByDeviceId = connectedDevices.associate { it.id to gamepadDeviceKey(it) }
+            val externalDeviceIds = connectedDevices
+                .filter { isExternalDevice(it) }
+                .mapTo(mutableSetOf()) { it.id }
             val updatedAssignments = assignConnectedGamepadSlots(
                 previousAssignments = previousAssignments,
                 connectedDeviceIds = connectedDevices.map { it.id },
-                singleGamepadReplacesTouch = singleGamepadReplacesTouch
+                singleGamepadReplacesTouch = singleGamepadReplacesTouch,
+                externalDeviceIds = externalDeviceIds,
+                deviceKeysByDeviceId = deviceKeysByDeviceId,
+                padDeviceKeys = deviceAssignmentKeysByPad,
+                ignoredDeviceKeys = ignoredDeviceKeys
             )
 
             previousAssignments.forEach { (deviceId, padIndex) ->
@@ -1031,6 +1081,15 @@ object GamepadManager {
                 )
             }.sortedBy { it.padIndex }
             connectedGamepadSnapshot = snapshot
+            _availableGamepadsState.value = connectedDevices.map { device ->
+                AvailableGamepad(
+                    key = deviceKeysByDeviceId.getValue(device.id),
+                    deviceId = device.id,
+                    name = device.name.ifBlank { "Controller" },
+                    isExternal = isExternalDevice(device),
+                    padIndex = deviceToPadIndex[device.id]
+                )
+            }
             snapshot
         }
 
@@ -1223,11 +1282,18 @@ object GamepadManager {
     internal fun assignConnectedGamepadSlots(
         previousAssignments: Map<Int, Int>,
         connectedDeviceIds: List<Int>,
-        singleGamepadReplacesTouch: Boolean
+        singleGamepadReplacesTouch: Boolean,
+        preferExternalGamepadAsPlayerOne: Boolean = false,
+        externalDeviceIds: Set<Int> = emptySet(),
+        deviceKeysByDeviceId: Map<Int, String> = emptyMap(),
+        padDeviceKeys: Map<Int, String> = emptyMap(),
+        ignoredDeviceKeys: Set<String> = emptySet()
     ): LinkedHashMap<Int, Int> {
-        val connectedIds = connectedDeviceIds.distinct()
+        val connectedIds = connectedDeviceIds.distinct().filterNot { deviceId ->
+            deviceKeysByDeviceId[deviceId]?.let { it in ignoredDeviceKeys } == true
+        }
         val connectedIdSet = connectedIds.toSet()
-        val orderedDeviceIds = buildList {
+        val stableDeviceIds = buildList {
             addAll(
                 previousAssignments.entries
                     .sortedBy { it.value }
@@ -1240,15 +1306,32 @@ object GamepadManager {
                 }
             }
         }
-        val targetPadIndices = desiredPadIndices(
+        val orderedDeviceIds = if (preferExternalGamepadAsPlayerOne) {
+            stableDeviceIds.filter { it in externalDeviceIds } +
+                stableDeviceIds.filterNot { it in externalDeviceIds }
+        } else {
+            stableDeviceIds
+        }
+        val assignments = linkedMapOf<Int, Int>()
+        val assignedDeviceIds = mutableSetOf<Int>()
+        padDeviceKeys.toSortedMap().forEach { (padIndex, deviceKey) ->
+            if (padIndex !in 0 until MAX_PAD_SLOTS || deviceKey.isBlank()) return@forEach
+            val deviceId = orderedDeviceIds.firstOrNull { candidate ->
+                candidate !in assignedDeviceIds && deviceKeysByDeviceId[candidate] == deviceKey
+            } ?: return@forEach
+            assignments[deviceId] = padIndex
+            assignedDeviceIds += deviceId
+        }
+        val claimedPadIndices = assignments.values.toSet()
+        val remainingPadIndices = desiredPadIndices(
             connectedGamepadCount = orderedDeviceIds.size,
             singleGamepadReplacesTouch = singleGamepadReplacesTouch
-        )
-        return linkedMapOf<Int, Int>().apply {
-            orderedDeviceIds.take(targetPadIndices.size).forEachIndexed { index, deviceId ->
-                put(deviceId, targetPadIndices[index])
-            }
-        }
+        ).filterNot { it in claimedPadIndices }
+        orderedDeviceIds.asSequence()
+            .filterNot { it in assignedDeviceIds }
+            .zip(remainingPadIndices.asSequence())
+            .forEach { (deviceId, padIndex) -> assignments[deviceId] = padIndex }
+        return assignments
     }
 
     private fun desiredPadIndices(
