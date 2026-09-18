@@ -63,9 +63,11 @@ import com.sbro.emucorer.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.first
@@ -332,6 +334,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val appUpdateRepository = AppUpdateRepository(application)
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+    val floatingQuickActionsEnabled: StateFlow<Boolean> = preferences.floatingQuickActionsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     private var mediatekCompatibilityNoticeChecked = false
 
     init {
@@ -1246,6 +1250,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setFpsOverlayScale(scale: Int) { viewModelScope.launch { preferences.setFpsOverlayScale(scale) } }
     fun setFpsOverlayMetrics(metrics: Int) { viewModelScope.launch { preferences.setFpsOverlayMetrics(metrics) } }
     fun setConfirmSaveLoadActions(enabled: Boolean) { viewModelScope.launch { preferences.setConfirmSaveLoadActions(enabled) } }
+    fun setFloatingQuickActionsEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setFloatingQuickActionsEnabled(enabled) }
+    }
     fun setBackButtonExitsGame(enabled: Boolean) { viewModelScope.launch { preferences.setBackButtonExitsGame(enabled) } }
     fun setKeepScreenOn(enabled: Boolean) { viewModelScope.launch { preferences.setKeepScreenOn(enabled) } }
     fun setTvInterfaceMode(mode: TvInterfaceMode) {
