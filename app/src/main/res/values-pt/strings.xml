@@ -692,7 +692,6 @@
     <string name="gpu_adreno_title">Adreno</string>
     <string name="gpu_mali_title">Mali</string>
     <string name="gpu_powervr_title">PowerVR</string>
-    <string name="emulation_transport_fast_forward">Avanço rápido</string>
     <string name="settings_racing_mode">Modo corrida</string>
     <string name="settings_racing_mode_desc">Toque nos botões de ação e de ombro para mantê-los pressionados e toque novamente para soltar.</string>
     <string name="settings_help_racing_mode">Faz com que os botões de ação de toque e os botões de ombro alternem seu estado de pressionados com um toque. Isso é útil para jogos de corrida onde a aceleração precisa ser mantida pressionada, enquanto Start, Select, os analógicos e o D-pad mantêm o comportamento normal.</string>

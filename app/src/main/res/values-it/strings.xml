@@ -690,7 +690,6 @@
     <string name="gpu_adreno_title">Adreno</string>
     <string name="gpu_mali_title">Mali</string>
     <string name="gpu_powervr_title">PowerVR</string>
-    <string name="emulation_transport_fast_forward">Avanzamento rapido</string>
     <string name="settings_racing_mode">Modalità corsa</string>
     <string name="settings_racing_mode_desc">Tocca i pulsanti azione e i dorsali per tenerli premuti, quindi tocca di nuovo per rilasciarli.</string>
     <string name="settings_help_racing_mode">Fa in modo che i pulsanti azione touch e i dorsali cambino il loro stato di pressione con un tocco. Questo è utile per i giochi di corsa in cui l\'accelerazione deve essere mantenuta, mentre Start, Select, le levette e il D-pad mantengono il comportamento normale.</string>

@@ -1424,13 +1424,6 @@ object EmulatorBridge {
         setSetting("EmuCore/GS", "VsyncEnable", "bool", enabled.toString())
     }
 
-    suspend fun setTurboModeEnabled(enabled: Boolean) {
-        if (!isNativeLoaded) return
-        runSerial {
-            NativeApp.setTurboModeEnabled(enabled)
-        }
-    }
-
     suspend fun setFastForwardSpeed(value: Float) {
         setSetting("Framerate", "TurboScalar", "float", sanitizeFastForwardSpeed(value).toString())
     }

@@ -692,7 +692,6 @@
     <string name="gpu_adreno_title">Adreno</string>
     <string name="gpu_mali_title">Mali</string>
     <string name="gpu_powervr_title">PowerVR</string>
-    <string name="emulation_transport_fast_forward">快进</string>
     <string name="settings_racing_mode">赛车模式</string>
     <string name="settings_racing_mode_desc">轻触动作和肩部按钮以保持按下状态，再次轻触即可释放。</string>
     <string name="settings_help_racing_mode">使触摸动作按钮和肩部按钮通过轻触来切换其按下状态。这对于需要保持按住加速键的赛车游戏非常有用，同时 Start、Select、摇杆和十字键 (D-pad) 将保持正常行为。</string>

@@ -208,7 +208,6 @@ import com.sbro.emucorer.ui.theme.GradientEnd
 import com.sbro.emucorer.ui.theme.GradientStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
@@ -258,8 +257,6 @@ private object PadKey {
     const val PRESSURE = 124
 }
 
-private const val TRANSPORT_HOLD_DELAY_MS = 360L
-
 private enum class EmulationMenuTab {
     Session,
     Controls,
@@ -280,9 +277,7 @@ private data class TouchButtonSpec(
     val haptics: Boolean = true,
     val onPressChange: ((Boolean) -> Unit)? = null,
     val onClick: (() -> Unit)? = null,
-    val tapToHold: Boolean = false,
-    val longPressDelayMs: Long = 0L,
-    val onLongPressChange: ((Boolean) -> Unit)? = null
+    val tapToHold: Boolean = false
 )
 
 private data class TouchButtonLayoutKey(
@@ -291,8 +286,7 @@ private data class TouchButtonLayoutKey(
     val height: Dp,
     val x: Dp,
     val y: Dp,
-    val tapToHold: Boolean,
-    val hasLongPressAction: Boolean
+    val tapToHold: Boolean
 )
 
 private data class LiveSelectionOption(
@@ -1181,18 +1175,6 @@ fun EmulationScreen(
             }
         }
 
-        AnimatedVisibility(
-            visible = uiState.transportMode != EmulationTransportMode.None && !uiState.showMenu && !showControlsEditor,
-            enter = fadeIn(tween(120)) + scaleIn(initialScale = 0.94f, animationSpec = tween(120)),
-            exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.94f, animationSpec = tween(120)),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = overlayTopSafeInset + 14.dp)
-                .zIndex(32f)
-        ) {
-            TransportStatusOverlay(uiState.transportMode)
-        }
-
         // On-screen controls
         if (shouldShowOverlay && !uiState.showMenu && !showControlsEditor) {
             val scaleFactor = uiState.overlayScale / 100f
@@ -1236,7 +1218,6 @@ fun EmulationScreen(
                     controlLayouts = uiState.controlLayouts,
                     racingMode = uiState.racingMode,
                     onToggleLeftInputMode = viewModel::toggleLeftInputMode,
-                    onFastForwardHoldChange = viewModel::setFastForwardHeld,
                     onPadInput = { keyCode, range, pressed ->
                         viewModel.onPadInput(overlayPadIndex, keyCode, range, pressed)
                     }
@@ -1251,7 +1232,6 @@ fun EmulationScreen(
                         scaleFactor = scaleFactor,
                         alpha = alpha,
                         onToggleLeftInputMode = viewModel::toggleLeftInputMode,
-                        onFastForwardHoldChange = viewModel::setFastForwardHeld,
                         onPadInput = viewModel::onPadInput
                     )
                 }
@@ -1764,42 +1744,6 @@ private fun GameMenuTabId.toEmulationMenuTab(): EmulationMenuTab = when (this) {
 }
 
 @Composable
-private fun TransportStatusOverlay(mode: EmulationTransportMode) {
-    if (mode == EmulationTransportMode.None) return
-    Surface(
-        shape = neonShape(8.dp),
-        color = Color(0xDD10131A),
-        tonalElevation = 8.dp,
-        shadowElevation = 10.dp,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = ">>",
-                color = Color.White,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 0.sp
-                )
-            )
-            Text(
-                text = stringResource(R.string.emulation_transport_fast_forward),
-                color = Color.White.copy(alpha = 0.9f),
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.sp
-                )
-            )
-        }
-    }
-}
-
-@Composable
 private fun LocalMultiplayerTouchControls(
     modifier: Modifier,
     mode: Int,
@@ -1807,7 +1751,6 @@ private fun LocalMultiplayerTouchControls(
     scaleFactor: Float,
     alpha: Float,
     onToggleLeftInputMode: () -> Unit,
-    onFastForwardHoldChange: (Boolean) -> Unit,
     onPadInput: (Int, Int, Int, Boolean) -> Unit
 ) {
     val sideBySide = mode == AppPreferences.LOCAL_MULTIPLAYER_SIDE_BY_SIDE
@@ -1822,7 +1765,6 @@ private fun LocalMultiplayerTouchControls(
                 scaleFactor = scaleFactor * 0.58f,
                 alpha = alpha,
                 onToggleLeftInputMode = onToggleLeftInputMode,
-                onFastForwardHoldChange = onFastForwardHoldChange,
                 onPadInput = onPadInput
             )
             Box(
@@ -1838,7 +1780,6 @@ private fun LocalMultiplayerTouchControls(
                 scaleFactor = scaleFactor * 0.58f,
                 alpha = alpha,
                 onToggleLeftInputMode = onToggleLeftInputMode,
-                onFastForwardHoldChange = {},
                 onPadInput = onPadInput
             )
         }
@@ -1851,7 +1792,6 @@ private fun LocalMultiplayerTouchControls(
                 scaleFactor = scaleFactor * 0.50f,
                 alpha = alpha,
                 onToggleLeftInputMode = onToggleLeftInputMode,
-                onFastForwardHoldChange = onFastForwardHoldChange,
                 onPadInput = onPadInput
             )
             HorizontalDivider(color = Color.White.copy(alpha = 0.16f))
@@ -1862,7 +1802,6 @@ private fun LocalMultiplayerTouchControls(
                 scaleFactor = scaleFactor * 0.50f,
                 alpha = alpha,
                 onToggleLeftInputMode = onToggleLeftInputMode,
-                onFastForwardHoldChange = {},
                 onPadInput = onPadInput
             )
         }
@@ -1885,7 +1824,6 @@ private fun LocalMultiplayerTouchZone(
     scaleFactor: Float,
     alpha: Float,
     onToggleLeftInputMode: () -> Unit,
-    onFastForwardHoldChange: (Boolean) -> Unit,
     onPadInput: (Int, Int, Int, Boolean) -> Unit
 ) {
     Box(modifier = modifier) {
@@ -1921,7 +1859,6 @@ private fun LocalMultiplayerTouchZone(
             controlLayouts = uiState.controlLayouts,
             racingMode = uiState.racingMode,
             onToggleLeftInputMode = onToggleLeftInputMode,
-            onFastForwardHoldChange = onFastForwardHoldChange,
             onPadInput = { key, range, pressed -> onPadInput(padIndex, key, range, pressed) },
             respectSystemInsets = false
         )
@@ -1979,7 +1916,6 @@ private fun OnScreenControls(
     controlLayouts: Map<String, OverlayControlLayout>,
     racingMode: Boolean,
     onToggleLeftInputMode: () -> Unit,
-    onFastForwardHoldChange: (Boolean) -> Unit,
     onPadInput: (Int, Int, Boolean) -> Unit,
     respectSystemInsets: Boolean = true
 ) {
@@ -2144,9 +2080,7 @@ private fun OnScreenControls(
                     opacity = spec.opacity / 100f,
                     onPressChange = buttonPressHandler(spec.id),
                     onClick = if (spec.id == "left_input_toggle") onToggleLeftInputMode else null,
-                    tapToHold = racingMode && isRacingTapToHoldButton(spec.id),
-                    longPressDelayMs = if (spec.id == "start") TRANSPORT_HOLD_DELAY_MS else 0L,
-                    onLongPressChange = if (spec.id == "start") onFastForwardHoldChange else null
+                    tapToHold = racingMode && isRacingTapToHoldButton(spec.id)
                 )
             }
         }
@@ -2307,12 +2241,9 @@ private fun TouchButtonGroup(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
-    val coroutineScope = rememberCoroutineScope()
     val activeTargets = remember { mutableStateMapOf<Long, String>() }
     val downTargets = remember { mutableMapOf<Long, String?>() }
     val latchedTargets = remember { mutableStateMapOf<String, Boolean>() }
-    val longPressJobs = remember { mutableMapOf<Long, Job>() }
-    val longPressActiveTargets = remember { mutableStateMapOf<Long, String>() }
     val specById = specs.associateBy { it.id }
     val currentSpecById by rememberUpdatedState(specById)
     val currentOnPadInput by rememberUpdatedState(onPadInput)
@@ -2329,8 +2260,7 @@ private fun TouchButtonGroup(
             height = spec.height,
             x = spec.x,
             y = spec.y,
-            tapToHold = spec.tapToHold,
-            hasLongPressAction = spec.onLongPressChange != null && spec.longPressDelayMs > 0L
+            tapToHold = spec.tapToHold
         )
     }
     val bounds = remember(layoutKey, density) {
@@ -2363,10 +2293,6 @@ private fun TouchButtonGroup(
     fun hitTarget(x: Float, y: Float): String? =
         specs.lastOrNull { spec -> rects.getValue(spec.id).contains(Offset(x, y)) }?.id
 
-    fun TouchButtonSpec.hasLongPressAction(): Boolean {
-        return onLongPressChange != null && longPressDelayMs > 0L
-    }
-
     fun TouchButtonSpec.hasTapToHoldAction(): Boolean {
         return tapToHold && onPressChange != null
     }
@@ -2381,38 +2307,6 @@ private fun TouchButtonGroup(
         }
     }
 
-    fun cancelLongPress(pointerId: Long) {
-        longPressJobs.remove(pointerId)?.cancel()
-        val activeTarget = longPressActiveTargets.remove(pointerId)
-        if (activeTarget != null && !longPressActiveTargets.containsValue(activeTarget)) {
-            specById[activeTarget]?.onLongPressChange?.invoke(false)
-        }
-    }
-
-    fun startLongPress(pointerId: Long, targetId: String) {
-        val spec = specById[targetId] ?: return
-        if (!spec.hasLongPressAction()) return
-        longPressJobs.remove(pointerId)?.cancel()
-        longPressJobs[pointerId] = coroutineScope.launch {
-            delay(spec.longPressDelayMs.milliseconds)
-            if (activeTargets[pointerId] != targetId) return@launch
-            val wasAlreadyActive = longPressActiveTargets.containsValue(targetId)
-            longPressActiveTargets[pointerId] = targetId
-            if (!wasAlreadyActive) {
-                spec.onLongPressChange?.invoke(true)
-            }
-        }
-    }
-
-    fun sendShortTap(spec: TouchButtonSpec) {
-        val press = spec.onPressChange ?: return
-        coroutineScope.launch {
-            press(true)
-            delay(70.milliseconds)
-            press(false)
-        }
-    }
-
     fun updatePointerTarget(pointerId: Long, newTarget: String?, emitReleaseHaptic: Boolean = true) {
         val oldTarget = activeTargets[pointerId]
         if (oldTarget == newTarget) return
@@ -2420,9 +2314,7 @@ private fun TouchButtonGroup(
         if (oldTarget != null) {
             activeTargets.remove(pointerId)
             val oldSpec = specById[oldTarget]
-            if (oldSpec?.hasLongPressAction() == true) {
-                cancelLongPress(pointerId)
-            } else if (oldSpec?.hasTapToHoldAction() == true) {
+            if (oldSpec?.hasTapToHoldAction() == true) {
                 // Tap-to-hold buttons are toggled on release, not while the pointer is moving.
             } else if (!activeTargets.containsValue(oldTarget)) {
                 oldSpec?.onPressChange?.invoke(false)
@@ -2444,9 +2336,7 @@ private fun TouchButtonGroup(
             if (!alreadyActive && newSpec?.haptics != false) {
                 onTouchHaptic(ButtonPhase.PRESS)
             }
-            if (newSpec?.hasLongPressAction() == true) {
-                startLongPress(pointerId, newTarget)
-            } else if (newSpec?.hasTapToHoldAction() == true) {
+            if (newSpec?.hasTapToHoldAction() == true) {
                 // Tap-to-hold buttons are toggled on release, not on pointer entry.
             } else if (!alreadyActive) {
                 newSpec?.onPressChange?.invoke(true)
@@ -2466,24 +2356,18 @@ private fun TouchButtonGroup(
 
     DisposableEffect(layoutKey, touchscreenRightStick) {
         onDispose {
-            longPressJobs.values.forEach { it.cancel() }
-            longPressActiveTargets.values.toSet().forEach { targetId ->
-                currentSpecById[targetId]?.onLongPressChange?.invoke(false)
-            }
             latchedTargets.keys.toList().forEach { targetId ->
                 currentSpecById[targetId]?.onPressChange?.invoke(false)
             }
             activeTargets.values.toSet().forEach { targetId ->
                 val spec = currentSpecById[targetId]
-                if (spec?.hasLongPressAction() != true && spec?.hasTapToHoldAction() != true) {
+                if (spec?.hasTapToHoldAction() != true) {
                     spec?.onPressChange?.invoke(false)
                 }
             }
             activeTargets.clear()
             downTargets.clear()
             latchedTargets.clear()
-            longPressJobs.clear()
-            longPressActiveTargets.clear()
             releaseTouchscreenRightStick()
         }
     }
@@ -2548,13 +2432,9 @@ private fun TouchButtonGroup(
                                         if (downTarget != null) {
                                             val upTarget = hitTarget(x, y)
                                             val downSpec = specById[downTarget]
-                                            val consumedByLongPress =
-                                                longPressActiveTargets[pointerId] == downTarget
                                             updatePointerTarget(pointerId, null)
                                             if (downTarget == upTarget) {
-                                                if (downSpec?.hasLongPressAction() == true) {
-                                                    if (!consumedByLongPress) sendShortTap(downSpec)
-                                                } else if (downSpec?.hasTapToHoldAction() == true) {
+                                                if (downSpec?.hasTapToHoldAction() == true) {
                                                     toggleLatchedTarget(downSpec)
                                                 } else {
                                                     downSpec?.onClick?.invoke()

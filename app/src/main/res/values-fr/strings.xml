@@ -692,7 +692,6 @@
     <string name="gpu_adreno_title">Adreno</string>
     <string name="gpu_mali_title">Mali</string>
     <string name="gpu_powervr_title">PowerVR</string>
-    <string name="emulation_transport_fast_forward">Avance rapide</string>
     <string name="settings_racing_mode">Mode course</string>
     <string name="settings_racing_mode_desc">Touchez les boutons d\'action et les gâchettes pour les maintenir enfoncés, puis touchez-les à nouveau pour les relâcher.</string>
     <string name="settings_help_racing_mode">Permet aux boutons d\'action tactiles et aux gâchettes de basculer leur état enfoncé d\'une simple pression. Cela est utile pour les jeux de course où l\'accélération doit être maintenue, tandis que Start, Select, les joysticks et la croix directionnelle conservent leur comportement normal.</string>

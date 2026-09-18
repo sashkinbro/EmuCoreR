@@ -18,6 +18,5 @@ internal fun EmulationUiState.withRuntimeFailure(failure: RuntimeFailure?): Emul
         statusMessage = null,
         toastMessage = null,
         fps = "0",
-        performanceOverlayText = "",
-        transportMode = EmulationTransportMode.None
+        performanceOverlayText = ""
     )

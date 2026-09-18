@@ -61,7 +61,6 @@ import com.sbro.emucorer.data.DefaultGameMenuTabOrder
 import com.sbro.emucorer.data.DefaultGameMenuSectionOrder
 import com.sbro.emucorer.data.PerformanceOverlayMetrics
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -80,11 +79,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
-
-enum class EmulationTransportMode {
-    None,
-    FastForward
-}
 
 private val PER_GAME_GPU_DRIVER_KEYS = setOf(
     "gpuDriverType",
@@ -201,7 +195,6 @@ data class EmulationUiState(
     val performanceOverlayText: String = "",
     val performanceOverlayHeader: String = "",
     val speedPercent: Float = 100f,
-    val transportMode: EmulationTransportMode = EmulationTransportMode.None,
     val toastMessage: String? = null,
     val statusMessage: String? = null,
     val currentSlot: Int = 1,
@@ -617,10 +610,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }.stateIn(viewModelScope, SharingStarted.Eagerly,
         _uiState.value.withRuntimeFailure(EmulatorBridge.runtimeFailure.value))
     private val lifecycleMutex = Mutex()
-    private val transportMutex = Mutex()
     private var pausedForBackground = false
-    @Volatile
-    private var fastForwardRequested = false
     @Volatile
     private var isShuttingDown = false
     @Volatile
@@ -2771,25 +2761,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
             EmulatorBridge.setFrameLimitEnabled(enabled)
             updateCrashContext()
-        }
-    }
-
-    fun setFastForwardHeld(enabled: Boolean) {
-        if (fastForwardRequested == enabled) return
-        fastForwardRequested = enabled
-        _uiState.value = _uiState.value.copy(
-            transportMode = if (enabled) EmulationTransportMode.FastForward else EmulationTransportMode.None
-        )
-        viewModelScope.launch(Dispatchers.IO) {
-            transportMutex.withLock {
-                val requested = fastForwardRequested && _uiState.value.isRunning && !isShuttingDown
-                try {
-                    EmulatorBridge.setTurboModeEnabled(requested)
-                } catch (_: Exception) { }
-                if (!requested && _uiState.value.transportMode == EmulationTransportMode.FastForward) {
-                    _uiState.value = _uiState.value.copy(transportMode = EmulationTransportMode.None)
-                }
-            }
         }
     }
 
@@ -5365,11 +5336,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             val completedRunningSession = analyticsState.isRunning
             isShuttingDown = true
             pausedForBackground = false
-            fastForwardRequested = false
             try {
-                try {
-                    EmulatorBridge.setTurboModeEnabled(false)
-                } catch (_: Exception) { }
                 try {
                     EmulatorBridge.resetKeyStatus()
                 } catch (_: Exception) { }
@@ -5400,7 +5367,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     fps = "0",
                     performanceOverlayText = "",
                     speedPercent = 100f,
-                    transportMode = EmulationTransportMode.None,
                     isJitProfilerActive = false,
                     isHangTraceActive = false,
                     statusMessage = null
@@ -5492,12 +5458,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         DiscordIntegration.clearGame()
         androidGamePerformance.update(AndroidGamePhase.Idle)
         NativeApp.setPerformanceMetricsEnabled(visible = false, detailed = false)
-        fastForwardRequested = false
         if (_uiState.value.isRunning) {
             EmulatorBridge.resetKeyStatus()
             runCatching {
                 kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-                    EmulatorBridge.setTurboModeEnabled(false)
                     EmulatorBridge.shutdown()
                 }
             }

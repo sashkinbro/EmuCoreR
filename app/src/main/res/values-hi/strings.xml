@@ -690,7 +690,6 @@
     <string name="gpu_adreno_title">Adreno</string>
     <string name="gpu_mali_title">Mali</string>
     <string name="gpu_powervr_title">PowerVR</string>
-    <string name="emulation_transport_fast_forward">फ़ास्ट-फ़ॉरवर्ड</string>
     <string name="settings_racing_mode">रेसिंग मोड</string>
     <string name="settings_racing_mode_desc">एक्शन और शोल्डर बटन को दबाए रखने के लिए टैप करें, फिर छोड़ने के लिए फिर से टैप करें।</string>
     <string name="settings_help_racing_mode">टच एक्शन बटन और शोल्डर बटन को एक टैप से उनकी दबाई गई स्थिति को टॉगल करने योग्य बनाता है। यह रेसिंग गेम के लिए उपयोगी है जहां त्वरण (acceleration) को दबाए रखना होता है, जबकि Start, Select, स्टिक्स और D-पैड अपना सामान्य व्यवहार बनाए रखते हैं。</string>

@@ -690,7 +690,6 @@
     <string name="gpu_adreno_title">Adreno</string>
     <string name="gpu_mali_title">Mali</string>
     <string name="gpu_powervr_title">PowerVR</string>
-    <string name="emulation_transport_fast_forward">تقديم سريع</string>
     <string name="settings_racing_mode">وضع السباق</string>
     <string name="settings_racing_mode_desc">انقر على أزرار الإجراءات وأزرار الكتف للاستمرار في الضغط عليها، ثم انقر مرة أخرى للتحرير.</string>
     <string name="settings_help_racing_mode">يجعل أزرار الإجراءات التي تعمل باللمس وأزرار الكتف تبدل حالة الضغط عليها بنقرة واحدة. هذا مفيد لألعاب السباق حيث يجب أن يظل التسارع مضغوطًا، بينما تحافظ أزرار Start و Select وعصا التحكم ولوحة الاتجاهات (D-pad) على سلوكها الطبيعي.</string>

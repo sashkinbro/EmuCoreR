@@ -710,7 +710,6 @@
     <string name="gpu_adreno_title">Adreno</string>
     <string name="gpu_mali_title">Mali</string>
     <string name="gpu_powervr_title">PowerVR</string>
-    <string name="emulation_transport_fast_forward">Прискорення</string>
     <string name="settings_racing_mode">Гоночний режим</string>
     <string name="settings_racing_mode_desc">Торкніться кнопок дій та тригерів (шифтів), щоб утримувати їх натиснутими, і торкніться знову, щоб відпустити.</string>
     <string name="settings_help_racing_mode">Дозволяє сенсорним кнопкам дій і тригерам перемикати стан натискання одним дотиком. Це корисно для гоночних ігор, де потрібно постійно утримувати газ, тоді як Start, Select, стіки та хрестовина (D-pad) працюють як зазвичай.</string>

@@ -692,7 +692,6 @@
     <string name="gpu_adreno_title">Adreno</string>
     <string name="gpu_mali_title">Mali</string>
     <string name="gpu_powervr_title">PowerVR</string>
-    <string name="emulation_transport_fast_forward">Vorspulen</string>
     <string name="settings_racing_mode">Rennmodus</string>
     <string name="settings_racing_mode_desc">Tippe auf Aktions- und Schultertasten, um sie gedrückt zu halten, und tippe erneut, um sie loszulassen.</string>
     <string name="settings_help_racing_mode">Bewirkt, dass Touch-Aktionstasten und Schultertasten ihren gedrückten Zustand durch Antippen umschalten. Dies ist nützlich für Rennspiele, bei denen die Beschleunigung gehalten werden muss, während Start, Select, Sticks und das Steuerkreuz ihr normales Verhalten beibehalten.</string>

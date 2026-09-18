@@ -692,7 +692,6 @@
     <string name="gpu_adreno_title">Adreno</string>
     <string name="gpu_mali_title">Mali</string>
     <string name="gpu_powervr_title">PowerVR</string>
-    <string name="emulation_transport_fast_forward">Avance rápido</string>
     <string name="settings_racing_mode">Modo carrera</string>
     <string name="settings_racing_mode_desc">Toca los botones de acción y los gatillos para mantenerlos pulsados, y vuelve a tocarlos para soltarlos.</string>
     <string name="settings_help_racing_mode">Hace que los botones de acción táctiles y los gatillos alternen su estado de pulsación con un toque. Esto es útil para los juegos de carreras donde la aceleración debe mantenerse pulsada, mientras que Start, Select, los joysticks y la cruceta (D-pad) mantienen su comportamiento normal.</string>

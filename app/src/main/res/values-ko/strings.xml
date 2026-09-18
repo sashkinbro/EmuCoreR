@@ -690,7 +690,6 @@
     <string name="gpu_adreno_title">Adreno</string>
     <string name="gpu_mali_title">Mali</string>
     <string name="gpu_powervr_title">PowerVR</string>
-    <string name="emulation_transport_fast_forward">빨리 감기</string>
     <string name="settings_racing_mode">레이싱 모드</string>
     <string name="settings_racing_mode_desc">액션 및 숄더 버튼을 탭하여 길게 누른 상태로 만들고, 다시 탭하여 해제합니다.</string>
     <string name="settings_help_racing_mode">터치 액션 버튼과 숄더 버튼을 한 번 탭하여 눌림 상태를 전환할 수 있게 합니다. 이는 가속을 계속 누르고 있어야 하는 레이싱 게임에 유용하며, Start, Select, 스틱 및 D-패드는 정상적인 동작을 유지합니다.</string>
