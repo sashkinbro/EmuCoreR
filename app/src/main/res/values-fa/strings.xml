@@ -446,7 +446,7 @@
     <string name="texture_manager_loading">در حال بارگذاری بسته‌های بافت…</string>
     <string name="texture_manager_options">گزینه‌های زمان اجرا</string>
     <string name="texture_manager_enable_replacements">بارگذاری بافت‌های جایگزین</string>
-    <string name="texture_manager_enable_replacements_desc">استفاده از فایل‌های PNG و DDS از پوشه سریال هر بازی.</string>
+    <string name="texture_manager_enable_replacements_desc">بارگذاری بسته‌های vram-write، texpage و texupload با قالب PNG، JPG، TGA یا BMP از پوشه سریال هر بازی.</string>
     <string name="texture_manager_async_loading">بارگذاری ناهمگام (Async)</string>
     <string name="texture_manager_async_loading_desc">بارگذاری بافت‌های جایگزین در یک رشته کاری در حین اجرای بازی.</string>
     <string name="texture_manager_precache">پیش‌بارگذاری جایگزین‌ها</string>

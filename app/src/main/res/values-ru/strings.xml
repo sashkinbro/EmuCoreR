@@ -653,7 +653,7 @@
     <string name="texture_manager_loading">Загрузка пакетов текстур…</string>
     <string name="texture_manager_options">Настройки выполнения</string>
     <string name="texture_manager_enable_replacements">Загружать текстуры для замены</string>
-    <string name="texture_manager_enable_replacements_desc">Использовать файлы PNG и DDS из папки с серийным номером каждой игры.</string>
+    <string name="texture_manager_enable_replacements_desc">Загружать пакеты vram-write, texpage и texupload в формате PNG, JPG, TGA или BMP из папки с серийным номером каждой игры.</string>
     <string name="texture_manager_async_loading">Асинхронная загрузка</string>
     <string name="texture_manager_async_loading_desc">Загружать текстуры для замены в рабочем потоке во время работы игры.</string>
     <string name="texture_manager_precache">Предкэширование замен</string>

@@ -651,7 +651,7 @@
     <string name="texture_manager_loading">テクスチャパックを読み込んでいます…</string>
     <string name="texture_manager_options">ランタイムオプション</string>
     <string name="texture_manager_enable_replacements">リプレイスメントテクスチャを読み込む</string>
-    <string name="texture_manager_enable_replacements_desc">各ゲームのシリアルフォルダからPNGおよびDDSファイルを使用します。</string>
+    <string name="texture_manager_enable_replacements_desc">各ゲームのシリアルフォルダからvram-write、texpage、texuploadパックをPNG、JPG、TGA、BMPで読み込みます。</string>
     <string name="texture_manager_async_loading">非同期ロード</string>
     <string name="texture_manager_async_loading_desc">ゲーム実行中にワーカースレッドでリプレイスメントテクスチャを読み込みます。</string>
     <string name="texture_manager_precache">リプレイスメントを事前キャッシュ</string>
