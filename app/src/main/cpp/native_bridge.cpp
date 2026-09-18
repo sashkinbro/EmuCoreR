@@ -1670,10 +1670,11 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createSession(JNIEnv*, jobject) {
             g_frontend.core_initialized = true;
         }
     }
-    // Default both controller ports to a Digital Controller; Kotlin promotes
-    // a port to an analog DualShock when the game requests it.
-    retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
-    retro_set_controller_port_device(1, RETRO_DEVICE_JOYPAD);
+    // Default both controller ports to a DualShock. The core keeps it in
+    // digital mode until a game enables analog/rumble, and games that probe
+    // the pad type at boot (Tekken 3) need a DualShock from power-on.
+    retro_set_controller_port_device(0, RETRO_DEVICE_PS_DUALSHOCK);
+    retro_set_controller_port_device(1, RETRO_DEVICE_PS_DUALSHOCK);
     // Non-zero opaque handle. The core itself is a singleton.
     return reinterpret_cast<jlong>(&g_frontend);
 }

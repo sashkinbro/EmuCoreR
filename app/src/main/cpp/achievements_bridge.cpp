@@ -529,17 +529,6 @@ void EnsureHashSupportLocked()
   rc_hash_init_custom_cdreader(&cdreader);
 }
 
-void RC_CCONV HashErrorMessage(const char* message, const struct rc_hash_iterator* iterator)
-{
-  RALOGE("rc_hash error: %s (path=%s)", message != nullptr ? message : "?",
-         iterator != nullptr && iterator->path != nullptr ? iterator->path : "?");
-}
-
-void RC_CCONV HashVerboseMessage(const char* message, const struct rc_hash_iterator*)
-{
-  RALOGI("rc_hash: %s", message != nullptr ? message : "?");
-}
-
 void EnsureClientLocked()
 {
   if (g_state.client != nullptr)
@@ -552,11 +541,6 @@ void EnsureClientLocked()
     RALOGE("rc_client_create failed");
     return;
   }
-
-  rc_hash_callbacks_t hash_callbacks{};
-  hash_callbacks.error_message = HashErrorMessage;
-  hash_callbacks.verbose_message = HashVerboseMessage;
-  rc_client_set_hash_callbacks(g_state.client, &hash_callbacks);
 
   rc_client_set_event_handler(g_state.client, EventHandler);
   rc_client_set_hardcore_enabled(g_state.client, g_state.hardcore ? 1 : 0);
@@ -784,7 +768,6 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_achievementsLoadGame(JNIEnv* env, j
     g_state.memory_initialized = true;
   g_state.last_error.clear();
 
-  RALOGI("Identifying game: %s", game_path.c_str());
   StartHttpWorkerLocked();
   rc_client_begin_identify_and_load_game(g_state.client, RC_CONSOLE_PLAYSTATION, game_path.c_str(), nullptr, 0,
                                          LoadGameCallback, nullptr);
