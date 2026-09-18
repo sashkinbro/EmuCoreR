@@ -35,6 +35,13 @@ set(SWANSTATION_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/swansta
 set(SWANSTATION_BIN_DIR "${CMAKE_BINARY_DIR}/swanstation")
 add_subdirectory("${SWANSTATION_DIR}" "${SWANSTATION_BIN_DIR}")
 
+# RetroAchievements client (rcheevos), driven by the Android frontend.
+set(RCHEEVOS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/rcheevos")
+add_subdirectory("${RCHEEVOS_DIR}" "${CMAKE_BINARY_DIR}/rcheevos")
+target_include_directories(rcheevos PRIVATE
+    "${SWANSTATION_DIR}/dep/libretro-common/include"
+)
+
 # libchdr ships a benchmark executable that is not part of the core and does
 # not link the libretro VFS. Android's externalNativeBuild builds the `all`
 # target, so exclude it and, defensively, satisfy its filestream_* symbols.
@@ -54,6 +61,7 @@ endif()
 # JNI bridge that drives the core through the libretro API.
 add_library(emucorer_jni SHARED
     native_bridge.cpp
+    achievements_bridge.cpp
     shader_chain.cpp
     vulkan_frontend.cpp
 )
@@ -61,6 +69,7 @@ add_library(emucorer_jni SHARED
 target_include_directories(emucorer_jni PRIVATE
     "${SWANSTATION_DIR}/dep/libretro-common/include"
     "${SWANSTATION_DIR}/src"
+    "${RCHEEVOS_DIR}/src"
 )
 
 find_library(VULKAN_LIBRARY vulkan)
@@ -72,6 +81,7 @@ endif()
 
 target_link_libraries(emucorer_jni PRIVATE
     swanstation_libretro
+    rcheevos
     android
     log
     aaudio

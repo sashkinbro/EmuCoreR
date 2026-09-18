@@ -45,6 +45,7 @@ import com.sbro.emucorer.data.MemoryCardRepository
 import com.sbro.emucorer.data.OverlayLayoutSnapshot
 import com.sbro.emucorer.data.PerGameSettings
 import com.sbro.emucorer.data.PerGameSettingsRepository
+import com.sbro.emucorer.data.RetroAchievementsRepository
 import com.sbro.emucorer.data.resolveShaderChain
 import com.sbro.emucorer.data.TouchControlsLayoutProfile
 import com.sbro.emucorer.data.PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY
@@ -1988,6 +1989,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
             Log.i(TAG, "EmulatorBridge.startEmulation returned $started path=$pathToLaunch")
             if (started) {
+                RetroAchievementsRepository.get(getApplication()).onGameStarted(pathToLaunch)
                 syncCheatsForCurrentGame()
                 // Per-game core options win over the global store.
                 pendingPerGameCoreOptions.forEach { (coreKey, coreValue) ->
@@ -5381,6 +5383,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 )
                 syncNativePerformanceOverlayState(_uiState.value)
                 clearCrashContext()
+                RetroAchievementsRepository.get(getApplication()).onGameStopped()
             } finally {
                 isShuttingDown = false
             }

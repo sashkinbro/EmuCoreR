@@ -120,7 +120,8 @@ enum class GameMenuTabId {
     SESSION,
     CONTROLS,
     EMULATION,
-    GRAPHICS
+    GRAPHICS,
+    ACHIEVEMENTS
 }
 
 enum class DrawerItemId(val required: Boolean = false) {
@@ -135,6 +136,7 @@ enum class DrawerItemId(val required: Boolean = false) {
     MEMORY_CARDS,
     TEXTURE_MANAGER,
     CHEAT_MANAGER,
+    ACHIEVEMENTS,
     SAVE_STATES,
     APP_SETTINGS(required = true),
     SUPPORTED_FORMATS,
@@ -173,7 +175,8 @@ val SupportedGameMenuTabs: List<GameMenuTabId> = listOf(
     GameMenuTabId.SESSION,
     GameMenuTabId.CONTROLS,
     GameMenuTabId.EMULATION,
-    GameMenuTabId.GRAPHICS
+    GameMenuTabId.GRAPHICS,
+    GameMenuTabId.ACHIEVEMENTS
 )
 
 val SupportedGameMenuSections: List<GameMenuSectionId> = listOf(

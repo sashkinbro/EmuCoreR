@@ -76,6 +76,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Newspaper
@@ -3020,6 +3021,7 @@ private fun CustomizationSettingsTab(
             stringResource(R.string.settings_customization_drawer_other) to listOf(
                 DrawerItemId.APP_SETTINGS,
                 DrawerItemId.SUPPORTED_FORMATS,
+                DrawerItemId.ACHIEVEMENTS,
                 DrawerItemId.FEEDBACK,
                 DrawerItemId.DISCORD
             )
@@ -3647,6 +3649,7 @@ private fun drawerItemIcon(item: DrawerItemId): ImageVector = when (item) {
     DrawerItemId.MEMORY_CARDS, DrawerItemId.SUPPORTED_FORMATS -> Icons.Rounded.Memory
     DrawerItemId.TEXTURE_MANAGER -> Icons.Rounded.FolderOpen
     DrawerItemId.CHEAT_MANAGER -> Icons.Rounded.SportsEsports
+    DrawerItemId.ACHIEVEMENTS -> Icons.Rounded.EmojiEvents
     DrawerItemId.SAVE_STATES -> Icons.Rounded.Save
     DrawerItemId.APP_SETTINGS -> Icons.Rounded.SettingsSuggest
     DrawerItemId.FEEDBACK -> Icons.Rounded.RateReview
@@ -3666,6 +3669,7 @@ private fun drawerItemLabel(item: DrawerItemId): String = when (item) {
     DrawerItemId.MEMORY_CARDS -> stringResource(R.string.shell_memory_cards)
     DrawerItemId.TEXTURE_MANAGER -> stringResource(R.string.shell_texture_manager)
     DrawerItemId.CHEAT_MANAGER -> stringResource(R.string.shell_cheat_manager)
+    DrawerItemId.ACHIEVEMENTS -> stringResource(R.string.shell_achievements)
     DrawerItemId.SAVE_STATES -> stringResource(R.string.shell_save_states)
     DrawerItemId.APP_SETTINGS -> stringResource(R.string.shell_app_settings)
     DrawerItemId.SUPPORTED_FORMATS -> stringResource(R.string.shell_supported_formats)
@@ -3744,6 +3748,7 @@ private fun gameMenuTabLabel(tab: GameMenuTabId): String = when (tab) {
     GameMenuTabId.CONTROLS -> stringResource(R.string.settings_controls_tab)
     GameMenuTabId.EMULATION -> stringResource(R.string.settings_emulation_tab)
     GameMenuTabId.GRAPHICS -> stringResource(R.string.settings_graphics_tab)
+    GameMenuTabId.ACHIEVEMENTS -> stringResource(R.string.achievements_title)
 }
 
 private fun gameMenuTabIcon(tab: GameMenuTabId): ImageVector = when (tab) {
@@ -3751,6 +3756,7 @@ private fun gameMenuTabIcon(tab: GameMenuTabId): ImageVector = when (tab) {
     GameMenuTabId.CONTROLS -> Icons.Rounded.Gamepad
     GameMenuTabId.EMULATION -> Icons.Rounded.SettingsSuggest
     GameMenuTabId.GRAPHICS -> Icons.Rounded.Wallpaper
+    GameMenuTabId.ACHIEVEMENTS -> Icons.Rounded.EmojiEvents
 }
 
 @Composable

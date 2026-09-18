@@ -358,6 +358,47 @@ object DocumentPathResolver {
     }
 
     /**
+     * Like [materializePreparedCue], but the written cuesheet keeps the track
+     * files as names relative to the cuesheet itself. rcheevos resolves every
+     * `FILE` entry against the cuesheet directory, so the absolute paths used
+     * for emulation would be mangled there. Track files are shared with
+     * [materializePreparedCue] (`track_N.bin`) and reused when already copied.
+     */
+    fun materializeHashableCue(launchPath: String, targetDir: File): String? {
+        val resources = synchronized(preparedDiscLock) {
+            preparedDiscResources?.takeIf { it.launchPath == launchPath }
+        } ?: return null
+        if (!targetDir.exists() && !targetDir.mkdirs()) return null
+
+        var index = 0
+        val rewritten = cueBinaryFileRewrite.replace(resources.cueText) { match ->
+            val descriptor = resources.descriptors.getOrNull(index)
+            if (descriptor == null) {
+                match.value
+            } else {
+                index += 1
+                val trackFile = File(targetDir, "track_$index.bin")
+                val expected = descriptor.statSize
+                if (!(trackFile.isFile && expected > 0 && trackFile.length() == expected)) {
+                    val copied = runCatching {
+                        FileInputStream(descriptor.fileDescriptor).use { input ->
+                            FileOutputStream(trackFile).use { output -> input.copyTo(output) }
+                        }
+                        true
+                    }.onFailure { error ->
+                        Log.e(TAG, "Unable to materialize CUE track $index for $launchPath", error)
+                    }.getOrDefault(false)
+                    if (!copied) return@replace match.value
+                }
+                "${match.groupValues[1]}\"${trackFile.name}\"${match.groupValues[3]}"
+            }
+        }
+        val cueFile = File(targetDir, "ra.cue")
+        cueFile.writeText(rewritten)
+        return cueFile.absolutePath
+    }
+
+    /**
      * Copies a single-file disc image opened through SAF into [targetDir] under
      * a real path with its original extension. SwanStation picks the container
      * from the path extension and reopens the image by path, which scoped

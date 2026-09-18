@@ -99,6 +99,24 @@ class NativeCoreBridge {
      */
     external fun setTextureReplacementsPathOverride(path: String?)
 
+    // ---------------------------------------------------------------------
+    // RetroAchievements (rcheevos). The client lives in native code; Kotlin
+    // polls JSON state/events and persists the account token.
+    // ---------------------------------------------------------------------
+    external fun achievementsSetEnabled(enabled: Boolean)
+    external fun achievementsSetHardcore(enabled: Boolean)
+    external fun achievementsSetUnofficial(enabled: Boolean)
+    external fun achievementsSetEncore(enabled: Boolean)
+    external fun achievementsLoginWithPassword(user: String, password: String): String?
+    external fun achievementsLoginWithToken(user: String, token: String): String?
+    external fun achievementsLogout()
+    external fun achievementsLoadGame(path: String)
+    external fun achievementsUnloadGame()
+    external fun achievementsPump()
+    external fun achievementsStateJson(): String
+    external fun achievementsAchievementsJson(): String
+    external fun achievementsPollEventsJson(): String
+
     /** True when the running session has a disc image mounted. */
     external fun hasDiscMedia(handle: Long): Boolean
 

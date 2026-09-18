@@ -655,6 +655,12 @@ class AppPreferences(private val context: Context) {
         private val ORIENTATION_LOCK = intPreferencesKey("orientation_lock")
         private val EMULATION_ALLOWS_BOTH_ORIENTATIONS =
             booleanPreferencesKey("emulation_allows_both_orientations")
+        private val RETRO_ACHIEVEMENTS_ENABLED = booleanPreferencesKey("retro_achievements_enabled")
+        private val RETRO_ACHIEVEMENTS_USERNAME = stringPreferencesKey("retro_achievements_username")
+        private val RETRO_ACHIEVEMENTS_TOKEN = stringPreferencesKey("retro_achievements_token")
+        private val RETRO_ACHIEVEMENTS_HARDCORE = booleanPreferencesKey("retro_achievements_hardcore")
+        private val RETRO_ACHIEVEMENTS_UNOFFICIAL = booleanPreferencesKey("retro_achievements_unofficial")
+        private val RETRO_ACHIEVEMENTS_ENCORE = booleanPreferencesKey("retro_achievements_encore")
         private val TOUCH_HAPTICS = booleanPreferencesKey("touch_haptics")
         private val TOUCH_HAPTICS_PRESET = intPreferencesKey("touch_haptics_preset")
         private val TOUCH_HAPTICS_STRENGTH = intPreferencesKey("touch_haptics_strength")
@@ -3433,6 +3439,61 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[EMULATION_ALLOWS_BOTH_ORIENTATIONS] = enabled }
     }
 
+    // RetroAchievements account
+    val retroAchievementsEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[RETRO_ACHIEVEMENTS_ENABLED] ?: false
+    }
+
+    suspend fun setRetroAchievementsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[RETRO_ACHIEVEMENTS_ENABLED] = enabled }
+    }
+
+    val retroAchievementsUsername: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[RETRO_ACHIEVEMENTS_USERNAME]?.takeIf { it.isNotBlank() }
+    }
+
+    suspend fun setRetroAchievementsUsername(value: String?) {
+        context.dataStore.edit { prefs ->
+            value?.takeIf { it.isNotBlank() }?.let { prefs[RETRO_ACHIEVEMENTS_USERNAME] = it }
+                ?: prefs.remove(RETRO_ACHIEVEMENTS_USERNAME)
+        }
+    }
+
+    val retroAchievementsToken: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[RETRO_ACHIEVEMENTS_TOKEN]?.takeIf { it.isNotBlank() }
+    }
+
+    suspend fun setRetroAchievementsToken(value: String?) {
+        context.dataStore.edit { prefs ->
+            value?.takeIf { it.isNotBlank() }?.let { prefs[RETRO_ACHIEVEMENTS_TOKEN] = it }
+                ?: prefs.remove(RETRO_ACHIEVEMENTS_TOKEN)
+        }
+    }
+
+    val retroAchievementsHardcore: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[RETRO_ACHIEVEMENTS_HARDCORE] ?: false
+    }
+
+    suspend fun setRetroAchievementsHardcore(enabled: Boolean) {
+        context.dataStore.edit { it[RETRO_ACHIEVEMENTS_HARDCORE] = enabled }
+    }
+
+    val retroAchievementsUnofficial: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[RETRO_ACHIEVEMENTS_UNOFFICIAL] ?: false
+    }
+
+    suspend fun setRetroAchievementsUnofficial(enabled: Boolean) {
+        context.dataStore.edit { it[RETRO_ACHIEVEMENTS_UNOFFICIAL] = enabled }
+    }
+
+    val retroAchievementsEncore: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[RETRO_ACHIEVEMENTS_ENCORE] ?: false
+    }
+
+    suspend fun setRetroAchievementsEncore(enabled: Boolean) {
+        context.dataStore.edit { it[RETRO_ACHIEVEMENTS_ENCORE] = enabled }
+    }
+
     val gamepadBindingsByPad: Flow<Map<Int, Map<String, Int>>> = context.dataStore.data.map { prefs ->
         decodeGamepadBindingsByPad(prefs[GAMEPAD_BINDINGS])
     }
@@ -4063,6 +4124,12 @@ class AppPreferences(private val context: Context) {
             put("floatingQuickLoadPosition", prefs[FLOATING_QUICK_LOAD_POSITION])
             put("orientationLock", normalizeOrientationLock(prefs[ORIENTATION_LOCK]))
             put("emulationAllowsBothOrientations", prefs[EMULATION_ALLOWS_BOTH_ORIENTATIONS] ?: false)
+            put("retroAchievementsEnabled", prefs[RETRO_ACHIEVEMENTS_ENABLED] ?: false)
+            put("retroAchievementsUsername", prefs[RETRO_ACHIEVEMENTS_USERNAME])
+            put("retroAchievementsToken", prefs[RETRO_ACHIEVEMENTS_TOKEN])
+            put("retroAchievementsHardcore", prefs[RETRO_ACHIEVEMENTS_HARDCORE] ?: false)
+            put("retroAchievementsUnofficial", prefs[RETRO_ACHIEVEMENTS_UNOFFICIAL] ?: false)
+            put("retroAchievementsEncore", prefs[RETRO_ACHIEVEMENTS_ENCORE] ?: false)
             put("gamepadBindings", prefs[GAMEPAD_BINDINGS])
             put("gamepadDeviceAssignments", prefs[GAMEPAD_DEVICE_ASSIGNMENTS])
             put("gamepadIgnoredDevices", prefs[GAMEPAD_IGNORED_DEVICES])
@@ -4456,6 +4523,26 @@ class AppPreferences(private val context: Context) {
             json.optString("floatingQuickLoadPosition").takeIf { it.isNotBlank() }?.let { prefs[FLOATING_QUICK_LOAD_POSITION] = it } ?: prefs.remove(FLOATING_QUICK_LOAD_POSITION)
             prefs[ORIENTATION_LOCK] = normalizeOrientationLock(json.optInt("orientationLock", ORIENTATION_LOCK_AUTO))
             prefs[EMULATION_ALLOWS_BOTH_ORIENTATIONS] = json.optBoolean("emulationAllowsBothOrientations", false)
+            // Guarded: backups created before RetroAchievements existed must not
+            // wipe the account token or the user's opt-in choice.
+            if (json.has("retroAchievementsEnabled")) {
+                prefs[RETRO_ACHIEVEMENTS_ENABLED] = json.optBoolean("retroAchievementsEnabled", false)
+            }
+            if (json.has("retroAchievementsUsername")) {
+                json.optString("retroAchievementsUsername").takeIf { it.isNotBlank() }?.let { prefs[RETRO_ACHIEVEMENTS_USERNAME] = it } ?: prefs.remove(RETRO_ACHIEVEMENTS_USERNAME)
+            }
+            if (json.has("retroAchievementsToken")) {
+                json.optString("retroAchievementsToken").takeIf { it.isNotBlank() }?.let { prefs[RETRO_ACHIEVEMENTS_TOKEN] = it } ?: prefs.remove(RETRO_ACHIEVEMENTS_TOKEN)
+            }
+            if (json.has("retroAchievementsHardcore")) {
+                prefs[RETRO_ACHIEVEMENTS_HARDCORE] = json.optBoolean("retroAchievementsHardcore", false)
+            }
+            if (json.has("retroAchievementsUnofficial")) {
+                prefs[RETRO_ACHIEVEMENTS_UNOFFICIAL] = json.optBoolean("retroAchievementsUnofficial", false)
+            }
+            if (json.has("retroAchievementsEncore")) {
+                prefs[RETRO_ACHIEVEMENTS_ENCORE] = json.optBoolean("retroAchievementsEncore", false)
+            }
             json.optString("gamepadBindings").takeIf { it.isNotBlank() }?.let { prefs[GAMEPAD_BINDINGS] = it } ?: prefs.remove(GAMEPAD_BINDINGS)
             json.optString("gamepadDeviceAssignments").takeIf { it.isNotBlank() }?.let { prefs[GAMEPAD_DEVICE_ASSIGNMENTS] = it } ?: prefs.remove(GAMEPAD_DEVICE_ASSIGNMENTS)
             json.optString("gamepadIgnoredDevices").takeIf { it.isNotBlank() }?.let { prefs[GAMEPAD_IGNORED_DEVICES] = it } ?: prefs.remove(GAMEPAD_IGNORED_DEVICES)

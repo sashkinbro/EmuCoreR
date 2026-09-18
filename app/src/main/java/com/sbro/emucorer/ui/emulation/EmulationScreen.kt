@@ -17,6 +17,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
@@ -65,6 +67,7 @@ import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Gamepad
 import androidx.compose.material.icons.rounded.LockOpen
@@ -205,6 +208,11 @@ import com.sbro.emucorer.ui.settings.ControlsEditorScreen
 import com.sbro.emucorer.ui.settings.toControlsEditorState
 import com.sbro.emucorer.core.SwanStationCoreOptions
 import com.sbro.emucorer.core.SwanStationCoreOptionStrings
+import com.sbro.emucorer.data.AchievementItem
+import com.sbro.emucorer.data.RetroAchievementsEvent
+import com.sbro.emucorer.data.RetroAchievementsRepository
+import com.sbro.emucorer.data.RetroAchievementsState
+import coil3.compose.AsyncImage
 import com.sbro.emucorer.ui.theme.GradientEnd
 import com.sbro.emucorer.ui.theme.GradientStart
 import kotlinx.coroutines.Dispatchers
@@ -262,7 +270,8 @@ private enum class EmulationMenuTab {
     Session,
     Controls,
     Emulation,
-    Graphics
+    Graphics,
+    Achievements
 }
 
 private data class TouchButtonSpec(
@@ -422,6 +431,25 @@ fun EmulationScreen(
     }
     val gamepadActions = remember { GamepadManager.mappableButtonActions() }
     val scope = rememberCoroutineScope()
+    val achievementsRepository = remember(context) { RetroAchievementsRepository.get(context) }
+    var achievementUnlockBanner by remember { mutableStateOf<RetroAchievementsEvent?>(null) }
+    LaunchedEffect(Unit) {
+        achievementsRepository.ensureInitialized()
+        while (true) {
+            runCatching {
+                withContext(Dispatchers.IO) { achievementsRepository.pollEvents() }
+            }.getOrDefault(emptyList())
+                .lastOrNull { it.isAchievementUnlock || it.type == "game_loaded" }
+                ?.let { achievementUnlockBanner = it }
+            delay(800L)
+        }
+    }
+    LaunchedEffect(achievementUnlockBanner) {
+        if (achievementUnlockBanner != null) {
+            delay(5_000L)
+            achievementUnlockBanner = null
+        }
+    }
     LaunchedEffect(uiState.localMultiplayerMode) {
         EmulatorBridge.setLocalMultiplayerMode(uiState.localMultiplayerMode)
     }
@@ -1061,6 +1089,113 @@ fun EmulationScreen(
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = Color.White
                 )
+            }
+        }
+
+        // RetroAchievements banner: session notification and achievement unlocks
+        achievementUnlockBanner?.let { banner ->
+            val isGameLoaded = banner.type == "game_loaded"
+            val accent = if (isGameLoaded) Color(0xFF7DDFA8) else Color(0xFFFFD35A)
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { height -> -height },
+                exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { height -> -height },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(
+                        top = overlayTopSafeInset + 18.dp,
+                        start = overlayHorizontalSafeInset + 12.dp,
+                        end = overlayHorizontalSafeInset
+                    )
+                    .zIndex(41f)
+            ) {
+                Surface(
+                    onClick = { achievementUnlockBanner = null },
+                    shape = neonShape(18.dp),
+                    color = Color(0xF214151A),
+                    border = BorderStroke(1.dp, accent.copy(alpha = 0.45f)),
+                    shadowElevation = 12.dp,
+                    modifier = Modifier.widthIn(min = 300.dp, max = 430.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(neonShape(14.dp))
+                                .background(accent.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (banner.badgeUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = banner.badgeUrl,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(neonShape(14.dp))
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.EmojiEvents,
+                                    contentDescription = null,
+                                    tint = accent,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = if (isGameLoaded) {
+                                        "RetroAchievements"
+                                    } else {
+                                        stringResource(R.string.achievements_title)
+                                    },
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = accent,
+                                    maxLines = 1
+                                )
+                                if (!isGameLoaded && banner.points > 0) {
+                                    RaBadge(
+                                        text = stringResource(R.string.achievements_points_badge, banner.points),
+                                        containerColor = accent.copy(alpha = 0.18f),
+                                        contentColor = accent
+                                    )
+                                }
+                            }
+                            Text(
+                                text = if (isGameLoaded) {
+                                    stringResource(R.string.achievements_game_loaded, banner.title)
+                                } else {
+                                    banner.title
+                                },
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (banner.description.isNotBlank()) {
+                                Text(
+                                    text = banner.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.78f),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -1807,6 +1942,7 @@ private fun GameMenuTabId.toEmulationMenuTab(): EmulationMenuTab = when (this) {
     GameMenuTabId.CONTROLS -> EmulationMenuTab.Controls
     GameMenuTabId.EMULATION -> EmulationMenuTab.Emulation
     GameMenuTabId.GRAPHICS -> EmulationMenuTab.Graphics
+    GameMenuTabId.ACHIEVEMENTS -> EmulationMenuTab.Achievements
 }
 
 @Composable
@@ -2734,11 +2870,13 @@ private fun EmulationSidebarMenu(
     val controlsScrollState = rememberScrollState()
     val emulationScrollState = rememberScrollState()
     val graphicsScrollState = rememberScrollState()
+    val achievementsScrollState = rememberScrollState()
     val selectedTabScrollState = when (selectedMenuTab) {
         EmulationMenuTab.Session -> sessionScrollState
         EmulationMenuTab.Controls -> controlsScrollState
         EmulationMenuTab.Emulation -> emulationScrollState
         EmulationMenuTab.Graphics -> graphicsScrollState
+        EmulationMenuTab.Achievements -> achievementsScrollState
     }
     LaunchedEffect(selectedMenuTab) {
         railFocusRequesters[selectedMenuTab]?.requestFocus()
@@ -3723,6 +3861,10 @@ private fun EmulationSidebarMenu(
                             }
                     }
 
+                    EmulationMenuTab.Achievements -> {
+                        InGameAchievementsTab()
+                    }
+
                 }
     }
 
@@ -4189,6 +4331,7 @@ private fun gameMenuTabIcon(tab: EmulationMenuTab): ImageVector = when (tab) {
     EmulationMenuTab.Controls -> Icons.Rounded.Gamepad
     EmulationMenuTab.Emulation -> Icons.Rounded.SettingsSuggest
     EmulationMenuTab.Graphics -> Icons.Rounded.Fullscreen
+    EmulationMenuTab.Achievements -> Icons.Rounded.EmojiEvents
 }
 
 @Composable
@@ -4197,6 +4340,7 @@ private fun gameMenuTabLabel(tab: EmulationMenuTab): String = when (tab) {
     EmulationMenuTab.Controls -> stringResource(R.string.settings_controls_tab)
     EmulationMenuTab.Emulation -> stringResource(R.string.settings_emulation_tab)
     EmulationMenuTab.Graphics -> stringResource(R.string.settings_graphics_tab)
+    EmulationMenuTab.Achievements -> stringResource(R.string.achievements_title)
 }
 
 @Composable
@@ -4582,6 +4726,302 @@ private fun LiveSelectionRow(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InGameAchievementsTab() {
+    val context = LocalContext.current
+    val repository = remember(context) { RetroAchievementsRepository.get(context) }
+    var state by remember { mutableStateOf(repository.state()) }
+    var items by remember { mutableStateOf(repository.achievements()) }
+
+    LaunchedEffect(Unit) {
+        repository.ensureInitialized()
+        while (true) {
+            val newState = withContext(Dispatchers.IO) { repository.state() }
+            val newItems = withContext(Dispatchers.IO) { repository.achievements() }
+            state = newState
+            items = newItems
+            delay(1_000L)
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        when {
+            !state.available -> RaNoticeCard(stringResource(R.string.achievements_unavailable))
+
+            !state.enabled -> RaNoticeCard(stringResource(R.string.achievements_disabled))
+
+            !state.loggedIn -> RaNoticeCard(stringResource(R.string.achievements_not_signed_in))
+
+            state.loading -> Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    text = stringResource(R.string.achievements_loading),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            !state.gameLoaded && state.game == null -> RaNoticeCard(stringResource(R.string.achievements_no_game))
+
+            else -> {
+                val game = state.game
+                val summary = state.summary
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = neonShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = game?.title.orEmpty(),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (state.richPresence.isNotBlank()) {
+                            Text(
+                                text = state.richPresence,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            RaMetricCard(
+                                modifier = Modifier.weight(1f),
+                                value = "${summary.unlocked}/${summary.total}",
+                                label = stringResource(R.string.achievements_title)
+                            )
+                            RaMetricCard(
+                                modifier = Modifier.weight(1f),
+                                value = "${summary.pointsUnlocked}/${summary.points}",
+                                label = stringResource(R.string.achievements_points_label)
+                            )
+                        }
+                        if (summary.total > 0) {
+                            androidx.compose.material3.LinearProgressIndicator(
+                                progress = { summary.progressFraction },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        if (summary.completed) {
+                            Text(
+                                text = stringResource(R.string.achievements_mastered),
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+                state.lastError?.let { error ->
+                    RaNoticeCard(stringResource(R.string.achievements_error, error), isError = true)
+                }
+                val visibleItems = items.filterNot { it.isWarning }
+                if (visibleItems.isEmpty()) {
+                    RaNoticeCard(stringResource(R.string.achievements_none))
+                } else {
+                    visibleItems
+                        .sortedWith(compareByDescending<AchievementItem> { it.unlocked }.thenBy { it.id })
+                        .forEach { item -> RaAchievementCard(item) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RaBadge(text: String, containerColor: Color, contentColor: Color) {
+    Surface(shape = neonShape(8.dp), color = containerColor) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = contentColor
+        )
+    }
+}
+
+@Composable
+private fun RaNoticeCard(text: String, isError: Boolean = false) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = neonShape(18.dp),
+        color = if (isError) {
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.36f)
+        }
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (isError) MaterialTheme.colorScheme.onErrorContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun RaMetricCard(modifier: Modifier = Modifier, value: String, label: String) {
+    Surface(
+        modifier = modifier,
+        shape = neonShape(15.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun RaAchievementCard(item: AchievementItem) {
+    val borderColor = if (item.unlocked) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = neonShape(17.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+        border = BorderStroke(1.dp, borderColor)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val badge = if (item.unlocked) {
+                item.badgeUrl.takeIf { it.isNotBlank() } ?: item.badgeLockedUrl
+            } else {
+                item.badgeLockedUrl.takeIf { it.isNotBlank() } ?: item.badgeUrl
+            }
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(neonShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (badge.isNotBlank()) {
+                    AsyncImage(
+                        model = badge,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(neonShape(12.dp))
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.EmojiEvents,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = if (item.unlocked) 1f else 0.4f),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = if (item.unlocked) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (item.description.isNotBlank()) {
+                    Text(
+                        text = item.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (!item.unlocked && item.progressText.isNotBlank()) {
+                    Text(
+                        text = item.progressText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    RaBadge(
+                        text = stringResource(R.string.achievements_points_badge, item.points),
+                        containerColor = if (item.unlocked) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                        },
+                        contentColor = if (item.unlocked) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        }
+                    )
+                    RaBadge(
+                        text = stringResource(
+                            if (item.unlocked) R.string.achievements_unlocked_header
+                            else R.string.achievements_locked_header
+                        ),
+                        containerColor = if (item.unlocked) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                        },
+                        contentColor = if (item.unlocked) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        }
+                    )
                 }
             }
         }

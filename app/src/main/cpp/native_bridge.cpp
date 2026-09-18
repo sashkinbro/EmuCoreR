@@ -1615,11 +1615,22 @@ extern bool EmuCoreRHasDiscMedia();
 extern const char* EmuCoreRGetDiscGameCode(const char* path);
 extern const char* EmuCoreRGetDiscGameCodeFromFd(int fd);
 
+// Implemented by achievements_bridge.cpp: rcheevos client hooks.
+extern void EmuCoreRAchievementsInitializeJava(JNIEnv* env);
+extern void EmuCoreRAchievementsSetJavaVm(JavaVM* vm);
+extern void EmuCoreRAchievementsOnFrame();
+extern void EmuCoreRAchievementsOnSessionEnd();
+
 // ---------------------------------------------------------------------------
 // JNI: lifecycle.
 // ---------------------------------------------------------------------------
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM*, void*) {
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
     LOGI("SwanStation libretro frontend loaded (api=%u)", RETRO_API_VERSION);
+    EmuCoreRAchievementsSetJavaVm(vm);
+    JNIEnv* env = nullptr;
+    if (vm != nullptr && vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) == JNI_OK) {
+        EmuCoreRAchievementsInitializeJava(env);
+    }
     return JNI_VERSION_1_6;
 }
 
@@ -1670,6 +1681,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createSession(JNIEnv*, jobject) {
 JNIEXPORT void JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_destroySession(JNIEnv*, jobject, jlong handle) {
     if (handle == 0) return;
+    EmuCoreRAchievementsOnSessionEnd();
     std::lock_guard<std::mutex> lock(g_frontend.core_mutex);
     DestroyHardwareRendererContext();
     if (g_frontend.game_loaded) {
@@ -1865,6 +1877,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_runFrame(JNIEnv*, jobject, jlong ha
     if (handle == 0) return;
     EnsureHardwareContext();
     retro_run();
+    EmuCoreRAchievementsOnFrame();
 }
 
 JNIEXPORT jint JNICALL

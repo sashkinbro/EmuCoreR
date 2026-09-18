@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.Forum
@@ -145,6 +146,7 @@ fun AdaptiveShell(
     onNavigateMemoryCardManager: (() -> Unit)? = null,
     onNavigateTextureManager: (() -> Unit)? = null,
     onNavigateCheatManager: (() -> Unit)? = null,
+    onNavigateAchievements: (() -> Unit)? = null,
     onBackClick: (() -> Unit)? = null,
     onLaunchGame: (() -> Unit)? = null,
     onLaunchBios: (() -> Unit)? = null,
@@ -181,6 +183,7 @@ fun AdaptiveShell(
             onNavigateMemoryCardManager = onNavigateMemoryCardManager,
             onNavigateTextureManager = onNavigateTextureManager,
             onNavigateCheatManager = onNavigateCheatManager,
+            onNavigateAchievements = onNavigateAchievements,
             onLaunchGame = onLaunchGame,
             onLaunchBios = onLaunchBios,
             selectedItemFocusRequester = if (tvUiEnabled) tvNavigationFocusRequester else null,
@@ -258,6 +261,7 @@ fun AdaptiveShell(
             onNavigateMemoryCardManager = onNavigateMemoryCardManager,
             onNavigateTextureManager = onNavigateTextureManager,
             onNavigateCheatManager = onNavigateCheatManager,
+            onNavigateAchievements = onNavigateAchievements,
             onBackClick = onBackClick,
             onLaunchGame = onLaunchGame,
             onLaunchBios = onLaunchBios,
@@ -288,6 +292,7 @@ private fun CompactAdaptiveShell(
     onNavigateMemoryCardManager: (() -> Unit)?,
     onNavigateTextureManager: (() -> Unit)?,
     onNavigateCheatManager: (() -> Unit)?,
+    onNavigateAchievements: (() -> Unit)?,
     onBackClick: (() -> Unit)?,
     onLaunchGame: (() -> Unit)?,
     onLaunchBios: (() -> Unit)?,
@@ -466,6 +471,7 @@ private fun CompactAdaptiveShell(
                     onNavigateMemoryCardManager = onNavigateMemoryCardManager,
                     onNavigateTextureManager = onNavigateTextureManager,
                     onNavigateCheatManager = onNavigateCheatManager,
+                    onNavigateAchievements = onNavigateAchievements,
                     onLaunchGame = onLaunchGame,
                     onLaunchBios = onLaunchBios,
                     selectedItemFocusRequester = selectedDrawerItemFocusRequester,
@@ -499,6 +505,7 @@ private fun SideNavigation(
     onNavigateMemoryCardManager: (() -> Unit)?,
     onNavigateTextureManager: (() -> Unit)?,
     onNavigateCheatManager: (() -> Unit)?,
+    onNavigateAchievements: (() -> Unit)?,
     onLaunchGame: (() -> Unit)?,
     onLaunchBios: (() -> Unit)?,
     selectedItemFocusRequester: FocusRequester? = null,
@@ -569,6 +576,11 @@ private fun SideNavigation(
         }
     }
     val navigateCheatManager = onNavigateCheatManager?.let {
+        rememberDebouncedClick {
+            closeDrawerThen(it)
+        }
+    }
+    val navigateAchievements = onNavigateAchievements?.let {
         rememberDebouncedClick {
             closeDrawerThen(it)
         }
@@ -680,6 +692,14 @@ private fun SideNavigation(
                         Modifier.focusRequester(selectedItemFocusRequester)
                     } else Modifier,
                     onClick = navigateHub
+                )
+            }
+            if (navigateAchievements != null && DrawerItemId.ACHIEVEMENTS !in hiddenDrawerItems) {
+                ShellItem(
+                    icon = Icons.Rounded.EmojiEvents,
+                    label = stringResource(R.string.shell_achievements),
+                    selected = false,
+                    onClick = navigateAchievements
                 )
             }
             if (navigateDiscord != null && DrawerItemId.DISCORD !in hiddenDrawerItems) {
@@ -796,6 +816,7 @@ private fun SideNavigation(
                         onClick = navigateTextureManager
                     )
                 }
+
                 if (navigateSaveManager != null && DrawerItemId.SAVE_STATES !in hiddenDrawerItems) {
                     ShellAction(
                         icon = Icons.Rounded.Save,

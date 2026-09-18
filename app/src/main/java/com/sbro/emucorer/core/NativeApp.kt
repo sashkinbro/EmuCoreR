@@ -244,6 +244,35 @@ object NativeApp {
     @JvmStatic fun setTextureReplacementsPathOverride(path: String?) =
         CoreRuntime.setTextureReplacementsPathOverride(path)
     @JvmStatic fun hasDiscMedia(): Boolean = CoreRuntime.hasDiscMedia()
+
+    // RetroAchievements: every call degrades to a no-op when the bundled core
+    // does not expose the rcheevos JNI surface.
+    @JvmStatic fun achievementsSetEnabled(enabled: Boolean) =
+        runCatching { CoreRuntime.bridge.achievementsSetEnabled(enabled) }
+    @JvmStatic fun achievementsSetHardcore(enabled: Boolean) =
+        runCatching { CoreRuntime.bridge.achievementsSetHardcore(enabled) }
+    @JvmStatic fun achievementsSetUnofficial(enabled: Boolean) =
+        runCatching { CoreRuntime.bridge.achievementsSetUnofficial(enabled) }
+    @JvmStatic fun achievementsSetEncore(enabled: Boolean) =
+        runCatching { CoreRuntime.bridge.achievementsSetEncore(enabled) }
+    @JvmStatic fun achievementsLoginWithPassword(user: String, password: String): String? =
+        runCatching { CoreRuntime.bridge.achievementsLoginWithPassword(user, password) }.getOrNull()
+    @JvmStatic fun achievementsLoginWithToken(user: String, token: String): String? =
+        runCatching { CoreRuntime.bridge.achievementsLoginWithToken(user, token) }.getOrNull()
+    @JvmStatic fun achievementsLogout() =
+        runCatching { CoreRuntime.bridge.achievementsLogout() }
+    @JvmStatic fun achievementsLoadGame(path: String) =
+        runCatching { CoreRuntime.bridge.achievementsLoadGame(path) }
+    @JvmStatic fun achievementsUnloadGame() =
+        runCatching { CoreRuntime.bridge.achievementsUnloadGame() }
+    @JvmStatic fun achievementsPump() =
+        runCatching { CoreRuntime.bridge.achievementsPump() }
+    @JvmStatic fun achievementsStateJson(): String =
+        runCatching { CoreRuntime.bridge.achievementsStateJson() }.getOrNull().orEmpty()
+    @JvmStatic fun achievementsAchievementsJson(): String =
+        runCatching { CoreRuntime.bridge.achievementsAchievementsJson() }.getOrNull().orEmpty()
+    @JvmStatic fun achievementsPollEventsJson(): String =
+        runCatching { CoreRuntime.bridge.achievementsPollEventsJson() }.getOrNull().orEmpty()
     @JvmStatic fun onNativeSurfaceCreated() = Unit
     @JvmStatic fun onNativeSurfaceChanged(surface: Surface, width: Int, height: Int) = CoreRuntime.attachSurface(surface, width, height)
     @JvmStatic fun onNativeSurfaceDestroyed() = CoreRuntime.detachSurface()
