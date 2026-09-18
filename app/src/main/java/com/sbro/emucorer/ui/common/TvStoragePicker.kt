@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
@@ -214,7 +215,7 @@ private object TvStorageAccess {
     }
 
     private fun createPickerIntent(request: TvStorageRequest, volume: StorageVolume?): Intent {
-        val treeIntent = volume?.createOpenDocumentTreeIntent()
+        val treeIntent = volume?.let(::createVolumeTreeIntent)
         val intent = when (request) {
             TvStorageRequest.BIOS_FILE -> treeIntent ?: Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
             TvStorageRequest.GAME_FOLDER -> treeIntent ?: Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
@@ -225,6 +226,24 @@ private object TvStorageAccess {
                 Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
                 Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
         )
+    }
+
+    /**
+     * [StorageVolume.createOpenDocumentTreeIntent] exists from API 29. Android TV
+     * devices still run API 26-28, so older builds get a plain tree intent with
+     * the volume root as the initial location instead of a crash.
+     */
+    private fun createVolumeTreeIntent(volume: StorageVolume): Intent {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            return volume.createOpenDocumentTreeIntent()
+        }
+        val uuid = volume.uuid?.takeIf { it.isNotBlank() } ?: "primary"
+        return Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            putExtra(
+                DocumentsContract.EXTRA_INITIAL_URI,
+                Uri.parse("content://com.android.externalstorage.documents/root/${Uri.encode(uuid)}")
+            )
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -252,11 +271,6 @@ private object TvStorageAccess {
                     null
                 }
             }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun Intent.initialUri(): Uri? {
-        return getParcelableExtra(DocumentsContract.EXTRA_INITIAL_URI)
     }
 
     private const val TV_FRAMEWORK_STUB_PACKAGE = "com.android.tv.frameworkpackagestubs"
