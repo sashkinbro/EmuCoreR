@@ -21,6 +21,16 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.faketouch" android:required="false" />
 
+    <!-- Package visibility for the TV storage picker: AnExplorer is the common
+         document provider on TVs without a system file picker, and the intent
+         query keeps any tree-capable picker resolvable on API 30+. -->
+    <queries>
+        <package android:name="dev.dworks.apps.anexplorer" />
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT_TREE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".EmuCoreRApp"
         android:allowBackup="true"
@@ -53,6 +63,45 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="emucorer" android:host="launch" />
+            </intent-filter>
+
+            <!-- Launcher frontends (Beacon, Daijisho, DIG, ES-DE, LaunchBox
+                 custom emulators, ...) open disc images with a plain VIEW
+                 intent, by file path or by content URI. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" android:pathPattern=".*\\.cue" />
+                <data android:scheme="file" android:pathPattern=".*\\.CUE" />
+                <data android:scheme="file" android:pathPattern=".*\\.bin" />
+                <data android:scheme="file" android:pathPattern=".*\\.BIN" />
+                <data android:scheme="file" android:pathPattern=".*\\.iso" />
+                <data android:scheme="file" android:pathPattern=".*\\.ISO" />
+                <data android:scheme="file" android:pathPattern=".*\\.img" />
+                <data android:scheme="file" android:pathPattern=".*\\.IMG" />
+                <data android:scheme="file" android:pathPattern=".*\\.chd" />
+                <data android:scheme="file" android:pathPattern=".*\\.CHD" />
+                <data android:scheme="file" android:pathPattern=".*\\.pbp" />
+                <data android:scheme="file" android:pathPattern=".*\\.PBP" />
+                <data android:scheme="file" android:pathPattern=".*\\.ecm" />
+                <data android:scheme="file" android:pathPattern=".*\\.mds" />
+                <data android:scheme="file" android:pathPattern=".*\\.m3u" />
+                <data android:scheme="file" android:pathPattern=".*\\.M3U" />
+                <data android:scheme="file" android:pathPattern=".*\\.psf" />
+                <data android:scheme="file" android:pathPattern=".*\\.psexe" />
+                <data android:scheme="file" android:pathPattern=".*\\.cpe" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="application/octet-stream" />
+                <data android:scheme="file" android:mimeType="application/octet-stream" />
+                <data android:scheme="content" android:mimeType="application/x-cue" />
+                <data android:scheme="content" android:mimeType="application/x-iso9660-image" />
+                <data android:scheme="content" android:mimeType="application/x-cd-image" />
+                <data android:scheme="content" android:mimeType="application/x-raw-disk-image" />
             </intent-filter>
         </activity>
 

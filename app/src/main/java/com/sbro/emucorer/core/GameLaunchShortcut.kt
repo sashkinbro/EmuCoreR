@@ -30,6 +30,10 @@ object GameLaunchShortcut {
     private const val SCHEME = "emucorer"
     private const val HOST = "launch"
 
+    // Launcher frontends commonly pass the game as a "ROM"/"gamePath" extra.
+    private const val EXTRA_GAME_PATH_LEGACY = "ROM"
+    private const val EXTRA_GAME_PATH_ALT = "gamePath"
+
     data class LaunchRequest(
         val gamePath: String? = null,
         val saveSlot: Int? = null,
@@ -83,9 +87,11 @@ object GameLaunchShortcut {
             data == null -> null
             data.scheme == SCHEME && data.host == HOST -> data.getQueryParameter("gamePath")
             data.scheme == "content" || data.scheme == "file" -> data.toString()
+            // Some launchers send a bare absolute path via -d without a scheme.
+            data.scheme.isNullOrBlank() && data.toString().startsWith("/") -> data.toString()
             else -> null
         }
-        val gamePath = intent.getStringExtra(EXTRA_GAME_PATH) ?: gamePathFromData
+        val gamePath = gamePathExtra(intent) ?: gamePathFromData
         val saveSlot = when {
             intent.hasExtra(EXTRA_SAVE_SLOT) -> normalizeSaveSlot(intent.getIntExtra(EXTRA_SAVE_SLOT, -1))
             data?.scheme == SCHEME && data.host == HOST -> normalizeSaveSlot(data.getQueryParameter("saveSlot")?.toIntOrNull())
@@ -128,6 +134,8 @@ object GameLaunchShortcut {
     fun clearLaunchRequest(intent: Intent?) {
         intent ?: return
         intent.removeExtra(EXTRA_GAME_PATH)
+        intent.removeExtra(EXTRA_GAME_PATH_ALT)
+        intent.removeExtra(EXTRA_GAME_PATH_LEGACY)
         intent.removeExtra(EXTRA_SAVE_SLOT)
         intent.removeExtra(EXTRA_BOOT_BIOS)
         intent.removeExtra(EXTRA_BOOT_SMOKE_PROBE)
@@ -144,6 +152,15 @@ object GameLaunchShortcut {
         if (intent.data?.scheme == SCHEME && intent.data?.host == HOST) {
             intent.data = null
         }
+    }
+
+    private fun gamePathExtra(intent: Intent): String? {
+        intent.getStringExtra(EXTRA_GAME_PATH)?.takeIf { it.isNotBlank() }?.let { return it }
+        intent.getStringExtra(EXTRA_GAME_PATH_ALT)?.takeIf { it.isNotBlank() }?.let { return it }
+        intent.getStringExtra(EXTRA_GAME_PATH_LEGACY)?.takeIf { it.isNotBlank() }?.let { return it }
+        @Suppress("DEPRECATION")
+        val legacyUri = intent.getParcelableExtra(EXTRA_GAME_PATH_LEGACY) as? Uri
+        return legacyUri?.toString()?.takeIf { it.isNotBlank() }
     }
 
     private fun optionalIntExtra(intent: Intent, key: String): Int? {
