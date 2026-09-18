@@ -336,6 +336,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     val floatingQuickActionsEnabled: StateFlow<Boolean> = preferences.floatingQuickActionsEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val orientationLock: StateFlow<Int> = preferences.orientationLock
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppPreferences.ORIENTATION_LOCK_AUTO)
+    val emulationAllowsBothOrientations: StateFlow<Boolean> = preferences.emulationAllowsBothOrientations
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     private var mediatekCompatibilityNoticeChecked = false
 
     init {
@@ -1264,6 +1268,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setConfirmSaveLoadActions(enabled: Boolean) { viewModelScope.launch { preferences.setConfirmSaveLoadActions(enabled) } }
     fun setFloatingQuickActionsEnabled(enabled: Boolean) {
         viewModelScope.launch { preferences.setFloatingQuickActionsEnabled(enabled) }
+    }
+
+    fun setOrientationLock(value: Int) {
+        viewModelScope.launch { preferences.setOrientationLock(value) }
+    }
+
+    fun setEmulationAllowsBothOrientations(enabled: Boolean) {
+        viewModelScope.launch { preferences.setEmulationAllowsBothOrientations(enabled) }
     }
     fun setBackButtonExitsGame(enabled: Boolean) { viewModelScope.launch { preferences.setBackButtonExitsGame(enabled) } }
     fun setKeepScreenOn(enabled: Boolean) { viewModelScope.launch { preferences.setKeepScreenOn(enabled) } }

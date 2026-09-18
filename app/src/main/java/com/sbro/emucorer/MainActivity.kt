@@ -2,6 +2,7 @@ package com.sbro.emucorer
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
@@ -70,6 +71,14 @@ open class MainActivity : ComponentActivity() {
         super.attachBaseContext(AppLocaleManager.wrap(newBase))
     }
 
+    private fun applyOrientationLock(lock: Int) {
+        requestedOrientation = when (lock) {
+            AppPreferences.ORIENTATION_LOCK_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            AppPreferences.ORIENTATION_LOCK_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val preferences = AppPreferences(this)
         installSplashScreen().setKeepOnScreenCondition { keepSplashVisible }
@@ -88,6 +97,16 @@ open class MainActivity : ComponentActivity() {
                     if (languageTag != appliedLanguageTag) {
                         appliedLanguageTag = languageTag
                         recreate()
+                    }
+                }
+        }
+
+        lifecycleScope.launch {
+            preferences.orientationLock
+                .distinctUntilChanged()
+                .collect { lock ->
+                    if (!launchedFromTv) {
+                        applyOrientationLock(lock)
                     }
                 }
         }
