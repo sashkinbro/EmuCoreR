@@ -29,6 +29,7 @@ Builds are published on the project website at **[emucorer.web.app](https://emuc
 - Touch controls with a layout editor, rumble, analog mode control, and physical gamepad support
 - Theme manager with light, dark, neon, and custom themes
 - Cheats and HD texture packs from online EmuCore catalogs
+- RetroAchievements support with achievement sets, per-game progress, and in-game unlock notifications
 - Hub with PlayStation news, history, videos, and manuals
 - Discord Rich Presence integration
 - 18 interface languages
@@ -43,6 +44,7 @@ This repository contains the Android application, its Compose UI, settings and d
 - Android DataStore and Room
 - JNI bridge to a native C++ libretro frontend
 - [SwanStation](https://github.com/libretro/swanstation) libretro core vendored under `third_party/swanstation`
+- [rcheevos](https://github.com/RetroAchievements/rcheevos) vendored under `third_party/rcheevos` for RetroAchievements tracking and hashing
 - Coil and WorkManager for library artwork and background jobs
 - Discord Social SDK for Rich Presence and party features
 - Firebase Hosting and Cloud Firestore for the website and release catalog
@@ -50,12 +52,12 @@ This repository contains the Android application, its Compose UI, settings and d
 
 ## Current App Scope
 
-EmuCoreR version `0.0.3` currently targets Android with:
+EmuCoreR version `0.0.4` currently targets Android with:
 
 - `minSdk 26`
 - `targetSdk 37`
 - package id `com.sbro.emucorer`
-- version `0.0.3`
+- version `0.0.4`
 
 ## Building Locally
 
@@ -85,6 +87,7 @@ EmuCoreR version `0.0.3` currently targets Android with:
 - `app/src/main/res` Android resources and translations
 - `app/src/main/assets/catalog` game catalog, cover index, and PS1 serial/title index
 - `third_party/swanstation` vendored [SwanStation](https://github.com/libretro/swanstation) libretro core and its in-tree dependencies
+- `third_party/rcheevos` vendored [rcheevos](https://github.com/RetroAchievements/rcheevos) client for RetroAchievements
 - `tools/` local release scripts; ignored by git
 
 ## Notes
@@ -98,7 +101,7 @@ EmuCoreR version `0.0.3` currently targets Android with:
 
 EmuCoreR builds on the open-source [SwanStation](https://github.com/libretro/swanstation) project together with its own Android interface, library system, runtime controls, and handheld-focused UX. The Kotlin bridge, game library, libretro frontend, and renderer integration are maintained in this repository.
 
-Thanks to the SwanStation developers, to the libretro team, and to everyone who contributes to keeping PlayStation emulation open and alive.
+Thanks to the SwanStation developers, to the libretro team, to the RetroAchievements team for rcheevos, and to everyone who contributes to keeping PlayStation emulation open and alive.
 
 ## Support
 

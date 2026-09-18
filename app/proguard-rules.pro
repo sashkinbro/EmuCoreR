@@ -25,6 +25,12 @@
     native <methods>;
 }
 
+# --- RetroAchievements ------------------------------------------------------
+# achievements_bridge.cpp resolves the HTTP bridge object, its static request
+# method and the response fields by name from the native HTTP worker thread.
+-keep class com.sbro.emucorer.core.AchievementsHttp { *; }
+-keep class com.sbro.emucorer.core.AchievementsHttpResponse { *; }
+
 # --- Discord Social SDK -----------------------------------------------------
 # libdiscord_partner_sdk.so instantiates its Java models and activity classes
 # by name.
