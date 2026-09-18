@@ -407,6 +407,12 @@ object NativeApp {
     }
 
     @JvmStatic
+    fun getPadRumble(index: Int): FloatArray? {
+        if (!hasNativeCore) return null
+        return runCatching { CoreRuntime.getPadRumble(index) }.getOrNull()
+    }
+
+    @JvmStatic
     fun setCrashContextString(key: String, value: String?) {
         CrashLogger.logContext(key, value)
     }

@@ -681,6 +681,14 @@ internal object CoreRuntime {
         analog
     }
 
+    /** Strong/weak rumble latched by the core, as [strong, weak] in 0..1. */
+    fun getPadRumble(port: Int): FloatArray? = sessionLock.withLock {
+        if (session == 0L || port !in 0..1) return@withLock null
+        val state = bridge.getPadState(session, port)
+        if (state < 0) return@withLock null
+        floatArrayOf(((state shr 8) and 0xFF) / 255f, (state and 0xFF) / 255f)
+    }
+
     fun attachSurface(value: Surface, width: Int, height: Int) {
         surface = value
         surfaceWidth = width

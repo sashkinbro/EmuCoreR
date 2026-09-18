@@ -2401,7 +2401,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             val leftStickLayout = updatedLayouts["left_stick"] ?: defaults["left_stick"] ?: OverlayControlLayout(scale = current.stickScale)
             val showingStick = leftStickLayout.visible
 
-            NativeApp.setPadAnalogMode(0, !showingStick)
+            NativeApp.setPadAnalogMode(0, shouldPresentDualshock(0, !showingStick))
 
             updatedLayouts["left_stick"] = leftStickLayout.copy(visible = !showingStick)
             listOf("dpad_up", "dpad_down", "dpad_left", "dpad_right").forEach { id ->
@@ -4976,6 +4976,18 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     /**
+     * A physical gamepad replaces the digital pad with a DualShock so analog
+     * sticks and rumble work; the core still decides when the game actually
+     * enables analog/rumble mode.
+     */
+    private fun shouldPresentDualshock(padIndex: Int, touchAnalogWanted: Boolean): Boolean {
+        if (touchAnalogWanted) return true
+        return runCatching {
+            GamepadManager.connectedGamepads().any { it.padIndex == padIndex }
+        }.getOrDefault(false)
+    }
+
+    /**
      * Attaches a DualShock to a port when the user asked for an analog input
      * path: the "force analog" core option, a visible on-screen left stick, or
      * the right-stick gesture. Without this the emulated port stays a plain
@@ -4988,8 +5000,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             ?.toBooleanStrictOrNull() ?: false
         val forceAnalog1 = NativeApp.getCoreOption("swanstation_Controller2_ForceAnalog")
             ?.toBooleanStrictOrNull() ?: false
-        NativeApp.setPadAnalogMode(0, forceAnalog0 || leftStickVisible || state.touchscreenRightStick)
-        NativeApp.setPadAnalogMode(1, forceAnalog1)
+        NativeApp.setPadAnalogMode(
+            0,
+            forceAnalog0 || shouldPresentDualshock(0, leftStickVisible || state.touchscreenRightStick)
+        )
+        NativeApp.setPadAnalogMode(1, forceAnalog1 || shouldPresentDualshock(1, false))
     }
 
     private fun syncCheatsForCurrentGame(gameKeyOverride: String? = null) {

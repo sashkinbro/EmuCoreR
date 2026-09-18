@@ -217,6 +217,7 @@ import com.sbro.emucorer.ui.theme.GradientEnd
 import com.sbro.emucorer.ui.theme.GradientStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
@@ -855,6 +856,29 @@ fun EmulationScreen(
 
     LaunchedEffect(gamepadUiActive) {
         GamepadManager.setEmulationInputEnabled(!gamepadUiActive)
+    }
+
+    // The core latches DualShock rumble every frame; forward it to the
+    // connected gamepad or the device vibrator while emulation runs. Polling
+    // happens off the main thread because the frame loop holds the runtime
+    // session lock for the duration of each frame.
+    LaunchedEffect(uiState.isRunning, uiState.isPaused) {
+        if (!uiState.isRunning || uiState.isPaused) return@LaunchedEffect
+        try {
+            withContext(Dispatchers.Default) {
+                while (isActive) {
+                    for (port in 0..1) {
+                        EmulatorBridge.getPadRumble(port)?.let { rumble ->
+                            NativeApp.onPadVibration(port, rumble[0], rumble[1])
+                        }
+                    }
+                    delay(50L)
+                }
+            }
+        } finally {
+            NativeApp.onPadVibration(0, 0f, 0f)
+            NativeApp.onPadVibration(1, 0f, 0f)
+        }
     }
 
     DisposableEffect(touchPadIndex, shouldShowOverlay, uiState.showMenu, showControlsEditor) {
