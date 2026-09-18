@@ -4267,6 +4267,42 @@ object SwanStationCoreOptions {
     /** Audio tab: SPU/CD audio options. */
     fun audioOptions(): List<Option> = optionList.filter { it.key in audioKeys }
 
+    /**
+     * Controls section of the in-game menu. Expert lightgun/NeGcon/axis
+     * tuning is intentionally not part of this list; it stays available in the
+     * app settings and the game manager.
+     */
+    fun gameMenuControlsOptions(): List<Option> = listOfNotNull(
+        option("swanstation_Controller1_ForceAnalog"),
+        option("swanstation_Controller1_AnalogDPadInDigitalMode"),
+        option("swanstation_Controller2_ForceAnalog"),
+        option("swanstation_Controller2_AnalogDPadInDigitalMode")
+    )
+
+    /**
+     * Graphics section of the in-game menu. Crop/software-renderer/timing and
+     * display geometry tuning is intentionally not part of this list; it stays
+     * available in the app settings and the game manager.
+     */
+    fun gameMenuGraphicsOptions(): List<Option> = listOfNotNull(
+        option("swanstation_GPU_MSAA"),
+        option("swanstation_GPU_TrueColor"),
+        option("swanstation_GPU_ScaledDithering"),
+        option("swanstation_GPU_DisableInterlacing"),
+        option("swanstation_GPU_TextureFilter"),
+        option("swanstation_GPU_PGXPEnable"),
+        option("swanstation_GPU_PGXPCulling"),
+        option("swanstation_GPU_PGXPTextureCorrection"),
+        option("swanstation_GPU_PGXPColorCorrection"),
+        option("swanstation_GPU_PGXPDepthBuffer"),
+        option("swanstation_GPU_PGXPVertexCache"),
+        option("swanstation_GPU_PGXPCPU"),
+        option("swanstation_GPU_PGXPPreserveProjFP"),
+        option("swanstation_GPU_PGXPTolerance"),
+        option("swanstation_GPU_PGXPDepthClearThreshold"),
+        option("swanstation_GPU_DownsampleMode")
+    )
+
     fun resolutionScaleChoices(): List<Choice> =
         option("swanstation_GPU_ResolutionScale")?.choices.orEmpty()
 

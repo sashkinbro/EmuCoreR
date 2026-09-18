@@ -1384,7 +1384,6 @@ fun EmulationScreen(
                     onSetOverlayScale = { viewModel.setOverlayScale(it) },
                     onSetOverlayOpacity = { viewModel.setOverlayOpacity(it) },
                     onSetHideOverlayOnGamepad = { viewModel.setHideOverlayOnGamepad(it) },
-                    onSetCompactControls = { viewModel.setCompactControls(it) },
                     onSetKeepScreenOn = { viewModel.setKeepScreenOn(it) },
                     onSetStickScale = { viewModel.setStickScale(it) },
                     onSetLeftStickSensitivity = { viewModel.setLeftStickSensitivity(it) },
@@ -1415,11 +1414,9 @@ fun EmulationScreen(
                     onOpenCheats = { showCheatsDialog = true },
                     onSetEeCycleRate = { viewModel.setEeCycleRate(it) },
                     onSetEeCycleSkip = { viewModel.setEeCycleSkip(it) },
-                    onSetEnableIcacheEmulation = { viewModel.setEnableIcacheEmulation(it) },
                     onSetEnableDisableStalls = { viewModel.setEnableDisableStalls(it) },
                     onSetEnablePreciseExceptions = { viewModel.setEnablePreciseExceptions(it) },
                     onSetEnableTurboCd = { viewModel.setEnableTurboCd(it) },
-                    onSetEnableCddaAudio = { viewModel.setEnableCddaAudio(it) },
                     onSetEnableXaDecoding = { viewModel.setEnableXaDecoding(it) },
                     onSetEnableSpuReverb = { viewModel.setEnableSpuReverb(it) },
                     onSetEnableSpuThread = { viewModel.setEnableSpuThread(it) },
@@ -1439,7 +1436,6 @@ fun EmulationScreen(
                     onSetAltFlipMode = { viewModel.setAltFlipMode(it) },
                     onSetEnableRgb32Output = { viewModel.setEnableRgb32Output(it) },
                     onSetEnableScaleHires = { viewModel.setEnableScaleHires(it) },
-                    onSetMultitapMode = { viewModel.setMultitapMode(it) },
                     onExit = requestExitClick,
                     modifier = Modifier
                         .fillMaxHeight()
@@ -2649,7 +2645,6 @@ private fun EmulationSidebarMenu(
     onSetOverlayScale: (Int) -> Unit,
     onSetOverlayOpacity: (Int) -> Unit,
     onSetHideOverlayOnGamepad: (Boolean) -> Unit,
-    onSetCompactControls: (Boolean) -> Unit,
     onSetKeepScreenOn: (Boolean) -> Unit,
     onSetStickScale: (Int) -> Unit,
     onSetLeftStickSensitivity: (Int) -> Unit,
@@ -2680,11 +2675,9 @@ private fun EmulationSidebarMenu(
     onOpenCheats: () -> Unit,
     onSetEeCycleRate: (Int) -> Unit,
     onSetEeCycleSkip: (Int) -> Unit,
-    onSetEnableIcacheEmulation: (Boolean) -> Unit,
     onSetEnableDisableStalls: (Boolean) -> Unit,
     onSetEnablePreciseExceptions: (Boolean) -> Unit,
     onSetEnableTurboCd: (Boolean) -> Unit,
-    onSetEnableCddaAudio: (Boolean) -> Unit,
     onSetEnableXaDecoding: (Boolean) -> Unit,
     onSetEnableSpuReverb: (Boolean) -> Unit,
     onSetEnableSpuThread: (Boolean) -> Unit,
@@ -2704,7 +2697,6 @@ private fun EmulationSidebarMenu(
     onSetAltFlipMode: (Int) -> Unit,
     onSetEnableRgb32Output: (Boolean) -> Unit,
     onSetEnableScaleHires: (Boolean) -> Unit,
-    onSetMultitapMode: (Int) -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -3196,14 +3188,6 @@ private fun EmulationSidebarMenu(
                         )
 
                         SettingsToggle(
-                            title = stringResource(R.string.settings_compact_controls),
-                            checked = uiState.compactControls,
-                            onCheckedChange = onSetCompactControls,
-                            helpText = stringResource(R.string.settings_help_compact_controls),
-                            onResetToDefault = { onSetCompactControls(globalDefaults.compactControls) }
-                        )
-
-                        SettingsToggle(
                             title = stringResource(R.string.settings_keep_screen_on),
                             checked = uiState.keepScreenOn,
                             onCheckedChange = onSetKeepScreenOn,
@@ -3212,7 +3196,7 @@ private fun EmulationSidebarMenu(
                         )
 
                         CoreOptionRows(
-                            options = SwanStationCoreOptions.controlsOptions(),
+                            options = SwanStationCoreOptions.gameMenuControlsOptions(),
                             version = coreOptionsVersion,
                             perGameOverrides = uiState.perGameCoreOptions,
                             onValueChange = onCoreOptionChange
@@ -3396,26 +3380,6 @@ private fun EmulationSidebarMenu(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
                         )
 
-                        SidebarSectionTitle(
-                            text = stringResource(R.string.settings_core_input).uppercase(),
-                            color = sectionTitleColor,
-                            topPadding = sectionLabelTopPadding,
-                            horizontalInset = sectionLabelInset
-                        )
-
-                        LiveSelectionRow(
-                            title = stringResource(R.string.settings_multitap_mode),
-                            options = listOf(
-                                LiveSelectionOption(0, stringResource(R.string.settings_multitap_off)),
-                                LiveSelectionOption(1, stringResource(R.string.settings_multitap_port1)),
-                                LiveSelectionOption(2, stringResource(R.string.settings_multitap_port2)),
-                                LiveSelectionOption(3, stringResource(R.string.settings_multitap_both))
-                            ),
-                            currentValue = uiState.multitapMode,
-                            onValueChange = onSetMultitapMode,
-                            onResetToDefault = { onSetMultitapMode(globalDefaults.multitapMode) }
-                        )
-
                                     }
 
                                     else -> Unit
@@ -3581,33 +3545,7 @@ private fun EmulationSidebarMenu(
                         }
                         }
 
-                        if (section == GameMenuSectionId.EMULATION_CHEATS ||
-                            section == GameMenuSectionId.EMULATION_CPU) {
-                        SidebarSectionTitle(
-                            text = stringResource(R.string.settings_core_cpu).uppercase(),
-                            color = sectionTitleColor,
-                            topPadding = sectionLabelTopPadding,
-                            horizontalInset = sectionLabelInset
-                        )
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_icache_emulation),
-                            checked = uiState.enableIcacheEmulation,
-                            onCheckedChange = onSetEnableIcacheEmulation,
-                            onResetToDefault = { onSetEnableIcacheEmulation(globalDefaults.enableIcacheEmulation) }
-                        )
-
-                        CoreOptionRows(
-                            options = SwanStationCoreOptions.emulationOptions(),
-                            version = coreOptionsVersion,
-                            perGameOverrides = uiState.perGameCoreOptions,
-                            onValueChange = onCoreOptionChange
-                        )
-
-                        }
-
-                        if (section == GameMenuSectionId.EMULATION_CHEATS ||
-                            section == GameMenuSectionId.EMULATION_AUDIO) {
+                        if (section == GameMenuSectionId.EMULATION_AUDIO) {
                         SidebarSectionTitle(
                             text = stringResource(R.string.settings_core_audio).uppercase(),
                             color = sectionTitleColor,
@@ -3631,22 +3569,8 @@ private fun EmulationSidebarMenu(
                             onValueChange = { onSetAudioVolume(it.toInt()) },
                             onResetToDefault = { onSetAudioVolume(globalDefaults.audioVolume) }
                         )
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_cdda_audio),
-                            checked = uiState.enableCddaAudio,
-                            onCheckedChange = onSetEnableCddaAudio,
-                            onResetToDefault = { onSetEnableCddaAudio(globalDefaults.enableCddaAudio) }
-                        )
-
-                        CoreOptionRows(
-                            options = SwanStationCoreOptions.audioOptions(),
-                            version = coreOptionsVersion,
-                            perGameOverrides = uiState.perGameCoreOptions,
-                            onValueChange = onCoreOptionChange
-                        )
-
                         }
+
                                     }
 
                                     else -> Unit
@@ -3763,17 +3687,8 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetDisplayCrop(globalDefaults.displayCrop) }
                         )
 
-                        SwanStationCoreOptions.option("swanstation_Display_CropMode")?.let { option ->
-                            CoreOptionRows(
-                                options = listOf(option),
-                                version = coreOptionsVersion,
-                                perGameOverrides = uiState.perGameCoreOptions,
-                                onValueChange = onCoreOptionChange
-                            )
-                        }
-
                         CoreOptionRows(
-                            options = SwanStationCoreOptions.graphicsOptions(),
+                            options = SwanStationCoreOptions.gameMenuGraphicsOptions(),
                             version = coreOptionsVersion,
                             perGameOverrides = uiState.perGameCoreOptions,
                             onValueChange = onCoreOptionChange
