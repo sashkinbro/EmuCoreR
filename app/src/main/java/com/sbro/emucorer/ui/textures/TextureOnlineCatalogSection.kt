@@ -97,6 +97,7 @@ internal fun TextureOnlineCatalogSection(
     var resolvingIdentity by remember { mutableStateOf(false) }
     var packs by remember { mutableStateOf<List<RemoteTexturePack>>(emptyList()) }
     var installed by remember { mutableStateOf<Map<String, InstalledRemoteTexture>>(emptyMap()) }
+    var installSnapshotLoaded by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
     var cached by remember { mutableStateOf(false) }
     var loadFailed by remember { mutableStateOf(false) }
@@ -134,7 +135,13 @@ internal fun TextureOnlineCatalogSection(
         while (isActive) {
             downloadTasks = withContext(Dispatchers.IO) { downloadManager.tasks() }
             val refreshedInstalled = withContext(Dispatchers.IO) { installState.installedTextures() }
-            if (refreshedInstalled != installed) {
+            if (!installSnapshotLoaded) {
+                // The first poll only syncs the already-installed packs. Firing
+                // the install callback here force-enabled replacements every
+                // time the screen was opened, overriding the user's choice.
+                installed = refreshedInstalled
+                installSnapshotLoaded = true
+            } else if (refreshedInstalled != installed) {
                 installed = refreshedInstalled
                 onInstalled()
             }

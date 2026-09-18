@@ -108,15 +108,105 @@ void TextureReplacements::SetGameID(std::string game_id)
   Reload();
 }
 
-const TextureReplacementTexture* TextureReplacements::GetVRAMWriteReplacement(uint32_t width, uint32_t height, const void* pixels)
+const TextureReplacementTexture* TextureReplacements::GetVRAMWriteReplacement(uint32_t x, uint32_t y, uint32_t width,
+                                                                              uint32_t height, const void* pixels)
 {
   const TextureReplacementHash hash = GetVRAMWriteHash(width, height, pixels);
 
   const auto it = m_vram_write_replacements.find(hash);
   if (it == m_vram_write_replacements.end())
+  {
+    // The rect no longer holds a texture with a replacement; any re-application
+    // queued for it is stale.
+    RemovePendingVRAMWriteReplacement(x, y, width, height);
     return nullptr;
+  }
 
-  return LoadTexture(it->second);
+  const TextureReplacementTexture* texture = LoadTexture(it->second);
+  if (!texture)
+  {
+    // Still decoding on the worker: the renderer re-applies the replacement at
+    // the frame boundary once it lands.
+    QueuePendingVRAMWriteReplacement(hash, x, y, width, height);
+    return nullptr;
+  }
+
+  RemovePendingVRAMWriteReplacement(x, y, width, height);
+  return texture;
+}
+
+void TextureReplacements::QueuePendingVRAMWriteReplacement(const TextureReplacementHash& hash, uint32_t x, uint32_t y,
+                                                            uint32_t width, uint32_t height)
+{
+  for (PendingVRAMWriteReplacement& pending : m_pending_vram_write_replacements)
+  {
+    if (pending.x == x && pending.y == y && pending.width == width && pending.height == height)
+    {
+      pending.hash = hash;
+      return;
+    }
+  }
+
+  if (m_pending_vram_write_replacements.size() >= MAX_PENDING_VRAM_WRITE_REPLACEMENTS)
+    m_pending_vram_write_replacements.erase(m_pending_vram_write_replacements.begin());
+
+  m_pending_vram_write_replacements.push_back({hash, x, y, width, height});
+}
+
+void TextureReplacements::RemovePendingVRAMWriteReplacement(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+  for (auto it = m_pending_vram_write_replacements.begin(); it != m_pending_vram_write_replacements.end();)
+  {
+    if (it->x == x && it->y == y && it->width == width && it->height == height)
+      it = m_pending_vram_write_replacements.erase(it);
+    else
+      ++it;
+  }
+}
+
+void TextureReplacements::CollectReadyVRAMWriteReplacements(std::vector<VRAMWriteReplacementResult>* out)
+{
+  if (m_pending_vram_write_replacements.empty())
+    return;
+
+  // Install anything the decode worker finished since the last boundary.
+  DrainLoadedTextures();
+
+  for (auto it = m_pending_vram_write_replacements.begin(); it != m_pending_vram_write_replacements.end();)
+  {
+    const auto replacement_it = m_vram_write_replacements.find(it->hash);
+    if (replacement_it == m_vram_write_replacements.end())
+    {
+      it = m_pending_vram_write_replacements.erase(it);
+      continue;
+    }
+
+    const std::string& filename = replacement_it->second;
+    const auto cache_it = m_texture_cache.find(filename);
+    if (cache_it == m_texture_cache.end())
+    {
+      // The original request may have been dropped by the queue cap; asking
+      // again is cheap and deduplicated internally.
+      QueueTextureLoad(filename);
+      ++it;
+      continue;
+    }
+
+    if (cache_it->second && cache_it->second->GetWidth() > 0 && cache_it->second->GetHeight() > 0)
+    {
+      TouchTextureCacheEntry(filename);
+      VRAMWriteReplacementResult result;
+      result.texture = cache_it->second;
+      result.x = it->x;
+      result.y = it->y;
+      result.width = it->width;
+      result.height = it->height;
+      out->push_back(std::move(result));
+    }
+
+    // A decoded-but-empty image means the file failed to decode; stop retrying.
+    it = m_pending_vram_write_replacements.erase(it);
+  }
 }
 
 void TextureReplacements::Shutdown()
@@ -128,6 +218,7 @@ void TextureReplacements::Shutdown()
   m_texture_lru.clear();
   m_texture_lru_positions.clear();
   m_texture_cache_bytes = 0;
+  m_pending_vram_write_replacements.clear();
   m_vram_write_replacements.clear();
   for (auto& entries : m_texpage_replacements)
     entries.clear();
@@ -165,6 +256,7 @@ TextureReplacementHash TextureReplacements::GetVRAMWriteHash(uint32_t width, uin
 
 void TextureReplacements::Reload()
 {
+  m_pending_vram_write_replacements.clear();
   m_vram_write_replacements.clear();
   for (auto& entries : m_texpage_replacements)
     entries.clear();

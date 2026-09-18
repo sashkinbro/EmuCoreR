@@ -3458,7 +3458,8 @@ void GPU_HW_Vulkan::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t 
 
   if (!check_mask)
   {
-    const TextureReplacementTexture* rtex = g_texture_replacements.GetVRAMWriteReplacement(width, height, data);
+    const TextureReplacementTexture* rtex =
+      g_texture_replacements.GetVRAMWriteReplacement(x, y, width, height, data);
     if (rtex && BlitVRAMReplacementTexture(rtex, x * m_resolution_scale, y * m_resolution_scale,
                                            width * m_resolution_scale, height * m_resolution_scale))
     {
@@ -3880,6 +3881,18 @@ void GPU_HW_Vulkan::ReadVRAMShadowForReplacements()
     // Submit the recorded encodes and copies without waiting: the staging
     // textures are read at a later frame boundary, once their fences signal.
     ExecuteCommandBuffer(false, true);
+  }
+
+  // Re-apply VRAM-write replacements whose decode finished after the upload was
+  // seen. Runs at the frame boundary, so it cannot disturb a draw, and it lets
+  // one-shot static uploads still receive their replacement texture.
+  std::vector<TextureReplacements::VRAMWriteReplacementResult> pending_replacements;
+  g_texture_replacements.CollectReadyVRAMWriteReplacements(&pending_replacements);
+  for (const TextureReplacements::VRAMWriteReplacementResult& replacement : pending_replacements)
+  {
+    BlitVRAMReplacementTexture(replacement.texture.get(), replacement.x * m_resolution_scale,
+                               replacement.y * m_resolution_scale, replacement.width * m_resolution_scale,
+                               replacement.height * m_resolution_scale);
   }
 }
 

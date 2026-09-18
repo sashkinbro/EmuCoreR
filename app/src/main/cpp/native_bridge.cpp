@@ -1611,6 +1611,10 @@ extern void EmuCoreRSetTextureReplacementsPathOverride(const char* path);
 // Implemented by the core: reports whether a disc image is mounted.
 extern bool EmuCoreRHasDiscMedia();
 
+// Implemented by the core: reads the game serial from a disc image.
+extern const char* EmuCoreRGetDiscGameCode(const char* path);
+extern const char* EmuCoreRGetDiscGameCodeFromFd(int fd);
+
 // ---------------------------------------------------------------------------
 // JNI: lifecycle.
 // ---------------------------------------------------------------------------
@@ -2062,6 +2066,32 @@ JNIEXPORT jboolean JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_hasDiscMedia(JNIEnv*, jobject, jlong handle) {
     if (handle == 0 || !g_frontend.game_loaded) return JNI_FALSE;
     return EmuCoreRHasDiscMedia() ? JNI_TRUE : JNI_FALSE;
+}
+
+// Disc metadata for the library layer: "title\nserial\nserial" (the app uses
+// the serial; the title stays filename-derived because the core has no gamedb).
+JNIEXPORT jstring JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_getDiscMetadata(JNIEnv* env, jobject, jstring path) {
+    if (path == nullptr) return nullptr;
+    const char* chars = env->GetStringUTFChars(path, nullptr);
+    if (chars == nullptr) return nullptr;
+    const char* code = EmuCoreRGetDiscGameCode(chars);
+    const std::string serial = code != nullptr ? code : "";
+    env->ReleaseStringUTFChars(path, chars);
+    if (serial.empty()) return nullptr;
+    const std::string payload = serial + "\n" + serial + "\n" + serial;
+    return env->NewStringUTF(payload.c_str());
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_getDiscMetadataFd(JNIEnv* env, jobject, jint fd,
+                                                               jlong /*offset*/, jlong /*size*/) {
+    const char* code = EmuCoreRGetDiscGameCodeFromFd(static_cast<int>(fd));
+    if (code == nullptr) return nullptr;
+    const std::string serial = code;
+    if (serial.empty()) return nullptr;
+    const std::string payload = serial + "\n" + serial + "\n" + serial;
+    return env->NewStringUTF(payload.c_str());
 }
 
 // ---------------------------------------------------------------------------

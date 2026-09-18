@@ -220,7 +220,10 @@ class GameRepository {
                         val sourcePath = cueIndex.metadataSourceByCue[
                             libraryIdentity(file.absolutePath)
                         ] ?: file.absolutePath
-                        val sourceMetadata = EmulatorBridge.getGameMetadata(sourcePath)
+                        val sourceMetadata = EmulatorBridge.getGameMetadata(
+                            sourcePath,
+                            readDiscMetadata = false
+                        )
                         sourceMetadata.copy(
                             title = if (sourcePath == file.absolutePath) {
                                 sourceMetadata.title
@@ -324,7 +327,10 @@ class GameRepository {
                         val sourcePath = cueIndex.metadataSourceByCue[
                             libraryIdentity(uriPath)
                         ] ?: uriPath
-                        val sourceMetadata = EmulatorBridge.getGameMetadata(sourcePath)
+                        val sourceMetadata = EmulatorBridge.getGameMetadata(
+                            sourcePath,
+                            readDiscMetadata = false
+                        )
                         sourceMetadata.copy(
                             title = if (sourcePath == uriPath) {
                                 sourceMetadata.title

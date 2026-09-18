@@ -831,17 +831,18 @@ internal object CoreRuntime {
      * otherwise end in periodic underruns.
      *
      * When the queue falls below a quarter of the high water mark, the frame
-     * deadline is dropped entirely: emulation runs flat out for the moment or
-     * two it takes to refill the buffer. That turns a dropped frame into a
-     * couple of imperceptibly fast frames instead of tens of seconds of
-     * stuttering audio while a proportional refill slowly catches up.
+     * period is halved so the buffer refills at up to twice the target rate.
+     * The refill is deliberately bounded: dropping the deadline entirely made
+     * the reported FPS spike above the configured target after every underrun.
      */
     private fun audioAdjustedFramePeriod(output: NativeAudioOutput, basePeriodNanos: Long): Long {
         val highWater = runCatching { output.pacingHighWaterFrames() }.getOrDefault(0)
         if (highWater <= 0) return basePeriodNanos
         val queued = runCatching { output.bufferedFrames() }.getOrDefault(-1)
         if (queued < 0) return basePeriodNanos
-        if (queued < highWater / 4) return 0L
+        if (queued < highWater / 4) {
+            return (basePeriodNanos / AUDIO_PACING_REFILL_DIVISOR).coerceAtLeast(1L)
+        }
         val target = (highWater * AUDIO_PACING_TARGET_FRACTION).toInt()
         val error = (queued - target).toDouble() / highWater.toDouble()
         val trim = (error * AUDIO_PACING_MAX_TRIM).coerceIn(-AUDIO_PACING_MAX_TRIM, AUDIO_PACING_MAX_TRIM)
@@ -1120,6 +1121,9 @@ internal object CoreRuntime {
     // Maximum frame-period trim used to follow the audio clock (0.5%, which is
     // an order of magnitude below the audible pitch threshold).
     private const val AUDIO_PACING_MAX_TRIM = 0.005
+    // Frame period divisor used while the audio queue refills after an
+    // underrun. 2 keeps the catch-up at most twice the target frame rate.
+    private const val AUDIO_PACING_REFILL_DIVISOR = 2L
     // Portion of the output high water mark the sample queue is steered to.
     private const val AUDIO_PACING_TARGET_FRACTION = 0.75
 

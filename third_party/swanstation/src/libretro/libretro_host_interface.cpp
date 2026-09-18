@@ -1,5 +1,7 @@
 #include "core/host_interface.h"
 #include "common/byte_stream.h"
+#include "common/cd_image.h"
+#include "common/error.h"
 #include "common/file_system.h"
 #include "common/log.h"
 #include "common/make_array.h"
@@ -27,9 +29,15 @@
 #include "core/gpu_hw_vulkan.h"
 #include "version.h"
 #include <array>
+#include <cstdio>
 #include <cstring>
+#include <memory>
 #include <tuple>
 #include <utility>
+
+#if defined(__ANDROID__)
+#include <unistd.h>
+#endif
 
 #include <compat/strl.h>
 #include <file/file_path.h>
@@ -78,6 +86,49 @@ extern "C" __attribute__((visibility("default"))) void EmuCoreRSetTextureReplace
 extern "C" __attribute__((visibility("default"))) bool EmuCoreRHasDiscMedia()
 {
   return System::IsValid() && g_cdrom.HasMedia();
+}
+
+// EmuCoreR Android frontend hook: reads the game serial from a disc image
+// without booting it, so the library, cheats and the texture catalog all match
+// packs by the same code the running game reports. The returned buffer is
+// thread-local and valid until the next call on the same thread.
+extern "C" __attribute__((visibility("default"))) const char* EmuCoreRGetDiscGameCode(
+  const char* path)
+{
+  static thread_local std::string game_code;
+
+  if (!path || !*path)
+    return nullptr;
+
+  Common::Error error;
+  std::unique_ptr<CDImage> image = CDImage::Open(path, CDImage::OpenFlags::None, &error);
+  if (!image)
+    return nullptr;
+
+  game_code = System::GetGameCodeForImage(image.get(), false);
+  return game_code.empty() ? nullptr : game_code.c_str();
+}
+
+// Same, for content-provider descriptors: resolves the real path behind the fd
+// (the raw /proc/self/fd path has no extension for CDImage to dispatch on).
+extern "C" __attribute__((visibility("default"))) const char* EmuCoreRGetDiscGameCodeFromFd(
+  int fd)
+{
+#if defined(__ANDROID__)
+  char proc_path[64];
+  std::snprintf(proc_path, sizeof(proc_path), "/proc/self/fd/%d", fd);
+
+  char target[4096];
+  const ssize_t length = readlink(proc_path, target, sizeof(target) - 1);
+  if (length <= 0)
+    return nullptr;
+
+  target[length] = '\0';
+  return EmuCoreRGetDiscGameCode(target);
+#else
+  (void)fd;
+  return nullptr;
+#endif
 }
 
 #ifdef WIN32

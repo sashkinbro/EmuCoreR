@@ -1108,7 +1108,13 @@ object EmulatorBridge {
 
     fun getGameTitle(path: String): String = getGameMetadata(path).title
 
-    fun getGameMetadata(path: String): GameMetadata {
+    /**
+     * [readDiscMetadata] opens the disc image to read its real serial. Bulk
+     * library scans pass false: opening every image would make the first scan
+     * dramatically slower, and the filename/title-index serial is enough to
+     * list the library.
+     */
+    fun getGameMetadata(path: String, readDiscMetadata: Boolean = true): GameMetadata {
         val inferredMetadata = when {
             path.startsWith("content://") -> {
                 val context = getContext()
@@ -1124,7 +1130,7 @@ object EmulatorBridge {
         }
         val extension = extensionSource.substringAfterLast('.', "").lowercase()
 
-        if (!isNativeLoaded) return inferredMetadata
+        if (!readDiscMetadata || !isNativeLoaded) return inferredMetadata
         if (isVmActive) return inferredMetadata
         if (extension == "elf") return inferredMetadata
 
@@ -1444,7 +1450,6 @@ object EmulatorBridge {
         performRuntimeOps(
             buildList {
                 addAll(targetFpsOps(targetFps, ntscFramerate, palFramerate))
-                add(settingOp("EmuCore/GS", "TargetFps", "int", targetFps.coerceIn(0, 120).toString()))
                 add(settingOp("Framerate", "NominalScalar", "float", "1.0"))
             }
         )
@@ -1593,12 +1598,17 @@ object EmulatorBridge {
     }
 
     private fun targetFpsOps(targetFps: Int, ntscFramerate: Float, palFramerate: Float): List<RuntimeOp> {
+        // The frame pacer reads this key directly; it must be part of the
+        // session-start batch or a manual rate is only honoured after the user
+        // touches the in-game control.
+        val targetOp = settingOp("EmuCore/GS", "TargetFps", "int", targetFps.coerceIn(0, 120).toString())
         if (targetFps <= 0) {
-            return regionFramerateOps(ntscFramerate, palFramerate)
+            return listOf(targetOp) + regionFramerateOps(ntscFramerate, palFramerate)
         }
 
         val manualFps = targetFps.coerceIn(20, 120).toFloat()
         return listOf(
+            targetOp,
             settingOp("EmuCore/GS", "FramerateNTSC", "float", manualFps.toString()),
             settingOp("EmuCore/GS", "FrameratePAL", "float", manualFps.toString())
         )

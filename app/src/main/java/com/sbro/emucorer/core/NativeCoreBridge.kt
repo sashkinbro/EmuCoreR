@@ -132,16 +132,12 @@ class NativeCoreBridge {
     external fun audioOutputStats(handle: Long): LongArray?
 
     // ---------------------------------------------------------------------
-    // Disc metadata is not exposed by the libretro core; the library layer
-    // falls back to filename-derived titles when this returns null.
+    // Disc metadata read straight from the image (SYSTEM.CNF). The library
+    // layer falls back to filename-derived titles when this returns null.
     // ---------------------------------------------------------------------
-    fun getDiscMetadata(@Suppress("UNUSED_PARAMETER") path: String): String? = null
+    external fun getDiscMetadata(path: String): String?
 
-    fun getDiscMetadataFd(
-        @Suppress("UNUSED_PARAMETER") fd: Int,
-        @Suppress("UNUSED_PARAMETER") offset: Long,
-        @Suppress("UNUSED_PARAMETER") size: Long
-    ): String? = null
+    external fun getDiscMetadataFd(fd: Int, offset: Long, size: Long): String?
 
     // ---------------------------------------------------------------------
     // Legacy self-test surface. The bespoke EmuCoreR core was replaced by

@@ -78,7 +78,21 @@ public:
 
   void Reload();
 
-  const TextureReplacementTexture* GetVRAMWriteReplacement(uint32_t width, uint32_t height, const void* pixels);
+  const TextureReplacementTexture* GetVRAMWriteReplacement(uint32_t x, uint32_t y, uint32_t width, uint32_t height,
+                                                           const void* pixels);
+
+  // A replacement texture that was still decoding when its VRAM write was
+  // processed. The renderer re-blits these at the frame boundary, so a static
+  // upload that only happens once still gets its replacement.
+  struct VRAMWriteReplacementResult
+  {
+    std::shared_ptr<TextureReplacementTexture> texture;
+    uint32_t x;
+    uint32_t y;
+    uint32_t width;
+    uint32_t height;
+  };
+  void CollectReadyVRAMWriteReplacements(std::vector<VRAMWriteReplacementResult>* out);
 
   // Texture page replacement lookup. `mode` may carry GPUTextureMode::RawTextureBit
   // (the ST* variants); page/palette coordinates are in VRAM words.
@@ -317,6 +331,23 @@ private:
   void DrainLoadedTextures();
   void InsertDecodedTexture(std::string filename, TextureReplacementTexture image);
   static void TextureLoaderEntry(TextureReplacements* self);
+
+  // VRAM writes whose replacement was still decoding when they were seen.
+  struct PendingVRAMWriteReplacement
+  {
+    TextureReplacementHash hash;
+    uint32_t x;
+    uint32_t y;
+    uint32_t width;
+    uint32_t height;
+  };
+
+  void QueuePendingVRAMWriteReplacement(const TextureReplacementHash& hash, uint32_t x, uint32_t y, uint32_t width,
+                                        uint32_t height);
+  void RemovePendingVRAMWriteReplacement(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+
+  static constexpr size_t MAX_PENDING_VRAM_WRITE_REPLACEMENTS = 256;
+  std::vector<PendingVRAMWriteReplacement> m_pending_vram_write_replacements;
 
   struct DecodedTexture
   {
