@@ -75,6 +75,7 @@
     <string name="emulation_exit_confirm">Uscire dal gioco?</string>
     <string name="emulation_exit_confirm_desc">I progressi non salvati andranno persi.</string>
     <string name="emulation_saved">Salvato</string>
+    <string name="emulation_save_failed">Impossibile salvare lo stato di salvataggio.</string>
     <string name="emulation_loaded">Caricato</string>
     <string name="emulation_load_failed">Impossibile caricare lo stato di salvataggio.</string>
     <string name="emulation_bios_missing">Aggiungi prima un file BIOS.</string>

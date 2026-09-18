@@ -1003,6 +1003,7 @@ fun EmulationScreen(
         ) {
             val message = when (uiState.toastMessage) {
                 "saved" -> stringResource(R.string.emulation_saved)
+                "save_failed" -> stringResource(R.string.emulation_save_failed)
                 "loaded" -> stringResource(R.string.emulation_loaded)
                 "load_failed" -> stringResource(R.string.emulation_load_failed)
                 "bios_missing" -> stringResource(R.string.emulation_bios_missing)

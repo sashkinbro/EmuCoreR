@@ -1357,9 +1357,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             isActionInProgress = if (showActionProgress) false else after.isActionInProgress,
             actionLabel = if (showActionProgress) null else after.actionLabel
         )
-        if (success) {
-            refreshSaveStateMetadata()
-        }
+        refreshSaveStateMetadata()
         return success
     }
 
@@ -1980,6 +1978,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             val started = try {
                 EmulatorBridge.startEmulation(
                     pathToLaunch,
+                    saveStateIdentityPath = currentGamePath,
                     bootSmokeProbe = bootSmokeProbe,
                     allowBiosBoot = bootToBios
                 )
@@ -5103,7 +5102,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private suspend fun waitForSaveStateUpdate(gamePath: String, slot: Int, previousModified: Long): Boolean {
-        val statePath = runCatching { NativeApp.getSaveStatePathForFile(gamePath, slot) }.getOrNull()
+        val statePath = runCatching { NativeApp.getCurrentSaveStatePath(slot) }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: runCatching { NativeApp.getSaveStatePathForFile(gamePath, slot) }.getOrNull()
             ?: return false
         val fallbackFile = File(statePath)
         repeat(40) {
@@ -5118,6 +5119,13 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun resolveSaveStateFile(gamePath: String, slot: Int): File? {
+        // The identity path is what the native writer actually uses; fall back
+        // to the caller's path and finally to a serial-named scan.
+        val identityFile = runCatching { NativeApp.getCurrentSaveStatePath(slot) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?.let(::File)
+        if (identityFile?.exists() == true) return identityFile
         val nativeFile = runCatching { NativeApp.getSaveStatePathForFile(gamePath, slot) }
             .getOrNull()
             ?.takeIf { it.isNotBlank() }
@@ -5166,11 +5174,11 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.value = _uiState.value.copy(
                 isActionInProgress = false,
                 actionLabel = null,
-                toastMessage = if (success) "saved" else null
+                toastMessage = if (success) "saved" else "save_failed"
             )
-            if (success) {
-                refreshSaveStateMetadata()
-            }
+            // Refresh even on failure: whatever is on disk is the truth, and a
+            // silent failure used to leave the slot looking empty.
+            refreshSaveStateMetadata()
             delay(2000.milliseconds)
             _uiState.value = _uiState.value.copy(toastMessage = null)
         }

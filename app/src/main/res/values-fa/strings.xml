@@ -90,6 +90,7 @@
     <string name="emulation_exit_confirm">خروج از بازی؟</string>
     <string name="emulation_exit_confirm_desc">پیشرفت‌های ذخیره‌نشده از دست خواهند رفت.</string>
     <string name="emulation_saved">ذخیره شد</string>
+    <string name="emulation_save_failed">ذخیره وضعیت بازی با شکست مواجه شد.</string>
     <string name="emulation_loaded">بارگذاری شد</string>
     <string name="emulation_load_failed">بارگذاری وضعیت ذخیره شده با شکست مواجه شد.</string>
     <string name="emulation_bios_missing">ابتدا یک فایل BIOS اضافه کنید.</string>

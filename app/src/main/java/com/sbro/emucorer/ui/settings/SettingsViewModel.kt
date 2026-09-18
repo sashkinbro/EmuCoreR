@@ -2412,6 +2412,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 return@launch
             }
             preferences.setEmulatorDataPath(preparedRoot.preferencePath)
+            NativeApp.reloadDataRoot(preparedRoot.preferencePath ?: "")
         }
     }
 

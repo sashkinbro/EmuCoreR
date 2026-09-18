@@ -390,10 +390,12 @@ object EmulatorBridge {
             NativeApp.setSetting("EmuCoreR", "AppVersion", "string", appVersionName(context.applicationContext))
             val jitSmokeOk = runCatching { NativeApp.runJitExecutableMemorySmokeTest() }.getOrDefault(false)
             Log.i(TAG, "JIT executable-memory smoke result=$jitSmokeOk")
-            val preferEnglishTitles = runBlocking {
-                AppPreferences(context.applicationContext).preferEnglishGameTitles.first()
+            val (preferEnglishTitles, emulatorDataPath) = runBlocking {
+                val preferences = AppPreferences(context.applicationContext)
+                preferences.preferEnglishGameTitles.first() to preferences.getEmulatorDataPathSync()
             }
             NativeApp.setSetting("UI", "PreferEnglishGameTitles", "bool", preferEnglishTitles.toString())
+            NativeApp.reloadDataRoot(emulatorDataPath ?: "")
             Log.i(TAG, "initializeOnce completed")
         } catch (error: Exception) {
             Log.e(TAG, "initializeOnce failed", error)
@@ -550,6 +552,9 @@ object EmulatorBridge {
             ?: biosPath?.let(DocumentPathResolver::resolveDirectoryPath)
         val preferredBiosFile = preparedBios?.fileName
             ?: DocumentPathResolver.findPreferredBiosFileName(resolvedBiosPath)
+        // Keep the native layer on the same data root as the runtime directories;
+        // saves and memory cards previously ignored the configured location.
+        NativeApp.reloadDataRoot(emulatorDataPath ?: "")
         val runtimeDirectories = EmulatorStorage.runtimeDirectories(context, emulatorDataPath)
         // The bundled core reads replacement textures from the app's texture
         // root (it appends the running game code), so the texture manager and
@@ -845,6 +850,7 @@ object EmulatorBridge {
 
     suspend fun startEmulation(
         path: String,
+        saveStateIdentityPath: String? = null,
         bootSmokeProbe: Boolean = false,
         allowBiosBoot: Boolean = false
     ): Boolean {
@@ -856,6 +862,9 @@ object EmulatorBridge {
             Log.e(TAG, "startEmulation rejected blank game path")
             return false
         }
+        // Save-state files are named after the path the user launched, not the
+        // core's prepared/materialized path, so writes and listings agree.
+        NativeApp.setSaveStateIdentityPath(saveStateIdentityPath ?: path)
         val isElf = when {
             path.substringAfterLast('.', "").equals("elf", ignoreCase = true) -> true
             path.startsWith("content://") -> {

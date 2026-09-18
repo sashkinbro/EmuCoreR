@@ -90,6 +90,7 @@
     <string name="emulation_exit_confirm">Ukončit hru?</string>
     <string name="emulation_exit_confirm_desc">Neuložený postup bude ztracen.</string>
     <string name="emulation_saved">Uloženo</string>
+    <string name="emulation_save_failed">Nepodařilo se uložit stav hry.</string>
     <string name="emulation_loaded">Načteno</string>
     <string name="emulation_load_failed">Nepodařilo se načíst uložený stav.</string>
     <string name="emulation_bios_missing">Nejprve přidejte soubor BIOS.</string>

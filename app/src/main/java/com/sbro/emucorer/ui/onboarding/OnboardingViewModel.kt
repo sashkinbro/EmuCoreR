@@ -9,6 +9,7 @@ import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.core.EmulatorDataLocation
 import com.sbro.emucorer.core.EmulatorStorage
 import com.sbro.emucorer.core.GpuHardwareProfiles
+import com.sbro.emucorer.core.NativeApp
 import com.sbro.emucorer.core.SetupValidator
 import com.sbro.emucorer.core.StorageAccess
 import com.sbro.emucorer.data.AppPreferences
@@ -143,6 +144,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                 return@launch
             }
             preferences.setEmulatorDataPath(preparedRoot.preferencePath)
+            NativeApp.reloadDataRoot(preparedRoot.preferencePath ?: "")
         }
     }
 

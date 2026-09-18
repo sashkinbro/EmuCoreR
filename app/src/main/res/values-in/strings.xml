@@ -90,6 +90,7 @@
     <string name="emulation_exit_confirm">Keluar dari game?</string>
     <string name="emulation_exit_confirm_desc">Progres yang belum disimpan akan hilang.</string>
     <string name="emulation_saved">Disimpan</string>
+    <string name="emulation_save_failed">Gagal menyimpan status permainan.</string>
     <string name="emulation_loaded">Dimuat</string>
     <string name="emulation_load_failed">Gagal memuat status simpanan.</string>
     <string name="emulation_bios_missing">Tambahkan file BIOS terlebih dahulu.</string>

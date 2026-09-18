@@ -38,6 +38,10 @@ object NativeApp {
     }
 
     @Volatile private var currentGamePath: String = ""
+    // The path the user actually launched, used to name save-state files so
+    // the writer and every listing agree even when the core needs a prepared
+    // (materialized) launch path.
+    @Volatile private var saveStateIdentityPath: String? = null
     private val padButtons = intArrayOf(0xFFFF, 0xFFFF)
     private val derivedDpadButtons = intArrayOf(0xFFFF, 0xFFFF)
     private val padAnalogMode = booleanArrayOf(false, false)
@@ -49,6 +53,9 @@ object NativeApp {
     @JvmStatic fun initialize(path: String, apiVer: Int) = Unit
 
     @JvmStatic fun reloadDataRoot(path: String) { dataRootOverride = path.takeIf(String::isNotBlank) }
+    @JvmStatic fun setSaveStateIdentityPath(path: String?) {
+        saveStateIdentityPath = path?.takeIf(String::isNotBlank)
+    }
     @JvmStatic fun setSystemCaBundlePath(path: String) = Unit
     @JvmStatic fun getGameTitle(path: String): String? {
         val fallback = if (path.startsWith("content://")) {
@@ -261,9 +268,29 @@ object NativeApp {
     /** Ownership remains after a worker failure until explicit shutdown completes. */
     @JvmStatic fun hasOwnedVm(): Boolean = CoreRuntime.hasSession()
     val runtimeFailure get() = CoreRuntime.failure
-    @JvmStatic fun getGameSerial(): String? = extractPs1Serial(currentGamePath)
-    @JvmStatic fun saveStateToSlot(slot: Int): Boolean = getSaveStatePathForFile(currentGamePath, slot)?.let(CoreRuntime::saveState) == true
-    @JvmStatic fun loadStateFromSlot(slot: Int): Boolean = getSaveStatePathForFile(currentGamePath, slot)?.let(CoreRuntime::loadState) == true
+    @JvmStatic fun getGameSerial(): String? = extractPs1Serial(saveStatePathSource())
+    private fun saveStatePathSource(): String =
+        saveStateIdentityPath?.takeIf(String::isNotBlank) ?: currentGamePath
+
+    @JvmStatic fun saveStateToSlot(slot: Int): Boolean =
+        getSaveStatePathForFile(saveStatePathSource(), slot)?.let(CoreRuntime::saveState) == true
+
+    @JvmStatic fun loadStateFromSlot(slot: Int): Boolean {
+        val identityPath = getSaveStatePathForFile(saveStatePathSource(), slot)
+        if (identityPath != null && File(identityPath).exists()) {
+            return CoreRuntime.loadState(identityPath)
+        }
+
+        // Keep saves written with the prepared launch path (before the identity
+        // split was fixed) loadable through the legacy name.
+        val legacyPath = getSaveStatePathForFile(currentGamePath, slot)
+        if (legacyPath != null && legacyPath != identityPath && File(legacyPath).exists()) {
+            return CoreRuntime.loadState(legacyPath)
+        }
+
+        return identityPath?.let(CoreRuntime::loadState) == true
+    }
+
     @JvmStatic fun getSaveStatePathForFile(path: String, slot: Int): String? {
         if (path.isBlank()) return null
         val context = getContext() ?: return null
@@ -271,7 +298,8 @@ object NativeApp {
         val identity = extractPs1Serial(path) ?: path.sha256().take(16).uppercase()
         return File(directory, "$identity.${slot.coerceIn(0, 99).toString().padStart(2, '0')}.rstate").absolutePath
     }
-    @JvmStatic fun getCurrentSaveStatePath(slot: Int): String? = getSaveStatePathForFile(currentGamePath, slot)
+    @JvmStatic fun getCurrentSaveStatePath(slot: Int): String? =
+        getSaveStatePathForFile(saveStatePathSource(), slot)
     @JvmStatic fun getSaveStateScreenshot(path: String): ByteArray? = null
     @JvmStatic fun listMemoryCards(): String? {
         val context = getContext() ?: return "[]"

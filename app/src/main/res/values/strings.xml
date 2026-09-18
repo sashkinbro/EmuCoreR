@@ -85,6 +85,7 @@
     <string name="emulation_exit_confirm">Exit the game?</string>
     <string name="emulation_exit_confirm_desc">Unsaved progress will be lost.</string>
     <string name="emulation_saved">Saved</string>
+    <string name="emulation_save_failed">Failed to save the game state.</string>
     <string name="emulation_loaded">Loaded</string>
     <string name="emulation_load_failed">Failed to load save state.</string>
     <string name="emulation_bios_missing">Add a BIOS file first.</string>
