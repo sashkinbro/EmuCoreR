@@ -131,6 +131,167 @@ extern "C" __attribute__((visibility("default"))) const char* EmuCoreRGetDiscGam
 #endif
 }
 
+// ---------------------------------------------------------------------------
+// EmuCoreR Android frontend hook: rcheevos CD reader backed by the emulation
+// core's CDImage, so achievement hashing understands every container the core
+// can mount (CUE/BIN, ISO, CHD, PBP, ECM, MDS, M3U). The rcheevos library has
+// no CHD support of its own, and hashing must match what the core actually
+// plays instead of re-parsing the disc with a different implementation.
+//
+// The special track selectors mirror RC_HASH_CDTRACK_* from rc_hash.h; the
+// frontend passes them through unchanged.
+// ---------------------------------------------------------------------------
+namespace
+{
+struct EmuCoreRDiscReaderHandle
+{
+  std::unique_ptr<CDImage> image;
+  // rcheevos addresses sectors relative to the start of the volume (the PVD
+  // lives at sector 16 and ISO9660 extents are volume-relative), while CDImage
+  // uses its own disc space where a CHD data track can start at LBA 150. The
+  // reader translates by this base LBA.
+  uint32_t base_lba = 0;
+};
+
+const CDImage::Track* SelectTrackForRcheevos(const std::vector<CDImage::Track>& tracks, uint32_t track)
+{
+  switch (track)
+  {
+    case 0xFFFFFFFFu:  // first data track
+      for (const CDImage::Track& candidate : tracks)
+      {
+        if (candidate.control.data)
+          return &candidate;
+      }
+      return nullptr;
+
+    case 0xFFFFFFFEu:  // last track
+      return tracks.empty() ? nullptr : &tracks.back();
+
+    case 0xFFFFFFFDu:  // largest track
+    {
+      const CDImage::Track* largest = nullptr;
+      for (const CDImage::Track& candidate : tracks)
+      {
+        if (!largest || candidate.length > largest->length)
+          largest = &candidate;
+      }
+      return largest;
+    }
+
+    case 0xFFFFFFFCu:  // first track of the second session
+    {
+      const CDImage::Track* fallback = nullptr;
+      for (const CDImage::Track& candidate : tracks)
+      {
+        if (!candidate.control.data)
+          continue;
+        if (!fallback)
+          fallback = &candidate;
+        if (candidate.track_number > tracks.front().track_number)
+          return &candidate;
+      }
+      return fallback;
+    }
+
+    default:
+      for (const CDImage::Track& candidate : tracks)
+      {
+        if (candidate.track_number == track)
+          return &candidate;
+      }
+      return nullptr;
+  }
+}
+
+uint32_t FindTrackDataStartLba(const CDImage& image, uint32_t track_number, uint32_t fallback)
+{
+  uint32_t pregap_start = 0;
+  bool have_pregap = false;
+  for (const CDImage::Index& index : image.GetIndices())
+  {
+    if (index.track_number != track_number)
+      continue;
+    if (!index.is_pregap)
+      return index.start_lba_on_disc;
+    if (!have_pregap)
+    {
+      pregap_start = index.start_lba_on_disc;
+      have_pregap = true;
+    }
+  }
+  return have_pregap ? pregap_start : fallback;
+}
+}  // namespace
+
+extern "C" __attribute__((visibility("default"))) void* EmuCoreRDiscReaderOpen(
+  const char* path, uint32_t track)
+{
+  if (!path || !*path)
+    return nullptr;
+
+  Common::Error error;
+  std::unique_ptr<CDImage> image = CDImage::Open(path, CDImage::OpenFlags::None, &error);
+  if (!image || image->GetTrackCount() == 0)
+    return nullptr;
+
+  const CDImage::Track* selected = SelectTrackForRcheevos(image->GetTracks(), track);
+  if (!selected)
+    return nullptr;
+
+  std::unique_ptr<EmuCoreRDiscReaderHandle> handle = std::make_unique<EmuCoreRDiscReaderHandle>();
+  handle->base_lba = FindTrackDataStartLba(*image, selected->track_number, selected->start_lba);
+  handle->image = std::move(image);
+  return handle.release();
+}
+
+extern "C" __attribute__((visibility("default"))) uint32_t EmuCoreRDiscReaderFirstSector(void*)
+{
+  // Volume-relative space: the PVD is always at sector 16.
+  return 0;
+}
+
+extern "C" __attribute__((visibility("default"))) uint32_t EmuCoreRDiscReaderReadSector(
+  void* handle, uint32_t sector, void* buffer, uint32_t requested_bytes)
+{
+  EmuCoreRDiscReaderHandle* reader = static_cast<EmuCoreRDiscReaderHandle*>(handle);
+  if (!reader || !buffer || requested_bytes == 0)
+    return 0;
+
+  uint8_t* out = static_cast<uint8_t*>(buffer);
+  uint32_t remaining = requested_bytes;
+  uint32_t total = 0;
+  while (remaining > 0)
+  {
+    if (!reader->image->Seek(reader->base_lba + sector))
+      break;
+
+    uint8_t raw[CDImage::RAW_SECTOR_SIZE];
+    if (!reader->image->ReadRawSector(raw, nullptr))
+      break;
+
+    // rcheevos works on the 2048-byte user area. Data sectors carry it after
+    // the 16-byte Mode 1 header or the 24-byte Mode 2 (XA) header.
+    uint32_t data_offset = 0;
+    if (raw[0] == 0x00 && raw[1] == 0xFF && raw[11] == 0x00)
+      data_offset = (raw[15] == 2) ? 24 : 16;
+
+    const uint32_t available = static_cast<uint32_t>(CDImage::DATA_SECTOR_SIZE);
+    const uint32_t take = remaining < available ? remaining : available;
+    std::memcpy(out, raw + data_offset, take);
+    out += take;
+    remaining -= take;
+    total += take;
+    ++sector;
+  }
+  return total;
+}
+
+extern "C" __attribute__((visibility("default"))) void EmuCoreRDiscReaderClose(void* handle)
+{
+  delete static_cast<EmuCoreRDiscReaderHandle*>(handle);
+}
+
 #ifdef WIN32
 #include "core/gpu_hw_d3d11.h"
 #ifdef USE_D3D12
