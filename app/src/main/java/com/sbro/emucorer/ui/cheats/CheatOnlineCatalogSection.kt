@@ -54,6 +54,7 @@ import com.sbro.emucorer.data.RemoteContentCatalogRepository
 import com.sbro.emucorer.data.RemoteContentInstallState
 import com.sbro.emucorer.data.SelectedGameIdentity
 import com.sbro.emucorer.ui.common.cheatCatalogGameTitleKey
+import com.sbro.emucorer.ui.common.rememberRetainedState
 import com.sbro.emucorer.ui.theme.neon.neonButtonShape
 import com.sbro.emucorer.ui.theme.neon.neonShape
 import java.util.Locale
@@ -137,12 +138,17 @@ internal fun CheatOnlineCatalogSection(
     val installState = remember(context) { RemoteContentInstallState(context) }
     val preferences = remember(context) { AppPreferences(context) }
 
-    var packs by remember { mutableStateOf<List<RemoteCheatPack>>(emptyList()) }
-    var installed by remember { mutableStateOf<Map<String, InstalledRemoteCheat>>(emptyMap()) }
-    var loading by remember { mutableStateOf(true) }
-    var cached by remember { mutableStateOf(false) }
-    var loadFailed by remember { mutableStateOf(false) }
-    var installingPackId by remember { mutableStateOf<String?>(null) }
+    // Retained so scrolling the card out of view and back does not reset the
+    // loaded catalog, re-run the loaders or replay the entrance animation.
+    var packs by rememberRetainedState("cheat_online_catalog.packs", emptyList<RemoteCheatPack>())
+    var installed by rememberRetainedState(
+        "cheat_online_catalog.installed",
+        emptyMap<String, InstalledRemoteCheat>()
+    )
+    var loading by rememberRetainedState("cheat_online_catalog.loading", true)
+    var cached by rememberRetainedState("cheat_online_catalog.cached", false)
+    var loadFailed by rememberRetainedState("cheat_online_catalog.load_failed", false)
+    var installingPackId by rememberRetainedState<String?>("cheat_online_catalog.installing", null)
 
     val installSuccessMessage = stringResource(R.string.cheat_catalog_install_success)
     val installFailureMessage = stringResource(R.string.cheat_catalog_install_failed)
@@ -152,9 +158,13 @@ internal fun CheatOnlineCatalogSection(
             val catalog = catalogRepository.loadCheatCatalog()
             catalog to installState.installedCheats()
         }
-        packs = loaded.first.entries
-        cached = loaded.first.fromCache
-        loadFailed = loaded.first.entries.isEmpty()
+        // A failed refresh (offline, bad response) must not wipe a previously
+        // loaded catalog: only replace the packs when the new result is usable.
+        if (loaded.first.entries.isNotEmpty() || packs.isEmpty()) {
+            packs = loaded.first.entries
+            cached = loaded.first.fromCache
+            loadFailed = loaded.first.entries.isEmpty()
+        }
         installed = loaded.second
         loading = false
         if (loaded.first.cacheHit) {
@@ -170,13 +180,24 @@ internal fun CheatOnlineCatalogSection(
     val serial = identity?.serial
     val crc = identity?.crc
     // The catalog index only depends on the downloaded packs, so it is built
-    // off the main thread instead of on every game switch. It must be reset to
-    // null whenever [packs] changes: otherwise the previously built (possibly
-    // empty) index is briefly matched against the fresh catalog and the section
-    // flashes "no packs for this game" before the real index is ready.
-    var catalogIndex by remember(packs) { mutableStateOf<IndexedRemoteCheatCatalog?>(null) }
+    // off the main thread instead of on every game switch. Retaining it keeps
+    // the section rendered while the LazyColumn item is scrolled out of view;
+    // it is only cleared when the packs actually change so a stale index can
+    // never match the fresh catalog.
+    var catalogIndex by rememberRetainedState<IndexedRemoteCheatCatalog?>(
+        "cheat_online_catalog.index",
+        null
+    )
+    var indexedPacks by rememberRetainedState<List<RemoteCheatPack>?>(
+        "cheat_online_catalog.indexed_packs",
+        null
+    )
     LaunchedEffect(packs) {
-        catalogIndex = withContext(Dispatchers.Default) { indexRemoteCheatCatalog(packs) }
+        if (catalogIndex != null && indexedPacks == packs) return@LaunchedEffect
+        if (indexedPacks != null && indexedPacks != packs) catalogIndex = null
+        val built = withContext(Dispatchers.Default) { indexRemoteCheatCatalog(packs) }
+        catalogIndex = built
+        indexedPacks = packs
     }
     val selection = remember(catalogIndex, serial, crc, selectedGame?.title) {
         val index = catalogIndex
