@@ -71,7 +71,6 @@ import com.sbro.emucorer.ui.common.ScreenTopBar
 import com.sbro.emucorer.ui.common.appScreenTopPadding
 import com.sbro.emucorer.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorer.ui.theme.ScreenHorizontalPadding
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -196,13 +195,7 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
     }
 
     val installedBlocks = config?.blocks.orEmpty()
-    val categoryGroups = remember(installedBlocks) {
-        CheatCategory.entries.mapNotNull { category ->
-            installedBlocks.filter { block -> block.category() == category }
-                .takeIf(List<CheatBlock>::isNotEmpty)
-                ?.let { category to it }
-        }
-    }
+    val categoryGroups = remember(installedBlocks) { groupCheatBlocks(installedBlocks) }
     val visibleInstalledBlocks = remember(installedBlocks, categoryGroups, selectedCheatCategory, cheatSearchQuery) {
         when {
             cheatSearchQuery.isNotBlank() -> installedBlocks.filter { block ->
@@ -539,17 +532,16 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
                                 block = block,
                                 onEnabledChange = { enabled ->
                                     val latest = config ?: current
-                                    val enabledIds = latest.blocks
-                                        .filter { it.enabled }
-                                        .mapTo(mutableSetOf()) { it.id }
-                                        .apply { if (enabled) add(block.id) else remove(block.id) }
                                     val updatedBlocks = latest.blocks.map { item ->
                                         if (item.id == block.id) item.copy(enabled = enabled) else item
                                     }
                                     config = latest.copy(blocks = updatedBlocks)
                                     scope.launch(Dispatchers.IO) {
                                         cheatWriteMutex.withLock {
-                                            cheatRepository.setEnabledBlocks(latest.gameKey, enabledIds)
+                                            // Toggle a single ID so changes made in the
+                                            // in-game menu cannot be overwritten by a
+                                            // stale copy of the enabled set.
+                                            cheatRepository.setBlockEnabled(latest.gameKey, block.id, enabled)
                                             cheatRepository.syncActiveCheats(
                                                 latest.gameKey,
                                                 latest.serial,
@@ -766,38 +758,3 @@ private fun CheatSearchEmptyState(modifier: Modifier = Modifier) {
         )
     }
 }
-
-private enum class CheatCategory(val titleRes: Int) {
-    PLAYER(R.string.cheat_manager_category_player),
-    ITEMS(R.string.cheat_manager_category_items),
-    WORLD(R.string.cheat_manager_category_world),
-    PROGRESS(R.string.cheat_manager_category_progress),
-    VEHICLES(R.string.cheat_manager_category_vehicles),
-    STATS(R.string.cheat_manager_category_stats),
-    HOTKEYS(R.string.cheat_manager_category_hotkeys),
-    OTHER(R.string.cheat_manager_category_other)
-}
-
-private fun CheatBlock.category(): CheatCategory {
-    val value = title.lowercase(Locale.US)
-    return when {
-        value.containsAny(" press ", "press ", "hold ", "button", "{l1}", "{l2}", "{r1}", "{r2}", "{select}") ->
-            CheatCategory.HOTKEYS
-        value.containsAny("health", "money", "pocket change", "stamina", "energy", "trouble", "wanted", "player", "character") ->
-            CheatCategory.PLAYER
-        value.containsAny("weapon", "ammo", "inventory", "item", "fire cracker", "spud", "slingshot", "projectile", "outfit", "clothing") ->
-            CheatCategory.ITEMS
-        value.containsAny("time", "hour", "clock", "weather", "day", "night", "season") ->
-            CheatCategory.WORLD
-        value.containsAny("mission", "chapter", "unlock", "class", "grade", "complete", "progress", "troph", "collectible") ->
-            CheatCategory.PROGRESS
-        value.containsAny("vehicle", "bike", "bicycle", "car", "kart", "race", "skateboard", "lawnmower") ->
-            CheatCategory.VEHICLES
-        value.startsWith("max ") || value.startsWith("no ") ||
-            value.containsAny("stat", "record", "times ", "distance", "earned", "spent", "attempted", "hits", "killed", "thrown", "purchased") ->
-            CheatCategory.STATS
-        else -> CheatCategory.OTHER
-    }
-}
-
-private fun String.containsAny(vararg needles: String): Boolean = needles.any(::contains)

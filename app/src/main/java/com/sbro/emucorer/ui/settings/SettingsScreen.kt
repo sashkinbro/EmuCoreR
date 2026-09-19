@@ -3747,6 +3747,7 @@ private fun gameMenuTabLabel(tab: GameMenuTabId): String = when (tab) {
     GameMenuTabId.SESSION -> stringResource(R.string.emulation_session_tab)
     GameMenuTabId.CONTROLS -> stringResource(R.string.settings_controls_tab)
     GameMenuTabId.EMULATION -> stringResource(R.string.settings_emulation_tab)
+    GameMenuTabId.CHEATS -> stringResource(R.string.emulation_cheats_title)
     GameMenuTabId.GRAPHICS -> stringResource(R.string.settings_graphics_tab)
     GameMenuTabId.ACHIEVEMENTS -> stringResource(R.string.achievements_title)
 }
@@ -3755,6 +3756,7 @@ private fun gameMenuTabIcon(tab: GameMenuTabId): ImageVector = when (tab) {
     GameMenuTabId.SESSION -> Icons.Rounded.MoreVert
     GameMenuTabId.CONTROLS -> Icons.Rounded.Gamepad
     GameMenuTabId.EMULATION -> Icons.Rounded.SettingsSuggest
+    GameMenuTabId.CHEATS -> Icons.Rounded.Star
     GameMenuTabId.GRAPHICS -> Icons.Rounded.Wallpaper
     GameMenuTabId.ACHIEVEMENTS -> Icons.Rounded.EmojiEvents
 }

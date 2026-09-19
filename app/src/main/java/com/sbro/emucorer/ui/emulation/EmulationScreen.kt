@@ -271,6 +271,7 @@ private enum class EmulationMenuTab {
     Session,
     Controls,
     Emulation,
+    Cheats,
     Graphics,
     Achievements
 }
@@ -488,7 +489,6 @@ fun EmulationScreen(
     var floatingQuickSavePosition by remember { mutableStateOf<Offset?>(null) }
     var floatingQuickLoadPosition by remember { mutableStateOf<Offset?>(null) }
     var showAutoSaveLoadDialog by remember { mutableStateOf(false) }
-    var showCheatsDialog by remember { mutableStateOf(false) }
     var showControlsEditor by remember { mutableStateOf(false) }
     var showGamepadMappingDialog by remember { mutableStateOf(false) }
     var pendingGamepadActionId by remember { mutableStateOf<String?>(null) }
@@ -608,8 +608,6 @@ fun EmulationScreen(
         })
     })
     val dismissExitClick = rememberDebouncedClick(onClick = { showExitDialog = false })
-    val dismissCheatsDialog: () -> Unit = { showCheatsDialog = false }
-    val dismissCheatsDialogClick = rememberDebouncedClick(onClick = dismissCheatsDialog)
     val dismissGamepadMappingDialog: () -> Unit = { showGamepadMappingDialog = false }
     val dismissGamepadMappingDialogClick = rememberDebouncedClick(onClick = dismissGamepadMappingDialog)
     val sessionRestoredUnavailableMessage = stringResource(R.string.emulation_session_restored_unavailable)
@@ -619,7 +617,6 @@ fun EmulationScreen(
         showQuickSaveDialog ||
         showQuickLoadDialog ||
         showAutoSaveLoadDialog ||
-        showCheatsDialog ||
         showGamepadMappingDialog ||
         pendingGamepadActionId != null
 
@@ -641,10 +638,6 @@ fun EmulationScreen(
                 }
                 showGamepadMappingDialog -> {
                     dismissGamepadMappingDialog()
-                    true
-                }
-                showCheatsDialog -> {
-                    dismissCheatsDialog()
                     true
                 }
                 showQuickLoadDialog -> {
@@ -1579,7 +1572,9 @@ fun EmulationScreen(
                     onSetEnableCheats = { viewModel.setEnableCheats(it) },
                     onSetWidescreenPatches = { viewModel.setEnableWidescreenPatches(it) },
                     onSetNoInterlacingPatches = { viewModel.setEnableNoInterlacingPatches(it) },
-                    onOpenCheats = { showCheatsDialog = true },
+                    onToggleCheat = { id, enabled -> viewModel.setCheatEnabled(id, enabled) },
+                    onSetCheatGroupEnabled = { ids, enabled -> viewModel.setCheatGroupEnabled(ids, enabled) },
+                    onRefreshCheats = { viewModel.refreshAvailableCheats() },
                     onSetEeCycleRate = { viewModel.setEeCycleRate(it) },
                     onSetEeCycleSkip = { viewModel.setEeCycleSkip(it) },
                     onSetEnableDisableStalls = { viewModel.setEnableDisableStalls(it) },
@@ -1747,46 +1742,6 @@ fun EmulationScreen(
             dismissButton = {
                 TextButton(onClick = dismissAutoSaveLoadClick) {
                     Text(stringResource(R.string.no))
-                }
-            }
-        )
-    }
-
-    if (showCheatsDialog && uiState.runtimeFailure == null) {
-        AlertDialog(
-            onDismissRequest = dismissCheatsDialog,
-            title = { Text(stringResource(R.string.emulation_cheats_title)) },
-            text = {
-                if (uiState.availableCheats.isEmpty()) {
-                    Text(stringResource(R.string.emulation_cheats_empty))
-                } else {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        uiState.availableCheats.forEach { cheat ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Text(
-                                    text = cheat.title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Switch(
-                                    checked = cheat.enabled,
-                                    onCheckedChange = { viewModel.setCheatEnabled(cheat.id, it) }
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = dismissCheatsDialogClick) {
-                    Text(stringResource(android.R.string.ok))
                 }
             }
         )
@@ -1974,6 +1929,7 @@ private fun GameMenuTabId.toEmulationMenuTab(): EmulationMenuTab = when (this) {
     GameMenuTabId.SESSION -> EmulationMenuTab.Session
     GameMenuTabId.CONTROLS -> EmulationMenuTab.Controls
     GameMenuTabId.EMULATION -> EmulationMenuTab.Emulation
+    GameMenuTabId.CHEATS -> EmulationMenuTab.Cheats
     GameMenuTabId.GRAPHICS -> EmulationMenuTab.Graphics
     GameMenuTabId.ACHIEVEMENTS -> EmulationMenuTab.Achievements
 }
@@ -2841,7 +2797,9 @@ private fun EmulationSidebarMenu(
     onSetEnableCheats: (Boolean) -> Unit,
     onSetWidescreenPatches: (Boolean) -> Unit,
     onSetNoInterlacingPatches: (Boolean) -> Unit,
-    onOpenCheats: () -> Unit,
+    onToggleCheat: (String, Boolean) -> Unit,
+    onSetCheatGroupEnabled: (List<String>, Boolean) -> Unit,
+    onRefreshCheats: () -> Unit,
     onSetEeCycleRate: (Int) -> Unit,
     onSetEeCycleSkip: (Int) -> Unit,
     onSetEnableDisableStalls: (Boolean) -> Unit,
@@ -2902,17 +2860,24 @@ private fun EmulationSidebarMenu(
     val sessionScrollState = rememberScrollState()
     val controlsScrollState = rememberScrollState()
     val emulationScrollState = rememberScrollState()
+    val cheatsScrollState = rememberScrollState()
     val graphicsScrollState = rememberScrollState()
     val achievementsScrollState = rememberScrollState()
     val selectedTabScrollState = when (selectedMenuTab) {
         EmulationMenuTab.Session -> sessionScrollState
         EmulationMenuTab.Controls -> controlsScrollState
         EmulationMenuTab.Emulation -> emulationScrollState
+        EmulationMenuTab.Cheats -> cheatsScrollState
         EmulationMenuTab.Graphics -> graphicsScrollState
         EmulationMenuTab.Achievements -> achievementsScrollState
     }
     LaunchedEffect(selectedMenuTab) {
         railFocusRequesters[selectedMenuTab]?.requestFocus()
+    }
+    // Cheats can be toggled or installed from the cheat manager; re-read the
+    // installed list every time the tab is opened so both stay in sync.
+    LaunchedEffect(selectedMenuTab) {
+        if (selectedMenuTab == EmulationMenuTab.Cheats) onRefreshCheats()
     }
     val menuTabs = remember(uiState.gameMenuTabOrder, uiState.hiddenGameMenuTabs) {
         uiState.gameMenuTabOrder
@@ -3692,29 +3657,8 @@ private fun EmulationSidebarMenu(
 
                                     }
 
-                                    GameMenuSectionId.EMULATION_CHEATS,
                                     GameMenuSectionId.EMULATION_CPU,
                                     GameMenuSectionId.EMULATION_AUDIO -> {
-
-                        if (section == GameMenuSectionId.EMULATION_CHEATS) {
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_enable_cheats),
-                            checked = uiState.enableCheats,
-                            onCheckedChange = onSetEnableCheats,
-                            helpText = stringResource(R.string.settings_help_cheats),
-                            onResetToDefault = { onSetEnableCheats(globalDefaults.enableCheats) }
-                        )
-
-                        if (uiState.availableCheats.isNotEmpty()) {
-                            MenuButton(
-                                icon = Icons.Rounded.Star,
-                                text = stringResource(R.string.emulation_cheats_open_button),
-                                onClick = onOpenCheats,
-                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                                enabled = true
-                            )
-                        }
-                        }
 
                         if (section == GameMenuSectionId.EMULATION_AUDIO) {
                         SidebarSectionTitle(
@@ -3742,6 +3686,39 @@ private fun EmulationSidebarMenu(
                         )
                         }
 
+                                    }
+
+                                    else -> Unit
+                                }
+                            }
+                    }
+
+                    EmulationMenuTab.Cheats -> {
+                        gameMenuSectionsForTab(GameMenuTabId.CHEATS, uiState.gameMenuSectionOrder)
+                            .filterNot(uiState.hiddenGameMenuSections::contains)
+                            .forEach { section ->
+                                when (section) {
+                                    GameMenuSectionId.EMULATION_CHEATS -> {
+                        SidebarSectionTitle(
+                            text = stringResource(R.string.emulation_cheats_title).uppercase(),
+                            color = sectionTitleColor,
+                            topPadding = sectionLabelTopPadding,
+                            horizontalInset = sectionLabelInset
+                        )
+
+                        SettingsToggle(
+                            title = stringResource(R.string.settings_enable_cheats),
+                            checked = uiState.enableCheats,
+                            onCheckedChange = onSetEnableCheats,
+                            helpText = stringResource(R.string.settings_help_cheats),
+                            onResetToDefault = { onSetEnableCheats(globalDefaults.enableCheats) }
+                        )
+
+                        EmulationCheatsSection(
+                            blocks = uiState.availableCheats,
+                            onCheatToggle = onToggleCheat,
+                            onGroupToggle = onSetCheatGroupEnabled
+                        )
                                     }
 
                                     else -> Unit
@@ -4363,6 +4340,7 @@ private fun gameMenuTabIcon(tab: EmulationMenuTab): ImageVector = when (tab) {
     EmulationMenuTab.Session -> Icons.Rounded.Menu
     EmulationMenuTab.Controls -> Icons.Rounded.Gamepad
     EmulationMenuTab.Emulation -> Icons.Rounded.SettingsSuggest
+    EmulationMenuTab.Cheats -> Icons.Rounded.Star
     EmulationMenuTab.Graphics -> Icons.Rounded.Fullscreen
     EmulationMenuTab.Achievements -> Icons.Rounded.EmojiEvents
 }
@@ -4372,6 +4350,7 @@ private fun gameMenuTabLabel(tab: EmulationMenuTab): String = when (tab) {
     EmulationMenuTab.Session -> stringResource(R.string.emulation_session_tab)
     EmulationMenuTab.Controls -> stringResource(R.string.settings_controls_tab)
     EmulationMenuTab.Emulation -> stringResource(R.string.settings_emulation_tab)
+    EmulationMenuTab.Cheats -> stringResource(R.string.emulation_cheats_title)
     EmulationMenuTab.Graphics -> stringResource(R.string.settings_graphics_tab)
     EmulationMenuTab.Achievements -> stringResource(R.string.achievements_title)
 }

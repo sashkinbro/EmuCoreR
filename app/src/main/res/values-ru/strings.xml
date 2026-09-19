@@ -226,6 +226,7 @@
     <string name="emulation_cheats_title">Читы</string>
     <string name="emulation_cheats_open_button">Читы</string>
     <string name="emulation_cheats_empty">Для этой игры читы не найдены.</string>
+    <string name="emulation_cheats_group_enable">Включить все в группе</string>
     <string name="settings_trilinear_filtering_auto">Авто</string>
     <string name="settings_blending_accuracy_minimum">Minimum</string>
     <string name="settings_blending_accuracy_basic">Basic</string>

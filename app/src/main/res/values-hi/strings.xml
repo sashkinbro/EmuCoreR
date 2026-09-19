@@ -338,6 +338,7 @@
     <string name="emulation_cheats_title">चीट्स</string>
     <string name="emulation_cheats_open_button">चीट्स</string>
     <string name="emulation_cheats_empty">इस गेम के लिए कोई चीट नहीं मिली।</string>
+    <string name="emulation_cheats_group_enable">समूह में सभी सक्षम करें</string>
     <string name="settings_trilinear_filtering_auto">Automatic</string>
     <string name="settings_blending_accuracy_minimum">न्यूनतम</string>
     <string name="settings_blending_accuracy_basic">बुनियादी</string>

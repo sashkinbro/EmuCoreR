@@ -120,6 +120,7 @@ enum class GameMenuTabId {
     SESSION,
     CONTROLS,
     EMULATION,
+    CHEATS,
     GRAPHICS,
     ACHIEVEMENTS
 }
@@ -158,7 +159,7 @@ enum class GameMenuSectionId(val tab: GameMenuTabId) {
     EMULATION_SPEED(GameMenuTabId.EMULATION),
     EMULATION_CPU(GameMenuTabId.EMULATION),
     EMULATION_AUDIO(GameMenuTabId.EMULATION),
-    EMULATION_CHEATS(GameMenuTabId.EMULATION),
+    EMULATION_CHEATS(GameMenuTabId.CHEATS),
     GRAPHICS_DISPLAY(GameMenuTabId.GRAPHICS),
     GRAPHICS_RENDERING(GameMenuTabId.GRAPHICS),
     GRAPHICS_SCREEN(GameMenuTabId.GRAPHICS)
@@ -175,6 +176,7 @@ val SupportedGameMenuTabs: List<GameMenuTabId> = listOf(
     GameMenuTabId.SESSION,
     GameMenuTabId.CONTROLS,
     GameMenuTabId.EMULATION,
+    GameMenuTabId.CHEATS,
     GameMenuTabId.GRAPHICS,
     GameMenuTabId.ACHIEVEMENTS
 )

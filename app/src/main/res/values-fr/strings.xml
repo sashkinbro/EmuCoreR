@@ -225,6 +225,7 @@
     <string name="emulation_cheats_title">Codes de triche</string>
     <string name="emulation_cheats_open_button">Codes de triche</string>
     <string name="emulation_cheats_empty">Aucun code de triche n\'a été trouvé pour ce jeu.</string>
+    <string name="emulation_cheats_group_enable">Activer tout dans le groupe</string>
     <string name="settings_trilinear_filtering_auto">Automatique</string>
     <string name="settings_blending_accuracy_minimum">Minimum</string>
     <string name="settings_blending_accuracy_basic">De base</string>

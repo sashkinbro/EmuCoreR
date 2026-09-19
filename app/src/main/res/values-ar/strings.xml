@@ -378,6 +378,7 @@
     <string name="emulation_cheats_title">الشفرات</string>
     <string name="emulation_cheats_open_button">الشفرات</string>
     <string name="emulation_cheats_empty">لم يتم العثور على شفرات لهذه اللعبة.</string>
+    <string name="emulation_cheats_group_enable">تفعيل الكل في المجموعة</string>
     <string name="settings_trilinear_filtering_auto">تلقائي</string>
     <string name="settings_blending_accuracy_minimum">الأدنى</string>
     <string name="settings_blending_accuracy_basic">أساسي</string>

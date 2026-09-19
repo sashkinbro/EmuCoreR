@@ -587,6 +587,7 @@
     <string name="emulation_cheats_title">Kody</string>
     <string name="emulation_cheats_open_button">Kody</string>
     <string name="emulation_cheats_empty">Nie znaleziono żadnych kodów dla tej gry.</string>
+    <string name="emulation_cheats_group_enable">Włącz wszystko w grupie</string>
     <string name="settings_trilinear_filtering_auto">Automatyczne</string>
     <string name="settings_blending_accuracy_minimum">Minimalna</string>
     <string name="settings_blending_accuracy_basic">Podstawowa</string>

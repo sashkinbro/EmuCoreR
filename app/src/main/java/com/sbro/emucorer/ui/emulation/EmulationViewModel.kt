@@ -2678,10 +2678,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             val updatedBlocks = currentState.availableCheats.map { block ->
                 if (block.id == blockId) block.copy(enabled = enabled) else block
             }
-            cheatRepository.setEnabledBlocks(
-                gameKey = gameKey,
-                enabledIds = updatedBlocks.filter { it.enabled }.map { it.id }.toSet()
-            )
+            // Only this ID is written, so toggles made in the cheat manager
+            // (which share the same state file) are preserved.
+            cheatRepository.setBlockEnabled(gameKey, blockId, enabled)
             persistRuntimeState(_uiState.value.copy(
                 availableCheats = updatedBlocks,
                 enableCheats = true
@@ -2690,6 +2689,59 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             }
             syncCheatsForCurrentGame(gameKey)
             EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", "true")
+        }
+    }
+
+    /** Enables or disables every cheat in a group (category) at once. */
+    fun setCheatGroupEnabled(blockIds: Collection<String>, enabled: Boolean) {
+        if (blockIds.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentState = _uiState.value
+            val gameKey = currentState.cheatsGameKey ?: return@launch
+            val idSet = blockIds.toSet()
+            val updatedBlocks = currentState.availableCheats.map { block ->
+                if (block.id in idSet) block.copy(enabled = enabled) else block
+            }
+            cheatRepository.setBlocksEnabled(gameKey, idSet, enabled)
+            persistRuntimeState(_uiState.value.copy(
+                availableCheats = updatedBlocks,
+                enableCheats = true
+            )) {
+                preferences.setEnableCheats(true)
+            }
+            syncCheatsForCurrentGame(gameKey)
+            EmulatorBridge.setSetting("EmuCore", "EnableCheats", "bool", "true")
+        }
+    }
+
+    /**
+     * Re-reads the installed cheats from storage so changes made in the cheat
+     * manager (or a freshly installed pack) are reflected in the in-game menu.
+     */
+    fun refreshAvailableCheats() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val path = currentGamePath
+            val metadata = path?.takeIf { it.isNotBlank() }?.let { EmulatorBridge.getGameMetadata(it) }
+            val serial = currentGameSerial.takeIf { it.isNotBlank() }
+                ?: metadata?.serial?.takeIf { it.isNotBlank() }
+                .orEmpty()
+            val crc = currentGameCrc.takeIf { it.isNotBlank() }
+                ?: metadata?.serialWithCrc.extractCrc()
+                .orEmpty()
+            val keys = linkedSetOf<String>()
+            metadata?.let { keys.addAll(cheatLookupKeys(it)) }
+            if (serial.isNotBlank() && crc.isNotBlank()) keys.add("${serial}_$crc")
+            if (crc.isNotBlank()) keys.add(crc)
+            if (serial.isNotBlank()) keys.add(serial)
+            val config = cheatRepository.getGameConfig(
+                gameKeys = keys.toList(),
+                serial = serial,
+                crc = crc.takeIf { it.isNotBlank() }
+            ) ?: return@launch
+            _uiState.value = _uiState.value.copy(
+                cheatsGameKey = config.gameKey,
+                availableCheats = config.blocks
+            )
         }
     }
 

@@ -378,6 +378,7 @@
     <string name="emulation_cheats_title">チート</string>
     <string name="emulation_cheats_open_button">チート</string>
     <string name="emulation_cheats_empty">このゲームのチートは見つかりませんでした。</string>
+    <string name="emulation_cheats_group_enable">グループ内をすべて有効化</string>
     <string name="settings_trilinear_filtering_auto">自動</string>
     <string name="settings_blending_accuracy_minimum">最小</string>
     <string name="settings_blending_accuracy_basic">基本</string>

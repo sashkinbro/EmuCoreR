@@ -569,6 +569,7 @@
     <string name="emulation_cheats_title">کدهای تقلب</string>
     <string name="emulation_cheats_open_button">کدهای تقلب</string>
     <string name="emulation_cheats_empty">هیچ کد تقلبی برای این بازی پیدا نشد.</string>
+    <string name="emulation_cheats_group_enable">فعال‌کردن همه در گروه</string>
     <string name="settings_trilinear_filtering_auto">خودکار</string>
     <string name="settings_blending_accuracy_minimum">حداقل</string>
     <string name="settings_blending_accuracy_basic">پایه</string>

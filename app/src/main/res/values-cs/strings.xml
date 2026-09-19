@@ -590,6 +590,7 @@
     <string name="emulation_cheats_title">Cheaty</string>
     <string name="emulation_cheats_open_button">Cheaty</string>
     <string name="emulation_cheats_empty">Nebyly nalezeny žádné cheaty pro tuto hru.</string>
+    <string name="emulation_cheats_group_enable">Zapnout vše ve skupině</string>
     <string name="settings_trilinear_filtering_auto">Automatické</string>
     <string name="settings_blending_accuracy_minimum">Minimální</string>
     <string name="settings_blending_accuracy_basic">Základní</string>

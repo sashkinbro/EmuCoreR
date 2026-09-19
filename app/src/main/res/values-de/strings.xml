@@ -225,6 +225,7 @@
     <string name="emulation_cheats_title">Cheats</string>
     <string name="emulation_cheats_open_button">Cheats</string>
     <string name="emulation_cheats_empty">Für dieses Spiel wurden keine Cheats gefunden.</string>
+    <string name="emulation_cheats_group_enable">Alle in der Gruppe aktivieren</string>
     <string name="settings_trilinear_filtering_auto">Automatisch</string>
     <string name="settings_blending_accuracy_minimum">Minimum</string>
     <string name="settings_blending_accuracy_basic">Einfach</string>

@@ -225,6 +225,7 @@
     <string name="emulation_cheats_title">金手指</string>
     <string name="emulation_cheats_open_button">金手指</string>
     <string name="emulation_cheats_empty">找不到此遊戲的金手指。</string>
+    <string name="emulation_cheats_group_enable">啟用群組中全部</string>
     <string name="settings_trilinear_filtering_auto">自動</string>
     <string name="settings_blending_accuracy_minimum">最低</string>
     <string name="settings_blending_accuracy_basic">基本</string>

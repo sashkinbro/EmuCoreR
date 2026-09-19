@@ -587,6 +587,7 @@
     <string name="emulation_cheats_title">Cheats</string>
     <string name="emulation_cheats_open_button">Cheats</string>
     <string name="emulation_cheats_empty">No cheats were found for this game.</string>
+    <string name="emulation_cheats_group_enable">Enable all in group</string>
     <string name="settings_trilinear_filtering_auto">Automatic</string>
     <string name="settings_blending_accuracy_minimum">Minimum</string>
     <string name="settings_blending_accuracy_basic">Basic</string>

@@ -378,6 +378,7 @@
     <string name="emulation_cheats_title">치트</string>
     <string name="emulation_cheats_open_button">치트</string>
     <string name="emulation_cheats_empty">이 게임에 대한 치트를 찾을 수 없습니다.</string>
+    <string name="emulation_cheats_group_enable">그룹 내 모두 활성화</string>
     <string name="settings_trilinear_filtering_auto">자동</string>
     <string name="settings_blending_accuracy_minimum">최소 (Minimum)</string>
     <string name="settings_blending_accuracy_basic">기본 (Basic)</string>

@@ -225,6 +225,7 @@
     <string name="emulation_cheats_title">Trucos</string>
     <string name="emulation_cheats_open_button">Trucos</string>
     <string name="emulation_cheats_empty">No se encontraron trucos para este juego.</string>
+    <string name="emulation_cheats_group_enable">Activar todo en el grupo</string>
     <string name="settings_trilinear_filtering_auto">Automático</string>
     <string name="settings_blending_accuracy_minimum">Mínimo</string>
     <string name="settings_blending_accuracy_basic">Básico</string>

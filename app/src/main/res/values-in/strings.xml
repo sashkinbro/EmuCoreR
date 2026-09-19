@@ -569,6 +569,7 @@
     <string name="emulation_cheats_title">Cheat</string>
     <string name="emulation_cheats_open_button">Cheat</string>
     <string name="emulation_cheats_empty">Tidak ada cheat yang ditemukan untuk game ini.</string>
+    <string name="emulation_cheats_group_enable">Aktifkan semua di grup</string>
     <string name="settings_trilinear_filtering_auto">Otomatis</string>
     <string name="settings_blending_accuracy_minimum">Minimum</string>
     <string name="settings_blending_accuracy_basic">Dasar</string>
