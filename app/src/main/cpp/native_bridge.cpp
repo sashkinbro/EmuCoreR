@@ -2208,6 +2208,62 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_getDisplayRect(JNIEnv* env, jobject
     return result;
 }
 
+// Destination rectangle the current presenter letterboxes the emulated frame
+// into, in window pixels: {left, top, right, bottom}. Mirrors the GL, Vulkan
+// and software present paths (aspect ratio, display crop, stretch) so app-side
+// overlays such as the side artwork frame the emulated image exactly instead
+// of guessing from the raw frame pixel size.
+JNIEXPORT jfloatArray JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_getPresentRect(JNIEnv* env, jobject) {
+    ANativeWindow* window = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(g_frontend.mutex);
+        window = g_frontend.window;
+    }
+    if (window == nullptr) return nullptr;
+    const int win_width = ANativeWindow_getWidth(window);
+    const int win_height = ANativeWindow_getHeight(window);
+    if (win_width <= 0 || win_height <= 0) return nullptr;
+
+    retro_system_av_info info{};
+    retro_get_system_av_info(&info);
+    const unsigned base_width = info.geometry.base_width != 0 ? info.geometry.base_width : 1u;
+    const unsigned base_height = info.geometry.base_height != 0 ? info.geometry.base_height : 1u;
+
+    double display_aspect = info.geometry.aspect_ratio;
+    if (display_aspect <= 0.0 || !std::isfinite(display_aspect)) display_aspect = 4.0 / 3.0;
+
+#if defined(EMUCORER_HAVE_LIBRASHADER)
+    const bool shader_chain_active =
+        emucorer::shader_chain::IsEnabled() && !emucorer::shader_chain::PresetPath().empty();
+#else
+    constexpr bool shader_chain_active = false;
+#endif
+    if (!shader_chain_active) {
+        const DisplayCropRect crop = ClampDisplayCrop(CurrentDisplayCrop(), base_width, base_height);
+        if (IsCropActive(crop)) {
+            const unsigned cropped_width = base_width - crop.left - crop.right;
+            const unsigned cropped_height = base_height - crop.top - crop.bottom;
+            if (cropped_width > 0 && cropped_height > 0) {
+                display_aspect *= (static_cast<double>(cropped_width) / static_cast<double>(base_width)) /
+                                  (static_cast<double>(cropped_height) / static_cast<double>(base_height));
+            }
+        }
+    }
+
+    const PresentRect dst = AspectRatioStretchRequested()
+        ? PresentRect{0, 0, win_width, win_height}
+        : FitDisplayRect(win_width, win_height, display_aspect);
+
+    jfloatArray result = env->NewFloatArray(4);
+    if (result == nullptr) return nullptr;
+    const jfloat values[4] = {static_cast<jfloat>(dst.x), static_cast<jfloat>(dst.y),
+                              static_cast<jfloat>(dst.x + dst.width),
+                              static_cast<jfloat>(dst.y + dst.height)};
+    env->SetFloatArrayRegion(result, 0, 4, values);
+    return result;
+}
+
 JNIEXPORT jdouble JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_getFrameRate(JNIEnv*, jobject, jlong handle) {
     if (handle == 0) return 0.0;

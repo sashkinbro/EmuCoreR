@@ -74,6 +74,11 @@ class NativeCoreBridge {
     external fun getSystemInfo(): String
     external fun getDiagnostics(): String
     external fun getDisplayRect(handle: Long): IntArray?
+    /**
+     * Presenter destination rect in window pixels as
+     * `{left, top, right, bottom}` (null until a window is attached).
+     */
+    external fun getPresentRect(): FloatArray?
     external fun getAvInfo(handle: Long): LongArray?
     /** Emulated vertical refresh in Hz, used for audio-synced frame pacing. */
     external fun getFrameRate(handle: Long): Double

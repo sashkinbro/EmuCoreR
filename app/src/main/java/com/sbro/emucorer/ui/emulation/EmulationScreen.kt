@@ -911,10 +911,19 @@ fun EmulationScreen(
     ) {
         if (!uiState.isRunning) return@produceState
         while (true) {
-            value = runCatching { NativeApp.getDisplayDrawRect() }
+            val next = runCatching { NativeApp.getDisplayDrawRect() }
                 .getOrNull()
                 ?.takeIf { it.size >= 4 && it[2] > it[0] && it[3] > it[1] }
-            delay(250.milliseconds)
+            val current = value
+            // Only publish actual changes: a fresh array every poll would
+            // recompose the whole screen several times per second, which makes
+            // the side artwork visibly jitter over the emulated image.
+            if (next == null) {
+                if (current != null) value = null
+            } else if (current == null || !current.contentEquals(next)) {
+                value = next
+            }
+            delay(100.milliseconds)
         }
     }
 

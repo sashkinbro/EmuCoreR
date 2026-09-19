@@ -364,6 +364,14 @@ internal object CoreRuntime {
         SwanStationOptions.persistedEntries().forEach { (key, value) ->
             bridge.nativeSetOption(key, value)
         }
+        // The core advertises "Borders" (crop every black border) as the default
+        // Crop Mode, but its internal fallback is "Overscan". Frontends are
+        // expected to seed option defaults; without it games that leave padding
+        // inside the active area show black strips around the image (very
+        // visible next to the side artwork).
+        coreOptionValue("swanstation_Display_CropMode")?.let { cropMode ->
+            bridge.nativeSetOption("swanstation_Display_CropMode", cropMode)
+        }
         // Internal resolution is owned by the app's per-game upscale setting,
         // so re-assert it after the persisted core-option store so a legacy
         // swanstation_GPU_ResolutionScale entry cannot shadow it.
@@ -712,6 +720,14 @@ internal object CoreRuntime {
 
     fun displayRect(): FloatArray? {
         if (!renderedFirstFrame || surfaceWidth <= 0 || surfaceHeight <= 0) return null
+        // The presenters letterbox using the core's display aspect ratio, which
+        // can differ from the raw frame pixel aspect (pixel-aspect games,
+        // widescreen overrides, hi-res modes). Ask them for the exact rect so
+        // the side artwork never overlaps the emulated image.
+        val presented = runCatching { bridge.getPresentRect() }
+            .getOrNull()
+            ?.takeIf { it.size >= 4 && it[2] > it[0] && it[3] > it[1] }
+        if (presented != null) return presented
         val rect = fitRect(surfaceWidth, surfaceHeight, frameWidth, frameHeight)
         return floatArrayOf(rect.left.toFloat(), rect.top.toFloat(), rect.right.toFloat(), rect.bottom.toFloat())
     }
