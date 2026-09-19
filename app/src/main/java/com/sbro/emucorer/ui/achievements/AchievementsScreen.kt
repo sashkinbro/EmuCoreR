@@ -351,7 +351,14 @@ private fun AccountSection(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = stringResource(R.string.achievements_score, user?.score ?: 0),
+                            text = stringResource(
+                                R.string.achievements_score,
+                                if (state.hardcore) {
+                                    user?.score ?: 0
+                                } else {
+                                    user?.softcoreScore ?: 0
+                                }
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

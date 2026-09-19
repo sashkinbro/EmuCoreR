@@ -26,6 +26,7 @@ data class RetroAchievementsUser(
     val displayName: String,
     val token: String,
     val score: Int,
+    val softcoreScore: Int = 0,
     val avatarUrl: String
 )
 
@@ -257,6 +258,7 @@ class RetroAchievementsRepository private constructor(context: Context) {
                     displayName = it.optString("displayName"),
                     token = it.optString("token"),
                     score = it.optInt("score"),
+                    softcoreScore = it.optInt("scoreSoftcore"),
                     avatarUrl = it.optString("avatarUrl")
                 )
             }

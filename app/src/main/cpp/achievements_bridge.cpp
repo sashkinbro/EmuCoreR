@@ -876,6 +876,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_achievementsStateJson(JNIEnv* env, 
     json += ",\"token\":";
     AppendJsonString(&json, user->token);
     json += ",\"score\":" + std::to_string(user->score);
+    json += ",\"scoreSoftcore\":" + std::to_string(user->score_softcore);
     json += ",\"avatarUrl\":";
     AppendJsonString(&json, avatar);
     json += "}";
