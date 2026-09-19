@@ -31,7 +31,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -171,11 +170,13 @@ internal fun CheatOnlineCatalogSection(
     val serial = identity?.serial
     val crc = identity?.crc
     // The catalog index only depends on the downloaded packs, so it is built
-    // once per catalog (off the main thread) instead of on every game switch.
-    // Rebuilding it during composition made selecting a game stutter on large
-    // catalogs.
-    val catalogIndex by produceState<IndexedRemoteCheatCatalog?>(initialValue = null, key1 = packs) {
-        value = withContext(Dispatchers.Default) { indexRemoteCheatCatalog(packs) }
+    // off the main thread instead of on every game switch. It must be reset to
+    // null whenever [packs] changes: otherwise the previously built (possibly
+    // empty) index is briefly matched against the fresh catalog and the section
+    // flashes "no packs for this game" before the real index is ready.
+    var catalogIndex by remember(packs) { mutableStateOf<IndexedRemoteCheatCatalog?>(null) }
+    LaunchedEffect(packs) {
+        catalogIndex = withContext(Dispatchers.Default) { indexRemoteCheatCatalog(packs) }
     }
     val selection = remember(catalogIndex, serial, crc, selectedGame?.title) {
         val index = catalogIndex
