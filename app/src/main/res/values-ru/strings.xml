@@ -2032,4 +2032,5 @@
     <string name="achievements_unlock_notification">%1$s (+%2$d)</string>
     <string name="achievements_unavailable">Эта сборка не поддерживает RetroAchievements.</string>
     <string name="shell_achievements">Достижения</string>
+    <string name="feature_gate_unavailable_body">Менеджеры читов и текстур доступны только в официальном приложении EmuCoreR.</string>
 </resources>

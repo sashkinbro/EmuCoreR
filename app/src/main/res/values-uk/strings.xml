@@ -2033,4 +2033,5 @@
     <string name="achievements_unlock_notification">%1$s (+%2$d)</string>
     <string name="achievements_unavailable">Ця збірка не підтримує RetroAchievements.</string>
     <string name="shell_achievements">Досягнення</string>
+    <string name="feature_gate_unavailable_body">Менеджери чітів і текстур доступні лише в офіційному застосунку EmuCoreR.</string>
 </resources>

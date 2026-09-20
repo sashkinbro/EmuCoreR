@@ -21,6 +21,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.sbro.emucorer.R
+import com.sbro.emucorer.core.CatalogAccess
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
@@ -378,6 +379,7 @@ class TextureDownloadWorker(
                 setRequestProperty("Accept-Encoding", "identity")
                 setRequestProperty("User-Agent", "EmuCoreR-Android")
                 if (offset > 0L) setRequestProperty("Range", "bytes=$offset-")
+                CatalogAccess.authorize(this, applicationContext, next.toString())
             }
             try {
                 connection.connect()

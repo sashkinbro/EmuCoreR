@@ -1,6 +1,7 @@
 package com.sbro.emucorer.data
 
 import android.content.Context
+import com.sbro.emucorer.core.CatalogAccess
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -68,14 +69,14 @@ class RemoteContentCatalogRepository(context: Context) {
     private val downloadDir = File(appContext.cacheDir, "remote-content-downloads").apply { mkdirs() }
 
     fun loadTextureCatalog(forceRefresh: Boolean = false): RemoteCatalogResult<RemoteTexturePack> = loadCatalog(
-        urls = TEXTURE_CATALOG_URLS,
+        urls = CatalogAccess.textureCatalogUrls(),
         cacheFile = File(cacheDir, "textures-v1.json"),
         parser = ::parseTextureCatalog,
         forceRefresh = forceRefresh
     )
 
     fun loadCheatCatalog(forceRefresh: Boolean = false): RemoteCatalogResult<RemoteCheatPack> = loadCatalog(
-        urls = CHEAT_CATALOG_URLS,
+        urls = CatalogAccess.cheatCatalogUrls(),
         cacheFile = File(cacheDir, "cheats-v1.json"),
         parser = ::parseCheatCatalog,
         forceRefresh = forceRefresh
@@ -204,7 +205,7 @@ class RemoteContentCatalogRepository(context: Context) {
                     authors = item.stringList("authors").filter(String::isNotBlank),
                     credits = item.string("credits"),
                     description = item.string("description"),
-                    downloadUrl = item.requiredString("downloadUrl").requireHttps(),
+                    downloadUrl = CatalogAccess.rewriteDownloadUrl(item.requiredString("downloadUrl").requireHttps()),
                     sourceUrl = item.requiredString("sourceUrl").requireHttps(),
                     license = item.string("license"),
                     sizeBytes = item.long("sizeBytes"),
@@ -214,7 +215,7 @@ class RemoteContentCatalogRepository(context: Context) {
                     parts = item.array("parts").map { partElement ->
                         val part = partElement.jsonObject
                         RemoteTexturePart(
-                            downloadUrl = part.requiredString("downloadUrl").requireHttps(),
+                            downloadUrl = CatalogAccess.rewriteDownloadUrl(part.requiredString("downloadUrl").requireHttps()),
                             sizeBytes = part.long("sizeBytes"),
                             sha256 = part.requiredString("sha256").uppercase(Locale.US)
                         )
@@ -248,7 +249,7 @@ class RemoteContentCatalogRepository(context: Context) {
                     crc = item.string("crc").uppercase(Locale.US),
                     authors = item.stringList("authors").filter(String::isNotBlank),
                     description = item.string("description"),
-                    downloadUrl = item.requiredString("downloadUrl").requireHttps(),
+                    downloadUrl = CatalogAccess.rewriteDownloadUrl(item.requiredString("downloadUrl").requireHttps()),
                     sourceUrl = item.requiredString("sourceUrl").requireHttps(),
                     sourceName = item.requiredString("sourceName"),
                     license = item.string("license"),
@@ -389,6 +390,7 @@ class RemoteContentCatalogRepository(context: Context) {
         connection.instanceFollowRedirects = true
         connection.setRequestProperty("Accept", "application/json, application/octet-stream, text/plain, */*")
         connection.setRequestProperty("User-Agent", "EmuCoreR-Android")
+        CatalogAccess.authorize(connection, appContext, url)
         connection.connect()
         if (connection.responseCode !in 200..299) {
             val code = connection.responseCode
@@ -420,17 +422,6 @@ class RemoteContentCatalogRepository(context: Context) {
 
         val RAW_CHEAT_CODE_REGEX = Regex("[0-9A-Fa-f]{8}[\\s:+-]+[0-9A-Fa-f]{1,8}")
         val LIBRETRO_CHEAT_CODE_REGEX = Regex("^cheat\\d+_code\\s*=", RegexOption.IGNORE_CASE)
-
-        val TEXTURE_CATALOG_URLS = listOf(
-            "https://raw.githubusercontent.com/sashkinbro/EmuCoreR-Textures/main/textures.json",
-            "https://github.com/sashkinbro/EmuCoreR-Textures/raw/main/textures.json",
-            "https://cdn.jsdelivr.net/gh/sashkinbro/EmuCoreR-Textures@main/textures.json"
-        )
-        val CHEAT_CATALOG_URLS = listOf(
-            "https://raw.githubusercontent.com/sashkinbro/EmuCoreR-Cheat/main/cheats.json",
-            "https://github.com/sashkinbro/EmuCoreR-Cheat/raw/main/cheats.json",
-            "https://cdn.jsdelivr.net/gh/sashkinbro/EmuCoreR-Cheat@main/cheats.json"
-        )
     }
 }
 

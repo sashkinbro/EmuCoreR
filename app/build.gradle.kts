@@ -1,3 +1,4 @@
+import java.security.MessageDigest
 import java.util.Properties
 
 plugins {
@@ -20,8 +21,18 @@ fun buildConfigString(value: String): String = "\"" + value
     .replace("\\", "\\\\")
     .replace("\"", "\\\"") + "\""
 
+fun sha256Hex(value: String): String = MessageDigest.getInstance("SHA-256")
+    .digest(value.toByteArray(Charsets.UTF_8))
+    .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xFF) }
+
 val feedbackEndpoint = localProperty("emucorex.feedback.endpoint").orEmpty()
 val feedbackApiKey = localProperty("emucorex.feedback.apiKey").orEmpty()
+val featureKey = localProperty("emucorex.features.key").orEmpty()
+val featureKeyDigest = localProperty("emucorex.features.key")
+    ?.let { sha256Hex("emucorex-features-v1:$it") }
+    .orEmpty()
+val catalogWorkerUrl = localProperty("emucorex.catalog.workerUrl")
+    ?: "https://emucorex-catalog.kyivstar19971502.workers.dev"
 val multiplayerSignalingUrl = "https://emucorex-multiplayer.kyivstar19971502.workers.dev"
 val multiplayerClientCode = "ecx-mp-v1-7H4K9M2Q"
 val discordApplicationId = "1536775623287115786"
@@ -48,11 +59,14 @@ android {
         applicationId = "com.sbro.emucorer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 17
-        versionName = "0.0.5"
+        versionCode = 18
+        versionName = "0.0.6"
 
         buildConfigField("String", "FEEDBACK_ENDPOINT", buildConfigString(feedbackEndpoint))
         buildConfigField("String", "FEEDBACK_API_KEY", buildConfigString(feedbackApiKey))
+        buildConfigField("String", "FEATURE_KEY", buildConfigString(featureKey))
+        buildConfigField("String", "FEATURE_KEY_DIGEST", buildConfigString(featureKeyDigest))
+        buildConfigField("String", "CATALOG_WORKER_URL", buildConfigString(catalogWorkerUrl))
         buildConfigField("String", "MULTIPLAYER_SIGNALING_URL", buildConfigString(multiplayerSignalingUrl))
         buildConfigField("String", "MULTIPLAYER_CLIENT_CODE", buildConfigString(multiplayerClientCode))
         buildConfigField("long", "DISCORD_APPLICATION_ID", "${discordApplicationId}L")

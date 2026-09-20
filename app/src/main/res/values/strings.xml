@@ -2051,4 +2051,5 @@
     <string name="achievements_unlock_notification">%1$s (+%2$d)</string>
     <string name="achievements_unavailable">RetroAchievements is not supported by this build.</string>
     <string name="shell_achievements">Achievements</string>
+    <string name="feature_gate_unavailable_body">Cheat and texture managers are only available in the official EmuCoreR app.</string>
 </resources>

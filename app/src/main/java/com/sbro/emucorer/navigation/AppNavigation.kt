@@ -51,6 +51,7 @@ import androidx.navigation.toRoute
 import com.sbro.emucorer.R
 import com.sbro.emucorer.core.BiosValidator
 import com.sbro.emucorer.core.DocumentPathResolver
+import com.sbro.emucorer.core.FeatureGate
 import com.sbro.emucorer.core.GameLaunchShortcut
 import com.sbro.emucorer.core.SetupValidator
 import com.sbro.emucorer.core.StorageAccess
@@ -81,6 +82,7 @@ import com.sbro.emucorer.ui.settings.SettingsViewModel
 import com.sbro.emucorer.ui.textures.TextureManagerScreen
 import com.sbro.emucorer.ui.theme.ThemeManagerScreen
 import com.sbro.emucorer.ui.common.EmuCoreLoadingAnimation
+import com.sbro.emucorer.ui.common.FeatureUnavailableScreen
 import com.sbro.emucorer.ui.common.ProvideGamepadUiNavigation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -223,6 +225,7 @@ fun AppNavigation(
 ) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
+    val featureManagersEnabled = FeatureGate.isEnabled(context)
     val preferences = AppPreferences(context)
     val saveStateRepository = SaveStateRepository(context)
     val startupDestination by produceState<StartupDestination?>(
@@ -340,13 +343,17 @@ fun AppNavigation(
         }
     }
     val navigateTextureManager: () -> Unit = {
-        navController.navigate(TextureManagerRoute) {
-            launchSingleTop = true
+        if (featureManagersEnabled) {
+            navController.navigate(TextureManagerRoute) {
+                launchSingleTop = true
+            }
         }
     }
     val navigateCheatManager: () -> Unit = {
-        navController.navigate(CheatManagerRoute) {
-            launchSingleTop = true
+        if (featureManagersEnabled) {
+            navController.navigate(CheatManagerRoute) {
+                launchSingleTop = true
+            }
         }
     }
     val navigateAchievements: () -> Unit = {
@@ -1003,9 +1010,16 @@ fun AppNavigation(
             }
 
             composable<TextureManagerRoute> {
-                TextureManagerScreen(
-                    onBackClick = { navController.popBackStack() }
-                )
+                if (featureManagersEnabled) {
+                    TextureManagerScreen(
+                        onBackClick = { navController.popBackStack() }
+                    )
+                } else {
+                    FeatureUnavailableScreen(
+                        title = stringResource(R.string.shell_texture_manager),
+                        onBackClick = { navController.popBackStack() }
+                    )
+                }
             }
 
             composable<AchievementsRoute> {
@@ -1015,9 +1029,16 @@ fun AppNavigation(
             }
 
             composable<CheatManagerRoute> {
-                CheatManagerScreen(
-                    onBackClick = { navController.popBackStack() }
-                )
+                if (featureManagersEnabled) {
+                    CheatManagerScreen(
+                        onBackClick = { navController.popBackStack() }
+                    )
+                } else {
+                    FeatureUnavailableScreen(
+                        title = stringResource(R.string.shell_cheat_manager),
+                        onBackClick = { navController.popBackStack() }
+                    )
+                }
             }
         }
 

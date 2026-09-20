@@ -90,6 +90,9 @@ tests/fuzz/artifacts/
 # Local release tooling (parallel builds + apktool)
 /tools/
 
+# Local catalog worker (Cloudflare)
+/worker/
+
 # Legacy PS1 core trees replaced by third_party/swanstation
 /deps/
 /.github/
