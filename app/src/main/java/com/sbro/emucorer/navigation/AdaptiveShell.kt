@@ -31,7 +31,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.Forum
@@ -103,7 +104,7 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 enum class PrimaryDestination {
-    Home, Search, Hub, Formats, Discord, Settings, Feedback
+    Home, Search, Hub, Formats, Achievements, Profile, Discord, Settings, Feedback
 }
 
 private enum class MobileLeadingAction {
@@ -131,12 +132,14 @@ private val LocalDrawerVisualStyle = staticCompositionLocalOf { DrawerVisualStyl
 @Composable
 fun AdaptiveShell(
     selected: PrimaryDestination,
+    isProUnlocked: Boolean = false,
     drawerEnabled: Boolean = true,
     onNavigateHome: () -> Unit,
     onNavigateSearch: () -> Unit,
     onNavigateHub: () -> Unit = {},
     onNavigateFormats: () -> Unit,
     onNavigateSettings: () -> Unit,
+    onNavigateProfile: (() -> Unit)? = null,
     onNavigateDiscord: (() -> Unit)? = null,
     onNavigateFeedback: (() -> Unit)? = null,
     onNavigateGameSettingsManager: (() -> Unit)? = null,
@@ -167,6 +170,7 @@ fun AdaptiveShell(
     val navContent: @Composable () -> Unit = {
         SideNavigation(
             selected = selected,
+            isProUnlocked = isProUnlocked,
             hiddenDrawerItems = hiddenDrawerItems,
             drawerVisualStyle = drawerVisualStyle,
             onNavigateHome = onNavigateHome,
@@ -174,6 +178,7 @@ fun AdaptiveShell(
             onNavigateHub = onNavigateHub,
             onNavigateFormats = onNavigateFormats,
             onNavigateSettings = onNavigateSettings,
+            onNavigateProfile = onNavigateProfile,
             onNavigateDiscord = onNavigateDiscord,
             onNavigateFeedback = onNavigateFeedback,
             onNavigateGameSettingsManager = onNavigateGameSettingsManager,
@@ -244,6 +249,7 @@ fun AdaptiveShell(
     } else {
         CompactAdaptiveShell(
             selected = selected,
+            isProUnlocked = isProUnlocked,
             hiddenDrawerItems = hiddenDrawerItems,
             drawerVisualStyle = drawerVisualStyle,
             drawerEnabled = drawerEnabled,
@@ -252,6 +258,7 @@ fun AdaptiveShell(
             onNavigateHub = onNavigateHub,
             onNavigateFormats = onNavigateFormats,
             onNavigateSettings = onNavigateSettings,
+            onNavigateProfile = onNavigateProfile,
             onNavigateDiscord = onNavigateDiscord,
             onNavigateFeedback = onNavigateFeedback,
             onNavigateGameSettingsManager = onNavigateGameSettingsManager,
@@ -275,6 +282,7 @@ fun AdaptiveShell(
 @Composable
 private fun CompactAdaptiveShell(
     selected: PrimaryDestination,
+    isProUnlocked: Boolean,
     hiddenDrawerItems: Set<DrawerItemId>,
     drawerVisualStyle: DrawerVisualStyle,
     drawerEnabled: Boolean,
@@ -283,6 +291,7 @@ private fun CompactAdaptiveShell(
     onNavigateHub: () -> Unit,
     onNavigateFormats: () -> Unit,
     onNavigateSettings: () -> Unit,
+    onNavigateProfile: (() -> Unit)?,
     onNavigateDiscord: (() -> Unit)?,
     onNavigateFeedback: (() -> Unit)?,
     onNavigateGameSettingsManager: (() -> Unit)?,
@@ -455,6 +464,7 @@ private fun CompactAdaptiveShell(
             ) {
                 SideNavigation(
                     selected = selected,
+                    isProUnlocked = isProUnlocked,
                     hiddenDrawerItems = hiddenDrawerItems,
                     drawerVisualStyle = drawerVisualStyle,
                     onNavigateHome = onNavigateHome,
@@ -462,6 +472,7 @@ private fun CompactAdaptiveShell(
                     onNavigateHub = onNavigateHub,
                     onNavigateFormats = onNavigateFormats,
                     onNavigateSettings = onNavigateSettings,
+                    onNavigateProfile = onNavigateProfile,
                     onNavigateDiscord = onNavigateDiscord,
                     onNavigateFeedback = onNavigateFeedback,
                     onNavigateGameSettingsManager = onNavigateGameSettingsManager,
@@ -489,6 +500,7 @@ private fun CompactAdaptiveShell(
 @Composable
 private fun SideNavigation(
     selected: PrimaryDestination,
+    isProUnlocked: Boolean,
     hiddenDrawerItems: Set<DrawerItemId>,
     drawerVisualStyle: DrawerVisualStyle,
     onNavigateHome: () -> Unit,
@@ -496,6 +508,7 @@ private fun SideNavigation(
     onNavigateHub: () -> Unit,
     onNavigateFormats: () -> Unit,
     onNavigateSettings: () -> Unit,
+    onNavigateProfile: (() -> Unit)?,
     onNavigateDiscord: (() -> Unit)?,
     onNavigateFeedback: (() -> Unit)?,
     onNavigateGameSettingsManager: (() -> Unit)?,
@@ -585,6 +598,11 @@ private fun SideNavigation(
             closeDrawerThen(it)
         }
     }
+    val navigateProfile = onNavigateProfile?.let {
+        rememberDebouncedClick {
+            closeDrawerThen(it)
+        }
+    }
     val navigateFormats = rememberDebouncedClick {
         closeDrawerThen(onNavigateFormats)
     }
@@ -640,7 +658,9 @@ private fun SideNavigation(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Image(
-                    painter = painterResource(R.drawable.ic_drawer_app),
+                    painter = painterResource(
+                        if (isProUnlocked) R.drawable.ic_drawer_app_pro else R.drawable.ic_drawer_app
+                    ),
                     contentDescription = null,
                     modifier = Modifier
                         .size(52.dp)
@@ -696,10 +716,24 @@ private fun SideNavigation(
             }
             if (navigateAchievements != null && DrawerItemId.ACHIEVEMENTS !in hiddenDrawerItems) {
                 ShellItem(
-                    icon = Icons.Rounded.EmojiEvents,
-                    label = stringResource(R.string.shell_achievements),
-                    selected = false,
+                    icon = Icons.Rounded.Star,
+                    label = stringResource(R.string.settings_achievements_tab),
+                    selected = selected == PrimaryDestination.Achievements,
+                    modifier = if (selected == PrimaryDestination.Achievements && selectedItemFocusRequester != null) {
+                        Modifier.focusRequester(selectedItemFocusRequester)
+                    } else Modifier,
                     onClick = navigateAchievements
+                )
+            }
+            if (navigateProfile != null && DrawerItemId.PROFILE !in hiddenDrawerItems) {
+                ShellItem(
+                    icon = Icons.Rounded.Person,
+                    label = stringResource(R.string.profile_title),
+                    selected = selected == PrimaryDestination.Profile,
+                    modifier = if (selected == PrimaryDestination.Profile && selectedItemFocusRequester != null) {
+                        Modifier.focusRequester(selectedItemFocusRequester)
+                    } else Modifier,
+                    onClick = navigateProfile
                 )
             }
             if (navigateDiscord != null && DrawerItemId.DISCORD !in hiddenDrawerItems) {

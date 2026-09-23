@@ -138,6 +138,7 @@ enum class DrawerItemId(val required: Boolean = false) {
     TEXTURE_MANAGER,
     CHEAT_MANAGER,
     ACHIEVEMENTS,
+    PROFILE,
     SAVE_STATES,
     APP_SETTINGS(required = true),
     SUPPORTED_FORMATS,

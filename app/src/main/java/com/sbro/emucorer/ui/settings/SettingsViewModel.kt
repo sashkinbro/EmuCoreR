@@ -1,5 +1,6 @@
 package com.sbro.emucorer.ui.settings
 
+import android.app.Activity
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -20,6 +21,9 @@ import com.sbro.emucorer.core.GamepadManager
 import com.sbro.emucorer.core.GsHackDefaults
 import com.sbro.emucorer.core.PerformanceProfiles
 import com.sbro.emucorer.core.PerformancePresets
+import com.sbro.emucorer.core.ProProductOffer
+import com.sbro.emucorer.core.ProPurchaseManager
+import com.sbro.emucorer.core.ProPurchaseTier
 import com.sbro.emucorer.core.NativeApp
 import com.sbro.emucorer.core.SetupValidator
 import com.sbro.emucorer.core.StorageAccess
@@ -118,6 +122,15 @@ data class SettingsUiState(
     val hiddenGameMenuSections: Set<GameMenuSectionId> = emptySet(),
     val isBackgroundImporting: Boolean = false,
     val customizationMessageResId: Int? = null,
+    val isProUnlocked: Boolean = false,
+    val proPrice: String? = null,
+    val proProducts: List<ProProductOffer> = emptyList(),
+    val ownedProProductIds: Set<String> = emptySet(),
+    val isProPurchaseStatusVerified: Boolean = false,
+    val isProProductLoading: Boolean = false,
+    val isProProductAvailable: Boolean = false,
+    val isProPurchaseInProgress: Boolean = false,
+    val proPurchaseMessageResId: Int? = null,
     val languageTag: String? = null,
     val tvInterfaceMode: TvInterfaceMode = TvInterfaceMode.AUTO,
     val renderer: Int = RendererDefaults.defaultForHardware(),
@@ -332,6 +345,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val retroArchShaderRepository = RetroArchShaderRepository(application)
     private val patchDatabaseDownloader = PatchDatabaseDownloader(application)
     private val appUpdateRepository = AppUpdateRepository(application)
+    private val proPurchaseManager = ProPurchaseManager.getInstance(application)
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     val floatingQuickActionsEnabled: StateFlow<Boolean> = preferences.floatingQuickActionsEnabled
@@ -361,6 +375,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
         refreshEmulatorDataLocations()
+        viewModelScope.launch {
+            proPurchaseManager.state.collect { proState ->
+                _uiState.value = _uiState.value.copy(
+                    isProUnlocked = proState.isProUnlocked,
+                    proPrice = proState.productPrice,
+                    proProducts = proState.products,
+                    ownedProProductIds = proState.ownedProductIds,
+                    isProPurchaseStatusVerified = proState.isPurchaseStatusVerified,
+                    isProProductLoading = proState.isProductLoading,
+                    isProProductAvailable = proState.isProductAvailable,
+                    isProPurchaseInProgress = proState.isPurchaseInProgress,
+                    proPurchaseMessageResId = proState.messageResId
+                )
+            }
+        }
     }
 
     private fun initializeAboutInfo() {
@@ -616,6 +645,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun purchasePro(
+        activity: Activity,
+        tier: ProPurchaseTier = ProPurchaseTier.BASE
+    ) {
+        proPurchaseManager.purchase(activity, tier)
+    }
+
+    fun restoreProPurchases() { proPurchaseManager.restorePurchases(showMessage = true) }
+
+    fun clearProPurchaseMessage() { proPurchaseManager.clearMessage() }
+
     fun setThemeMode(mode: ThemeMode) = viewModelScope.launch {
         preferences.setThemeMode(mode)
         if (mode == ThemeMode.NEON) {
@@ -623,10 +663,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
     fun saveCustomTheme(config: CustomThemeConfig, activate: Boolean) = viewModelScope.launch {
+        if (!_uiState.value.isProUnlocked) return@launch
         if (activate) preferences.applyCustomTheme(config) else preferences.setCustomTheme(config)
     }
     fun saveCustomThemeLibrary(library: CustomThemeLibrary, activate: Boolean) {
         val current = _uiState.value
+        if (!current.isProUnlocked) return
+
         val safeLibrary = library.sanitized()
         val activeConfig = safeLibrary.activeTheme()?.config
         val nextThemeMode = when {
@@ -646,6 +689,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun saveCustomTouchControls(library: CustomTouchControlLibrary) {
         val current = _uiState.value
+        if (!current.isProUnlocked) return
+
         val safeLibrary = library.sanitized()
         _uiState.value = current.copy(customTouchControls = safeLibrary)
         viewModelScope.launch {

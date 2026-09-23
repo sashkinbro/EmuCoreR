@@ -13,6 +13,7 @@ import android.os.Messenger
 import android.util.Log
 import com.sbro.emucorer.BuildConfig
 import com.sbro.emucorer.R
+import com.sbro.emucorer.data.AppPreferences
 import com.sbro.emucorer.data.CoverArtRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -90,7 +91,10 @@ internal fun buildDiscordPresencePayload(
 
 private const val DISCORD_STANDARD_ICON_URL =
     "https://raw.githubusercontent.com/sashkinbro/EmuCoreR/master/app/src/main/res/drawable-nodpi/ic_drawer_app.png"
-internal fun discordIdleImageUrl(): String = DISCORD_STANDARD_ICON_URL
+private const val DISCORD_PRO_ICON_URL =
+    "https://raw.githubusercontent.com/sashkinbro/EmuCoreR/master/app/src/main/res/drawable-nodpi/ic_drawer_app_pro.png"
+internal fun discordIdleImageUrl(isProUnlocked: Boolean): String =
+    if (isProUnlocked) DISCORD_PRO_ICON_URL else DISCORD_STANDARD_ICON_URL
 
 internal fun parseDiscordFriends(encoded: String): List<DiscordFriend> = encoded
     .split(DiscordIpc.RECORD_SEPARATOR)
@@ -128,6 +132,7 @@ object DiscordIntegration {
     private var gameSerial = ""
     private var gameCoverUrl = ""
     private var gamePaused = false
+    private var proUnlocked = false
 
     private val incoming = Messenger(Handler(Looper.getMainLooper()) { message ->
         if (message.what == DiscordIpc.MSG_STATE) applySnapshot(message.data ?: Bundle.EMPTY)
@@ -212,6 +217,14 @@ object DiscordIntegration {
             }
         )
         if (enabled) startHelper()
+        scope.launch {
+            AppPreferences(appContext).proUnlocked.collect { unlocked ->
+                if (proUnlocked != unlocked) {
+                    proUnlocked = unlocked
+                    pushPresence()
+                }
+            }
+        }
     }
 
     fun setEnabled(enabled: Boolean) {
@@ -396,7 +409,7 @@ object DiscordIntegration {
             pausedText = appContext.getString(R.string.discord_presence_paused),
             titleText = { title -> appContext.getString(R.string.discord_presence_playing, title) },
             coverUrl = gameCoverUrl,
-            idleImageUrl = discordIdleImageUrl()
+            idleImageUrl = discordIdleImageUrl(proUnlocked)
         )
     }
 

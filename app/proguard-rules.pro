@@ -65,3 +65,12 @@
 -keepclassmembers class **$$serializer {
     public static ** INSTANCE;
 }
+
+# --- Firebase / Play services -----------------------------------------------
+# Firebase, Play Billing and Google Identity ship their own consumer rules.
+# These dontwarn entries keep release output focused when optional integrations
+# are absent from a variant.
+-dontwarn com.google.firebase.**
+-dontwarn com.google.android.gms.**
+-dontwarn com.google.android.play.core.**
+-dontwarn com.android.billingclient.**

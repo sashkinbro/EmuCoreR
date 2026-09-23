@@ -20,6 +20,9 @@ tests/build/
 /.kotlin/
 local.properties
 
+# Local Firebase project configuration
+app/google-services.json
+
 # Local IGDB catalog builder and credentials
 /IGDB/
 

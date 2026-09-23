@@ -130,6 +130,8 @@ import com.sbro.emucorer.R
 import com.sbro.emucorer.core.GamepadManager
 import com.sbro.emucorer.core.LocalTvUiEnvironment
 import com.sbro.emucorer.core.TvUiMetrics
+import com.sbro.emucorer.core.availableProSupportOffers
+import com.sbro.emucorer.ui.common.ProSupportOptionsDialog
 import com.sbro.emucorer.data.CustomGameCoverRepository
 import com.sbro.emucorer.data.GameItem
 import com.sbro.emucorer.data.HomeBackgroundRepository
@@ -174,6 +176,20 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showWelcomeSupportOptions by remember { mutableStateOf(false) }
+    val supportOffers = if (uiState.isProUnlocked && !uiState.isProPurchaseStatusVerified) {
+        emptyList()
+    } else {
+        availableProSupportOffers(
+            offers = uiState.proProducts,
+            ownedProductIds = uiState.ownedProProductIds
+        )
+    }
+    LaunchedEffect(showWelcomeSupportOptions, supportOffers) {
+        if (showWelcomeSupportOptions && supportOffers.isEmpty()) {
+            showWelcomeSupportOptions = false
+        }
+    }
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val windowSize = LocalWindowInfo.current.containerSize
@@ -668,6 +684,134 @@ fun HomeScreen(
             }
         }
     }
+    val canShowWelcomeDialog = !uiState.isBootstrapping &&
+        !uiState.isLoading &&
+        !uiState.isRefreshing
+    if (showWelcomeSupportOptions && supportOffers.isNotEmpty()) {
+        ProSupportOptionsDialog(
+            offers = supportOffers,
+            purchaseInProgress = uiState.isProPurchaseInProgress,
+            onPurchase = { tier ->
+                showWelcomeSupportOptions = false
+                viewModel.dismissWelcomeDialog()
+                (context as? Activity)?.let { activity ->
+                    viewModel.purchasePro(activity, tier)
+                }
+            },
+            onDismiss = { showWelcomeSupportOptions = false }
+        )
+    }
+    if (
+        uiState.showWelcomeDialog &&
+        canShowWelcomeDialog &&
+        !isShelfView &&
+        !showWelcomeSupportOptions
+    ) {
+        WelcomeProDialog(
+            isProUnlocked = uiState.isProUnlocked,
+            proPrice = uiState.proPrice,
+            isProductLoading = uiState.isProProductLoading,
+            isPurchaseInProgress = uiState.isProPurchaseInProgress,
+            onDismiss = viewModel::dismissWelcomeDialog,
+            onPurchase = {
+                viewModel.dismissWelcomeDialog()
+                (context as? Activity)?.let(viewModel::purchasePro)
+            },
+            onShowSupportOptions = if (supportOffers.isNotEmpty()) {
+                { showWelcomeSupportOptions = true }
+            } else {
+                null
+            }
+        )
+    }
+}
+
+@Composable
+private fun WelcomeProDialog(
+    isProUnlocked: Boolean,
+    proPrice: String?,
+    isProductLoading: Boolean,
+    isPurchaseInProgress: Boolean,
+    onDismiss: () -> Unit,
+    onPurchase: () -> Unit,
+    onShowSupportOptions: (() -> Unit)?
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        showEyebrow = false,
+        showIconContainer = false,
+        icon = {
+            Image(
+                painter = painterResource(
+                    if (isProUnlocked) R.drawable.ic_drawer_app_pro else R.drawable.ic_drawer_app
+                ),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+        },
+        title = { Text(text = stringResource(R.string.welcome_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.welcome_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = when {
+                        isProUnlocked -> stringResource(R.string.pro_status_active)
+                        proPrice != null -> proPrice
+                        isProductLoading -> stringResource(R.string.pro_price_loading)
+                        else -> stringResource(R.string.pro_price_unavailable)
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (onShowSupportOptions != null) {
+                    TextButton(
+                        onClick = onShowSupportOptions,
+                        enabled = !isPurchaseInProgress && !isProductLoading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = stringResource(R.string.settings_pro_support_more))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (isProUnlocked) {
+                Button(
+                    shape = neonButtonShape(), onClick = onDismiss) {
+                    Text(text = stringResource(R.string.welcome_secondary))
+                }
+            } else {
+                Button(
+                    shape = neonButtonShape(), onClick = onPurchase, enabled = !isPurchaseInProgress && !isProductLoading) {
+                    Text(
+                        text = if (isPurchaseInProgress) {
+                            stringResource(R.string.pro_purchase_busy)
+                        } else {
+                            stringResource(R.string.welcome_primary)
+                        }
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            if (!isProUnlocked) {
+                TextButton(onClick = onDismiss) {
+                    Text(text = stringResource(R.string.welcome_secondary))
+                }
+            }
+        }
+    )
 }
 
 @Composable

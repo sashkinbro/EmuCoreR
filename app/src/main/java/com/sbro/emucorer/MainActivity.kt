@@ -81,6 +81,9 @@ open class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val preferences = AppPreferences(this)
+        if (preferences.getProUnlockedSync()) {
+            setTheme(R.style.Theme_EmuCoreR_Splash_Pro)
+        }
         installSplashScreen().setKeepOnScreenCondition { keepSplashVisible }
         applyEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -132,6 +135,7 @@ open class MainActivity : ComponentActivity() {
                 ThemeMode.SYSTEM -> systemDarkTheme
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
+                ThemeMode.PRO -> true
                 ThemeMode.CUSTOM -> customTheme.dark
                 ThemeMode.NEON -> true
             }
