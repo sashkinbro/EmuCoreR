@@ -49,6 +49,17 @@ val discordSdkDirectory = (
             sdkDir.resolve("discord_partner_sdk.aar").isFile
     }
 
+val releaseStoreFilePath = localProperty("emucorex.release.storeFile")
+val releaseStorePassword = localProperty("emucorex.release.storePassword")
+val releaseKeyAlias = localProperty("emucorex.release.keyAlias")
+val releaseKeyPassword = localProperty("emucorex.release.keyPassword")
+val releaseSigningConfigured = listOf(
+    releaseStoreFilePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { it != null }
+
 android {
     namespace = "com.sbro.emucorer"
     compileSdk {
@@ -88,6 +99,17 @@ android {
         }
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFilePath!!)
+                storePassword = releaseStorePassword!!
+                keyAlias = releaseKeyAlias!!
+                keyPassword = releaseKeyPassword!!
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // The emulator core is performance-sensitive even when the
@@ -102,6 +124,9 @@ android {
             }
         }
         release {
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             // AGP configures CMake with CMAKE_BUILD_TYPE=RelWithDebInfo, whose
             // default flags are "-O2 -g -DNDEBUG" and are appended after any -O3
             // given through cFlags/cppFlags, so that -O2 would win. Replace the
