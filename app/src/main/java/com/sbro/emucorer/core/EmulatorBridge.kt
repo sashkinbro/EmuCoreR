@@ -903,54 +903,57 @@ object EmulatorBridge {
         Log.i(TAG, "startEmulation requested pathType=$pathType bootSmoke=$bootSmokeProbe vmActive=$isVmActive")
         val shouldAutoProgressiveScanHold = shouldStartAutoProgressiveScanHold(path, bootSmokeProbe, allowBiosBoot)
 
-        return runSerial {
-            isVmActive = true
-            shutdownRequested = false
-            var result = try {
-                NativeApp.logCrashBreadcrumb(
-                    "startEmulation entering native ${
-                        when {
-                            bootSmokeProbe -> "runBootSmokeProbe"
-                            isElf -> "bootElf"
-                            isIrx -> "bootIrx"
-                            else -> "runVMThread"
-                        }
-                    }"
-                )
-                when {
-                    bootSmokeProbe -> NativeApp.runBootSmokeProbe(path, BOOT_SMOKE_PROBE_STEPS) != 0
-                    isElf -> NativeApp.bootElf(path)
-                    isIrx -> NativeApp.bootIrx(path)
-                    else -> NativeApp.runVMThread(path)
+        return BackupSessionGate.start(active = { isVmActive }) {
+            getContext()?.let { com.sbro.emucorer.data.drive.DriveBackupArchive(it).recoverPending() }
+            runSerial {
+                isVmActive = true
+                shutdownRequested = false
+                var result = try {
+                    NativeApp.logCrashBreadcrumb(
+                        "startEmulation entering native ${
+                            when {
+                                bootSmokeProbe -> "runBootSmokeProbe"
+                                isElf -> "bootElf"
+                                isIrx -> "bootIrx"
+                                else -> "runVMThread"
+                            }
+                        }"
+                    )
+                    when {
+                        bootSmokeProbe -> NativeApp.runBootSmokeProbe(path, BOOT_SMOKE_PROBE_STEPS) != 0
+                        isElf -> NativeApp.bootElf(path)
+                        isIrx -> NativeApp.bootIrx(path)
+                        else -> NativeApp.runVMThread(path)
+                    }
+                } catch (error: Exception) {
+                    NativeApp.logCrashBreadcrumb("startEmulation exception before native start returned")
+                    Log.e(TAG, "startEmulation native call failed", error)
+                    false
                 }
-            } catch (error: Exception) {
-                NativeApp.logCrashBreadcrumb("startEmulation exception before native start returned")
-                Log.e(TAG, "startEmulation native call failed", error)
-                false
-            }
-            if (result && !bootSmokeProbe && !allowBiosBoot && !isElf && !isIrx && !isExeExecutable && !path.isBlank()) {
-                // The bundled core silently boots the BIOS when a disc image
-                // cannot be opened. Surface that as a failed launch instead of
-                // leaving the user on a misleading BIOS screen.
-                if (!NativeApp.hasDiscMedia()) {
-                    NativeApp.logCrashBreadcrumb("disc image failed to mount; aborting launch")
-                    Log.w(TAG, "Disc image could not be mounted; aborting $pathType launch")
-                    runCatching { NativeApp.shutdown() }
-                    result = false
+                if (result && !bootSmokeProbe && !allowBiosBoot && !isElf && !isIrx && !isExeExecutable && !path.isBlank()) {
+                    // The bundled core silently boots the BIOS when a disc image
+                    // cannot be opened. Surface that as a failed launch instead of
+                    // leaving the user on a misleading BIOS screen.
+                    if (!NativeApp.hasDiscMedia()) {
+                        NativeApp.logCrashBreadcrumb("disc image failed to mount; aborting launch")
+                        Log.w(TAG, "Disc image could not be mounted; aborting $pathType launch")
+                        runCatching { NativeApp.shutdown() }
+                        result = false
+                    }
                 }
+                if (result) {
+                    startAutoProgressiveScanHoldIfEnabled(shouldAutoProgressiveScanHold)
+                } else {
+                    stopAutoProgressiveScanHold()
+                }
+                isVmActive = NativeApp.hasOwnedVm()
+                if (!isVmActive) {
+                    DocumentPathResolver.releasePreparedLaunchHandles()
+                }
+                NativeApp.logCrashBreadcrumb("startEmulation finished result=$result")
+                Log.i(TAG, "startEmulation finished result=$result")
+                result
             }
-            if (result) {
-                startAutoProgressiveScanHoldIfEnabled(shouldAutoProgressiveScanHold)
-            } else {
-                stopAutoProgressiveScanHold()
-            }
-            isVmActive = NativeApp.hasOwnedVm()
-            if (!isVmActive) {
-                DocumentPathResolver.releasePreparedLaunchHandles()
-            }
-            NativeApp.logCrashBreadcrumb("startEmulation finished result=$result")
-            Log.i(TAG, "startEmulation finished result=$result")
-            result
         }
     }
 
@@ -1097,6 +1100,11 @@ object EmulatorBridge {
                 // A failed teardown must retain ownership and its descriptors.
                 shutdownRequested = false
             }
+        }
+        // A failed native shutdown must never unlock memory-card backup while the VM still owns it.
+        if (!runCatching { NativeApp.hasValidVm() }.getOrDefault(true)) {
+            BackupSessionGate.stopped()
+            getContext()?.let { com.sbro.emucorer.data.drive.DriveBackupWork.afterGame(it) }
         }
     }
 

@@ -3068,6 +3068,7 @@ private fun CustomizationSettingsTab(
                 DrawerItemId.APP_SETTINGS,
                 DrawerItemId.SUPPORTED_FORMATS,
                 DrawerItemId.ACHIEVEMENTS,
+                DrawerItemId.PROFILE,
                 DrawerItemId.FEEDBACK,
                 DrawerItemId.DISCORD
             )
