@@ -1,26 +1,16 @@
 package com.sbro.emucorer.data
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.pm.ServiceInfo
 import android.os.SystemClock
-import androidx.core.app.NotificationCompat
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
-import androidx.work.ForegroundInfo
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.sbro.emucorer.R
 import com.sbro.emucorer.core.CatalogAccess
 import java.io.File
 import java.io.IOException
@@ -140,8 +130,7 @@ class TextureDownloadManager(context: Context) {
         val request = OneTimeWorkRequestBuilder<TextureDownloadWorker>()
             .setInputData(Data.Builder().putString(TextureDownloadWorker.KEY_TASK, task.key).build())
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
-            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.SECONDS)
             .addTag(WORK_TAG)
             .addTag("$WORK_TAG:${task.key}")
             .build()
@@ -158,6 +147,8 @@ class TextureDownloadWorker(
     appContext: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
+    private var sliceDeadline = 0L
+
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val key = inputData.getString(KEY_TASK).orEmpty()
         var task = TextureDownloadStore.read(applicationContext, key) ?: return@withContext Result.failure()
@@ -166,6 +157,7 @@ class TextureDownloadWorker(
         }
 
         try {
+            sliceDeadline = SystemClock.elapsedRealtime() + WORK_SLICE_MS
             task = updateTask(task) {
                 it.copy(
                     status = TextureDownloadStatus.DOWNLOADING,
@@ -174,7 +166,6 @@ class TextureDownloadWorker(
                     error = ""
                 )
             }
-            setForeground(foregroundInfo(task))
             val parts = download(task)
 
             task = updateTask(task) {
@@ -185,13 +176,11 @@ class TextureDownloadWorker(
                     etaSeconds = 0L
                 )
             }
-            setForeground(foregroundInfo(task))
             val archive = assembleAndVerify(parts, task)
 
             task = updateTask(task) {
                 it.copy(status = TextureDownloadStatus.INSTALLING, bytesPerSecond = 0L, etaSeconds = 0L)
             }
-            setForeground(foregroundInfo(task))
             val preferences = AppPreferences(applicationContext)
             val installed = TexturePackRepository(applicationContext, preferences)
                 .installRemotePack(archive, task.serial)
@@ -214,6 +203,18 @@ class TextureDownloadWorker(
             Result.success()
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (slice: DownloadSliceExceededException) {
+            // The partial file is kept, so the next attempt resumes with a Range request.
+            TextureDownloadStore.update(applicationContext, key) {
+                it.copy(
+                    status = TextureDownloadStatus.DOWNLOADING,
+                    bytesPerSecond = 0L,
+                    etaSeconds = 0L,
+                    error = "",
+                    updatedAt = System.currentTimeMillis()
+                )
+            }
+            Result.retry()
         } catch (permanent: PermanentDownloadException) {
             TextureDownloadStore.discardPayload(applicationContext, key)
             markFailed(key, permanent.message.orEmpty())
@@ -308,6 +309,9 @@ class TextureDownloadWorker(
                     while (true) {
                         currentCoroutineContext().ensureActive()
                         if (isStopped) throw CancellationException("Texture download stopped")
+                        if (sliceDeadline > 0L && SystemClock.elapsedRealtime() >= sliceDeadline) {
+                            throw DownloadSliceExceededException()
+                        }
                         val persisted = TextureDownloadStore.read(applicationContext, task.key)
                         if (persisted?.status == TextureDownloadStatus.PAUSED ||
                             persisted?.status == TextureDownloadStatus.CANCELLED
@@ -340,15 +344,6 @@ class TextureDownloadWorker(
                                     error = ""
                                 )
                             }
-                            setProgress(
-                                Data.Builder()
-                                    .putLong(PROGRESS_DOWNLOADED, downloaded)
-                                    .putLong(PROGRESS_TOTAL, task.totalBytes)
-                                    .putLong(PROGRESS_SPEED, speed)
-                                    .putLong(PROGRESS_ETA, eta)
-                                    .build()
-                            )
-                            setForeground(foregroundInfo(task))
                             lastSampleAt = now
                             lastSampleBytes = downloaded
                         }
@@ -485,115 +480,17 @@ class TextureDownloadWorker(
         }
     }
 
-    private fun foregroundInfo(task: TextureDownloadTask): ForegroundInfo {
-        val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.createNotificationChannel(
-            NotificationChannel(
-                NOTIFICATION_CHANNEL,
-                applicationContext.getString(R.string.texture_download_channel_name),
-                NotificationManager.IMPORTANCE_LOW
-            ).apply { description = applicationContext.getString(R.string.texture_download_channel_description) }
-        )
-        val percent = (task.progress * 100).toInt().coerceIn(0, 100)
-        val contentIntent = applicationContext.packageManager
-            .getLaunchIntentForPackage(applicationContext.packageName)
-            ?.let { intent ->
-                PendingIntent.getActivity(
-                    applicationContext,
-                    notificationId(task.key),
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-            }
-        val pauseIntent = TextureDownloadActionReceiver.pendingIntent(
-            applicationContext,
-            task.key,
-            TextureDownloadActionReceiver.ACTION_PAUSE
-        )
-        val cancelIntent = TextureDownloadActionReceiver.pendingIntent(
-            applicationContext,
-            task.key,
-            TextureDownloadActionReceiver.ACTION_CANCEL
-        )
-        val notification = NotificationCompat.Builder(applicationContext, NOTIFICATION_CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(task.packName)
-            .setContentText(notificationText(task))
-            .setContentIntent(contentIntent)
-            .setOnlyAlertOnce(true)
-            .setOngoing(true)
-            .setProgress(100, percent, task.totalBytes <= 0L)
-            .addAction(0, applicationContext.getString(R.string.emulation_pause), pauseIntent)
-            .addAction(0, applicationContext.getString(R.string.cancel), cancelIntent)
-            .build()
-        return ForegroundInfo(
-            notificationId(task.key),
-            notification,
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-        )
-    }
-
-    private fun notificationText(task: TextureDownloadTask): String = when (task.status) {
-        TextureDownloadStatus.VERIFYING -> applicationContext.getString(R.string.texture_download_status_verifying)
-        TextureDownloadStatus.INSTALLING -> applicationContext.getString(R.string.texture_download_status_installing)
-        else -> {
-            val speed = formatDownloadBytes(task.bytesPerSecond)
-            val eta = if (task.etaSeconds > 0L) formatDownloadDuration(task.etaSeconds)
-            else applicationContext.getString(R.string.texture_download_eta_estimating)
-            applicationContext.getString(
-                R.string.texture_download_notification_progress,
-                (task.progress * 100).toInt(),
-                speed,
-                eta
-            )
-        }
-    }
-
     companion object {
         const val KEY_TASK = "texture_download_task"
-        const val PROGRESS_DOWNLOADED = "downloaded"
-        const val PROGRESS_TOTAL = "total"
-        const val PROGRESS_SPEED = "speed"
-        const val PROGRESS_ETA = "eta"
-        private const val NOTIFICATION_CHANNEL = "texture_downloads"
         private const val CONNECT_TIMEOUT_MS = 20_000
         private const val READ_TIMEOUT_MS = 45_000
         private const val DOWNLOAD_BUFFER_BYTES = 256 * 1024
         private const val VERIFY_BUFFER_BYTES = 1024 * 1024
         private const val PROGRESS_UPDATE_MS = 750L
         private const val MAX_REDIRECTS = 8
+        private const val WORK_SLICE_MS = 8 * 60_000L
         private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
         private val CONTENT_RANGE = Regex("bytes\\s+(\\d+)-\\d+/(?:\\d+|\\*)", RegexOption.IGNORE_CASE)
-
-        private fun notificationId(key: String): Int = 20_000 + (key.hashCode() and 0x3FFF)
-    }
-}
-
-class TextureDownloadActionReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        val key = intent.getStringExtra(EXTRA_KEY).orEmpty()
-        if (!TextureDownloadStore.isValidKey(key)) return
-        val manager = TextureDownloadManager(context)
-        when (intent.action) {
-            ACTION_PAUSE -> manager.pause(key)
-            ACTION_CANCEL -> manager.cancel(key)
-        }
-    }
-
-    companion object {
-        const val ACTION_PAUSE = "com.sbro.emucorer.action.PAUSE_TEXTURE_DOWNLOAD"
-        const val ACTION_CANCEL = "com.sbro.emucorer.action.CANCEL_TEXTURE_DOWNLOAD"
-        private const val EXTRA_KEY = "task_key"
-
-        fun pendingIntent(context: Context, key: String, action: String): PendingIntent =
-            PendingIntent.getBroadcast(
-                context,
-                (key + action).hashCode(),
-                Intent(context, TextureDownloadActionReceiver::class.java)
-                    .setAction(action)
-                    .putExtra(EXTRA_KEY, key),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
     }
 }
 
@@ -800,3 +697,10 @@ private fun ByteArray.toHex(): String =
     joinToString("") { byte -> "%02X".format(byte.toInt() and 0xff) }
 
 private class PermanentDownloadException(message: String) : IOException(message)
+
+/**
+ * Raised when a single worker run has been downloading for long enough. The partial file stays on
+ * disk and the retried worker continues with an HTTP Range request, so no foreground service is
+ * needed for very large packs.
+ */
+private class DownloadSliceExceededException : IOException("Texture download slice finished")
