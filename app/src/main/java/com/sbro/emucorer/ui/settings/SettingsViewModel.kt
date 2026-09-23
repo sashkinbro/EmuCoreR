@@ -23,6 +23,7 @@ import com.sbro.emucorer.core.PerformanceProfiles
 import com.sbro.emucorer.core.PerformancePresets
 import com.sbro.emucorer.core.ProProductOffer
 import com.sbro.emucorer.core.ProPurchaseManager
+import com.sbro.emucorer.core.ProPurchaseState
 import com.sbro.emucorer.core.ProPurchaseTier
 import com.sbro.emucorer.core.NativeApp
 import com.sbro.emucorer.core.SetupValidator
@@ -122,15 +123,7 @@ data class SettingsUiState(
     val hiddenGameMenuSections: Set<GameMenuSectionId> = emptySet(),
     val isBackgroundImporting: Boolean = false,
     val customizationMessageResId: Int? = null,
-    val isProUnlocked: Boolean = false,
-    val proPrice: String? = null,
-    val proProducts: List<ProProductOffer> = emptyList(),
-    val ownedProProductIds: Set<String> = emptySet(),
-    val isProPurchaseStatusVerified: Boolean = false,
-    val isProProductLoading: Boolean = false,
-    val isProProductAvailable: Boolean = false,
-    val isProPurchaseInProgress: Boolean = false,
-    val proPurchaseMessageResId: Int? = null,
+    val proState: ProPurchaseState = ProPurchaseState(),
     val languageTag: String? = null,
     val tvInterfaceMode: TvInterfaceMode = TvInterfaceMode.AUTO,
     val renderer: Int = RendererDefaults.defaultForHardware(),
@@ -328,7 +321,19 @@ data class SettingsUiState(
     val analogAxisModifier: Int = 0,
     val dualshockToggleCombo: Int = 0,
     val cdReadAhead: Int = 0
-)
+) {
+    // Derived views over proState. They keep the huge SettingsUiState data class below the
+    // dex limit of 255 method parameters for the generated copy$default method.
+    val isProUnlocked: Boolean get() = proState.isProUnlocked
+    val proPrice: String? get() = proState.productPrice
+    val proProducts: List<ProProductOffer> get() = proState.products
+    val ownedProProductIds: Set<String> get() = proState.ownedProductIds
+    val isProPurchaseStatusVerified: Boolean get() = proState.isPurchaseStatusVerified
+    val isProProductLoading: Boolean get() = proState.isProductLoading
+    val isProProductAvailable: Boolean get() = proState.isProductAvailable
+    val isProPurchaseInProgress: Boolean get() = proState.isPurchaseInProgress
+    val proPurchaseMessageResId: Int? get() = proState.messageResId
+}
 
 data class AppUpdateUiState(
     val releaseHistory: List<AppUpdateRelease> = emptyList(),
@@ -377,17 +382,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         refreshEmulatorDataLocations()
         viewModelScope.launch {
             proPurchaseManager.state.collect { proState ->
-                _uiState.value = _uiState.value.copy(
-                    isProUnlocked = proState.isProUnlocked,
-                    proPrice = proState.productPrice,
-                    proProducts = proState.products,
-                    ownedProProductIds = proState.ownedProductIds,
-                    isProPurchaseStatusVerified = proState.isPurchaseStatusVerified,
-                    isProProductLoading = proState.isProductLoading,
-                    isProProductAvailable = proState.isProductAvailable,
-                    isProPurchaseInProgress = proState.isPurchaseInProgress,
-                    proPurchaseMessageResId = proState.messageResId
-                )
+                _uiState.value = _uiState.value.copy(proState = proState)
             }
         }
     }

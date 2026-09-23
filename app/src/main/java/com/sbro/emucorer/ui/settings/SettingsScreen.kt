@@ -3862,11 +3862,12 @@ private fun ProSettingsTab(
     }
 
     SettingsSection(title = stringResource(R.string.settings_pro_title)) {
+        val proPrice = uiState.proPrice
         ProStatusCard(
             isUnlocked = uiState.isProUnlocked,
             price = when {
                 uiState.isProUnlocked -> stringResource(R.string.settings_pro_purchased)
-                uiState.proPrice != null -> uiState.proPrice
+                proPrice != null -> proPrice
                 uiState.isProProductLoading -> stringResource(R.string.pro_price_loading)
                 else -> stringResource(R.string.pro_price_unavailable)
             },
