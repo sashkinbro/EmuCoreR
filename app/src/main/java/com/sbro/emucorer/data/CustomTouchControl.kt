@@ -119,7 +119,7 @@ data class CustomTouchControl(
         const val MIN_SIZE_DP = 32
         const val MAX_SIZE_DP = 180
         const val MAX_CORNER_DP = 72
-        const val MIN_OPACITY = 20
+        const val MIN_OPACITY = 5
         const val MAX_OPACITY = 100
         const val MAX_BORDER_DP = 6f
         const val MIN_ROTATION_DEGREES = -180

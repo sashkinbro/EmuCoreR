@@ -24,11 +24,13 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Remove
@@ -41,6 +43,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -665,7 +668,10 @@ fun ControlsEditorScreen(
                 }
 
                 OutlinedButton(
-                    onClick = { showControlAdjustDialog = true },
+                    onClick = {
+                        showControlAdjustDialog = !showControlAdjustDialog
+                        if (showControlAdjustDialog) comboDialogControlId = null
+                    },
                     enabled = selectedControlId != null && !selectedIsGroup,
                     shape = neonShape(16.dp),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
@@ -750,9 +756,10 @@ fun ControlsEditorScreen(
                         }
                     }
 
-                    AdjustDialog(
+                    AdjustPanel(
                         title = customControl?.name ?: controlTitle(controlId),
-                        onDismiss = { showControlAdjustDialog = false }
+                        onDismiss = { showControlAdjustDialog = false },
+                        modifier = Modifier.padding(top = 8.dp)
                     ) {
                         if (customControl != null) {
                             AdjustStepper(
@@ -820,7 +827,7 @@ fun ControlsEditorScreen(
                     }
                 }
 
-                if (customControl != null) {
+                if (customControl != null && !showControlAdjustDialog) {
                     Surface(
                         modifier = Modifier.padding(top = 8.dp),
                         color = Color(0xFF111827).copy(alpha = 0.82f),
@@ -832,7 +839,10 @@ fun ControlsEditorScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedButton(
-                                onClick = { comboDialogControlId = customControl.id },
+                                onClick = {
+                                    showControlAdjustDialog = false
+                                    comboDialogControlId = customControl.id
+                                },
                                 shape = neonShape(14.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
@@ -926,27 +936,48 @@ fun ControlsEditorScreen(
 }
 
 @Composable
-private fun AdjustDialog(
+private fun AdjustPanel(
     title: String,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(
+    Surface(
+        modifier = modifier.testTag("controls_editor_adjust_panel"),
+        color = Color(0xFF111827).copy(alpha = 0.92f),
+        shape = neonShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(min = 280.dp, max = 420.dp)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                content = content
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.controls_editor_done))
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color.White,
+                    maxLines = 1
+                )
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.controls_editor_done),
+                        tint = Color.White.copy(alpha = 0.86f)
+                    )
+                }
             }
+            content()
         }
-    )
+    }
 }
 
 @Composable
@@ -966,19 +997,28 @@ private fun AdjustStepper(
             onClick = onMinus,
             enabled = minusEnabled,
             shape = neonShape(14.dp),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.White.copy(alpha = 0.08f),
+                contentColor = Color.White
+            )
         ) {
             Icon(Icons.Rounded.Remove, contentDescription = null)
         }
         Text(
             text = valueText,
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = Color.White
         )
         OutlinedButton(
             onClick = onPlus,
             enabled = plusEnabled,
             shape = neonShape(14.dp),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.White.copy(alpha = 0.08f),
+                contentColor = Color.White
+            )
         ) {
             Icon(Icons.Rounded.Add, contentDescription = null)
         }
