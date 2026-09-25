@@ -121,6 +121,7 @@ data class PerGameSettings(
     val touchControlVisualStyle: TouchControlVisualStyle? = null,
     val touchControlPressEffect: TouchControlPressEffect? = null,
     val touchControlsLayout: TouchControlsLayoutProfile? = null,
+    val customTouchControls: CustomTouchControlLibrary? = null,
     val audioVolume: Int = AudioDefaults.VOLUME_DEFAULT,
     val audioMuted: Boolean = false,
     val audioOutputLatencyMs: Int = AudioDefaults.OUTPUT_LATENCY_MS_DEFAULT,
@@ -503,6 +504,9 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
             null
         },
         touchControlsLayout = optJSONObject("touchControlsLayout")?.toTouchControlsLayoutProfile(),
+        customTouchControls = CustomTouchControlLibrary.decodeOrNull(
+            optString("customTouchControls")
+        ),
         coreOptions = optJSONObject("coreOptions")?.let { obj ->
             buildMap {
                 obj.keys().forEach { optionKey ->
@@ -682,6 +686,9 @@ private fun PerGameSettings.toJson(): JSONObject {
             touchControlPressEffect?.let { put("touchControlPressEffect", it.preferenceValue) }
         }
         if (shouldWrite("touchControlsLayout")) touchControlsLayout?.let { put("touchControlsLayout", it.toJson()) }
+        if (shouldWrite("customTouchControls")) {
+            customTouchControls?.sanitized()?.let { put("customTouchControls", it.encode()) }
+        }
         put("updatedAt", updatedAt)
     }
 }

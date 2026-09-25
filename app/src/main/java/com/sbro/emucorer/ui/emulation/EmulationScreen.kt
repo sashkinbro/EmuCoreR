@@ -187,8 +187,8 @@ import com.sbro.emucorer.data.GameMenuTabId
 import com.sbro.emucorer.data.GameMenuSectionId
 import com.sbro.emucorer.data.GameMenuLayoutStyle
 import com.sbro.emucorer.data.gameMenuSectionsForTab
-import com.sbro.emucorer.ui.controls.CustomControlVisual
-import com.sbro.emucorer.ui.controls.composeShape
+import com.sbro.emucorer.ui.common.CustomControlVisual
+import com.sbro.emucorer.ui.common.composeShape
 import com.sbro.emucorer.ui.common.BitmapPathImage
 import com.sbro.emucorer.ui.common.EmulationSideArtworkOverlay
 import com.sbro.emucorer.ui.common.GameCoverArt
@@ -1487,7 +1487,8 @@ fun EmulationScreen(
                 onToggleLeftInputMode = viewModel::toggleLeftInputMode,
                 onSetControlVisible = viewModel::setTouchControlVisible,
                 onSetStickSurfaceMode = viewModel::setTouchStickSurfaceMode,
-                onResetLayout = viewModel::resetTouchControlsLayout
+                onResetLayout = viewModel::resetTouchControlsLayout,
+                onCustomControlsChange = viewModel::setCustomTouchControls
             )
         }
 
