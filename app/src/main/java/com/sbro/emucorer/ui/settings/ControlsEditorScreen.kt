@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -74,6 +75,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import com.sbro.emucorer.R
 import com.sbro.emucorer.data.AppPreferences
@@ -1073,79 +1076,203 @@ private fun ComboActionDialog(
     var secondaryActionId by remember(initialSecondaryActionId) {
         mutableStateOf(initialSecondaryActionId)
     }
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .widthIn(max = 560.dp)
+                .fillMaxWidth()
+                .testTag("controls_editor_combo_dialog"),
+            shape = neonShape(24.dp),
+            color = Color(0xFF0D1424).copy(alpha = 0.98f),
+            border = BorderStroke(1.dp, Color(0xFF6688FF).copy(alpha = 0.5f)),
+            shadowElevation = 16.dp
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(
-                    stringResource(R.string.touch_control_creator_action),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (primaryEditable) {
-                    ActionSelector(
-                        selectedActionId = actionId,
-                        testTagPrefix = "controls_editor_combo_primary",
-                        onSelect = { selected ->
-                            selected?.let { action ->
-                                actionId = action
-                                if (secondaryActionId == action) secondaryActionId = null
-                            }
-                        }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = title,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White,
+                        maxLines = 1
                     )
-                } else {
-                    Surface(
-                        shape = neonShape(14.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                    ) {
-                        Text(
-                            text = actionLabel(actionId),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.SemiBold
-                            )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = stringResource(R.string.theme_manager_cancel),
+                            tint = Color.White.copy(alpha = 0.8f)
                         )
                     }
                 }
-                Text(
-                    stringResource(R.string.touch_control_creator_combo_action),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
+
+                ComboActionPreview(
+                    primaryLabel = actionLabel(actionId),
+                    secondaryLabel = secondaryActionId?.let(::actionLabel)
                 )
-                Text(
-                    stringResource(R.string.touch_control_creator_combo_action_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                ActionSelector(
-                    selectedActionId = secondaryActionId,
-                    excludedActionId = actionId,
-                    allowNone = true,
-                    testTagPrefix = "controls_editor_combo_secondary",
-                    onSelect = { secondaryActionId = it }
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(actionId, secondaryActionId) },
-                modifier = Modifier.testTag("controls_editor_combo_confirm")
-            ) {
-                Text(confirmLabel)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.theme_manager_cancel))
+
+                ComboActionSection(
+                    title = stringResource(R.string.touch_control_creator_action)
+                ) {
+                    if (primaryEditable) {
+                        ActionSelector(
+                            selectedActionId = actionId,
+                            testTagPrefix = "controls_editor_combo_primary",
+                            onSelect = { selected ->
+                                selected?.let { action ->
+                                    actionId = action
+                                    if (secondaryActionId == action) secondaryActionId = null
+                                }
+                            }
+                        )
+                    } else {
+                        ComboActionBadge(
+                            label = actionLabel(actionId),
+                            highlighted = true
+                        )
+                    }
+                }
+
+                ComboActionSection(
+                    title = stringResource(R.string.touch_control_creator_combo_action),
+                    description = stringResource(R.string.touch_control_creator_combo_action_desc)
+                ) {
+                    ActionSelector(
+                        selectedActionId = secondaryActionId,
+                        excludedActionId = actionId,
+                        allowNone = true,
+                        testTagPrefix = "controls_editor_combo_secondary",
+                        onSelect = { secondaryActionId = it }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.theme_manager_cancel))
+                    }
+                    Button(
+                        onClick = { onConfirm(actionId, secondaryActionId) },
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .testTag("controls_editor_combo_confirm"),
+                        shape = neonShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF3565FF),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(confirmLabel)
+                    }
+                }
             }
         }
-    )
+    }
+}
+
+@Composable
+private fun ComboActionPreview(
+    primaryLabel: String,
+    secondaryLabel: String?
+) {
+    Surface(
+        color = Color.White.copy(alpha = 0.06f),
+        shape = neonShape(16.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            ComboActionBadge(label = primaryLabel, highlighted = true)
+            Text(
+                text = "+",
+                modifier = Modifier.padding(horizontal = 12.dp),
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.White.copy(alpha = 0.6f)
+            )
+            if (secondaryLabel != null) {
+                ComboActionBadge(label = secondaryLabel, highlighted = false)
+            } else {
+                Text(
+                    text = "—",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White.copy(alpha = 0.35f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComboActionBadge(
+    label: String,
+    highlighted: Boolean
+) {
+    Surface(
+        color = if (highlighted) {
+            Color(0xFF3565FF).copy(alpha = 0.32f)
+        } else {
+            Color(0xFF45E6FF).copy(alpha = 0.22f)
+        },
+        shape = neonShape(12.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (highlighted) {
+                Color(0xFF7CC8FF).copy(alpha = 0.7f)
+            } else {
+                Color(0xFF45E6FF).copy(alpha = 0.6f)
+            }
+        )
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+private fun ComboActionSection(
+    title: String,
+    description: String? = null,
+    content: @Composable () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = Color(0xFF9DB4FF)
+        )
+        description?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.62f)
+            )
+        }
+        content()
+    }
 }
 
 @Composable
