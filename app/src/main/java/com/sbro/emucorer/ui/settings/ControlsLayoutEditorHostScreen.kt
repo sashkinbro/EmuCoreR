@@ -246,22 +246,6 @@ fun ControlsLayoutEditorHostScreen(
                 current.copy(controlLayouts = layouts)
             }
         },
-        onToggleLeftInputMode = {
-            updateState { current ->
-                val layouts = current.controlLayouts.toMutableMap()
-                val leftStick = currentLayout(current, "left_stick")
-                val showingStick = leftStick.visible
-                layouts["left_stick"] = leftStick.copy(visible = !showingStick)
-                listOf("dpad_up", "dpad_down", "dpad_left", "dpad_right").forEach { id ->
-                    layouts[id] = currentLayout(current, id).copy(visible = showingStick)
-                }
-                current.copy(
-                    dpadOffset = current.lstickOffset,
-                    lstickOffset = current.dpadOffset,
-                    controlLayouts = layouts
-                )
-            }
-        },
         onSetControlVisible = { controlId, visible ->
             updateState { current ->
                 val layouts = current.controlLayouts.toMutableMap()

@@ -222,7 +222,6 @@ fun ControlsEditorScreen(
     onUpdateControlScale: (String, Int) -> Unit,
     onUpdateControlWidthScale: (String, Int) -> Unit,
     onUpdateControlOpacity: (String, Int) -> Unit,
-    onToggleLeftInputMode: () -> Unit,
     onSetControlVisible: (String, Boolean) -> Unit,
     onSetStickSurfaceMode: (String, Boolean) -> Unit,
     onResetLayout: () -> Unit,
@@ -240,11 +239,6 @@ fun ControlsEditorScreen(
     var showControlAdjustDialog by remember { mutableStateOf(false) }
     var deleteCustomCandidate by remember { mutableStateOf<CustomTouchControl?>(null) }
     val defaultLayouts = remember(state.stickScale) { AppPreferences.defaultOverlayControlLayouts(state.stickScale) }
-    val isShowingLeftStick = (
-        editorControlLayouts["left_stick"]
-            ?: defaultLayouts["left_stick"]
-            ?: OverlayControlLayout(scale = state.stickScale, visible = true)
-        ).visible
     val selectedLayout = selectedControlId?.let { id ->
         editorControlLayouts[id] ?: defaultLayouts[id] ?: OverlayControlLayout()
     }
@@ -568,21 +562,6 @@ fun ControlsEditorScreen(
                 modifier = Modifier.padding(top = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
-                    onClick = {
-                        onToggleLeftInputMode()
-                        selectedControlId = if (isShowingLeftStick) "dpad_up" else "left_stick"
-                    },
-                    shape = neonShape(16.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.White.copy(alpha = 0.08f),
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text(if (isShowingLeftStick) "D-pad" else "Stick")
-                }
-
                 OutlinedButton(
                     onClick = { onResetLayout() },
                     shape = neonShape(16.dp),

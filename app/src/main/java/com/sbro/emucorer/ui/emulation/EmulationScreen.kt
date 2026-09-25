@@ -1484,7 +1484,6 @@ fun EmulationScreen(
                 onUpdateControlScale = viewModel::updateTouchControlScale,
                 onUpdateControlWidthScale = viewModel::updateTouchControlWidthScale,
                 onUpdateControlOpacity = viewModel::updateTouchControlOpacity,
-                onToggleLeftInputMode = viewModel::toggleLeftInputMode,
                 onSetControlVisible = viewModel::setTouchControlVisible,
                 onSetStickSurfaceMode = viewModel::setTouchStickSurfaceMode,
                 onResetLayout = viewModel::resetTouchControlsLayout,
