@@ -3,6 +3,14 @@ package com.sbro.emucorer.data
 const val PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY = "touchControlsLayout"
 const val PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY = "customTouchControls"
 
+fun overlayControlActionId(controlId: String): String? = when (controlId) {
+    "dpad_up" -> "up"
+    "dpad_down" -> "down"
+    "dpad_left" -> "left"
+    "dpad_right" -> "right"
+    else -> controlId.takeIf { it in CustomTouchControl.ALLOWED_ACTION_IDS }
+}
+
 fun OverlayLayoutSnapshot.toTouchControlsLayoutProfile(): TouchControlsLayoutProfile {
     return TouchControlsLayoutProfile(
         dpadOffset = dpadOffset,

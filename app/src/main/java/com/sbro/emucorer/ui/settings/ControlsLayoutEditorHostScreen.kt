@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import com.sbro.emucorer.R
 import com.sbro.emucorer.core.DocumentPathResolver
 import com.sbro.emucorer.data.AppPreferences
+import com.sbro.emucorer.data.CustomTouchControl
 import com.sbro.emucorer.data.CustomTouchControlLibrary
 import com.sbro.emucorer.data.OverlayControlLayout
 import com.sbro.emucorer.data.PerGameSettingsRepository
@@ -242,6 +243,16 @@ fun ControlsLayoutEditorHostScreen(
                         AppPreferences.OVERLAY_CONTROL_OPACITY_MIN,
                         AppPreferences.OVERLAY_CONTROL_OPACITY_MAX
                     )
+                )
+                current.copy(controlLayouts = layouts)
+            }
+        },
+        onUpdateControlCombo = { controlId, secondaryActionId ->
+            updateState { current ->
+                val layouts = current.controlLayouts.toMutableMap()
+                layouts[controlId] = currentLayout(current, controlId).copy(
+                    secondaryActionId = secondaryActionId
+                        ?.takeIf { it in CustomTouchControl.ALLOWED_ACTION_IDS }
                 )
                 current.copy(controlLayouts = layouts)
             }

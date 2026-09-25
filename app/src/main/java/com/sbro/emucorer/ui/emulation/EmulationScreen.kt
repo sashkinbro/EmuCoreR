@@ -1484,6 +1484,7 @@ fun EmulationScreen(
                 onUpdateControlScale = viewModel::updateTouchControlScale,
                 onUpdateControlWidthScale = viewModel::updateTouchControlWidthScale,
                 onUpdateControlOpacity = viewModel::updateTouchControlOpacity,
+                onUpdateControlCombo = viewModel::updateTouchControlCombo,
                 onSetControlVisible = viewModel::setTouchControlVisible,
                 onSetStickSurfaceMode = viewModel::setTouchStickSurfaceMode,
                 onResetLayout = viewModel::resetTouchControlsLayout,
@@ -2260,6 +2261,10 @@ private fun OnScreenControls(
 
         fun runtimeSpecs(specs: List<com.sbro.emucorer.ui.common.OverlayCanvasButtonSpec>): List<TouchButtonSpec> {
             return specs.filter { it.visible }.map { spec ->
+                val primaryPressHandler = buttonPressHandler(spec.id)
+                val secondaryPressHandler = controlLayouts[spec.id]
+                    ?.secondaryActionId
+                    ?.let(::buttonPressHandler)
                 TouchButtonSpec(
                     id = spec.id,
                     drawableRes = spec.drawableRes,
@@ -2269,7 +2274,14 @@ private fun OnScreenControls(
                     y = spec.y,
                     shape = spec.shape,
                     opacity = spec.opacity / 100f,
-                    onPressChange = buttonPressHandler(spec.id),
+                    onPressChange = if (primaryPressHandler != null || secondaryPressHandler != null) {
+                        { pressed ->
+                            primaryPressHandler?.invoke(pressed)
+                            secondaryPressHandler?.invoke(pressed)
+                        }
+                    } else {
+                        null
+                    },
                     onClick = if (spec.id == "left_input_toggle") onToggleLeftInputMode else null,
                     tapToHold = racingMode && isRacingTapToHoldButton(spec.id)
                 )

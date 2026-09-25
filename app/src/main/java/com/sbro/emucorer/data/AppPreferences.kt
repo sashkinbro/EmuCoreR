@@ -287,7 +287,8 @@ data class OverlayControlLayout(
     val widthScale: Int = 100,
     val opacity: Int = 100,
     val visible: Boolean = true,
-    val surfaceOnly: Boolean = false
+    val surfaceOnly: Boolean = false,
+    val secondaryActionId: String? = null
 )
 
 private val LEGACY_CLAMPING_PREF_KEYS = listOf(
@@ -3687,7 +3688,9 @@ class AppPreferences(private val context: Context) {
                             opacity = item.optInt("opacity", OVERLAY_CONTROL_OPACITY_DEFAULT)
                                 .coerceIn(OVERLAY_CONTROL_OPACITY_MIN, OVERLAY_CONTROL_OPACITY_MAX),
                             visible = item.optBoolean("visible", true),
-                            surfaceOnly = item.optBoolean("surfaceOnly", false)
+                            surfaceOnly = item.optBoolean("surfaceOnly", false),
+                            secondaryActionId = item.optString("secondaryActionId")
+                                .takeIf { it in CustomTouchControl.ALLOWED_ACTION_IDS }
                         )
                     )
                 }
@@ -3712,6 +3715,9 @@ class AppPreferences(private val context: Context) {
                         )
                         put("visible", layout.visible)
                         put("surfaceOnly", layout.surfaceOnly)
+                        layout.secondaryActionId
+                            ?.takeIf { it in CustomTouchControl.ALLOWED_ACTION_IDS }
+                            ?.let { put("secondaryActionId", it) }
                     }
                 )
             }

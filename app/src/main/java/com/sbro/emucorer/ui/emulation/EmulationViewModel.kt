@@ -53,12 +53,14 @@ import com.sbro.emucorer.data.resolveShaderChain
 import com.sbro.emucorer.data.TouchControlsLayoutProfile
 import com.sbro.emucorer.data.PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY
 import com.sbro.emucorer.data.PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY
+import com.sbro.emucorer.data.overlayControlActionId
 import com.sbro.emucorer.data.saveTouchControlsLayout
 import com.sbro.emucorer.data.withCustomTouchControls
 import com.sbro.emucorer.data.withTouchControlsLayout
 import com.sbro.emucorer.data.withoutTouchControlsLayout
 import com.sbro.emucorer.data.TouchControlVisualStyle
 import com.sbro.emucorer.data.TouchControlPressEffect
+import com.sbro.emucorer.data.CustomTouchControl
 import com.sbro.emucorer.data.CustomTouchControlLibrary
 import com.sbro.emucorer.data.GameMenuLayoutStyle
 import com.sbro.emucorer.data.GameMenuTabId
@@ -2615,6 +2617,21 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     AppPreferences.OVERLAY_CONTROL_OPACITY_MIN,
                     AppPreferences.OVERLAY_CONTROL_OPACITY_MAX
                 )
+            )
+            persistTouchControlsLayout(current.copy(controlLayouts = updatedLayouts))
+        }
+    }
+
+    fun updateTouchControlCombo(controlId: String, secondaryActionId: String?) {
+        viewModelScope.launch {
+            val current = _uiState.value
+            val updatedLayouts = current.controlLayouts.toMutableMap()
+            val defaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
+            val control = updatedLayouts[controlId] ?: defaults[controlId] ?: OverlayControlLayout()
+            updatedLayouts[controlId] = control.copy(
+                secondaryActionId = secondaryActionId
+                    ?.takeIf { it in CustomTouchControl.ALLOWED_ACTION_IDS }
+                    ?.takeUnless { it == overlayControlActionId(controlId) }
             )
             persistTouchControlsLayout(current.copy(controlLayouts = updatedLayouts))
         }

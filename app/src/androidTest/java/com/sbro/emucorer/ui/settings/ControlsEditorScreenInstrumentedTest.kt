@@ -33,7 +33,7 @@ class ControlsEditorScreenInstrumentedTest {
                     onUpdateControlScale = { _, _ -> },
                     onUpdateControlWidthScale = { _, _ -> },
                     onUpdateControlOpacity = { _, _ -> },
-                    onToggleLeftInputMode = {},
+                    onUpdateControlCombo = { _, _ -> },
                     onSetControlVisible = { _, _ -> },
                     onSetStickSurfaceMode = { _, _ -> },
                     onResetLayout = {},

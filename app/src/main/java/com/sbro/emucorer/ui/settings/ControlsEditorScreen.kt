@@ -85,8 +85,10 @@ import com.sbro.emucorer.data.OverlayControlLayout
 import com.sbro.emucorer.data.TouchControlPressEffect
 import com.sbro.emucorer.data.TouchControlVisualStyle
 import com.sbro.emucorer.data.TouchControlsLayoutProfile
+import com.sbro.emucorer.data.overlayControlActionId
 import com.sbro.emucorer.ui.common.ActionSelector
 import com.sbro.emucorer.ui.common.CustomControlVisual
+import com.sbro.emucorer.ui.common.actionLabel
 import com.sbro.emucorer.ui.common.OverlayCanvasButtonSpec
 import com.sbro.emucorer.ui.common.OverlayCanvasDpadClusterSpec
 import com.sbro.emucorer.ui.common.OverlayCanvasStickSpec
@@ -178,13 +180,8 @@ private fun customControlSelectionId(controlId: String): String =
 private fun String.toCustomControlIdOrNull(): String? =
     takeIf { it.startsWith(CustomControlIdPrefix) }?.removePrefix(CustomControlIdPrefix)
 
-private fun actionIdForControlId(controlId: String): String? = when (controlId) {
-    "dpad_up" -> "up"
-    "dpad_down" -> "down"
-    "dpad_left" -> "left"
-    "dpad_right" -> "right"
-    else -> controlId.takeIf { it in CustomTouchControl.ALLOWED_ACTION_IDS }
-}
+private fun actionIdForControlId(controlId: String): String? =
+    overlayControlActionId(controlId)
 
 private data class PreviewGroupBounds(
     val x: Dp,
@@ -222,6 +219,7 @@ fun ControlsEditorScreen(
     onUpdateControlScale: (String, Int) -> Unit,
     onUpdateControlWidthScale: (String, Int) -> Unit,
     onUpdateControlOpacity: (String, Int) -> Unit,
+    onUpdateControlCombo: (String, String?) -> Unit = { _, _ -> },
     onSetControlVisible: (String, Boolean) -> Unit,
     onSetStickSurfaceMode: (String, Boolean) -> Unit,
     onResetLayout: () -> Unit,
@@ -235,6 +233,7 @@ fun ControlsEditorScreen(
     var editorCustomControls by remember { mutableStateOf(state.customControls.sanitized()) }
     var selectedControlGeometry by remember { mutableStateOf<EditorControlGeometry?>(null) }
     var comboDialogControlId by remember { mutableStateOf<String?>(null) }
+    var standardComboDialogControlId by remember { mutableStateOf<String?>(null) }
     var showCreateComboDialog by remember { mutableStateOf(false) }
     var showControlAdjustDialog by remember { mutableStateOf(false) }
     var deleteCustomCandidate by remember { mutableStateOf<CustomTouchControl?>(null) }
@@ -254,6 +253,14 @@ fun ControlsEditorScreen(
         ?.takeUnless { it in ControlGroupIds || it.toCustomControlIdOrNull() != null }
         ?.let { controlTitle(it) }
         .orEmpty()
+    val selectedStandardActionId = selectedControlId
+        ?.takeUnless { it in ControlGroupIds || it.toCustomControlIdOrNull() != null }
+        ?.let(::overlayControlActionId)
+    val selectedStandardSecondaryActionId = selectedStandardActionId?.let {
+        selectedControlId?.let { id ->
+            (editorControlLayouts[id] ?: defaultLayouts[id])?.secondaryActionId
+        }
+    }
     val canDuplicateSelected = when {
         editorCustomControls.controls.size >= CustomTouchControlLibrary.MAX_CONTROLS -> false
         selectedCustomControl != null -> true
@@ -465,6 +472,17 @@ fun ControlsEditorScreen(
             put(controlId, current.copy(opacity = nextOpacity))
         }
         onUpdateControlOpacity(controlId, nextOpacity)
+    }
+
+    fun setControlComboLocally(controlId: String, secondaryActionId: String?) {
+        val current = currentLayoutFor(controlId)
+        val nextSecondary = secondaryActionId
+            ?.takeIf { it in CustomTouchControl.ALLOWED_ACTION_IDS }
+            ?.takeUnless { it == actionIdForControlId(controlId) }
+        editorControlLayouts = editorControlLayouts.toMutableMap().apply {
+            put(controlId, current.copy(secondaryActionId = nextSecondary))
+        }
+        onUpdateControlCombo(controlId, nextSecondary)
     }
 
     fun setStickSurfaceModeLocally(controlId: String, enabled: Boolean) {
@@ -806,7 +824,9 @@ fun ControlsEditorScreen(
                     }
                 }
 
-                if (customControl != null && !showControlAdjustDialog) {
+                val comboSecondaryActionId = customControl?.secondaryActionId
+                    ?: selectedStandardSecondaryActionId
+                if ((customControl != null || selectedStandardActionId != null) && !showControlAdjustDialog) {
                     Surface(
                         modifier = Modifier.padding(top = 8.dp),
                         color = Color(0xFF111827).copy(alpha = 0.82f),
@@ -820,7 +840,11 @@ fun ControlsEditorScreen(
                             OutlinedButton(
                                 onClick = {
                                     showControlAdjustDialog = false
-                                    comboDialogControlId = customControl.id
+                                    if (customControl != null) {
+                                        comboDialogControlId = customControl.id
+                                    } else {
+                                        standardComboDialogControlId = controlId
+                                    }
                                 },
                                 shape = neonShape(14.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
@@ -832,17 +856,28 @@ fun ControlsEditorScreen(
                             ) {
                                 Text(stringResource(R.string.touch_control_creator_combo_action))
                             }
-                            OutlinedButton(
-                                onClick = { deleteCustomCandidate = customControl },
-                                shape = neonShape(14.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color.White.copy(alpha = 0.08f),
-                                    contentColor = Color.White
-                                ),
-                                modifier = Modifier.testTag("controls_editor_delete_custom")
-                            ) {
-                                Icon(Icons.Rounded.Delete, contentDescription = null)
+                            comboSecondaryActionId?.let { secondary ->
+                                Text(
+                                    text = actionLabel(secondary),
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = Color.White.copy(alpha = 0.72f)
+                                )
+                            }
+                            if (customControl != null) {
+                                OutlinedButton(
+                                    onClick = { deleteCustomCandidate = customControl },
+                                    shape = neonShape(14.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = Color.White.copy(alpha = 0.08f),
+                                        contentColor = Color.White
+                                    ),
+                                    modifier = Modifier.testTag("controls_editor_delete_custom")
+                                ) {
+                                    Icon(Icons.Rounded.Delete, contentDescription = null)
+                                }
                             }
                         }
                     }
@@ -878,6 +913,26 @@ fun ControlsEditorScreen(
             onConfirm = { actionId, secondaryActionId ->
                 applyComboActions(comboDialogControl, actionId, secondaryActionId)
                 comboDialogControlId = null
+            }
+        )
+    }
+
+    val standardComboControlId = standardComboDialogControlId
+    val standardComboActionId = standardComboControlId?.let(::actionIdForControlId)
+    if (standardComboControlId != null && standardComboActionId != null) {
+        ComboActionDialog(
+            title = controlTitle(standardComboControlId),
+            initialActionId = standardComboActionId,
+            initialSecondaryActionId = (
+                editorControlLayouts[standardComboControlId]
+                    ?: defaultLayouts[standardComboControlId]
+                )?.secondaryActionId,
+            primaryEditable = false,
+            confirmLabel = stringResource(R.string.controls_editor_done),
+            onDismiss = { standardComboDialogControlId = null },
+            onConfirm = { _, secondaryActionId ->
+                setControlComboLocally(standardComboControlId, secondaryActionId)
+                standardComboDialogControlId = null
             }
         )
     }
@@ -1011,7 +1066,8 @@ private fun ComboActionDialog(
     initialSecondaryActionId: String?,
     confirmLabel: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, String?) -> Unit
+    onConfirm: (String, String?) -> Unit,
+    primaryEditable: Boolean = true
 ) {
     var actionId by remember(initialActionId) { mutableStateOf(initialActionId) }
     var secondaryActionId by remember(initialSecondaryActionId) {
@@ -1032,16 +1088,31 @@ private fun ComboActionDialog(
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold
                 )
-                ActionSelector(
-                    selectedActionId = actionId,
-                    testTagPrefix = "controls_editor_combo_primary",
-                    onSelect = { selected ->
-                        selected?.let { action ->
-                            actionId = action
-                            if (secondaryActionId == action) secondaryActionId = null
+                if (primaryEditable) {
+                    ActionSelector(
+                        selectedActionId = actionId,
+                        testTagPrefix = "controls_editor_combo_primary",
+                        onSelect = { selected ->
+                            selected?.let { action ->
+                                actionId = action
+                                if (secondaryActionId == action) secondaryActionId = null
+                            }
                         }
+                    )
+                } else {
+                    Surface(
+                        shape = neonShape(14.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                    ) {
+                        Text(
+                            text = actionLabel(actionId),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
                     }
-                )
+                }
                 Text(
                     stringResource(R.string.touch_control_creator_combo_action),
                     style = MaterialTheme.typography.labelLarge,
