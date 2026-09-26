@@ -55,6 +55,7 @@ import com.sbro.emucorer.data.PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY
 import com.sbro.emucorer.data.PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY
 import com.sbro.emucorer.data.overlayControlActionId
 import com.sbro.emucorer.data.saveTouchControlsLayout
+import com.sbro.emucorer.data.toggleStick
 import com.sbro.emucorer.data.withCustomTouchControls
 import com.sbro.emucorer.data.withTouchControlsLayout
 import com.sbro.emucorer.data.withoutTouchControlsLayout
@@ -2529,27 +2530,18 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     fun toggleLeftInputMode() {
         viewModelScope.launch {
             val current = _uiState.value
-            val updatedLayouts = current.controlLayouts.toMutableMap()
-            val defaults = AppPreferences.defaultOverlayControlLayouts(current.stickScale)
-            val leftStickLayout = updatedLayouts["left_stick"] ?: defaults["left_stick"] ?: OverlayControlLayout(scale = current.stickScale)
-            val showingStick = leftStickLayout.visible
 
             // Keep the DualShock: hiding the touch stick only stops stick input,
             // it must not demote the port to a digital pad (which kills rumble).
             NativeApp.setPadAnalogMode(0, true)
 
-            updatedLayouts["left_stick"] = leftStickLayout.copy(visible = !showingStick)
-            listOf("dpad_up", "dpad_down", "dpad_left", "dpad_right").forEach { id ->
-                val currentLayout = updatedLayouts[id] ?: defaults[id] ?: OverlayControlLayout()
-                updatedLayouts[id] = currentLayout.copy(visible = showingStick)
-            }
+            // Two-state cycle: the selected stick swaps with its own dedicated D-pad,
+            // which mirrors the stick position. The main D-pad stays untouched.
+            val toggled = current.toTouchControlsLayoutProfile()
+                .toggleStick(AppPreferences.DEFAULT_STICK_TOGGLE_TARGET)
 
             persistTouchControlsLayout(
-                current.copy(
-                    controlLayouts = updatedLayouts,
-                    dpadOffset = current.lstickOffset,
-                    lstickOffset = current.dpadOffset
-                )
+                current.copy(controlLayouts = toggled.controlLayouts)
             )
         }
     }

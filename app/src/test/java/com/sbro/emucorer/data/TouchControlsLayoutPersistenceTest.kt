@@ -1,6 +1,7 @@
 package com.sbro.emucorer.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -11,6 +12,50 @@ class TouchControlsLayoutPersistenceTest {
         stickScale = 130,
         controlLayouts = AppPreferences.defaultOverlayControlLayouts(130)
     )
+
+    @Test
+    fun `toggle swaps the left stick with its dedicated d-pad`() {
+        val dpadToggled = layout.toggleStick(AppPreferences.STICK_TOGGLE_LEFT)
+
+        assertFalse(dpadToggled.controlLayouts.getValue("left_stick").visible)
+        assertTrue(dpadToggled.controlLayouts.getValue("dpad_toggle").visible)
+
+        val stickRestored = dpadToggled.toggleStick(AppPreferences.STICK_TOGGLE_LEFT)
+
+        assertTrue(stickRestored.controlLayouts.getValue("left_stick").visible)
+        assertFalse(stickRestored.controlLayouts.getValue("dpad_toggle").visible)
+    }
+
+    @Test
+    fun `toggle never touches the main d-pad or the editor extra d-pad`() {
+        val result = layout.toggleStick(AppPreferences.STICK_TOGGLE_LEFT)
+
+        listOf("dpad_up", "dpad_down", "dpad_left", "dpad_right").forEach { id ->
+            assertEquals(
+                layout.controlLayouts.getValue(id).visible,
+                result.controlLayouts.getValue(id).visible
+            )
+        }
+        assertEquals(
+            layout.controlLayouts.getValue("dpad_cluster").visible,
+            result.controlLayouts.getValue("dpad_cluster").visible
+        )
+    }
+
+    @Test
+    fun `toggle target can be normalized to either stick`() {
+        val stickShown = layout.toggleStick(AppPreferences.STICK_TOGGLE_RIGHT)
+
+        assertTrue(stickShown.controlLayouts.getValue("right_stick").visible)
+        assertFalse(stickShown.controlLayouts.getValue("dpad_toggle").visible)
+        assertTrue(stickShown.controlLayouts.getValue("left_stick").visible)
+
+        val dpadShown = stickShown.toggleStick(AppPreferences.STICK_TOGGLE_RIGHT)
+
+        assertFalse(dpadShown.controlLayouts.getValue("right_stick").visible)
+        assertTrue(dpadShown.controlLayouts.getValue("dpad_toggle").visible)
+        assertTrue(dpadShown.controlLayouts.getValue("left_stick").visible)
+    }
 
     @Test
     fun `new override creates a layout-only per-game profile`() {

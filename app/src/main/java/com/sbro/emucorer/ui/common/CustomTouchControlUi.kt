@@ -1,5 +1,6 @@
 package com.sbro.emucorer.ui.common
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -52,6 +53,15 @@ fun actionLabel(actionId: String): String = when (actionId) {
         actionId.replaceFirstChar { it.uppercase() }
     "select", "start", "pressure" -> actionId.replaceFirstChar { it.uppercase() }
     else -> actionId.uppercase()
+}
+
+@DrawableRes
+fun actionDrawableRes(actionId: String): Int? = when (actionId) {
+    "up" -> R.drawable.ic_controller_up_button
+    "down" -> R.drawable.ic_controller_down_button
+    "left" -> R.drawable.ic_controller_left_button
+    "right" -> R.drawable.ic_controller_right_button
+    else -> overlayDrawableForControl(actionId)
 }
 
 @Composable

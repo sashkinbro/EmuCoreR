@@ -11,6 +11,27 @@ fun overlayControlActionId(controlId: String): String? = when (controlId) {
     else -> controlId.takeIf { it in CustomTouchControl.ALLOWED_ACTION_IDS }
 }
 
+fun TouchControlsLayoutProfile.toggleStick(target: Int): TouchControlsLayoutProfile {
+    val layouts = controlLayouts.toMutableMap()
+    val defaults = AppPreferences.defaultOverlayControlLayouts(stickScale)
+    val toggleLeft = AppPreferences.normalizeStickToggleTarget(target) == AppPreferences.STICK_TOGGLE_LEFT
+    val stickId = if (toggleLeft) "left_stick" else "right_stick"
+    val stick = layouts[stickId] ?: defaults.getValue(stickId)
+    // Dedicated second D-pad owned by the toggle. It replaces the selected stick and is
+    // never the extra D-pad users manage in the layout editor.
+    val toggleDpad = layouts["dpad_toggle"] ?: defaults.getValue("dpad_toggle")
+
+    // Two-state cycle for the selected stick: stick <-> dedicated second D-pad.
+    val (nextStick, nextToggleDpad) = if (stick.visible) {
+        stick.copy(visible = false) to toggleDpad.copy(visible = true)
+    } else {
+        stick.copy(visible = true) to toggleDpad.copy(visible = false)
+    }
+    layouts[stickId] = nextStick
+    layouts["dpad_toggle"] = nextToggleDpad
+    return copy(controlLayouts = layouts)
+}
+
 fun OverlayLayoutSnapshot.toTouchControlsLayoutProfile(): TouchControlsLayoutProfile {
     return TouchControlsLayoutProfile(
         dpadOffset = dpadOffset,
