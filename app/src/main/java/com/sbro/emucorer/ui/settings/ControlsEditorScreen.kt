@@ -1242,7 +1242,7 @@ private fun ComboActionDialog(
 
                 ComboActionPreview(
                     primaryLabel = actionLabel(actionId),
-                    secondaryLabel = secondaryActionId?.let(::actionLabel)
+                    secondaryLabel = secondaryActionId?.let { action -> actionLabel(action) }
                 )
 
                 ComboActionSection(
