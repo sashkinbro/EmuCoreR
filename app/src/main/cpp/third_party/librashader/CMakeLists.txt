@@ -76,6 +76,47 @@ string(TOUPPER "${_lrs_rust_target}" _lrs_target_upper)
 string(REPLACE "-" "_" _lrs_target_upper "${_lrs_target_upper}")
 string(REPLACE "-" "_" _lrs_target_under "${_lrs_rust_target}")
 
+# Cargo also compiles build scripts and proc-macros for the Windows host. The
+# MSVC host toolchain needs Visual Studio's link.exe, which is missing on
+# machines without the C++ workload. The GNU host toolchain needs MinGW's
+# dlltool and linker, which Android Studio does not normally put on PATH.
+set(_lrs_cargo_command "${CARGO_EXECUTABLE}")
+set(_lrs_cargo_env_args)
+if(CMAKE_HOST_WIN32)
+    find_program(RUSTUP_EXECUTABLE rustup HINTS "$ENV{USERPROFILE}/.cargo/bin" "$ENV{HOME}/.cargo/bin" "$ENV{CARGO_HOME}/bin")
+    if(RUSTUP_EXECUTABLE)
+        execute_process(
+            COMMAND "${RUSTUP_EXECUTABLE}" toolchain list
+            OUTPUT_VARIABLE _lrs_toolchains
+            ERROR_QUIET
+        )
+        string(REGEX MATCH "[A-Za-z0-9._-]+-x86_64-pc-windows-gnu" _lrs_gnu_toolchain "${_lrs_toolchains}")
+        if(_lrs_gnu_toolchain)
+            execute_process(
+                COMMAND "${RUSTUP_EXECUTABLE}" target list --installed --toolchain "${_lrs_gnu_toolchain}"
+                OUTPUT_VARIABLE _lrs_gnu_targets
+                ERROR_QUIET
+            )
+            string(FIND "${_lrs_gnu_targets}" "${_lrs_rust_target}" _lrs_gnu_target_index)
+            if(NOT _lrs_gnu_target_index EQUAL -1)
+                find_program(_lrs_dlltool NAMES dlltool HINTS
+                    "$ENV{MINGW_PREFIX}/bin" "$ENV{MSYSTEM_PREFIX}/bin"
+                    "C:/msys64/ucrt64/bin" "C:/msys64/mingw64/bin")
+                if(_lrs_dlltool)
+                    get_filename_component(_lrs_mingw_bin "${_lrs_dlltool}" DIRECTORY)
+                    find_program(_lrs_mingw_linker NAMES gcc x86_64-w64-mingw32-gcc
+                        PATHS "${_lrs_mingw_bin}" NO_DEFAULT_PATH)
+                    if(_lrs_mingw_linker)
+                        set(_lrs_cargo_command "${RUSTUP_EXECUTABLE}" run "${_lrs_gnu_toolchain}" cargo)
+                        set(_lrs_cargo_env_args --modify "PATH=path_list_prepend:${_lrs_mingw_bin}")
+                        message(STATUS "librashader: cargo host toolchain -> ${_lrs_gnu_toolchain} (${_lrs_mingw_bin})")
+                    endif()
+                endif()
+            endif()
+        endif()
+    endif()
+endif()
+
 include(FetchContent)
 FetchContent_Declare(librashader_src
     GIT_REPOSITORY https://github.com/SnowflakePowered/librashader.git
@@ -101,13 +142,14 @@ set(_lrs_lib "${_lrs_out_dir}/${_lrs_rust_target}/release/liblibrashader_capi.so
 add_custom_command(
     OUTPUT "${_lrs_lib}"
     COMMAND ${CMAKE_COMMAND} -E env
+        ${_lrs_cargo_env_args}
         "CARGO_TARGET_${_lrs_target_upper}_LINKER=${_lrs_cc}"
         "CC_${_lrs_target_under}=${_lrs_cc}"
         "CXX_${_lrs_target_under}=${_lrs_cxx}"
         "AR_${_lrs_target_under}=${_lrs_tc}/bin/llvm-ar"
         "RANLIB_${_lrs_target_under}=${_lrs_tc}/bin/llvm-ranlib"
         "RUSTFLAGS=-C link-arg=-Wl,-soname,liblibrashader_capi.so"
-        ${CARGO_EXECUTABLE} build --release
+        ${_lrs_cargo_command} build --release
             --manifest-path "${librashader_src_SOURCE_DIR}/librashader-capi/Cargo.toml"
             --target ${_lrs_rust_target}
             --target-dir "${_lrs_out_dir}"
