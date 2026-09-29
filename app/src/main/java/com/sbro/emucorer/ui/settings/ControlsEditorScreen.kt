@@ -850,6 +850,11 @@ fun ControlsEditorScreen(
 
             selectedControlId?.takeUnless { it in ControlGroupIds }?.let { controlId ->
                 val customControl = selectedCustomControl
+                // A combo is a second action on top of a single one. A D-pad cluster, a stick or
+                // any other control without its own action has nothing to combine, so the card
+                // must stay hidden instead of opening a dialog that falls back to the default
+                // face button.
+                val comboActionSupported = customControl != null || actionIdForControlId(controlId) != null
                 if (showControlAdjustDialog) {
                     val scale = selectedLayout?.scale
                         ?: if (controlId.contains("stick")) state.stickScale else 100
@@ -951,7 +956,7 @@ fun ControlsEditorScreen(
 
                 val comboSecondaryActionId = customControl?.secondaryActionId
                     ?: selectedStandardSecondaryActionId
-                if ((customControl != null || selectedStandardActionId != null) && !showControlAdjustDialog) {
+                if (!showControlAdjustDialog && comboActionSupported) {
                     Surface(
                         modifier = Modifier.padding(top = 8.dp),
                         color = Color(0xFF111827).copy(alpha = 0.82f),
