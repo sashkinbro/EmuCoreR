@@ -90,6 +90,9 @@ tests/fuzz/artifacts/
 /temp_translations/
 /add_translations.ps1
 
+# Local test workspace (crash logs and user reports)
+/test/
+
 # Local release tooling (parallel builds + apktool)
 /tools/
 

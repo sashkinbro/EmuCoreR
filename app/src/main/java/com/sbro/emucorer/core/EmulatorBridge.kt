@@ -45,8 +45,8 @@ object EmulatorBridge {
     private const val AUTO_PROGRESSIVE_SCAN_PAD_INDEX = 0
     private const val AUTO_PROGRESSIVE_SCAN_CROSS = 96
     private const val AUTO_PROGRESSIVE_SCAN_TRIANGLE = 100
-    // Games probe the boot combo at different points; Criterion titles can do so well after
-    // the PS2 logo. Keep it held through the boot sequence, matching the real-console action.
+    // Games probe the boot combo at different points, so keep it held through
+    // the boot sequence, matching the real-console action.
     private const val AUTO_PROGRESSIVE_SCAN_HOLD_MS = 30_000L
 
     private val aspectRatioSettingValues = mapOf(
@@ -617,12 +617,8 @@ object EmulatorBridge {
         val directEeFpuClampingMode = sanitizeClampingMode(eeFpuClampingMode, AppPreferences.DEFAULT_EE_FPU_CLAMPING_MODE)
         val directVu0ClampingMode = sanitizeClampingMode(vu0ClampingMode, AppPreferences.DEFAULT_VU0_CLAMPING_MODE)
         val directVu1ClampingMode = sanitizeClampingMode(vu1ClampingMode, AppPreferences.DEFAULT_VU1_CLAMPING_MODE)
-        Log.i(
-            "EmuCoreR",
-            "android jit: requested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack mtvu:$mtvu instantVu1:$instantVu1} direct={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler mtvu:$directMtvu instantVu1:$instantVu1 fastmem:$enableFastmem} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode}"
-        )
         NativeApp.logCrashBreadcrumb(
-            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType hwDownload=$hwDownloadMode directJit={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler mtvu:$directMtvu instantVu1:$instantVu1 fastmem:$enableFastmem} speedhacks={waitLoop:$waitLoopSpeedhack intcStat:$intcStatSpeedhack vuFlag:$vuFlagHack fastBoot:$enableFastBoot fastCdvd:$fastCdvd} round={ee:$directEeFpuRoundMode vu0:$directVu0RoundMode vu1:$directVu1RoundMode} clamp={ee:$directEeFpuClampingMode vu0:$directVu0ClampingMode vu1:$directVu1ClampingMode} gameFixes={auto:$enableGameFixes eeTiming:$eeTimingHack} jitRequested={ee:$enableEeRecompiler iop:$enableIopRecompiler vu0:$enableVu0Recompiler vu1:$enableVu1Recompiler fastmem:$enableFastmem}"
+            "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) driverType=$effectiveGpuDriverType requestedDriverType=$gpuDriverType upscale=$upscaleMultiplier aspect=$aspectRatio fastBoot=$enableFastBoot"
         )
         val prefs = AppPreferences(context)
         val effectiveEnableCheats = enableCheats
