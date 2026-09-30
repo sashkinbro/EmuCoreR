@@ -12,8 +12,16 @@ import android.view.Surface
  */
 class NativeCoreBridge {
     companion object {
+        private const val STANDARD_LIBRARY_NAME = "emucorer_jni"
+
         init {
-            System.loadLibrary("emucorer_jni")
+            val selected = AndroidNativeCoreSelector.selectedLibraryName()
+            val selectedLoaded = runCatching { System.loadLibrary(selected) }.isSuccess
+            if (!selectedLoaded && selected != STANDARD_LIBRARY_NAME) {
+                // The 16 KiB variant ships with release builds; debug builds on a
+                // 16 KiB device fall back to the standard core instead of failing.
+                System.loadLibrary(STANDARD_LIBRARY_NAME)
+            }
         }
     }
 

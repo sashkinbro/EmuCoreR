@@ -184,4 +184,11 @@ enum class CPUFastmemMode
   Count
 };
 
-inline constexpr size_t HOST_PAGE_SIZE = 4096, HOST_PAGE_OFFSET_MASK = HOST_PAGE_SIZE - 1;
+// Android ships devices with both 4 KiB and 16 KiB host pages. The page constants are
+// baked into fastmem and the code cache at compile time, so EmuCoreR compiles the core
+// twice and loads the variant that matches the runtime page size.
+#ifndef SWANSTATION_HOST_PAGE_SIZE
+#define SWANSTATION_HOST_PAGE_SIZE 4096
+#endif
+
+inline constexpr size_t HOST_PAGE_SIZE = SWANSTATION_HOST_PAGE_SIZE, HOST_PAGE_OFFSET_MASK = HOST_PAGE_SIZE - 1;

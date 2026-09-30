@@ -18,7 +18,7 @@ internal object AndroidNativeCoreSelector {
 
 internal fun selectAndroidNativeCoreLibrary(pageSizeBytes: Long): String =
     when (pageSizeBytes) {
-        STANDARD_PAGE_SIZE_BYTES -> "emucore_4k"
-        LARGE_PAGE_SIZE_BYTES -> "emucore_16k"
+        STANDARD_PAGE_SIZE_BYTES -> "emucorer_jni"
+        LARGE_PAGE_SIZE_BYTES -> "emucorer_jni_16k"
         else -> error("Unsupported Android page size: $pageSizeBytes bytes")
     }

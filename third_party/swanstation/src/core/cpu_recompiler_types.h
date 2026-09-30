@@ -75,7 +75,7 @@ constexpr uint32_t MAX_NEAR_HOST_BYTES_PER_INSTRUCTION = 64;
 constexpr uint32_t MAX_FAR_HOST_BYTES_PER_INSTRUCTION = 128;
 
 // Alignment of code stoarge.
-constexpr uint32_t CODE_STORAGE_ALIGNMENT = 4096;
+constexpr uint32_t CODE_STORAGE_ALIGNMENT = HOST_PAGE_SIZE;
 
 // ABI selection
 #if defined(_WIN32)
@@ -100,7 +100,7 @@ constexpr uint32_t MAX_NEAR_HOST_BYTES_PER_INSTRUCTION = 64;
 constexpr uint32_t MAX_FAR_HOST_BYTES_PER_INSTRUCTION = 128;
 
 // Alignment of code stoarge.
-constexpr uint32_t CODE_STORAGE_ALIGNMENT = 4096;
+constexpr uint32_t CODE_STORAGE_ALIGNMENT = HOST_PAGE_SIZE;
 
 #elif defined(CPU_AARCH64)
 
@@ -116,7 +116,7 @@ constexpr uint32_t MAX_NEAR_HOST_BYTES_PER_INSTRUCTION = 64;
 constexpr uint32_t MAX_FAR_HOST_BYTES_PER_INSTRUCTION = 128;
 
 // Alignment of code stoarge.
-constexpr uint32_t CODE_STORAGE_ALIGNMENT = 4096;
+constexpr uint32_t CODE_STORAGE_ALIGNMENT = HOST_PAGE_SIZE;
 
 #else
 

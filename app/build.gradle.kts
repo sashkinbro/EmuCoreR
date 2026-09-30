@@ -28,6 +28,8 @@ fun sha256Hex(value: String): String = MessageDigest.getInstance("SHA-256")
 
 val feedbackEndpoint = localProperty("emucorex.feedback.endpoint").orEmpty()
 val feedbackApiKey = localProperty("emucorex.feedback.apiKey").orEmpty()
+val emucorerCmakeVersion = "3.30.5"
+val emucorerNdkVersion = "29.0.14206865"
 val featureKey = localProperty("emucorex.features.key").orEmpty()
 val featureKeyDigest = localProperty("emucorex.features.key")
     ?.let { sha256Hex("emucorex-features-v1:$it") }
@@ -65,7 +67,7 @@ android {
     compileSdk {
         version = release(37)
     }
-    ndkVersion = "29.0.14206865"
+    ndkVersion = emucorerNdkVersion
 
     defaultConfig {
         applicationId = "com.sbro.emucorer"
@@ -163,7 +165,13 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.30.5"
+            version = emucorerCmakeVersion
+        }
+    }
+    sourceSets {
+        getByName("main") {
+            // Populated by the secondary 16 KiB core build below.
+            jniLibs.srcDir(file("build/generated/page-size-jni-libs"))
         }
     }
     packaging {
@@ -181,6 +189,103 @@ android {
     lint {
         lintConfig = file("lint.xml")
     }
+}
+
+// SwanStation bakes the host page size into its fastmem implementation and code cache,
+// so Android needs two native cores. AGP builds the normal 4 KiB core above; these tasks
+// build the 16 KiB core in an isolated CMake tree and expose it as generated jniLibs
+// before packaging, keeping the APK compatible with both page sizes.
+val androidSdkPath = localProperty("sdk.dir")
+    ?: providers.environmentVariable("ANDROID_SDK_ROOT").orNull
+    ?: providers.environmentVariable("ANDROID_HOME").orNull
+    ?: error("Android SDK path is missing. Set sdk.dir in local.properties.")
+val androidSdkDirectory = file(androidSdkPath)
+val androidNdkDirectory = androidSdkDirectory.resolve("ndk/$emucorerNdkVersion")
+val hostExecutableSuffix = if (
+    System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+) ".exe" else ""
+val cmakeExecutable = androidSdkDirectory.resolve(
+    "cmake/$emucorerCmakeVersion/bin/cmake$hostExecutableSuffix"
+)
+val ninjaExecutable = androidSdkDirectory.resolve(
+    "cmake/$emucorerCmakeVersion/bin/ninja$hostExecutableSuffix"
+)
+val secondary16kBuildDirectory = layout.buildDirectory.dir("native-secondary/16k/arm64-v8a")
+val secondary16kObjectDirectory = layout.buildDirectory.dir("native-secondary/16k/obj/arm64-v8a")
+val secondary16kCore = secondary16kObjectDirectory.map { it.file("libemucorer_jni_16k.so") }
+val generated16kJniDirectory = layout.buildDirectory.dir("generated/page-size-jni-libs/arm64-v8a")
+
+val configureEmucorer16k by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Configures the secondary 16 KiB Android emulator core."
+    inputs.files(fileTree("src/main/cpp") {
+        include("**/CMakeLists.txt", "**/*.cmake")
+    })
+    inputs.files(fileTree("../../third_party/swanstation") {
+        include("**/CMakeLists.txt", "**/*.cmake")
+    })
+    inputs.property("cmakeVersion", emucorerCmakeVersion)
+    inputs.property("ndkVersion", emucorerNdkVersion)
+    inputs.property("androidSdkPath", androidSdkDirectory.absolutePath)
+    outputs.file(secondary16kBuildDirectory.map { it.file("CMakeCache.txt") })
+
+    commandLine(
+        cmakeExecutable.absolutePath,
+        "-S", file("src/main/cpp").absolutePath,
+        "-B", secondary16kBuildDirectory.get().asFile.absolutePath,
+        "-G", "Ninja",
+        "-DCMAKE_SYSTEM_NAME=Android",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DCMAKE_SYSTEM_VERSION=26",
+        "-DANDROID_PLATFORM=android-26",
+        "-DANDROID_ABI=arm64-v8a",
+        "-DCMAKE_ANDROID_ARCH_ABI=arm64-v8a",
+        "-DANDROID_NDK=${androidNdkDirectory.absolutePath}",
+        "-DCMAKE_ANDROID_NDK=${androidNdkDirectory.absolutePath}",
+        "-DCMAKE_TOOLCHAIN_FILE=${androidNdkDirectory.resolve("build/cmake/android.toolchain.cmake").absolutePath}",
+        "-DCMAKE_MAKE_PROGRAM=${ninjaExecutable.absolutePath}",
+        "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${secondary16kObjectDirectory.get().asFile.absolutePath}",
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${secondary16kObjectDirectory.get().asFile.absolutePath}",
+        "-DANDROID=true",
+        "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+        "-DANDROID_STL=c++_shared",
+        "-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY",
+        "-DCMAKE_C_FLAGS_RELWITHDEBINFO=-O3 -g -DNDEBUG",
+        "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O3 -g -DNDEBUG",
+        "-DEMUCORER_HOST_PAGE_SIZE=16384",
+        "-DEMUCORER_NATIVE_LIBRARY_NAME=emucorer_jni_16k"
+    )
+}
+
+val buildEmucorer16k by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Builds the secondary 16 KiB Android emulator core."
+    dependsOn(configureEmucorer16k)
+    outputs.file(secondary16kCore)
+    outputs.upToDateWhen { false }
+    commandLine(
+        cmakeExecutable.absolutePath,
+        "--build", secondary16kBuildDirectory.get().asFile.absolutePath,
+        "--target", "emucorer_jni"
+    )
+    doLast {
+        val coreFile = outputs.files.singleFile
+        check(coreFile.isFile) {
+            "The 16 KiB emulator core was not produced: $coreFile"
+        }
+    }
+}
+
+val stageEmucorer16k by tasks.registering(Copy::class) {
+    group = "build"
+    description = "Stages the 16 KiB core for standard APK and AAB packaging."
+    dependsOn(buildEmucorer16k)
+    from(secondary16kCore)
+    into(generated16kJniDirectory)
+}
+
+tasks.matching { it.name == "mergeReleaseJniLibFolders" }.configureEach {
+    dependsOn(stageEmucorer16k)
 }
 
 dependencies {

@@ -30,7 +30,7 @@ object NativeApp {
 
 
     init {
-        loadedCoreLibraryName = "emucorer_jni"
+        loadedCoreLibraryName = AndroidNativeCoreSelector.selectedLibraryName()
         hasNativeCore = runCatching { CoreRuntime.bridge.apiVersion() }
             .onFailure { Log.e(TAG, "Unable to load $loadedCoreLibraryName", it) }
             .isSuccess

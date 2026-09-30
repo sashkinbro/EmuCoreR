@@ -7,6 +7,23 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Android ships devices with 4 KiB and 16 KiB host pages. The host page size is baked
+# into the SwanStation fastmem and code cache, so the whole core is compiled twice and
+# the app loads the variant matching the runtime page size.
+set(EMUCORER_HOST_PAGE_SIZE "4096" CACHE STRING "Android runtime page size expected by the emulator core")
+set(EMUCORER_NATIVE_LIBRARY_NAME "emucorer_jni" CACHE STRING "Output name of the Android emulator core library")
+if(NOT EMUCORER_HOST_PAGE_SIZE MATCHES "^(4096|16384)$")
+    message(FATAL_ERROR "EMUCORER_HOST_PAGE_SIZE must be 4096 or 16384")
+endif()
+if(NOT EMUCORER_NATIVE_LIBRARY_NAME MATCHES "^[A-Za-z0-9_]+$")
+    message(FATAL_ERROR "EMUCORER_NATIVE_LIBRARY_NAME contains unsupported characters")
+endif()
+add_compile_definitions(SWANSTATION_HOST_PAGE_SIZE=${EMUCORER_HOST_PAGE_SIZE})
+
+# Google Play requires 16 KiB page size support: keep every ELF load segment aligned
+# even when a toolchain default changes.
+add_link_options("-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")
+
 # Discord Social SDK is an optional local build input used by the isolated
 # :discord helper process. When absent, emucorer_discord is not built and the
 # integration reports unavailable.
@@ -105,4 +122,4 @@ set_target_properties(emucorer_jni PROPERTIES
     VISIBILITY_INLINES_HIDDEN ON
 )
 
-set_target_properties(emucorer_jni PROPERTIES OUTPUT_NAME "emucorer_jni")
+set_target_properties(emucorer_jni PROPERTIES OUTPUT_NAME "${EMUCORER_NATIVE_LIBRARY_NAME}")
