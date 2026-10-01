@@ -1152,6 +1152,7 @@ private fun GameSettingsTabContent(
                     StickyButtonsSelector(
                         selected = draft.stickyButtons,
                         onSelectionChange = { onDraftChange(draft.copy(stickyButtons = it)) },
+                        modifier = Modifier.sectionContentFullBleed(GameSettingsSectionContentPadding),
                         helpText = stringResource(R.string.settings_help_sticky_buttons),
                         onResetToDefault = {
                             onDraftChange(draft.copy(stickyButtons = defaultProfile.stickyButtons))
@@ -1207,7 +1208,8 @@ private fun GameSettingsTabContent(
                         selectedValue = draft.gyroMode,
                         onSelected = { onDraftChange(draft.copy(gyroMode = it)) },
                         helpText = stringResource(R.string.settings_help_gyro_mode),
-                        onResetToDefault = { onDraftChange(draft.copy(gyroMode = defaultProfile.gyroMode)) }
+                        onResetToDefault = { onDraftChange(draft.copy(gyroMode = defaultProfile.gyroMode)) },
+                        alwaysScroll = true
                     )
                     if (draft.gyroMode != AppPreferences.GYRO_MODE_OFF) {
                         SliderRow(stringResource(R.string.settings_gyro_sensitivity), draft.gyroSensitivity.toFloat(), "${draft.gyroSensitivity}%", 25f..300f, 10, { onDraftChange(draft.copy(gyroSensitivity = it.roundToInt())) }, helpText = stringResource(R.string.settings_help_gyro_sensitivity), onResetToDefault = { onDraftChange(draft.copy(gyroSensitivity = defaultProfile.gyroSensitivity)) })
@@ -1375,7 +1377,8 @@ private fun CoreOptionManagerRows(
                 helpText = help,
                 onResetToDefault = {
                     onDraftChange(draft.copy(coreOptions = draft.coreOptions - option.key))
-                }
+                },
+                alwaysScroll = true
             )
         }
     }
@@ -1388,7 +1391,8 @@ private fun SelectionRow(
     selectedValue: Int,
     onSelected: (Int) -> Unit,
     helpText: String? = null,
-    onResetToDefault: (() -> Unit)? = null
+    onResetToDefault: (() -> Unit)? = null,
+    alwaysScroll: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val context = LocalContext.current
@@ -1419,7 +1423,7 @@ private fun SelectionRow(
                 SettingHelpButton(title = title, description = it)
             }
         }
-        if (options.size > 3) {
+        if (alwaysScroll || options.size > 3) {
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
