@@ -100,7 +100,6 @@ object SwanStationOptions {
                 listOf(
                     SsChoice(R.string.ss_choice_crop_overscan, "Overscan"),
                     SsChoice(R.string.ss_choice_crop_borders, "Borders"),
-                    SsChoice(R.string.ss_choice_crop_all, "All"),
                 ),
                 default = "Overscan",
             ),

@@ -788,7 +788,7 @@ object SwanStationCoreOptions {
                 Choice("Overscan", "Only Overscan Area"),
                 Choice("Borders", "All Borders"),
             ),
-            defaultValue = "Borders",
+            defaultValue = "Overscan",
         ),
         Option(
             key = "swanstation_GPU_DownsampleMode",

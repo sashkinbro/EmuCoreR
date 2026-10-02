@@ -364,14 +364,22 @@ internal object CoreRuntime {
         SwanStationOptions.persistedEntries().forEach { (key, value) ->
             bridge.nativeSetOption(key, value)
         }
-        // The core advertises "Borders" (crop every black border) as the default
-        // Crop Mode, but its internal fallback is "Overscan". Frontends are
-        // expected to seed option defaults; without it games that leave padding
-        // inside the active area show black strips around the image (very
-        // visible next to the side artwork).
-        coreOptionValue("swanstation_Display_CropMode")?.let { cropMode ->
-            bridge.nativeSetOption("swanstation_Display_CropMode", cropMode)
+        // The core's internal default Crop Mode is "Overscan", which hides the
+        // inactive rows games commonly leave at the top and bottom of their
+        // display range. The libretro option table advertises "Borders"
+        // instead, and Borders keeps those rows, showing black strips. Seed
+        // "Overscan" here; an explicit user choice still wins, and stale
+        // invalid values (e.g. the removed "All") are migrated rather than
+        // silently falling back inside the core.
+        val cropModeKey = "swanstation_Display_CropMode"
+        val storedCropMode = SwanStationOptions.value(cropModeKey)
+        if (storedCropMode != null && storedCropMode !in SWANSTATION_CROP_MODES) {
+            SwanStationOptions.set(cropModeKey, SWANSTATION_CROP_MODES_DEFAULT)
         }
+        val cropMode = coreOptionValue(cropModeKey)
+            ?.takeIf { it in SWANSTATION_CROP_MODES }
+            ?: SWANSTATION_CROP_MODES_DEFAULT
+        bridge.nativeSetOption(cropModeKey, cropMode)
         // Internal resolution is owned by the app's per-game upscale setting,
         // so re-assert it after the persisted core-option store so a legacy
         // swanstation_GPU_ResolutionScale entry cannot shadow it.
@@ -1157,4 +1165,9 @@ internal object CoreRuntime {
     private const val ASPECT_RATIO_4_3 = 2
     private const val ASPECT_RATIO_16_9 = 3
     private const val ASPECT_RATIO_CUSTOM = 4
+
+    // Crop modes understood by the SwanStation core; anything else is silently
+    // treated as Overscan, so invalid persisted values must be migrated.
+    private val SWANSTATION_CROP_MODES = setOf("None", "Overscan", "Borders")
+    private const val SWANSTATION_CROP_MODES_DEFAULT = "Overscan"
 }
