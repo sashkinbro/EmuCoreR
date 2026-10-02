@@ -278,6 +278,10 @@ private:
 
   bool EnsurePageResource(uint32_t slot);
   void DestroyPageCacheResources();
+  // Releases page texture resources for cache slots that were compacted away.
+  // Runs at the frame boundary and only touches buffers no in-flight frame can
+  // still be sampling.
+  void SweepUnusedPageResources();
   // Decodes the page from CPU m_vram_shadow into RGBA8 and uploads via staging.
   // Returns false when the target buffer is still in flight.
   bool CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCache::SourceKey& key);
@@ -291,11 +295,16 @@ private:
 
   GPUTexturePageCache m_texture_page_cache;
   std::array<PageResource, GPUTexturePageCache::MAX_ENTRIES> m_page_resources;
+  // Decoded page texture format. A1R5G5B5 is used when the device supports it:
+  // it stores the exact PS1 5551 word (half the VRAM and bandwidth of RGBA8).
+  VkFormat m_page_texture_format = VK_FORMAT_R8G8B8A8_UNORM;
+  bool m_page_texture_16bit = false;
   // Monotonic frame counter used to avoid recycling page textures that a
   // recent in-flight frame may still be sampling.
   uint64_t m_page_frame_number = 0;
-  // Reused CPU scratch buffer for page decodes (256x256 RGBA8).
+  // Reused CPU scratch buffers for page decodes (256x256 RGBA8 / A1R5G5B5).
   std::vector<uint32_t> m_page_decode_scratch;
+  std::vector<uint16_t> m_page_decode_scratch16;
 
 
   // Decodes performed in the frame currently being ended, used to budget the

@@ -199,12 +199,22 @@ public:
   static void DecodePage(const SourceKey& key, const uint16_t* vram_ptr,
                          uint32_t* rgba_out);
 
+  // Same decode, but writes the exact native 5551 words instead of the
+  // expanded RGBA8 encoding. A1R5G5B5 hardware textures use this: it keeps
+  // the precise PS1 word (including the STP bit) and is much cheaper.
+  static void DecodePage16(const SourceKey& key, const uint16_t* vram_ptr,
+                           uint16_t* out);
+
   // Returns the entry's source key for a given slot (for the backend to
   // know which page the slot represents).
   const SourceKey& GetEntryKey(uint32_t slot) const { return m_entries[slot].key; }
 
   // Returns the number of currently allocated entries.
   uint32_t GetAllocatedCount() const { return m_allocated_count; }
+
+  // True while the slot is owned by a live entry. The backend uses this to
+  // release page texture resources for slots the cache has compacted away.
+  bool IsSlotAllocated(uint32_t slot) const { return (slot < MAX_ENTRIES) && m_entries[slot].allocated; }
 
 private:
   struct Entry

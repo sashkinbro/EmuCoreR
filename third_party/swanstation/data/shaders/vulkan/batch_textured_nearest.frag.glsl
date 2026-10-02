@@ -61,6 +61,11 @@ layout(constant_id = 106) const bool TRUE_COLOR                    = false;
 layout(constant_id = 107) const bool PALETTE_4_BIT                 = false;
 layout(constant_id = 108) const bool PALETTE_8_BIT                 = false;
 layout(constant_id = 109) const bool RAW_TEXTURE                   = false;
+// Cached page textures may be stored as A1R5G5B5 instead of RGBA8. The
+// hardware format keeps the exact 5551 word, so the shader rebuilds the
+// RGBA8 encoding the rest of the pipeline expects with the same 5-bit
+// expansions the CPU decoder uses.
+layout(constant_id = 111) const bool CACHED_PAGE_RGB5A1            = false;
 
 // ---- Interpolation qualifier macros --------------------------------
 #if defined(INTERP_SAMPLE)
@@ -211,7 +216,14 @@ vec4 SampleFromVRAM(uvec4 texpage, vec2 coords)
   else
     icoord = ApplyTextureWindow(FloatToIntegerCoords(coords) / RESOLUTION_SCALE);
 
-  return texture(samp0, (vec2(icoord & 0xFFu) + vec2(0.5, 0.5)) / vec2(256.0, 256.0));
+  vec4 page_texel = texture(samp0, (vec2(icoord & 0xFFu) + vec2(0.5, 0.5)) / vec2(256.0, 256.0));
+  if (CACHED_PAGE_RGB5A1)
+  {
+    uvec3 rgb5 = uvec3(roundEven(page_texel.rgb * 31.0));
+    uvec3 rgb8 = (rgb5 << 3) | (rgb5 >> 2);
+    return vec4(vec3(rgb8) / 255.0, page_texel.a >= 0.5 ? 1.0 : 0.0);
+  }
+  return page_texel;
 #else
   // Texture replacement: when enabled, binding 1 holds a pre-composited RGBA
   // page (256x256 expanded texels for every mode, possibly upscaled) instead of

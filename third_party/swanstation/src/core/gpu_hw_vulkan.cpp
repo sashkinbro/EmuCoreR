@@ -1124,6 +1124,23 @@ void GPU_HW_Vulkan::SetCapabilities()
     m_use_ssbos_for_vram_writes = true;
   }
 #endif
+
+  // Decoded page textures prefer A1R5G5B5: the hardware format stores the
+  // exact PS1 5551 word, which halves the cache's VRAM and upload bandwidth
+  // and lets the CPU decoder copy words instead of expanding channels.
+  {
+    VkFormatProperties format_properties = {};
+    vkGetPhysicalDeviceFormatProperties(g_vulkan_context->GetPhysicalDevice(), VK_FORMAT_A1R5G5B5_UNORM_PACK16,
+                                        &format_properties);
+    const VkFormatFeatureFlags required =
+      VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+    if ((format_properties.optimalTilingFeatures & required) == required)
+    {
+      m_page_texture_format = VK_FORMAT_A1R5G5B5_UNORM_PACK16;
+      m_page_texture_16bit = true;
+    }
+    Log_InfoPrintf("Page texture format: %s", m_page_texture_16bit ? "A1R5G5B5" : "RGBA8");
+  }
 }
 
 void GPU_HW_Vulkan::DestroyResources()
@@ -1305,7 +1322,7 @@ bool GPU_HW_Vulkan::EnsurePageResource(uint32_t slot)
   {
     PageResource::Buffer& buffer = res.buffers[i];
     if (!buffer.texture.Create(GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS, 1, 1,
-                               VK_FORMAT_R8G8B8A8_UNORM, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_VIEW_TYPE_2D,
+                               m_page_texture_format, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_VIEW_TYPE_2D,
                                VK_IMAGE_TILING_OPTIMAL,
                                VK_IMAGE_USAGE_SAMPLED_BIT |
                                  VK_IMAGE_USAGE_TRANSFER_DST_BIT))
@@ -1342,25 +1359,42 @@ bool GPU_HW_Vulkan::CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCa
     return false;
   }
 
-  if (m_page_decode_scratch.empty())
-    m_page_decode_scratch.resize(GPUTexturePageCache::PAGE_TEXELS * GPUTexturePageCache::PAGE_TEXELS);
-
   // The page upload records image transitions and a buffer->image copy. A
   // previous batch in the same frame can still have the VRAM render pass open,
   // and recording those commands inside a render pass is invalid - it shows up
   // as flickering pages. DrawBatchVertices reopens the pass after the lookup.
   EndRenderPass();
 
-  GPUTexturePageCache::DecodePage(key, m_vram_shadow.data(), m_page_decode_scratch.data());
+  VkFormat staging_format;
+  const void* upload_data;
+  uint32_t upload_stride;
+  if (m_page_texture_16bit)
+  {
+    if (m_page_decode_scratch16.empty())
+      m_page_decode_scratch16.resize(GPUTexturePageCache::PAGE_TEXELS * GPUTexturePageCache::PAGE_TEXELS);
+    GPUTexturePageCache::DecodePage16(key, m_vram_shadow.data(), m_page_decode_scratch16.data());
+    staging_format = m_page_texture_format;
+    upload_data = m_page_decode_scratch16.data();
+    upload_stride = GPUTexturePageCache::PAGE_TEXELS * sizeof(uint16_t);
+  }
+  else
+  {
+    if (m_page_decode_scratch.empty())
+      m_page_decode_scratch.resize(GPUTexturePageCache::PAGE_TEXELS * GPUTexturePageCache::PAGE_TEXELS);
+    GPUTexturePageCache::DecodePage(key, m_vram_shadow.data(), m_page_decode_scratch.data());
+    staging_format = m_page_texture_format;
+    upload_data = m_page_decode_scratch.data();
+    upload_stride = GPUTexturePageCache::PAGE_TEXELS * sizeof(uint32_t);
+  }
 
   Vulkan::StagingTexture staging;
-  if (!staging.Create(Vulkan::StagingBuffer::Type::Upload, VK_FORMAT_R8G8B8A8_UNORM,
+  if (!staging.Create(Vulkan::StagingBuffer::Type::Upload, staging_format,
                       GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS))
   {
     return false;
   }
   staging.WriteTexels(0, 0, GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS,
-                      m_page_decode_scratch.data(), GPUTexturePageCache::PAGE_TEXELS * sizeof(uint32_t));
+                      upload_data, upload_stride);
 
   VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
   Vulkan::Texture& tex = res.buffers[next].texture;
@@ -1402,6 +1436,39 @@ void GPU_HW_Vulkan::OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32
 {
   if (IsTexturePageCacheEnabled())
     m_texture_page_cache.AddWrittenRectangle(left, top, right, bottom, shadow_is_authoritative);
+}
+
+void GPU_HW_Vulkan::SweepUnusedPageResources()
+{
+  for (uint32_t i = 0; i < GPUTexturePageCache::MAX_ENTRIES; i++)
+  {
+    if (m_texture_page_cache.IsSlotAllocated(i))
+      continue;
+
+    PageResource& res = m_page_resources[i];
+    if (res.buffers[0].texture.GetImage() == VK_NULL_HANDLE)
+      continue;
+
+    bool in_flight = false;
+    for (const PageResource::Buffer& buffer : res.buffers)
+    {
+      if (buffer.last_used_frame != 0 && buffer.last_used_frame + 2u > m_page_frame_number)
+      {
+        in_flight = true;
+        break;
+      }
+    }
+    if (in_flight)
+      continue;
+
+    for (PageResource::Buffer& buffer : res.buffers)
+    {
+      Vulkan::Util::SafeFreeGlobalDescriptorSet(buffer.descriptor_set);
+      buffer.texture.Destroy(false);
+      buffer.last_used_frame = 0;
+    }
+    res.current = 0;
+  }
 }
 
 void GPU_HW_Vulkan::DestroyPageCacheResources()
@@ -2605,6 +2672,9 @@ VkPipeline GPU_HW_Vulkan::GetBatchPipeline(GPUTextureFilter filter, bool true_co
   fs_spec.AddBool(108, palette_8_bit);
   fs_spec.AddBool(109, raw_texture);
   fs_spec.AddBool(110, binalpha);
+  // Cached-page fragment shaders read the decoded page texture, which can be
+  // stored as A1R5G5B5 instead of RGBA8. Ignored by every other blob.
+  fs_spec.AddBool(111, m_page_texture_16bit && cached_pages);
   gpbuilder.SetFragmentShader(fs, fs_spec.GetInfo());
 
   gpbuilder.SetRasterizationState(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
@@ -3452,6 +3522,7 @@ void GPU_HW_Vulkan::UpdateDisplay()
 
   m_page_frame_number++;
   m_texture_page_cache.Compact(m_page_frame_number);
+  SweepUnusedPageResources();
 
   // Replacement shadow sync runs at the frame boundary, after all rendering
   // for this frame has been recorded. Never during draws: mid-frame readbacks

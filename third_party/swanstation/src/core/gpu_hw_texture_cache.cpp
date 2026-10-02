@@ -287,6 +287,63 @@ void GPUTexturePageCache::DecodePage(const SourceKey& key, const uint16_t* vram_
   }
 }
 
+void GPUTexturePageCache::DecodePage16(const SourceKey& key, const uint16_t* vram_ptr, uint16_t* out)
+{
+  const uint32_t base_x = key.page_x;
+  const uint32_t base_y = key.page_y;
+
+  if (key.mode == GPUTextureMode::Direct16Bit)
+  {
+    for (uint32_t y = 0; y < PAGE_TEXELS; y++)
+    {
+      const uint16_t* src_row = &vram_ptr[((base_y + y) % VRAM_HEIGHT) * VRAM_WIDTH];
+      uint16_t* dst_row = &out[y * PAGE_TEXELS];
+      for (uint32_t x = 0; x < PAGE_TEXELS; x++)
+        dst_row[x] = src_row[(base_x + x) % VRAM_WIDTH];
+    }
+  }
+  else if (key.mode == GPUTextureMode::Palette8Bit)
+  {
+    const uint16_t* pal_row = &vram_ptr[(key.palette_y % VRAM_HEIGHT) * VRAM_WIDTH];
+    uint16_t palette[256];
+    for (uint32_t i = 0; i < 256u; i++)
+      palette[i] = pal_row[(key.palette_x + i) % VRAM_WIDTH];
+
+    for (uint32_t y = 0; y < PAGE_TEXELS; y++)
+    {
+      const uint16_t* src_row = &vram_ptr[((base_y + y) % VRAM_HEIGHT) * VRAM_WIDTH];
+      uint16_t* dst_row = &out[y * PAGE_TEXELS];
+      for (uint32_t x = 0; x < PAGE_TEXELS; x += 2u)
+      {
+        const uint16_t packed = src_row[(base_x + x / 2u) % VRAM_WIDTH];
+        dst_row[x + 0] = palette[packed & 0xFFu];
+        dst_row[x + 1] = palette[(packed >> 8) & 0xFFu];
+      }
+    }
+  }
+  else // Palette4Bit
+  {
+    const uint16_t* pal_row = &vram_ptr[(key.palette_y % VRAM_HEIGHT) * VRAM_WIDTH];
+    uint16_t palette[16];
+    for (uint32_t i = 0; i < 16u; i++)
+      palette[i] = pal_row[(key.palette_x + i) % VRAM_WIDTH];
+
+    for (uint32_t y = 0; y < PAGE_TEXELS; y++)
+    {
+      const uint16_t* src_row = &vram_ptr[((base_y + y) % VRAM_HEIGHT) * VRAM_WIDTH];
+      uint16_t* dst_row = &out[y * PAGE_TEXELS];
+      for (uint32_t x = 0; x < PAGE_TEXELS; x += 4u)
+      {
+        const uint16_t packed = src_row[(base_x + x / 4u) % VRAM_WIDTH];
+        dst_row[x + 0] = palette[(packed >> 0) & 0x0Fu];
+        dst_row[x + 1] = palette[(packed >> 4) & 0x0Fu];
+        dst_row[x + 2] = palette[(packed >> 8) & 0x0Fu];
+        dst_row[x + 3] = palette[(packed >> 12) & 0x0Fu];
+      }
+    }
+  }
+}
+
 GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& key,
                                                               const uint16_t* vram_ptr,
                                                               uint64_t frame_number)
