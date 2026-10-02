@@ -23,8 +23,14 @@ ALWAYS_INLINE static constexpr std::tuple<T, T> MinMax(T v1, T v2)
 
 ALWAYS_INLINE static bool ShouldUseUVLimits()
 {
-  // We only need UV limits if PGXP is enabled, or texture filtering is enabled.
-  return g_settings.gpu_pgxp_enable || g_settings.gpu_texture_filter != GPUTextureFilter::Nearest;
+  // UV limits only exist to bound perspective-corrected texture coordinates.
+  // Geometry correction alone leaves UVs affine (valid_w is driven by texture
+  // correction), and clamping those to the polygon's raw coordinate range
+  // samples the wrong palette entries when a polygon's UVs wrap or span a page
+  // boundary - characters end up with another texture's CLUT. Texture
+  // filtering still needs the limits so it cannot bleed outside the texture.
+  return g_settings.gpu_pgxp_texture_correction ||
+         g_settings.gpu_texture_filter != GPUTextureFilter::Nearest;
 }
 
 ALWAYS_INLINE static bool ShouldDisableColorPerspective()
@@ -244,7 +250,6 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
     (m_resolution_scale != resolution_scale || m_multisamples != multisamples ||
      m_per_sample_shading != per_sample_shading ||
      m_chroma_smoothing != g_settings.gpu_24bit_chroma_smoothing ||
-     m_using_uv_limits != use_uv_limits ||
      m_pgxp_depth_buffer != g_settings.UsingPGXPDepthBuffer() ||
      m_disable_color_perspective != disable_color_perspective ||
      m_shader_precompile_mode != g_settings.gpu_shader_precompile_mode);
@@ -295,7 +300,6 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
       (m_multisamples != multisamples) ||
       (m_per_sample_shading != per_sample_shading) ||
       (m_chroma_smoothing != g_settings.gpu_24bit_chroma_smoothing) ||
-      (m_using_uv_limits != use_uv_limits) ||
       (m_pgxp_depth_buffer != g_settings.UsingPGXPDepthBuffer()) ||
       (m_disable_color_perspective != disable_color_perspective) ||
       (m_shader_precompile_mode != g_settings.gpu_shader_precompile_mode);
@@ -331,7 +335,6 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
       (m_texture_filtering != g_settings.gpu_texture_filter) ||
       (m_multisamples != multisamples) ||
       (m_per_sample_shading != per_sample_shading) ||
-      (m_using_uv_limits != use_uv_limits) ||
       (m_pgxp_depth_buffer != g_settings.UsingPGXPDepthBuffer()) ||
       (m_disable_color_perspective != disable_color_perspective) ||
       (m_shader_precompile_mode != g_settings.gpu_shader_precompile_mode);
