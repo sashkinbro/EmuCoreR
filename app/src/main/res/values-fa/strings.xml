@@ -2384,4 +2384,8 @@
     <string name="core_update_reset_action">بازنشانی تنظیمات</string>
     <string name="core_update_reset_keep">حفظ تنظیمات</string>
     <string name="core_update_reset_done">تنظیمات بازنشانی شد</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest">PGXP: آزمون عمق چندضلعی‌های شفاف</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest_desc">بافر عمق PGXP را روی چندضلعی‌های شفاف نیز اعمال می‌کند. ممکن است ناهنجاری‌های عمق را در برخی بازی‌ها برطرف کند، اما در برخی دیگر مشکلات رندر ایجاد کند. نیازمند فعال بودن اصلاح هندسه است.</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: غیرفعال برای چندضلعی‌های دوبعدی</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">برای چندضلعی‌های دوبعدی به‌جای مختصات دقیق از مختصات بومی استفاده می‌کند. ممکن است عناصر و جلوه‌های دوبعدی ناهم‌تراز یا بد رنگ را در برخی بازی‌ها اصلاح کند؛ در غیر این صورت بهتر است غیرفعال بماند. نیازمند فعال بودن اصلاح هندسه است.</string>
 </resources>

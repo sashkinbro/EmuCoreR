@@ -2369,4 +2369,8 @@
     <string name="core_update_reset_action">Ayarları sıfırla</string>
     <string name="core_update_reset_keep">Ayarları koru</string>
     <string name="core_update_reset_done">Ayarlar sıfırlandı</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest">PGXP: saydam poligonlar için derinlik testi</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest_desc">PGXP derinlik arabelleğini saydam poligonlara da uygular. Bazı oyunlarda derinlik hatalarını düzeltebilir, ancak diğerlerinde görüntü sorunlarına yol açabilir. Geometri düzeltmesi etkin olmalıdır.</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: 2B poligonlarda devre dışı bırak</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">2B poligonlar için kesin koordinatlar yerine yerel koordinatları kullanır. Bazı oyunlarda hizasız veya yanlış renkli 2B öğeleri ve efektleri düzeltebilir; aksi halde kapalı bırakılmalıdır. Geometri düzeltmesi etkin olmalıdır.</string>
 </resources>

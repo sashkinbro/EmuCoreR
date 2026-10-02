@@ -470,6 +470,28 @@ object SwanStationCoreOptions {
             defaultValue = "false",
         ),
         Option(
+            key = "swanstation_GPU_PGXPTransparentDepthTest",
+            label = "PGXP Depth Test Transparent Polygons",
+            description = "Applies the PGXP depth buffer to transparent polygons as well. Can fix depth artifacts in some games, but may cause rendering issues in others. Requires geometry correction enabled.",
+            category = "enhancement",
+            choices = listOf(
+                Choice("true", "Enabled"),
+                Choice("false", "Disabled"),
+            ),
+            defaultValue = "false",
+        ),
+        Option(
+            key = "swanstation_GPU_PGXPDisableOn2DPolygons",
+            label = "PGXP Disable on 2D Polygons",
+            description = "Uses native resolution coordinates for 2D polygons instead of precise coordinates. Can fix misaligned or wrongly coloured 2D elements and effects in some games; otherwise should be left disabled. Requires geometry correction enabled.",
+            category = "enhancement",
+            choices = listOf(
+                Choice("true", "Enabled"),
+                Choice("false", "Disabled"),
+            ),
+            defaultValue = "false",
+        ),
+        Option(
             key = "swanstation_GPU_PGXPVertexCache",
             label = "PGXP Vertex Cache",
             description = "Uses screen coordinates as a fallback when tracking vertices through memory fails. May improve PGXP compatibility.",
@@ -4295,6 +4317,8 @@ object SwanStationCoreOptions {
         option("swanstation_GPU_PGXPTextureCorrection"),
         option("swanstation_GPU_PGXPColorCorrection"),
         option("swanstation_GPU_PGXPDepthBuffer"),
+        option("swanstation_GPU_PGXPTransparentDepthTest"),
+        option("swanstation_GPU_PGXPDisableOn2DPolygons"),
         option("swanstation_GPU_PGXPVertexCache"),
         option("swanstation_GPU_PGXPCPU"),
         option("swanstation_GPU_PGXPPreserveProjFP"),

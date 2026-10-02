@@ -2392,4 +2392,8 @@
     <string name="core_update_reset_action">Reset settings</string>
     <string name="core_update_reset_keep">Keep current settings</string>
     <string name="core_update_reset_done">Settings have been reset</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest">PGXP Depth Test Transparent Polygons</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest_desc">Applies the PGXP depth buffer to transparent polygons as well. Can fix depth artifacts in some games, but may cause rendering issues in others. Requires geometry correction enabled.</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP Disable on 2D Polygons</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Uses native resolution coordinates for 2D polygons instead of precise coordinates. Can fix misaligned or wrongly coloured 2D elements and effects in some games; otherwise should be left disabled. Requires geometry correction enabled.</string>
 </resources>

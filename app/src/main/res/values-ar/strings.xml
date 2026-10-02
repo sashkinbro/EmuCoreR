@@ -2377,4 +2377,8 @@
     <string name="core_update_reset_action">إعادة تعيين الإعدادات</string>
     <string name="core_update_reset_keep">الاحتفاظ بالإعدادات</string>
     <string name="core_update_reset_done">تمت إعادة تعيين الإعدادات</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest">PGXP: اختبار العمق للمضلعات الشفافة</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest_desc">يطبّق مخزن عمق PGXP على المضلعات الشفافة أيضًا. قد يصلح تشوهات العمق في بعض الألعاب، لكنه قد يسبب مشاكل في العرض في أخرى. يتطلب تفعيل تصحيح الهندسة.</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: التعطيل على المضلعات ثنائية الأبعاد</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">يستخدم إحداثيات الدقة الأصلية للمضلعات ثنائية الأبعاد بدلاً من الإحداثيات الدقيقة. قد يصلح العناصر والتأثيرات ثنائية الأبعاد غير المحاذية أو سيئة الألوان في بعض الألعاب؛ وإلا فالأفضل تركه معطلاً. يتطلب تفعيل تصحيح الهندسة.</string>
 </resources>

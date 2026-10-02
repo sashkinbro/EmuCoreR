@@ -2390,4 +2390,8 @@
     <string name="core_update_reset_action">Zresetuj ustawienia</string>
     <string name="core_update_reset_keep">Zachowaj ustawienia</string>
     <string name="core_update_reset_done">Ustawienia zresetowane</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest">PGXP: test głębi przezroczystych wielokątów</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest_desc">Stosuje bufor głębi PGXP również do przezroczystych wielokątów. Może naprawić artefakty głębi w niektórych grach, ale w innych powodować problemy z renderowaniem. Wymaga włączonej korekcji geometrii.</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: wyłącz dla wielokątów 2D</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Używa natywnych współrzędnych dla wielokątów 2D zamiast precyzyjnych. Może naprawić przesunięte lub źle pokolorowane elementy i efekty 2D w niektórych grach; w przeciwnym razie lepiej pozostawić wyłączone. Wymaga włączonej korekcji geometrii.</string>
 </resources>

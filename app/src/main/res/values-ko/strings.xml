@@ -2368,4 +2368,8 @@
     <string name="core_update_reset_action">설정 초기화</string>
     <string name="core_update_reset_keep">설정 유지</string>
     <string name="core_update_reset_done">설정이 초기화되었습니다</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest">PGXP: 투명 폴리곤 깊이 테스트</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest_desc">PGXP 깊이 버퍼를 투명 폴리곤에도 적용합니다. 일부 게임에서는 깊이 결함을 고칠 수 있지만, 다른 게임에서는 렌더링 문제를 일으킬 수 있습니다. 지오메트리 보정이 활성화되어 있어야 합니다.</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: 2D 폴리곤에서 비활성화</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">2D 폴리곤에 정밀 좌표 대신 기본 좌표를 사용합니다. 일부 게임에서 어긋나거나 색이 잘못된 2D 요소와 효과를 고칠 수 있지만, 그렇지 않으면 비활성으로 두는 것이 좋습니다. 지오메트리 보정이 활성화되어 있어야 합니다.</string>
 </resources>

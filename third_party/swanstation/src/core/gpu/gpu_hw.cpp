@@ -830,12 +830,21 @@ void GPU_HW::LoadVertices()
         {
           if (m_batch.use_depth_buffer)
             SetBatchDepthBuffer(false);
-          for (BatchVertex& v : vertices)
+          for (size_t i = 0; i < vertices.size(); i++)
+          {
+            BatchVertex& v = vertices[i];
+            if (g_settings.gpu_pgxp_disable_2d)
+            {
+              v.x = static_cast<float>(native_vertex_positions[i][0]);
+              v.y = static_cast<float>(native_vertex_positions[i][1]);
+            }
             v.w = 1.0f;
+          }
         }
         else if (g_settings.gpu_pgxp_depth_buffer)
         {
-          const bool use_depth = (m_batch.transparency_mode == GPUTransparencyMode::Disabled);
+          const bool use_depth = (m_batch.transparency_mode == GPUTransparencyMode::Disabled) ||
+                                 g_settings.gpu_pgxp_transparent_depth;
           if (m_batch.use_depth_buffer != use_depth)
             SetBatchDepthBuffer(use_depth);
           if (use_depth)

@@ -548,6 +548,33 @@ struct retro_core_option_v2_definition option_defs_us[] = {
      {NULL, NULL},
    },
    "false"},
+  {"swanstation_GPU_PGXPTransparentDepthTest",
+   "PGXP Depth Test Transparent Polygons",
+   NULL,
+   "Applies the PGXP depth buffer to transparent polygons as well. Can fix depth artifacts in some games, but may "
+   "cause rendering issues in others. Requires geometry correction enabled.",
+   NULL,
+   "enhancement",
+   {
+     {"true", "Enabled"},
+     {"false", "Disabled"},
+     {NULL, NULL},
+   },
+   "false"},
+  {"swanstation_GPU_PGXPDisableOn2DPolygons",
+   "PGXP Disable on 2D Polygons",
+   NULL,
+   "Uses native resolution coordinates for 2D polygons instead of precise coordinates. Can fix misaligned or wrongly "
+   "coloured 2D elements and effects in some games; otherwise should be left disabled. Requires geometry correction "
+   "enabled.",
+   NULL,
+   "enhancement",
+   {
+     {"true", "Enabled"},
+     {"false", "Disabled"},
+     {NULL, NULL},
+   },
+   "false"},
   {"swanstation_GPU_PGXPVertexCache",
    "PGXP Vertex Cache",
    NULL,

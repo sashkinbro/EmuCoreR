@@ -2369,4 +2369,8 @@
     <string name="core_update_reset_action">Ripristina impostazioni</string>
     <string name="core_update_reset_keep">Mantieni impostazioni</string>
     <string name="core_update_reset_done">Impostazioni ripristinate</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest">PGXP: depth test dei poligoni trasparenti</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest_desc">Applica il depth buffer PGXP anche ai poligoni trasparenti. Può correggere artefatti di profondità in alcuni giochi, ma causare problemi di rendering in altri. Richiede la correzione geometrica attiva.</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: disattiva sui poligoni 2D</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Usa coordinate native per i poligoni 2D invece di quelle precise. Può correggere elementi ed effetti 2D disallineati o con colori errati in alcuni giochi; altrimenti è meglio lasciarlo disattivato. Richiede la correzione geometrica attiva.</string>
 </resources>

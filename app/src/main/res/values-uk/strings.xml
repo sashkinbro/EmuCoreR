@@ -2374,4 +2374,8 @@
     <string name="core_update_reset_action">Скинути налаштування</string>
     <string name="core_update_reset_keep">Залишити як є</string>
     <string name="core_update_reset_done">Налаштування скинуто</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest">PGXP: тест глибини прозорих полігонів</string>
+    <string name="ss_core_gpu_pgxptransparentdepthtest_desc">Застосовує буфер глибини PGXP і до прозорих полігонів. Може виправити артефакти глибини в деяких іграх, але в інших спричинити проблеми рендерингу. Потрібне увімкнене виправлення геометрії.</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: вимкнути для 2D-полігонів</string>
+    <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Використовує нативні координати для 2D-полігонів замість точних. Може виправити зміщені або неправильно забарвлені 2D-елементи й ефекти в деяких іграх; інакше краще залишити вимкненим. Потрібне увімкнене виправлення геометрії.</string>
 </resources>
