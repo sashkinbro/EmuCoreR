@@ -354,13 +354,9 @@ internal object CoreRuntime {
         bridge.nativeSetOption("swanstation_GPU_UseThread", "true")
         bridge.nativeSetOption("swanstation_CDROM_ReadThread", "true")
         bridge.nativeSetOption("swanstation_Main_ApplyGameSettings", "true")
-        // Explicit user choices from the settings / game manager / in-game menu
+        // Explicit user choices from the settings screen, game manager and
+        // in-game menu (curated and full catalogue share one persisted store)
         // win over every derived default.
-        SwanStationOptions.all.forEach { option ->
-            SwanStationOptions.value(option.key)?.let { bridge.nativeSetOption(option.key, it) }
-        }
-        // Full catalogue overrides (settings screen / game manager / in-game
-        // menu) win over the curated defaults.
         SwanStationOptions.persistedEntries().forEach { (key, value) ->
             bridge.nativeSetOption(key, value)
         }
