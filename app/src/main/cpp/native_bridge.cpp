@@ -1399,14 +1399,6 @@ void RetroVideoRefresh(const void* data, unsigned width, unsigned height, size_t
         return;
     }
     if (data == RETRO_HW_FRAME_BUFFER_VALID) {
-        {
-            // Hardware frames carry the real output texture size; record it so
-            // the display-rect query and the performance overlay report the
-            // resolution that is actually being rendered.
-            std::lock_guard<std::mutex> lock(g_frontend.mutex);
-            g_frontend.frame_width = width;
-            g_frontend.frame_height = height;
-        }
         if (vulkan::IsActive()) {
             bool window_attached = false;
             {
@@ -2292,24 +2284,6 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_getFrameRate(JNIEnv*, jobject, jlon
     retro_system_av_info info{};
     retro_get_system_av_info(&info);
     return info.timing.fps;
-}
-
-// Returns {presentCpuNs, fenceWaitNs, coreSyncWaitNs, presentGpuNs, gpuValid}
-// for the most recently presented frame. Vulkan only; zeroes otherwise.
-JNIEXPORT jlongArray JNICALL
-Java_com_sbro_emucorer_core_NativeCoreBridge_nativeGetPresentStats(JNIEnv* env, jobject) {
-    const emucorer::vulkan::PresentStats stats = emucorer::vulkan::GetLastPresentStats();
-    jlongArray result = env->NewLongArray(5);
-    if (result == nullptr) return nullptr;
-    const jlong values[5] = {
-        static_cast<jlong>(stats.present_cpu_nanos),
-        static_cast<jlong>(stats.fence_wait_nanos),
-        static_cast<jlong>(stats.core_sync_wait_nanos),
-        static_cast<jlong>(stats.present_gpu_nanos),
-        stats.gpu_time_valid ? 1 : 0
-    };
-    env->SetLongArrayRegion(result, 0, 5, values);
-    return result;
 }
 
 JNIEXPORT jlongArray JNICALL

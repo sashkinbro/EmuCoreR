@@ -806,8 +806,7 @@ internal object CoreRuntime {
     }
 
     private fun publishPerformanceMetrics(fps: Double, frames: Int, frameNanos: Long,
-                                          audioStats: LongArray?, cpuLoadPercent: Double,
-                                          presentStats: LongArray?, avInfo: LongArray?) {
+                                          audioStats: LongArray?, cpuLoadPercent: Double) {
         if (frames <= 0 || !performanceMetricsEnabled) return
         val softwareRenderer = activeCoreRenderer == RendererDefaults.CORE_SOFTWARE
         val targetFps = 59.94
@@ -822,29 +821,11 @@ internal object CoreRuntime {
                 // overlay recognises it as the active backend and keeps it on
                 // its own bottom line instead of duplicating it inline.
                 append('\n').append(renderer).append(if (softwareRenderer) " SW |" else " HW |")
-                // Reported as a fraction of a single core: the emulator is
-                // mostly single-threaded, so a per-device average hides the
-                // real load on the frame worker.
                 append('\n').append("CPU:Host | ").append(String.format(Locale.US, "%.1f%%", cpuLoadPercent))
                 append('\n').append("GPU:Host")
                 if (gpuLoad != null) append(String.format(Locale.US, " | %.1f%%", gpuLoad))
-                if (avInfo != null && avInfo.size >= 2 && avInfo[0] > 0 && avInfo[1] > 0) {
-                    append('\n').append("Res:").append(avInfo[0]).append('x').append(avInfo[1])
-                    if (avInfo[0] != frameWidth.toLong() || avInfo[1] != frameHeight.toLong()) {
-                        append(" | Out:").append(frameWidth).append('x').append(frameHeight)
-                    }
-                } else {
-                    append('\n').append("Res:").append(frameWidth).append('x').append(frameHeight)
-                }
+                append('\n').append("Res:").append(frameWidth).append('x').append(frameHeight)
                 append('\n').append(String.format(Locale.US, "Frame:%.1f ms", frameMs))
-                if (presentStats != null && presentStats.size >= 5) {
-                    append('\n').append(String.format(Locale.US, "Present:%.1f | Sync:%.1f ms",
-                        presentStats[0] / 1_000_000.0, presentStats[2] / 1_000_000.0))
-                    if (presentStats[4] != 0L) {
-                        append('\n').append(String.format(Locale.US, "GPU present:%.1f ms",
-                            presentStats[3] / 1_000_000.0))
-                    }
-                }
                 if (audioStats != null && audioStats.size >= 8) {
                     append('\n').append(String.format(Locale.US, "Audio:%d Hz | queue %d", audioStats[2], audioStats[4]))
                 }
@@ -1005,26 +986,14 @@ internal object CoreRuntime {
                     val fps = metricsFrames * 1_000_000_000.0 / elapsed
                     val cpuNowMs = android.os.Process.getElapsedCpuTime()
                     val cpuDeltaMs = (cpuNowMs - metricsStartCpuMs).coerceAtLeast(0L)
-                    // Process CPU time across all threads relative to wall time:
-                    // 100% means one core fully busy, which is what the overlay
-                    // should show for the mostly single-threaded emulator.
+                    val cores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
                     val cpuLoad = if (elapsed > 0L) {
-                        cpuDeltaMs.toDouble() / (elapsed / 1_000_000.0) * 100.0
+                        cpuDeltaMs.toDouble() / (elapsed / 1_000_000.0) / cores * 100.0
                     } else {
                         0.0
                     }
-                    val presentStats = if (detailedPerformanceMetrics) {
-                        runCatching { bridge.nativeGetPresentStats() }.getOrNull()
-                    } else {
-                        null
-                    }
-                    val avInfo = if (detailedPerformanceMetrics) {
-                        runCatching { bridge.getAvInfo(session) }.getOrNull()
-                    } else {
-                        null
-                    }
                     publishPerformanceMetrics(fps, metricsFrames, metricsFrameTotalNanos,
-                        output.stats(), cpuLoad, presentStats, avInfo)
+                        output.stats(), cpuLoad)
                     metricsStartNanos = now
                     metricsStartCpuMs = cpuNowMs
                     metricsFrames = 0
