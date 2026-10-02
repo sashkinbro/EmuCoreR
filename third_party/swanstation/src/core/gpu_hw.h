@@ -626,8 +626,12 @@ protected:
   // Rect-based texture cache notifications. Called by GPU_HW when VRAM is
   // modified by CPU writes or GPU draws. The backend overrides these to
   // forward to GPUTexturePageCache::AddWrittenRectangle/AddDrawnRectangle.
+  // shadow_is_authoritative is false for check_mask writes and GPU-driven
+  // copies: their result depends on GPU state the CPU shadow does not track,
+  // so such rectangles are treated like draws by the cache.
   virtual void OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) {}
-  virtual void OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) {}
+  virtual void OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom,
+                                      bool shadow_is_authoritative) {}
 
   // Bounding box of VRAM area that the GPU has drawn into.
   Common::Rectangle<uint32_t> m_vram_dirty_rect;

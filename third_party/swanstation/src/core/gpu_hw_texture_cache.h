@@ -130,17 +130,6 @@ public:
     bool needs_upload;    // true when the CPU decoded data needs staging upload
   };
 
-  struct Stats
-  {
-    uint64_t lookups = 0;
-    uint64_t hits = 0;
-    uint64_t hash_reuses = 0;
-    uint64_t misses = 0;
-    uint64_t uploads = 0;
-    uint64_t invalidations = 0;
-    uint64_t drawn_rejections = 0;
-  };
-
   GPUTexturePageCache();
 
   // ---- Core lookup/invalidation API ----
@@ -160,9 +149,13 @@ public:
   // ---- Rectangle-based invalidation ----
 
   // Called on CPU VRAM writes (UpdateVRAM, FillVRAM, CopyVRAM).
-  // Invalidates entries whose texture/palette rects intersect the write,
-  // and removes the draw rects fully covered by the write (write-wins).
-  void AddWrittenRectangle(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom);
+  // Invalidates entries whose texture/palette rects intersect the write.
+  // shadow_is_authoritative is false for check_mask writes and GPU-driven
+  // copies: their result depends on GPU state the CPU shadow does not track,
+  // so the written rectangle is treated like a draw and stays excluded from
+  // the decoded cache.
+  void AddWrittenRectangle(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom,
+                           bool shadow_is_authoritative);
 
   // Called on GPU draws (from IncludeVRAMDirtyRectangle).
   // Invalidates entries whose texture/palette rects intersect the draw,
@@ -212,9 +205,6 @@ public:
 
   // Returns the number of currently allocated entries.
   uint32_t GetAllocatedCount() const { return m_allocated_count; }
-
-  // Monotonic statistics, for frame-boundary diagnostics.
-  const Stats& GetStats() const { return m_stats; }
 
 private:
   struct Entry
@@ -271,20 +261,16 @@ private:
   // number of entries flipped from valid to invalid.
   uint32_t InvalidateEntriesInRect(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
 
-  // Removes draw rects fully contained in the argument from all touched
-  // pages; partially covered rects are kept.
-  void ClearDrawRectsInRect(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
-
   // In-bounds implementations of the public rectangle notifications. The
   // public entry points split wrap-around transfers into up to four
   // in-bounds rectangles before calling these.
-  void AddWrittenRectangleInternal(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
+  void AddWrittenRectangleInternal(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom,
+                                   bool shadow_is_authoritative);
   void AddDrawnRectangleInternal(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
 
   Entry m_entries[MAX_ENTRIES];
   PageTracker m_page_trackers[NUM_VRAM_PAGES];
   DrawTracker m_draw_trackers[NUM_VRAM_PAGES];
-  Stats m_stats;
   uint64_t m_use_counter;
   uint32_t m_allocated_count;
 };

@@ -292,13 +292,9 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
                                                               uint64_t frame_number)
 {
   m_use_counter++;
-  m_stats.lookups++;
 
   if (AreSourcePagesDrawn(key))
-  {
-    m_stats.drawn_rejections++;
     return LookupResult{NO_SLOT, false, false, false};
-  }
 
   uint32_t free_slot = NO_SLOT;
   uint32_t lru_slot = NO_SLOT;
@@ -313,10 +309,7 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
       entry.last_used_frame = frame_number;
 
       if (entry.valid)
-      {
-        m_stats.hits++;
         return LookupResult{i, true, false, false};
-      }
 
       // The entry was invalidated by a write/draw that may not have changed
       // its actual content. Content-hash revalidation avoids a re-decode.
@@ -324,13 +317,10 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
       if (entry.decoded && hash_key == entry.hash_key)
       {
         entry.valid = true;
-        m_stats.hash_reuses++;
-        m_stats.hits++;
         return LookupResult{i, true, false, false};
       }
 
       entry.hash_key = hash_key;
-      m_stats.misses++;
       return LookupResult{i, false, false, true};
     }
 
@@ -352,10 +342,7 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
   const bool newly_allocated = (free_slot != NO_SLOT);
   const uint32_t slot = newly_allocated ? free_slot : lru_slot;
   if (slot == NO_SLOT)
-  {
-    m_stats.misses++;
     return LookupResult{NO_SLOT, false, false, false};
-  }
 
   Entry& entry = m_entries[slot];
   if (entry.allocated)
@@ -375,7 +362,6 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
 
   RegisterEntryInPages(slot);
 
-  m_stats.misses++;
   return LookupResult{slot, false, newly_allocated, true};
 }
 
@@ -385,7 +371,6 @@ void GPUTexturePageCache::MarkDecoded(uint32_t slot)
     return;
   m_entries[slot].valid = true;
   m_entries[slot].decoded = true;
-  m_stats.uploads++;
 }
 
 void GPUTexturePageCache::InvalidateAll()
@@ -443,54 +428,12 @@ uint32_t GPUTexturePageCache::InvalidateEntriesInRect(uint16_t left, uint16_t to
     }
   }
 
-  m_stats.invalidations += invalidated;
   return invalidated;
 }
 
-void GPUTexturePageCache::ClearDrawRectsInRect(uint16_t left, uint16_t top, uint16_t right,
-                                               uint16_t bottom)
-{
-  const auto contained = [left, top, right, bottom](const Rect& r) {
-    return r.left >= left && r.top >= top && r.right <= right && r.bottom <= bottom;
-  };
-
-  uint32_t pages = GetPageMask(left, top, right, bottom);
-  while (pages != 0)
-  {
-    const uint32_t page = static_cast<uint32_t>(__builtin_ctz(pages));
-    pages &= ~(1u << page);
-
-    DrawTracker& dt = m_draw_trackers[page];
-    if (dt.count == 0 && !dt.saturated)
-      continue;
-
-    if (dt.saturated)
-    {
-      // The precise rects were collapsed into the union; it can only be
-      // cleared when the write covers every draw recorded for this page.
-      if (contained(dt.total))
-      {
-        dt.count = 0;
-        dt.saturated = false;
-        dt.total = {};
-      }
-      continue;
-    }
-
-    uint32_t write_index = 0;
-    for (uint32_t i = 0; i < dt.count; i++)
-    {
-      if (!contained(dt.rects[i]))
-        dt.rects[write_index++] = dt.rects[i];
-    }
-    dt.count = static_cast<uint8_t>(write_index);
-    if (dt.count == 0)
-      dt.total = {};
-  }
-}
-
 void GPUTexturePageCache::AddWrittenRectangle(uint32_t left, uint32_t top,
-                                              uint32_t right, uint32_t bottom)
+                                              uint32_t right, uint32_t bottom,
+                                              bool shadow_is_authoritative)
 {
   if (left >= right || top >= bottom)
     return;
@@ -513,26 +456,42 @@ void GPUTexturePageCache::AddWrittenRectangle(uint32_t left, uint32_t top,
   const uint16_t wx = static_cast<uint16_t>(wrap_width);
   const uint16_t wy = static_cast<uint16_t>(wrap_height);
 
-  AddWrittenRectangleInternal(x0, y0, x1, y1);
+  AddWrittenRectangleInternal(x0, y0, x1, y1, shadow_is_authoritative);
   if (wx > 0)
-    AddWrittenRectangleInternal(0, y0, wx, y1);
+    AddWrittenRectangleInternal(0, y0, wx, y1, shadow_is_authoritative);
   if (wy > 0)
   {
-    AddWrittenRectangleInternal(x0, 0, x1, wy);
+    AddWrittenRectangleInternal(x0, 0, x1, wy, shadow_is_authoritative);
     if (wx > 0)
-      AddWrittenRectangleInternal(0, 0, wx, wy);
+      AddWrittenRectangleInternal(0, 0, wx, wy, shadow_is_authoritative);
   }
 }
 
 void GPUTexturePageCache::AddWrittenRectangleInternal(uint16_t left, uint16_t top,
-                                                      uint16_t right, uint16_t bottom)
+                                                      uint16_t right, uint16_t bottom,
+                                                      bool shadow_is_authoritative)
 {
   if (left >= right || top >= bottom)
     return;
 
-  // Write-wins: draw rects fully covered by the write are no longer needed.
-  ClearDrawRectsInRect(left, top, right, bottom);
-  InvalidateEntriesInRect(left, top, right, bottom);
+  if (shadow_is_authoritative)
+  {
+    // The CPU shadow reproduces this write exactly, so the entries it
+    // overlaps are simply re-decoded on their next use. Draw rects are left
+    // in place: a CPU write can land in the shadow while the GPU buffer still
+    // holds pixels the game samples (e.g. a back buffer that was drawn a
+    // frame earlier and only cleared now), and clearing them served stale
+    // pages. Drawn regions stay excluded until the cache is invalidated.
+    InvalidateEntriesInRect(left, top, right, bottom);
+  }
+  else
+  {
+    // check_mask writes and GPU-driven copies resolve against GPU state the
+    // CPU shadow does not track, so their result is not reproducible from the
+    // shadow. Treat the written rectangle like a draw: intersecting entries
+    // are invalidated and the region stays out of the decoded cache.
+    AddDrawnRectangleInternal(left, top, right, bottom);
+  }
 }
 
 void GPUTexturePageCache::AddDrawnRectangle(uint32_t left, uint32_t top,

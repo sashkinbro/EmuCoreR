@@ -286,7 +286,8 @@ private:
   bool IsTexturePageCacheEnabled() const override;
 
   void OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) override;
-  void OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) override;
+  void OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom,
+                              bool shadow_is_authoritative) override;
 
   GPUTexturePageCache m_texture_page_cache;
   std::array<PageResource, GPUTexturePageCache::MAX_ENTRIES> m_page_resources;
@@ -297,9 +298,6 @@ private:
   std::vector<uint32_t> m_page_decode_scratch;
 
 
-  // Decode statistics, logged once per ~2 seconds to correlate visual glitches.
-  uint32_t m_page_decode_count = 0;
-  uint32_t m_page_decode_count_at_last_log = 0;
   // Decodes performed in the frame currently being ended, used to budget the
   // decode work in DrawBatchVertices.
   uint32_t m_page_decodes_this_frame = 0;

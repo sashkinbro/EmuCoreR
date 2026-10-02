@@ -1474,10 +1474,10 @@ void GPU_HW::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, u
   // shadow is otherwise only refreshed by VRAM readbacks. Only the Vulkan
   // backend consumes it; the software renderer-for-readbacks mode owns a
   // separate VRAM buffer and is excluded.
-  // Notify the rect-based texture cache of a CPU write (clears draw-rects
-  // on written pages and invalidates overlapping entries).
+  // Notify the rect-based texture cache of a CPU write. Fills have no mask,
+  // so the CPU shadow reproduces their result exactly.
   if (IsTexturePageCacheEnabled())
-    OnVRAMWrittenRectangle(x, x + width, y, y + height);
+    OnVRAMWrittenRectangle(x, x + width, y, y + height, true);
 
   // Keep the CPU-side VRAM shadow current. The texture page cache decodes
   // from m_vram_shadow, so it must always be up to date.
@@ -1495,9 +1495,12 @@ void GPU_HW::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height,
   // still has the original (possibly wrapping) coordinates.
   IncludeVRAMDirtyRectangle(Common::Rectangle<uint32_t>::FromExtents(x, y, width, height));
 
-  // Notify the texture cache of a CPU write.
+  // Notify the texture cache of a CPU write. check_mask resolves the write
+  // against destination bits whose source is the CPU shadow, which is stale
+  // wherever the GPU produced pixels, so only unmasked writes are
+  // authoritative for the shadow.
   if (IsTexturePageCacheEnabled())
-    OnVRAMWrittenRectangle(x, x + width, y, y + height);
+    OnVRAMWrittenRectangle(x, x + width, y, y + height, !check_mask);
 
   if (check_mask)
   {
@@ -1513,9 +1516,11 @@ void GPU_HW::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uint32_t d
   IncludeVRAMDirtyRectangle(
     Common::Rectangle<uint32_t>::FromExtents(dst_x, dst_y, width, height).Clamped(0, 0, VRAM_WIDTH, VRAM_HEIGHT));
 
-  // Notify the texture cache of a CPU write (CopyVRAM is a CPU-initiated transfer).
+  // Notify the texture cache of a CPU-initiated transfer. The destination is
+  // produced by the GPU from a source that may contain GPU draws, so the CPU
+  // shadow cannot reproduce it.
   if (IsTexturePageCacheEnabled())
-    OnVRAMWrittenRectangle(dst_x, dst_x + width, dst_y, dst_y + height);
+    OnVRAMWrittenRectangle(dst_x, dst_x + width, dst_y, dst_y + height, false);
 
   if (m_GPUSTAT.check_mask_before_draw)
   {

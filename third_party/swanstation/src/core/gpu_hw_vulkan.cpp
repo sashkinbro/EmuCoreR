@@ -1370,7 +1370,6 @@ bool GPU_HW_Vulkan::CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCa
   tex.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
   res.current = next;
-  m_page_decode_count++;
   m_page_decodes_this_frame++;
   return true;
 }
@@ -1398,10 +1397,11 @@ void GPU_HW_Vulkan::OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t
     m_texture_page_cache.AddDrawnRectangle(left, top, right, bottom);
 }
 
-void GPU_HW_Vulkan::OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom)
+void GPU_HW_Vulkan::OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom,
+                                           bool shadow_is_authoritative)
 {
   if (IsTexturePageCacheEnabled())
-    m_texture_page_cache.AddWrittenRectangle(left, top, right, bottom);
+    m_texture_page_cache.AddWrittenRectangle(left, top, right, bottom, shadow_is_authoritative);
 }
 
 void GPU_HW_Vulkan::DestroyPageCacheResources()
@@ -3452,24 +3452,6 @@ void GPU_HW_Vulkan::UpdateDisplay()
 
   m_page_frame_number++;
   m_texture_page_cache.Compact(m_page_frame_number);
-
-  // Page cache churn diagnostics: a healthy scene settles to near-zero
-  // re-decodes once its textures are resident.
-  if ((m_page_frame_number % 120u) == 0u)
-  {
-    const uint32_t decodes = m_page_decode_count - m_page_decode_count_at_last_log;
-    m_page_decode_count_at_last_log = m_page_decode_count;
-    const GPUTexturePageCache::Stats& stats = m_texture_page_cache.GetStats();
-    Log_InfoPrintf("[PageCache] %u decodes/120f | entries %u | lookups %llu hits %llu reuses %llu "
-                   "misses %llu invalidations %llu drawn %llu",
-                   decodes, m_texture_page_cache.GetAllocatedCount(),
-                   static_cast<unsigned long long>(stats.lookups),
-                   static_cast<unsigned long long>(stats.hits),
-                   static_cast<unsigned long long>(stats.hash_reuses),
-                   static_cast<unsigned long long>(stats.misses),
-                   static_cast<unsigned long long>(stats.invalidations),
-                   static_cast<unsigned long long>(stats.drawn_rejections));
-  }
 
   // Replacement shadow sync runs at the frame boundary, after all rendering
   // for this frame has been recorded. Never during draws: mid-frame readbacks
