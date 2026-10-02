@@ -2375,4 +2375,6 @@
     <string name="ss_core_gpu_pgxptransparentdepthtest_desc">Aplica también el búfer de profundidad de PGXP a los polígonos transparentes. Puede corregir artefactos de profundidad en algunos juegos, pero causar problemas de renderizado en otros. Requiere la corrección de geometría activada.</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: desactivar en polígonos 2D</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Usa coordenadas nativas para los polígonos 2D en lugar de coordenadas precisas. Puede corregir elementos y efectos 2D desalineados o mal coloreados en algunos juegos; por lo demás, conviene dejarlo desactivado. Requiere la corrección de geometría activada.</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions">Excepciones de memoria del recompilador de CPU</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions_desc">Activa las excepciones de memoria en el recompilador, capturando accesos a memoria no alineados. Puede mejorar la compatibilidad con algunos juegos, pero reduce el rendimiento.</string>
 </resources>

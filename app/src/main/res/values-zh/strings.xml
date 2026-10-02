@@ -2374,4 +2374,6 @@
     <string name="ss_core_gpu_pgxptransparentdepthtest_desc">也将 PGXP 深度缓冲应用于透明多边形。可修复部分游戏中的深度瑕疵，但可能在其他游戏中导致渲染问题。需要启用几何修正。</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP：对 2D 多边形禁用</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">对 2D 多边形使用原生坐标而非精确坐标。可修复部分游戏中错位或颜色错误的 2D 元素和特效；否则建议保持禁用。需要启用几何修正。</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions">CPU 重编译器内存异常</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions_desc">在重编译器中启用内存异常，捕获未对齐的内存访问。可提高部分游戏的兼容性，但会降低性能。</string>
 </resources>

@@ -2378,4 +2378,6 @@
     <string name="ss_core_gpu_pgxptransparentdepthtest_desc">Застосовує буфер глибини PGXP і до прозорих полігонів. Може виправити артефакти глибини в деяких іграх, але в інших спричинити проблеми рендерингу. Потрібне увімкнене виправлення геометрії.</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: вимкнути для 2D-полігонів</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Використовує нативні координати для 2D-полігонів замість точних. Може виправити зміщені або неправильно забарвлені 2D-елементи й ефекти в деяких іграх; інакше краще залишити вимкненим. Потрібне увімкнене виправлення геометрії.</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions">Винятки пам\'яті рекомпілятора CPU</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions_desc">Вмикає обробку винятків пам\'яті в рекомпіляторі, перехоплюючи невирівняні звернення до пам\'яті. Може покращити сумісність із деякими іграми, але знижує продуктивність.</string>
 </resources>

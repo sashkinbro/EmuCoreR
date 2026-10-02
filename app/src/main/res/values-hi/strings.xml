@@ -2373,4 +2373,6 @@
     <string name="ss_core_gpu_pgxptransparentdepthtest_desc">PGXP गहराई बफ़र को पारदर्शी पॉलीगॉन पर भी लागू करता है। कुछ गेम में गहराई संबंधी गड़बड़ियों को ठीक कर सकता है, पर अन्य में रेंडरिंग समस्याएँ पैदा कर सकता है। ज्यामिति सुधार सक्षम होना चाहिए।</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: 2D पॉलीगॉन पर अक्षम करें</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">सटीक निर्देशांकों के बजाय 2D पॉलीगॉन के लिए मूल निर्देशांकों का उपयोग करता है। कुछ गेम में गलत संरेखित या गलत रंग वाले 2D तत्वों और प्रभावों को ठीक कर सकता है; अन्यथा इसे अक्षम ही रखें। ज्यामिति सुधार सक्षम होना चाहिए।</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions">CPU रीकंपाइलर मेमोरी अपवाद</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions_desc">रीकंपाइलर में मेमोरी अपवाद सक्षम करता है और असंरेखित मेमोरी एक्सेस पकड़ता है। कुछ गेम के साथ संगतता सुधार सकता है, पर प्रदर्शन घटाता है।</string>
 </resources>

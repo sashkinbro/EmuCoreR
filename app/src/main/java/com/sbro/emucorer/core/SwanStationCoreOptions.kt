@@ -4096,6 +4096,17 @@ object SwanStationCoreOptions {
             defaultValue = "false",
         ),
         Option(
+            key = "swanstation_CPU_RecompilerMemoryExceptions",
+            label = "CPU Recompiler Memory Exceptions",
+            description = "Enables memory exceptions in the recompiler, catching unaligned memory accesses. Can improve compatibility with some games, but reduces performance.",
+            category = "advanced",
+            choices = listOf(
+                Choice("true", "Enabled"),
+                Choice("false", "Disabled"),
+            ),
+            defaultValue = "false",
+        ),
+        Option(
             key = "swanstation_CPU_RecompilerBlockLinking",
             label = "CPU Recompiler Block Linking",
             description = "Enables the generated code to directly jump between blocks without going through the dispatcher. Provides a measurable speed boost.",

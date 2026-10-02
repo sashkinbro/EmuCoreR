@@ -2387,4 +2387,6 @@
     <string name="ss_core_gpu_pgxptransparentdepthtest_desc">Menerapkan buffer kedalaman PGXP ke poligon transparan juga. Dapat memperbaiki artefak kedalaman di sebagian game, tetapi menimbulkan masalah rendering di game lain. Memerlukan koreksi geometri yang aktif.</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: nonaktifkan pada poligon 2D</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Menggunakan koordinat asli untuk poligon 2D, bukan koordinat presisi. Dapat memperbaiki elemen dan efek 2D yang tidak sejajar atau salah warna di sebagian game; jika tidak, sebaiknya dibiarkan nonaktif. Memerlukan koreksi geometri yang aktif.</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions">Pengecualian memori rekompilator CPU</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions_desc">Mengaktifkan pengecualian memori di rekompilator, menangkap akses memori yang tidak selaras. Dapat meningkatkan kompatibilitas dengan sebagian game, tetapi menurunkan performa.</string>
 </resources>

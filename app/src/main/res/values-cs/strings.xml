@@ -2394,4 +2394,6 @@
     <string name="ss_core_gpu_pgxptransparentdepthtest_desc">Aplikuje hloubkový buffer PGXP i na průhledné polygony. Může opravit hloubkové artefakty v některých hrách, ale v jiných způsobit chyby vykreslování. Vyžaduje zapnutou korekci geometrie.</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: vypnout pro 2D polygony</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Používá nativní souřadnice pro 2D polygony místo přesných souřadnic. Může opravit posunuté nebo špatně obarvené 2D prvky a efekty v některých hrách; jinak je lepší ponechat vypnuté. Vyžaduje zapnutou korekci geometrie.</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions">Výjimky paměti rekompilátoru CPU</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions_desc">Zapíná výjimky paměti v rekompilátoru a zachytává nezarovnané přístupy do paměti. Může zlepšit kompatibilitu s některými hrami, ale snižuje výkon.</string>
 </resources>

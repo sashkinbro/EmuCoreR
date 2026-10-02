@@ -2375,4 +2375,6 @@
     <string name="ss_core_gpu_pgxptransparentdepthtest_desc">Wendet den PGXP-Tiefenpuffer auch auf transparente Polygone an. Kann Tiefenartefakte in manchen Spielen beheben, in anderen aber Rendering-Probleme verursachen. Erfordert aktivierte Geometriekorrektur.</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP auf 2D-Polygone deaktivieren</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Verwendet native Koordinaten für 2D-Polygone statt präziser Koordinaten. Kann falsch ausgerichtete oder falsch gefärbte 2D-Elemente und Effekte in manchen Spielen korrigieren; sollte sonst deaktiviert bleiben. Erfordert aktivierte Geometriekorrektur.</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions">CPU-Recompiler-Speicherausnahmen</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions_desc">Aktiviert Speicherausnahmen im Recompiler, um unausgerichtete Speicherzugriffe abzufangen. Kann die Kompatibilität mit einigen Spielen verbessern, senkt aber die Leistung.</string>
 </resources>

@@ -2372,4 +2372,6 @@
     <string name="ss_core_gpu_pgxptransparentdepthtest_desc">PGXP 깊이 버퍼를 투명 폴리곤에도 적용합니다. 일부 게임에서는 깊이 결함을 고칠 수 있지만, 다른 게임에서는 렌더링 문제를 일으킬 수 있습니다. 지오메트리 보정이 활성화되어 있어야 합니다.</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: 2D 폴리곤에서 비활성화</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">2D 폴리곤에 정밀 좌표 대신 기본 좌표를 사용합니다. 일부 게임에서 어긋나거나 색이 잘못된 2D 요소와 효과를 고칠 수 있지만, 그렇지 않으면 비활성으로 두는 것이 좋습니다. 지오메트리 보정이 활성화되어 있어야 합니다.</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions">CPU 리컴파일러 메모리 예외</string>
+    <string name="ss_core_cpu_recompilermemoryexceptions_desc">리컴파일러에서 메모리 예외를 활성화하여 정렬되지 않은 메모리 접근을 감지합니다. 일부 게임과의 호환성을 높일 수 있지만 성능이 저하됩니다.</string>
 </resources>
