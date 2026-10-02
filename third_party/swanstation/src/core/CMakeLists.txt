@@ -1,119 +1,120 @@
 add_library(core
-    analog_controller.cpp
+    input/analog_controller.cpp
     analog_controller.h
-    analog_joystick.cpp
+    input/analog_joystick.cpp
     analog_joystick.h
-    bios.cpp
+    system/bios.cpp
     bios.h
-    bus.cpp
+    system/bus.cpp
     bus.h
-    cdrom.cpp
+    cdrom/cdrom.cpp
     cdrom.h
-    cdrom_async_reader.cpp
+    cdrom/cdrom_async_reader.cpp
     cdrom_async_reader.h
-    cheats.cpp
+    system/cheats.cpp
     cheats.h
-    controller.cpp
+    input/controller.cpp
     controller.h
-    cpu_code_cache.cpp
+    cpu/cpu_code_cache.cpp
     cpu_code_cache.h
-    cpu_core.cpp
+    cpu/cpu_core.cpp
     cpu_core.h
     cpu_core_private.h
-    cpu_types.cpp
+    cpu/cpu_types.cpp
     cpu_types.h
-    digital_controller.cpp
+    input/digital_controller.cpp
     digital_controller.h
-    dma.cpp
+    system/dma.cpp
     dma.h
-    gpu.cpp
+    gpu/gpu.cpp
     gpu.h
-    gpu_backend.cpp
+    gpu/gpu_backend.cpp
     gpu_backend.h
-    gpu_commands.cpp
-    gpu_hw.cpp
+    gpu/gpu_commands.cpp
+    gpu/gpu_hw.cpp
     gpu_hw.h
-    gpu_hw_opengl.cpp
+    gpu/gpu_hw_opengl.cpp
     gpu_hw_opengl.h
-    gpu_hw_shadergen.cpp
+    gpu/gpu_hw_shadergen.cpp
     gpu_hw_shadergen.h
-    gpu_hw_texture_cache.cpp
+    gpu/gpu_hw_texture_cache.cpp
     gpu_hw_texture_cache.h
-    gpu_hw_vulkan.cpp
+    gpu/gpu_hw_vulkan.cpp
     gpu_hw_vulkan.h
-    gpu_sw.cpp
+    gpu/gpu_sw.cpp
     gpu_sw.h
-    gpu_sw_backend.cpp
+    gpu/gpu_sw_backend.cpp
     gpu_sw_backend.h
     gpu_types.h
-    gte.cpp
+    cpu/gte.cpp
     gte.h
     gte_types.h
-    host_display.cpp
+    system/host_display.cpp
     host_display.h
-    host_interface.cpp
+    system/host_interface.cpp
     host_interface.h
-    host_interface_progress_callback.cpp
+    system/host_interface_progress_callback.cpp
     host_interface_progress_callback.h
-    interrupt_controller.cpp
+    system/interrupt_controller.cpp
     interrupt_controller.h
-    libcrypt_game_codes.cpp
+    cdrom/libcrypt_game_codes.cpp
     libcrypt_game_codes.h
-    mdec.cpp
+    cdrom/mdec.cpp
     mdec.h
-    memory_card.cpp
+    system/memory_card.cpp
     memory_card.h
-    memory_card_image.cpp
+    system/memory_card_image.cpp
     memory_card_image.h
-    multitap.cpp
+    input/multitap.cpp
     multitap.h
-    namco_guncon.cpp
+    input/namco_guncon.cpp
     namco_guncon.h
-    negcon.cpp
+    input/negcon.cpp
     negcon.h
-    negcon_rumble.cpp
+    input/negcon_rumble.cpp
     negcon_rumble.h
-    pad.cpp
+    input/pad.cpp
     pad.h
-    pgxp.cpp
+    cpu/pgxp.cpp
     pgxp.h
-    playstation_mouse.cpp
+    input/playstation_mouse.cpp
     playstation_mouse.h
-    psf_loader.cpp
+    cdrom/psf_loader.cpp
     psf_loader.h
-    resources.cpp
+    system/resources.cpp
     resources.h
     save_state_version.h
-    settings.cpp
+    system/settings.cpp
     settings.h
     shader_cache_version.h
-    shadergen.cpp
+    gpu/shadergen.cpp
     shadergen.h
-    sio.cpp
+    system/sio.cpp
     sio.h
-    spu.cpp
+    spu/spu.cpp
     spu.h
-    system.cpp
+    system/system.cpp
     system.h
-    texture_replacements.cpp
+    gpu/texture_replacements.cpp
     texture_replacements.h
-    timers.cpp
+    system/timers.cpp
     timers.h
-    timing_event.cpp
+    system/timing_event.cpp
     timing_event.h
     types.h
 )
 
 set(RECOMPILER_SRCS
-    cpu_recompiler_code_generator.cpp
+    cpu/cpu_recompiler_code_generator.cpp
     cpu_recompiler_code_generator.h
-    cpu_recompiler_code_generator_generic.cpp
-    cpu_recompiler_register_cache.cpp
+    cpu/cpu_recompiler_code_generator_generic.cpp
+    cpu/cpu_recompiler_register_cache.cpp
     cpu_recompiler_register_cache.h
     cpu_recompiler_thunks.h
     cpu_recompiler_types.h
 )
 
+target_include_directories(core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(core PUBLIC Threads::Threads common miniz libretro-common vulkan-loader)
@@ -121,12 +122,12 @@ target_link_libraries(core PRIVATE glad openbios stb xxhash)
 
 if(WIN32)
   target_sources(core PRIVATE
-    gpu_hw_d3d11.cpp
+    gpu/gpu_hw_d3d11.cpp
     gpu_hw_d3d11.h
   )
   if(USE_D3D12)
     target_sources(core PRIVATE
-      gpu_hw_d3d12.cpp
+      gpu/gpu_hw_d3d12.cpp
       gpu_hw_d3d12.h
     )
   endif()
@@ -137,20 +138,20 @@ if(${CPU_ARCH} STREQUAL "x64")
   target_include_directories(core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../dep/xbyak/xbyak")
   target_compile_definitions(core PUBLIC "WITH_RECOMPILER=1" "WITH_MMAP_FASTMEM=1")
   target_sources(core PRIVATE ${RECOMPILER_SRCS}
-    cpu_recompiler_code_generator_x64.cpp
+    cpu/cpu_recompiler_code_generator_x64.cpp
   )
   message("Building x64 recompiler")
 elseif(${CPU_ARCH} STREQUAL "aarch32")
   target_compile_definitions(core PUBLIC "WITH_RECOMPILER=1")
   target_sources(core PRIVATE ${RECOMPILER_SRCS}
-    cpu_recompiler_code_generator_aarch32.cpp
+    cpu/cpu_recompiler_code_generator_aarch32.cpp
   )
   target_link_libraries(core PUBLIC vixl)
   message("Building AArch32 recompiler")
 elseif(${CPU_ARCH} STREQUAL "aarch64")
   target_compile_definitions(core PUBLIC "WITH_RECOMPILER=1" "WITH_MMAP_FASTMEM=1")
   target_sources(core PRIVATE ${RECOMPILER_SRCS}
-    cpu_recompiler_code_generator_aarch64.cpp
+    cpu/cpu_recompiler_code_generator_aarch64.cpp
   )
   target_link_libraries(core PUBLIC vixl)
   message("Building AArch64 recompiler")
