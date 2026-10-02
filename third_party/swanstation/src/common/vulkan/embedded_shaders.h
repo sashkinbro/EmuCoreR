@@ -316,20 +316,6 @@ const EmbeddedShaderBlob& GetBatchTexturedXBRFragmentShaderBlob(bool msaa,
                                                                 bool noperspective_color,
                                                                 bool dual_source);
 
-// Texture page decode FS. One blob per page format; the decode pass renders a
-// 256x256 RGBA8 page texture from the scaled VRAM read texture so batch draws
-// can sample it with ordinary hardware filtering. The selector takes the
-// native GPUTextureMode value (0 = 4-bit, 1 = 8-bit, 2 = 16-bit direct).
-extern const uint32_t k_decode_page_fs_palette4[];
-extern const size_t k_decode_page_fs_palette4_size_bytes;
-extern const uint32_t k_decode_page_fs_palette8[];
-extern const size_t k_decode_page_fs_palette8_size_bytes;
-extern const uint32_t k_decode_page_fs_direct16[];
-extern const size_t k_decode_page_fs_direct16_size_bytes;
-
-const EmbeddedShaderBlob& GetDecodePageFragmentShaderBlob(uint32_t texture_mode);
-
-
 // Create a VkShaderModule directly from a pre-compiled SPIR-V blob.
 //
 // This intentionally bypasses Vulkan::ShaderCache: pre-baked SPIR-V is already

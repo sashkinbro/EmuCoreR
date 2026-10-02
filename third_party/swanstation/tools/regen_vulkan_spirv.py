@@ -156,14 +156,6 @@ def _batch_fs_textured_filter_variants():
     return out
 
 
-def _decode_page_variants():
-    return [
-        ("palette4", ["PAGE_PALETTE_4_BIT"]),
-        ("palette8", ["PAGE_PALETTE_8_BIT"]),
-        ("direct16", ["PAGE_DIRECT_16_BIT"]),
-    ]
-
-
 TEMPLATE_VARIANTS = {
     "batch.vert.glsl":                      _batch_vs_variants(),
     "batch_untextured.frag.glsl":           _batch_fs_untextured_variants(),
@@ -171,7 +163,6 @@ TEMPLATE_VARIANTS = {
     "batch_textured_bilinear.frag.glsl":    _batch_fs_textured_filter_variants(),
     "batch_textured_jinc2.frag.glsl":       _batch_fs_textured_filter_variants(),
     "batch_textured_xbr.frag.glsl":         _batch_fs_textured_filter_variants(),
-    "decode_page.frag.glsl":                _decode_page_variants(),
 }
 
 

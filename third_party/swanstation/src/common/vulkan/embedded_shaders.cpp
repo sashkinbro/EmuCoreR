@@ -59,9 +59,6 @@ namespace Vulkan::EmbeddedShaders {
 #include "embedded_spirv/batch_textured_nearest_fs_centroid_persp_nodual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_none_noperp_dual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_none_noperp_nodual.inc"
-#include "embedded_spirv/decode_page_fs_direct16.inc"
-#include "embedded_spirv/decode_page_fs_palette4.inc"
-#include "embedded_spirv/decode_page_fs_palette8.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_none_persp_dual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_none_persp_nodual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_sample_noperp_dual.inc"
@@ -396,22 +393,6 @@ const EmbeddedShaderBlob& GetBatchTexturedXBRFragmentShaderBlob(bool msaa,
   const unsigned dual   = dual_source ? 1u : 0u;
   const unsigned index  = interp * 4u + persp * 2u + dual;
   return k_batch_textured_xbr_fs_blobs[index];
-}
-
-// Texture page decode FS blobs. Indexed by the native GPUTextureMode value:
-// 0 = 4-bit paletted, 1 = 8-bit paletted, 2 = 16-bit direct.
-#define BLOB(name) { k_##name, k_##name##_size_bytes }
-static const EmbeddedShaderBlob k_decode_page_fs_blobs[3] = {
-  BLOB(decode_page_fs_palette4),
-  BLOB(decode_page_fs_palette8),
-  BLOB(decode_page_fs_direct16),
-};
-#undef BLOB
-
-const EmbeddedShaderBlob& GetDecodePageFragmentShaderBlob(uint32_t texture_mode)
-{
-  const uint32_t index = (texture_mode < 3u) ? texture_mode : 2u;
-  return k_decode_page_fs_blobs[index];
 }
 
 VkShaderModule CreateShaderModule(const uint32_t* spv, size_t spv_size_bytes)
