@@ -360,6 +360,16 @@ internal object CoreRuntime {
         SwanStationOptions.persistedEntries().forEach { (key, value) ->
             bridge.nativeSetOption(key, value)
         }
+        // The core's internal defaults for these PGXP options differ from the
+        // curated catalogue defaults shown in the UI. Seed the catalogue values
+        // when the user has not overridden them, otherwise Geometry Correction
+        // silently enables perspective-correct textures/culling while the
+        // settings screen claims they are disabled.
+        for (key in PGXP_UI_DEFAULT_KEYS) {
+            if (SwanStationOptions.value(key) == null) {
+                SwanStationCoreOptions.option(key)?.defaultValue?.let { bridge.nativeSetOption(key, it) }
+            }
+        }
         // The core's internal default Crop Mode is "Overscan", which hides the
         // inactive rows games commonly leave at the top and bottom of their
         // display range. The libretro option table advertises "Borders"
@@ -1172,4 +1182,11 @@ internal object CoreRuntime {
     // treated as Overscan, so invalid persisted values must be migrated.
     private val SWANSTATION_CROP_MODES = setOf("None", "Overscan", "Borders")
     private const val SWANSTATION_CROP_MODES_DEFAULT = "Overscan"
+
+    // PGXP options whose core-side defaults (true) disagree with the curated
+    // catalogue defaults (false) shown in the settings UI.
+    private val PGXP_UI_DEFAULT_KEYS = listOf(
+        "swanstation_GPU_PGXPCulling",
+        "swanstation_GPU_PGXPTextureCorrection",
+    )
 }
