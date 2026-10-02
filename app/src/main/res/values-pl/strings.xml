@@ -1693,10 +1693,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Wygładza bloki na przejściach kolorów w treściach 24-bitowych, zwykle w filmach. Dotyczy tylko rendererów sprzętowych.</string>
     <string name="ss_core_gpu_texturefilter">Filtrowanie tekstur</string>
     <string name="ss_core_gpu_texturefilter_desc">Wygładza bloki powiększonych tekstur na obiektach 3D za pomocą filtrowania bilinearnego. Ma większy efekt przy wyższych skalach rozdzielczości. Dotyczy tylko rendererów sprzętowych.</string>
-    <string name="ss_core_choice_nearest_neighbor">Najbliższy sąsiad</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinearne (bez mieszania krawędzi)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (bez mieszania krawędzi)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (bez mieszania krawędzi)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Hack szerokiego ekranu</string>
     <string name="ss_core_gpu_widescreenhack_desc">Zwiększa pole widzenia z 4:3 do wybranych proporcji obrazu w grach 3D. W grach 2D lub grach z prerenderowanym tłem to ulepszenie nie zadziała zgodnie z oczekiwaniami.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: korekcja geometrii</string>
@@ -1976,7 +1976,7 @@
     <string name="ss_core_choice_interpreter">Interpreter</string>
     <string name="ss_core_choice_recompiler">Rekompilator</string>
     <string name="ss_core_choice_software">Programowy</string>
-    <string name="ss_core_choice_bilinear">Bilinearne</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">Własne</string>
     <string name="ss_core_choice_error">Błąd</string>
     <string name="ss_core_choice_warning">Ostrzeżenie</string>

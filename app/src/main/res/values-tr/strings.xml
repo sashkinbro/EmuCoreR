@@ -1672,10 +1672,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Genellikle FMV olan 24 bit içerikte renk geçişleri arasındaki bloklanmayı yumuşatır. Yalnızca donanım oluşturucuları için geçerlidir.</string>
     <string name="ss_core_gpu_texturefilter">Doku filtreleme</string>
     <string name="ss_core_gpu_texturefilter_desc">3D nesnelerde büyütülmüş dokuların bloklanmasını bilineer filtreleme kullanarak yumuşatır. Daha yüksek çözünürlük ölçeklerinde etkisi daha büyüktür. Yalnızca donanım oluşturucuları için geçerlidir.</string>
-    <string name="ss_core_choice_nearest_neighbor">En yakın komşu</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Bilineer (kenar karıştırma yok)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (kenar karıştırma yok)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (kenar karıştırma yok)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Geniş ekran yaması</string>
     <string name="ss_core_gpu_widescreenhack_desc">3D oyunlarda görüş alanını 4:3\'ten seçilen en boy oranına çıkarır. 2D oyunlarda veya önceden oluşturulmuş arka plan kullanan oyunlarda bu iyileştirme beklendiği gibi çalışmaz.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: geometri düzeltmesi</string>
@@ -1955,7 +1955,7 @@
     <string name="ss_core_choice_interpreter">Yorumlayıcı</string>
     <string name="ss_core_choice_recompiler">Recompiler</string>
     <string name="ss_core_choice_software">Yazılım</string>
-    <string name="ss_core_choice_bilinear">Bilineer</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">Özel</string>
     <string name="ss_core_choice_error">Hata</string>
     <string name="ss_core_choice_warning">Uyarı</string>

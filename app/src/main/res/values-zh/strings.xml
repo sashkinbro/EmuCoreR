@@ -1673,10 +1673,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">平滑 24 位内容（通常是过场动画）颜色过渡之间的块状感。仅适用于硬件渲染器。</string>
     <string name="ss_core_gpu_texturefilter">纹理过滤</string>
     <string name="ss_core_gpu_texturefilter_desc">使用双线性过滤平滑 3D 对象上放大纹理的块状感。在更高的分辨率倍率下效果更明显。仅适用于硬件渲染器。</string>
-    <string name="ss_core_choice_nearest_neighbor">最近邻</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">双线性（无边缘混合）</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2（无边缘混合）</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR（无边缘混合）</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">宽屏 Hack</string>
     <string name="ss_core_gpu_widescreenhack_desc">在 3D 游戏中将视野从 4:3 扩大到所选显示宽高比。对于 2D 游戏或使用预渲染背景的游戏，此增强不会按预期工作。</string>
     <string name="ss_core_gpu_pgxpenable">PGXP：几何校正</string>
@@ -1956,7 +1956,7 @@
     <string name="ss_core_choice_interpreter">解释器</string>
     <string name="ss_core_choice_recompiler">重编译器</string>
     <string name="ss_core_choice_software">软件</string>
-    <string name="ss_core_choice_bilinear">双线性</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">自定义</string>
     <string name="ss_core_choice_error">错误</string>
     <string name="ss_core_choice_warning">警告</string>

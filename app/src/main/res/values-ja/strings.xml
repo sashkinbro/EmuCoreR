@@ -1671,10 +1671,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">24ビットコンテンツ（通常はムービー）の色遷移間のブロック感を滑らかにします。ハードウェアレンダラーにのみ適用されます。</string>
     <string name="ss_core_gpu_texturefilter">テクスチャフィルタリング</string>
     <string name="ss_core_gpu_texturefilter_desc">バイリニアフィルタリングで3Dオブジェクトの拡大テクスチャのブロック感を滑らかにします。解像度スケールが高いほど効果が大きくなります。ハードウェアレンダラーにのみ適用されます。</string>
-    <string name="ss_core_choice_nearest_neighbor">ニアレストネイバー</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">バイリニア（エッジブレンドなし）</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2（エッジブレンドなし）</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR（エッジブレンドなし）</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">ワイドスクリーンハック</string>
     <string name="ss_core_gpu_widescreenhack_desc">3Dゲームで視野を4:3から選択した表示アスペクト比に広げます。2Dゲームやプリレンダリング背景を使うゲームでは、この強化は期待どおりに機能しません。</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: ジオメトリ補正</string>
@@ -1954,7 +1954,7 @@
     <string name="ss_core_choice_interpreter">インタプリタ</string>
     <string name="ss_core_choice_recompiler">リコンパイラ</string>
     <string name="ss_core_choice_software">ソフトウェア</string>
-    <string name="ss_core_choice_bilinear">バイリニア</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">カスタム</string>
     <string name="ss_core_choice_error">エラー</string>
     <string name="ss_core_choice_warning">警告</string>

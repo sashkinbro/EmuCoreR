@@ -1686,10 +1686,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Menghaluskan blok pada transisi warna di konten 24-bit, biasanya FMV. Hanya berlaku untuk renderer perangkat keras.</string>
     <string name="ss_core_gpu_texturefilter">Pemfilteran tekstur</string>
     <string name="ss_core_gpu_texturefilter_desc">Menghaluskan blok pada tekstur yang diperbesar di objek 3D dengan pemfilteran bilinear. Efeknya lebih besar pada skala resolusi yang lebih tinggi. Hanya berlaku untuk renderer perangkat keras.</string>
-    <string name="ss_core_choice_nearest_neighbor">Tetangga terdekat</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (tanpa pencampuran tepi)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (tanpa pencampuran tepi)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (tanpa pencampuran tepi)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Hack layar lebar</string>
     <string name="ss_core_gpu_widescreenhack_desc">Memperluas bidang pandang dari 4:3 ke rasio aspek layar yang dipilih pada game 3D. Untuk game 2D atau game dengan latar yang dirender sebelumnya, peningkatan ini tidak akan bekerja seperti yang diharapkan.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: koreksi geometri</string>

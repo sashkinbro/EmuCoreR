@@ -1674,10 +1674,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Suaviza o aspecto quadriculado entre transições de cor em conteúdo de 24 bits, geralmente vídeos. Aplica-se apenas aos renderizadores de hardware.</string>
     <string name="ss_core_gpu_texturefilter">Filtragem de textura</string>
     <string name="ss_core_gpu_texturefilter_desc">Suaviza o aspecto quadriculado das texturas ampliadas em objetos 3D usando filtragem bilinear. Terá um efeito maior em escalas de resolução mais altas. Aplica-se apenas aos renderizadores de hardware.</string>
-    <string name="ss_core_choice_nearest_neighbor">Vizinho mais próximo</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (sem mesclagem de bordas)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (sem mesclagem de bordas)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (sem mesclagem de bordas)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Hack de tela widescreen</string>
     <string name="ss_core_gpu_widescreenhack_desc">Aumenta o campo de visão de 4:3 para a proporção de tela escolhida em jogos 3D. Para jogos 2D ou com fundos pré-renderizados, esta melhoria não funcionará como esperado.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: correção de geometria</string>

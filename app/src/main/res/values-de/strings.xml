@@ -1674,10 +1674,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Glättet Blockbildung an Farbübergängen in 24-Bit-Inhalten, meist FMVs. Gilt nur für die Hardware-Renderer.</string>
     <string name="ss_core_gpu_texturefilter">Texturfilterung</string>
     <string name="ss_core_gpu_texturefilter_desc">Glättet die Blockbildung vergrößerter Texturen auf 3D-Objekten durch bilineare Filterung. Wirkt bei höheren Auflösungsskalen stärker. Gilt nur für die Hardware-Renderer.</string>
-    <string name="ss_core_choice_nearest_neighbor">Nächster Nachbar</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (ohne Kantenmischung)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (ohne Kantenmischung)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (ohne Kantenmischung)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Widescreen-Hack</string>
     <string name="ss_core_gpu_widescreenhack_desc">Erhöht das Sichtfeld in 3D-Spielen von 4:3 auf das gewählte Seitenverhältnis. Bei 2D-Spielen oder Spielen mit vorgerenderten Hintergründen funktioniert diese Verbesserung nicht wie erwartet.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: Geometriekorrektur</string>

@@ -1680,10 +1680,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">ينعّم التقطيع بين انتقالات الألوان في محتوى 24 بت، وهو عادةً مقاطع الفيديو. ينطبق فقط على العارضات العتادية.</string>
     <string name="ss_core_gpu_texturefilter">ترشيح القوام</string>
     <string name="ss_core_gpu_texturefilter_desc">ينعّم التقطيع في القوام المكبّر على الأجسام ثلاثية الأبعاد باستخدام الترشيح الثنائي. يكون تأثيره أكبر عند مقاييس الدقة الأعلى. ينطبق فقط على العارضات العتادية.</string>
-    <string name="ss_core_choice_nearest_neighbor">أقرب جار</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">ثنائي الخطية (دون مزج الحواف)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (دون مزج الحواف)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (دون مزج الحواف)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">تعديل الشاشة العريضة</string>
     <string name="ss_core_gpu_widescreenhack_desc">يوسّع مجال الرؤية من 4:3 إلى نسبة العرض المختارة في الألعاب ثلاثية الأبعاد. في الألعاب ثنائية الأبعاد أو التي تستخدم خلفيات مرسومة مسبقًا، لن يعمل هذا التحسين كما هو متوقع.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: تصحيح الهندسة</string>
@@ -1963,7 +1963,7 @@
     <string name="ss_core_choice_interpreter">مفسّر</string>
     <string name="ss_core_choice_recompiler">مُعيد الترجمة</string>
     <string name="ss_core_choice_software">برمجي</string>
-    <string name="ss_core_choice_bilinear">ثنائي الخطية</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">مخصص</string>
     <string name="ss_core_choice_error">خطأ</string>
     <string name="ss_core_choice_warning">تحذير</string>

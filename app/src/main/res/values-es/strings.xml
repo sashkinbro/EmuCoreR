@@ -1674,10 +1674,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Suaviza el aspecto de bloques entre transiciones de color en contenido de 24 bits, normalmente cinemáticas. Solo se aplica a los renderizadores por hardware.</string>
     <string name="ss_core_gpu_texturefilter">Filtrado de texturas</string>
     <string name="ss_core_gpu_texturefilter_desc">Suaviza el aspecto de bloques de las texturas ampliadas en objetos 3D mediante filtrado bilineal. Tendrá un mayor efecto en escalas de resolución más altas. Solo se aplica a los renderizadores por hardware.</string>
-    <string name="ss_core_choice_nearest_neighbor">Vecino más cercano</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Bilineal (sin mezcla de bordes)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (sin mezcla de bordes)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (sin mezcla de bordes)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Hack de pantalla ancha</string>
     <string name="ss_core_gpu_widescreenhack_desc">Aumenta el campo de visión de 4:3 a la relación de aspecto de pantalla elegida en juegos 3D. En juegos 2D o con fondos pre-renderizados, esta mejora no funcionará como se espera.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: corrección de geometría</string>
@@ -1957,7 +1957,7 @@
     <string name="ss_core_choice_interpreter">Intérprete</string>
     <string name="ss_core_choice_recompiler">Recompilador</string>
     <string name="ss_core_choice_software">Software</string>
-    <string name="ss_core_choice_bilinear">Bilineal</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">Personalizada</string>
     <string name="ss_core_choice_error">Error</string>
     <string name="ss_core_choice_warning">Advertencia</string>

@@ -1676,10 +1676,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Сглаживает блочность на переходах цветов в 24-битном содержимом, обычно в видеороликах. Применяется только к аппаратным рендерерам.</string>
     <string name="ss_core_gpu_texturefilter">Фильтрация текстур</string>
     <string name="ss_core_gpu_texturefilter_desc">Сглаживает блочность увеличенных текстур на 3D-объектах с помощью билинейной фильтрации. Заметнее на высоких масштабах разрешения. Применяется только к аппаратным рендерерам.</string>
-    <string name="ss_core_choice_nearest_neighbor">Ближайший сосед</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Билинейная (без смешивания краёв)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (без смешивания краёв)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (без смешивания краёв)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Хак широкого экрана</string>
     <string name="ss_core_gpu_widescreenhack_desc">Увеличивает поле зрения с 4:3 до выбранного соотношения сторон в 3D-играх. Для 2D-игр или игр с предварительно отрендеренными фонами это улучшение не будет работать как ожидается.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: коррекция геометрии</string>
@@ -1959,7 +1959,7 @@
     <string name="ss_core_choice_interpreter">Интерпретатор</string>
     <string name="ss_core_choice_recompiler">Рекомпилятор</string>
     <string name="ss_core_choice_software">Программный</string>
-    <string name="ss_core_choice_bilinear">Билинейная</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">Своё</string>
     <string name="ss_core_choice_error">Ошибка</string>
     <string name="ss_core_choice_warning">Предупреждение</string>

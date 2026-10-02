@@ -1672,10 +1672,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Attenua l\'effetto a blocchi tra le transizioni di colore nei contenuti a 24 bit, di solito nei filmati. Si applica solo ai renderer hardware.</string>
     <string name="ss_core_gpu_texturefilter">Filtro texture</string>
     <string name="ss_core_gpu_texturefilter_desc">Attenua l\'effetto a blocchi delle texture ingrandite sugli oggetti 3D usando il filtro bilineare. Ha un effetto maggiore alle scale di risoluzione più alte. Si applica solo ai renderer hardware.</string>
-    <string name="ss_core_choice_nearest_neighbor">Più vicino</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Bilineare (senza fusione dei bordi)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (senza fusione dei bordi)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (senza fusione dei bordi)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Hack widescreen</string>
     <string name="ss_core_gpu_widescreenhack_desc">Aumenta il campo visivo da 4:3 alle proporzioni dello schermo scelte nei giochi 3D. Per i giochi 2D o con sfondi pre-renderizzati, questo miglioramento non funzionerà come previsto.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: correzione geometrica</string>
@@ -1955,7 +1955,7 @@
     <string name="ss_core_choice_interpreter">Interprete</string>
     <string name="ss_core_choice_recompiler">Recompiler</string>
     <string name="ss_core_choice_software">Software</string>
-    <string name="ss_core_choice_bilinear">Bilineare</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">Personalizzato</string>
     <string name="ss_core_choice_error">Errore</string>
     <string name="ss_core_choice_warning">Avviso</string>

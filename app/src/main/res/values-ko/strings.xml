@@ -1671,10 +1671,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">24비트 콘텐츠(보통 FMV)의 색 전환 사이 블록 현상을 부드럽게 합니다. 하드웨어 렌더러에만 적용됩니다.</string>
     <string name="ss_core_gpu_texturefilter">텍스처 필터링</string>
     <string name="ss_core_gpu_texturefilter_desc">바이리니어 필터링으로 3D 개체의 확대된 텍스처 블록 현상을 부드럽게 합니다. 해상도 배율이 높을수록 효과가 큽니다. 하드웨어 렌더러에만 적용됩니다.</string>
-    <string name="ss_core_choice_nearest_neighbor">최근접 이웃</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">바이리니어 (가장자리 혼합 없음)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (가장자리 혼합 없음)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (가장자리 혼합 없음)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">와이드스크린 핵</string>
     <string name="ss_core_gpu_widescreenhack_desc">3D 게임에서 시야각을 4:3에서 선택한 화면비로 넓힙니다. 2D 게임이나 미리 렌더링된 배경을 쓰는 게임에서는 이 개선이 예상대로 작동하지 않습니다.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: 지오메트리 보정</string>
@@ -1954,7 +1954,7 @@
     <string name="ss_core_choice_interpreter">인터프리터</string>
     <string name="ss_core_choice_recompiler">리컴파일러</string>
     <string name="ss_core_choice_software">소프트웨어</string>
-    <string name="ss_core_choice_bilinear">바이리니어</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">사용자 지정</string>
     <string name="ss_core_choice_error">오류</string>
     <string name="ss_core_choice_warning">경고</string>

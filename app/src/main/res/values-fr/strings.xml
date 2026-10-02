@@ -1674,10 +1674,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Atténue l\'effet de blocs entre les transitions de couleur en contenu 24 bits, généralement les cinématiques. Ne s\'applique qu\'aux moteurs de rendu matériels.</string>
     <string name="ss_core_gpu_texturefilter">Filtrage de texture</string>
     <string name="ss_core_gpu_texturefilter_desc">Atténue l\'effet de blocs des textures agrandies sur les objets 3D grâce au filtrage bilinéaire. L\'effet est plus marqué aux échelles de résolution élevées. Ne s\'applique qu\'aux moteurs de rendu matériels.</string>
-    <string name="ss_core_choice_nearest_neighbor">Plus proche voisin</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinéaire (sans mélange des bords)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (sans mélange des bords)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (sans mélange des bords)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Hack grand écran</string>
     <string name="ss_core_gpu_widescreenhack_desc">Augmente le champ de vision de 4:3 au format d\'image choisi dans les jeux 3D. Pour les jeux 2D ou utilisant des arrière-plans pré-rendus, cette amélioration ne fonctionnera pas comme prévu.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP : correction de géométrie</string>
@@ -1957,7 +1957,7 @@
     <string name="ss_core_choice_interpreter">Interpréteur</string>
     <string name="ss_core_choice_recompiler">Recompilateur</string>
     <string name="ss_core_choice_software">Logiciel</string>
-    <string name="ss_core_choice_bilinear">Bilinéaire</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">Personnalisé</string>
     <string name="ss_core_choice_error">Erreur</string>
     <string name="ss_core_choice_warning">Avertissement</string>

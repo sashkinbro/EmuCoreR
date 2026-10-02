@@ -1677,10 +1677,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Згладжує блочність на переходах кольорів у 24-бітному вмісті, зазвичай у відеороликах. Застосовується лише до апаратних рендерерів.</string>
     <string name="ss_core_gpu_texturefilter">Фільтрація текстур</string>
     <string name="ss_core_gpu_texturefilter_desc">Згладжує блочність збільшених текстур на 3D-об\'єктах за допомогою білінійної фільтрації. Помітніше на вищих масштабах роздільності. Застосовується лише до апаратних рендерерів.</string>
-    <string name="ss_core_choice_nearest_neighbor">Найближчий сусід</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Білінійна (без змішування країв)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (без змішування країв)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (без змішування країв)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Хак широкого екрана</string>
     <string name="ss_core_gpu_widescreenhack_desc">Збільшує поле зору з 4:3 до вибраного співвідношення сторін у 3D-іграх. Для 2D-ігор або ігор із попередньо відрендереними фонами це покращення не працюватиме як очікується.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: корекція геометрії</string>
@@ -1960,7 +1960,7 @@
     <string name="ss_core_choice_interpreter">Інтерпретатор</string>
     <string name="ss_core_choice_recompiler">Рекомпілятор</string>
     <string name="ss_core_choice_software">Програмний</string>
-    <string name="ss_core_choice_bilinear">Білінійна</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">Власне</string>
     <string name="ss_core_choice_error">Помилка</string>
     <string name="ss_core_choice_warning">Попередження</string>

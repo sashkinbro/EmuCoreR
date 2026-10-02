@@ -1687,10 +1687,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">بلوکی‌بودن بین گذارهای رنگ در محتوای ۲۴ بیتی، معمولاً ویدیوها، را نرم می‌کند. فقط برای رندررهای سخت‌افزاری اعمال می‌شود.</string>
     <string name="ss_core_gpu_texturefilter">فیلتر بافت</string>
     <string name="ss_core_gpu_texturefilter_desc">بلوکی‌بودن بافت‌های بزرگ‌شده روی اشیای 3D را با فیلتر دوخطی نرم می‌کند. در مقیاس‌های دقت بالاتر اثر بیشتری دارد. فقط برای رندررهای سخت‌افزاری اعمال می‌شود.</string>
-    <string name="ss_core_choice_nearest_neighbor">نزدیک‌ترین همسایه</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">دوخطی (بدون آمیختن لبه‌ها)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (بدون آمیختن لبه‌ها)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (بدون آمیختن لبه‌ها)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">هک صفحه عریض</string>
     <string name="ss_core_gpu_widescreenhack_desc">در بازی‌های 3D میدان دید را از ۴:۳ به نسبت تصویر انتخاب‌شده افزایش می‌دهد. در بازی‌های 2D یا بازی‌هایی با پس‌زمینه پیش‌رندرشده، این بهبود مطابق انتظار کار نمی‌کند.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: تصحیح هندسه</string>
@@ -1970,7 +1970,7 @@
     <string name="ss_core_choice_interpreter">مفسر</string>
     <string name="ss_core_choice_recompiler">بازکامپایلر</string>
     <string name="ss_core_choice_software">نرم‌افزاری</string>
-    <string name="ss_core_choice_bilinear">دوخطی</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">سفارشی</string>
     <string name="ss_core_choice_error">خطا</string>
     <string name="ss_core_choice_warning">هشدار</string>

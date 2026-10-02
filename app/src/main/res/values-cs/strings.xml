@@ -1693,10 +1693,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">Vyhlazuje blokovitost na přechodech barev u 24bitového obsahu, obvykle u videí. Platí jen pro hardwarové renderery.</string>
     <string name="ss_core_gpu_texturefilter">Filtrování textur</string>
     <string name="ss_core_gpu_texturefilter_desc">Vyhlazuje blokovitost zvětšených textur na 3D objektech pomocí bilineárního filtrování. Větší vliv má při vyšších měřítcích rozlišení. Platí jen pro hardwarové renderery.</string>
-    <string name="ss_core_choice_nearest_neighbor">Nejbližší soused</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">Bilineární (bez míchání okrajů)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (bez míchání okrajů)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (bez míchání okrajů)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">Hack široké obrazovky</string>
     <string name="ss_core_gpu_widescreenhack_desc">Zvyšuje zorné pole ze 4:3 na zvolený poměr stran ve 3D hrách. U 2D her nebo her s předrenderovaným pozadím toto vylepšení nebude fungovat podle očekávání.</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: korekce geometrie</string>
@@ -1976,7 +1976,7 @@
     <string name="ss_core_choice_interpreter">Interpret</string>
     <string name="ss_core_choice_recompiler">Rekompilátor</string>
     <string name="ss_core_choice_software">Softwarový</string>
-    <string name="ss_core_choice_bilinear">Bilineární</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">Vlastní</string>
     <string name="ss_core_choice_error">Chyba</string>
     <string name="ss_core_choice_warning">Upozornění</string>

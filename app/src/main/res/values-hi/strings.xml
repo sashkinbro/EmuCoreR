@@ -1672,10 +1672,10 @@
     <string name="ss_core_gpu_chromasmoothing24bit_desc">24-बिट सामग्री, आमतौर पर FMV, में रंग संक्रमणों के बीच ब्लॉक जैसा दिखना कम करता है। केवल हार्डवेयर रेंडरर पर लागू होता है।</string>
     <string name="ss_core_gpu_texturefilter">टेक्सचर फ़िल्टरिंग</string>
     <string name="ss_core_gpu_texturefilter_desc">बाइलिनियर फ़िल्टरिंग का उपयोग करके 3D ऑब्जेक्ट पर बड़े किए गए टेक्सचर का ब्लॉक जैसा दिखना कम करता है। अधिक रिज़ॉल्यूशन स्केल पर इसका प्रभाव बड़ा होता है। केवल हार्डवेयर रेंडरर पर लागू होता है।</string>
-    <string name="ss_core_choice_nearest_neighbor">निकटतम पड़ोसी</string>
-    <string name="ss_core_choice_bilinear_no_edge_blending">बाइलिनियर (किनारा मिश्रण रहित)</string>
-    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (किनारा मिश्रण रहित)</string>
-    <string name="ss_core_choice_xbr_no_edge_blending">xBR (किनारा मिश्रण रहित)</string>
+    <string name="ss_core_choice_nearest_neighbor">Nearest-Neighbor</string>
+    <string name="ss_core_choice_bilinear_no_edge_blending">Bilinear (No Edge Blending)</string>
+    <string name="ss_core_choice_jinc2_no_edge_blending">JINC2 (No Edge Blending)</string>
+    <string name="ss_core_choice_xbr_no_edge_blending">xBR (No Edge Blending)</string>
     <string name="ss_core_gpu_widescreenhack">वाइडस्क्रीन हैक</string>
     <string name="ss_core_gpu_widescreenhack_desc">3D गेम में दृष्टि क्षेत्र को 4:3 से चुने गए आस्पेक्ट रेशियो तक बढ़ाता है। 2D गेम या पहले से रेंडर किए गए बैकग्राउंड वाले गेम में यह सुधार अपेक्षित रूप से काम नहीं करेगा।</string>
     <string name="ss_core_gpu_pgxpenable">PGXP: ज्यामिति सुधार</string>
@@ -1955,7 +1955,7 @@
     <string name="ss_core_choice_interpreter">इंटरप्रेटर</string>
     <string name="ss_core_choice_recompiler">रीकम्पाइलर</string>
     <string name="ss_core_choice_software">सॉफ़्टवेयर</string>
-    <string name="ss_core_choice_bilinear">बाइलिनियर</string>
+    <string name="ss_core_choice_bilinear">Bilinear</string>
     <string name="ss_core_choice_custom">कस्टम</string>
     <string name="ss_core_choice_error">त्रुटि</string>
     <string name="ss_core_choice_warning">चेतावनी</string>
