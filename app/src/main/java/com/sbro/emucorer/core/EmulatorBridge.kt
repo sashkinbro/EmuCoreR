@@ -26,7 +26,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.FileOutputStream
 import java.lang.ref.WeakReference
@@ -60,6 +63,7 @@ object EmulatorBridge {
     private val serialDispatcher = Dispatchers.IO.limitedParallelism(1)
     private val serialScope = CoroutineScope(SupervisorJob() + serialDispatcher)
     private val inputScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val rendererSwitchMutex = Mutex()
 
     @Volatile
     var isNativeLoaded: Boolean = false
@@ -1372,28 +1376,61 @@ object EmulatorBridge {
     }
 
     suspend fun setRenderer(gpuType: Int): Boolean {
-        val resolvedRenderer = normalizeRenderer(gpuType)
-        val cacheKey = "EmuCore/GS:Renderer"
-        val rendererChanged = settingsCache[cacheKey] != resolvedRenderer.toString()
-        NativeApp.logCrashBreadcrumb(
-            "renderer change requested renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) vmActive=$isVmActive"
-        )
-        Log.i(TAG, "Renderer change requested: ${rendererName(resolvedRenderer)}($resolvedRenderer) vmActive=$isVmActive")
-        val switched = performRuntimeOps(rendererExecutionOps(resolvedRenderer))
-        if (!switched) return false
+        return rendererSwitchMutex.withLock {
+            val resolvedRenderer = normalizeRenderer(gpuType)
+            val cacheKey = "EmuCore/GS:Renderer"
+            val rendererChanged = settingsCache[cacheKey] != resolvedRenderer.toString()
+            NativeApp.logCrashBreadcrumb(
+                "renderer change requested renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) vmActive=$isVmActive"
+            )
+            Log.i(TAG, "Renderer change requested: ${rendererName(resolvedRenderer)}($resolvedRenderer) vmActive=$isVmActive")
+            val switched = performRuntimeOps(rendererExecutionOps(resolvedRenderer))
+            if (!switched) return@withLock false
 
-        settingsCache[cacheKey] = resolvedRenderer.toString()
-        if (isVmActive && rendererChanged) {
-            // The core re-negotiates the renderer only on boot, so the in-game
-            // switch is a state-preserving session restart.
-            val restarted = runSerial { NativeApp.restartRenderer(resolvedRenderer) }
-            isVmActive = NativeApp.hasOwnedVm()
-            if (!restarted) {
-                Log.e(TAG, "Renderer restart failed for ${rendererName(resolvedRenderer)}")
-                return false
+            settingsCache[cacheKey] = resolvedRenderer.toString()
+            if (isVmActive && rendererChanged) {
+                // The software presenter reads frames through ANativeWindow_lock,
+                // which leaves the Surface's BufferQueue connected through the
+                // CPU API until the Surface is destroyed. EGL and Vulkan cannot
+                // attach to an already-connected BufferQueue, so a hardware
+                // session started on the same Surface fails and silently falls
+                // back. Recreate the SurfaceView and wait until the replacement
+                // Surface is bound before the single session restart.
+                if (CoreRuntime.isActiveRendererSoftware() && resolvedRenderer != RendererDefaults.SOFTWARE) {
+                    recreatePresentationSurfaceAndWait()
+                }
+                // The core re-negotiates the renderer only on boot, so the
+                // in-game switch is a state-preserving session restart.
+                val restarted = runSerial { NativeApp.restartRenderer(resolvedRenderer) }
+                isVmActive = NativeApp.hasOwnedVm()
+                if (!restarted) {
+                    Log.e(TAG, "Renderer restart failed for ${rendererName(resolvedRenderer)}")
+                    return@withLock false
+                }
             }
+            true
         }
-        return true
+    }
+
+    /**
+     * Recreates the SurfaceView and waits until the replacement Surface is
+     * bound to [CoreRuntime]. Used before a hardware renderer takes over a
+     * Surface that was previously presented through the CPU buffer API.
+     */
+    private suspend fun recreatePresentationSurfaceAndWait(timeoutMs: Long = 5000L): Boolean {
+        val previousSurface = lastSurface
+        _presentationSurfaceGeneration.value += 1
+        val recreated = withTimeoutOrNull(timeoutMs) {
+            var ready = false
+            while (!ready) {
+                val current = CoreRuntime.currentSurface()
+                ready = current != null && current !== previousSurface && current.isValid
+                if (!ready) delay(16)
+            }
+            true
+        } ?: false
+        if (!recreated) Log.w(TAG, "Timed out waiting for the recreated presentation surface")
+        return recreated
     }
 
     suspend fun setUpscaleMultiplier(multiplier: Float) {

@@ -722,6 +722,12 @@ internal object CoreRuntime {
         renderedFirstFrame = false
     }
 
+    /** The presentation Surface, or null while detached. */
+    fun currentSurface(): Surface? = surface
+
+    /** True when the running session is using the software renderer. */
+    fun isActiveRendererSoftware(): Boolean = activeCoreRenderer == RendererDefaults.CORE_SOFTWARE
+
     fun displayRect(): FloatArray? {
         if (!renderedFirstFrame || surfaceWidth <= 0 || surfaceHeight <= 0) return null
         // The presenters letterbox using the core's display aspect ratio, which
