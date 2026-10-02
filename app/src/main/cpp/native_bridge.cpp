@@ -697,8 +697,29 @@ void PresentHardwareFrameEffect(int effect, int win_width, int win_height, const
 bool CreatePresentFramebuffer() {
     retro_system_av_info info{};
     retro_get_system_av_info(&info);
-    const GLsizei width = static_cast<GLsizei>(info.geometry.max_width > 0 ? info.geometry.max_width : 1024);
-    const GLsizei height = static_cast<GLsizei>(info.geometry.max_height > 0 ? info.geometry.max_height : 512);
+    GLsizei width = static_cast<GLsizei>(info.geometry.max_width > 0 ? info.geometry.max_width : 1024);
+    GLsizei height = static_cast<GLsizei>(info.geometry.max_height > 0 ? info.geometry.max_height : 512);
+
+    // The core caps the display pass to the surface size before reporting the
+    // frame, so the backing FBO never needs to be larger than the surface.
+    // Sizing it to the VRAM maximum instead allocated hundreds of megabytes at
+    // high internal scales (16384x8192 at 16x).
+    int window_width = 0;
+    int window_height = 0;
+    {
+        std::lock_guard<std::mutex> lock(g_frontend.mutex);
+        if (g_frontend.window != nullptr) {
+            window_width = ANativeWindow_getWidth(g_frontend.window);
+            window_height = ANativeWindow_getHeight(g_frontend.window);
+        }
+    }
+    if (window_width > 0 && window_height > 0) {
+        width = std::min(width, static_cast<GLsizei>(window_width));
+        height = std::min(height, static_cast<GLsizei>(window_height));
+    }
+    if (width < 16) width = 16;
+    if (height < 16) height = 16;
+
     if (g_gl.fbo != 0 && g_gl.fbo_width == width && g_gl.fbo_height == height) return true;
 
     if (g_gl.fbo != 0) { glDeleteFramebuffers(1, &g_gl.fbo); g_gl.fbo = 0; }
@@ -736,7 +757,7 @@ bool CreatePresentFramebuffer() {
     return true;
 }
 
-void PresentHardwareFrame() {
+void PresentHardwareFrame(int frame_width, int frame_height) {
     if (g_gl.fbo == 0) return;
     ANativeWindow* window = nullptr;
     {
@@ -750,8 +771,14 @@ void PresentHardwareFrame() {
 
     retro_system_av_info info{};
     retro_get_system_av_info(&info);
-    GLsizei src_width = static_cast<GLsizei>(info.geometry.base_width > 0 ? info.geometry.base_width : g_gl.fbo_width);
-    GLsizei src_height = static_cast<GLsizei>(info.geometry.base_height > 0 ? info.geometry.base_height : g_gl.fbo_height);
+    // The core reports the size of the frame it actually rendered into the
+    // FBO (the display pass is capped to the surface). base_width/height is
+    // the uncapped internal resolution, so using it sampled a much larger
+    // region of the padded FBO and left most of the screen black.
+    GLsizei src_width = static_cast<GLsizei>(frame_width > 0 ? frame_width : info.geometry.base_width);
+    GLsizei src_height = static_cast<GLsizei>(frame_height > 0 ? frame_height : info.geometry.base_height);
+    if (src_width <= 0) src_width = g_gl.fbo_width;
+    if (src_height <= 0) src_height = g_gl.fbo_height;
     if (src_width > g_gl.fbo_width) src_width = g_gl.fbo_width;
     if (src_height > g_gl.fbo_height) src_height = g_gl.fbo_height;
 
@@ -1399,6 +1426,17 @@ void RetroVideoRefresh(const void* data, unsigned width, unsigned height, size_t
         return;
     }
     if (data == RETRO_HW_FRAME_BUFFER_VALID) {
+        {
+            // Hardware frames report the capped display size here; the overlay
+            // should show the internal resolution, which getDisplayRect reads
+            // from retro_get_system_av_info. Clear any size left over from a
+            // software-renderer session so the stale native value does not
+            // shadow the AV info (the picture was upscaled but the HUD showed
+            // the native resolution).
+            std::lock_guard<std::mutex> lock(g_frontend.mutex);
+            g_frontend.frame_width = 0;
+            g_frontend.frame_height = 0;
+        }
         if (vulkan::IsActive()) {
             bool window_attached = false;
             {
@@ -1417,8 +1455,9 @@ void RetroVideoRefresh(const void* data, unsigned width, unsigned height, size_t
             return;
         }
         // Hardware path: the core rendered into the frontend framebuffer; blit
-        // it to the window, then present.
-        PresentHardwareFrame();
+        // it to the window, then present. width/height are the frame size the
+        // core actually rendered (display pass capped to the surface).
+        PresentHardwareFrame(static_cast<int>(width), static_cast<int>(height));
         if (g_gl.ready && g_gl.display != EGL_NO_DISPLAY && g_gl.surface != EGL_NO_SURFACE)
             eglSwapBuffers(g_gl.display, g_gl.surface);
         return;
