@@ -244,6 +244,7 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
     (m_resolution_scale != resolution_scale || m_multisamples != multisamples ||
      m_per_sample_shading != per_sample_shading ||
      m_chroma_smoothing != g_settings.gpu_24bit_chroma_smoothing ||
+     m_using_uv_limits != use_uv_limits ||
      m_pgxp_depth_buffer != g_settings.UsingPGXPDepthBuffer() ||
      m_disable_color_perspective != disable_color_perspective ||
      m_shader_precompile_mode != g_settings.gpu_shader_precompile_mode);
@@ -294,6 +295,7 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
       (m_multisamples != multisamples) ||
       (m_per_sample_shading != per_sample_shading) ||
       (m_chroma_smoothing != g_settings.gpu_24bit_chroma_smoothing) ||
+      (m_using_uv_limits != use_uv_limits) ||
       (m_pgxp_depth_buffer != g_settings.UsingPGXPDepthBuffer()) ||
       (m_disable_color_perspective != disable_color_perspective) ||
       (m_shader_precompile_mode != g_settings.gpu_shader_precompile_mode);
@@ -329,6 +331,7 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
       (m_texture_filtering != g_settings.gpu_texture_filter) ||
       (m_multisamples != multisamples) ||
       (m_per_sample_shading != per_sample_shading) ||
+      (m_using_uv_limits != use_uv_limits) ||
       (m_pgxp_depth_buffer != g_settings.UsingPGXPDepthBuffer()) ||
       (m_disable_color_perspective != disable_color_perspective) ||
       (m_shader_precompile_mode != g_settings.gpu_shader_precompile_mode);
