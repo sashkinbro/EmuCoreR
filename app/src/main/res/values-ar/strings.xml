@@ -2383,4 +2383,6 @@
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">يستخدم إحداثيات الدقة الأصلية للمضلعات ثنائية الأبعاد بدلاً من الإحداثيات الدقيقة. قد يصلح العناصر والتأثيرات ثنائية الأبعاد غير المحاذية أو سيئة الألوان في بعض الألعاب؛ وإلا فالأفضل تركه معطلاً. يتطلب تفعيل تصحيح الهندسة.</string>
     <string name="ss_core_cpu_recompilermemoryexceptions">استثناءات ذاكرة مُعيد ترجمة المعالج</string>
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">يُفعّل استثناءات الذاكرة في مُعيد الترجمة لالتقاط عمليات الوصول غير المحاذية للذاكرة. قد يحسّن التوافق مع بعض الألعاب، لكنه يقلل الأداء.</string>
+    <string name="ss_core_choice_overscan_uncorrected">Overscan (غير مصحّح)</string>
+    <string name="ss_core_choice_borders_uncorrected">حدود (غير مصحّحة)</string>
 </resources>

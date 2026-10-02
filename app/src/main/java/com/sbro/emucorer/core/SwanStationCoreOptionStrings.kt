@@ -317,6 +317,8 @@ object SwanStationCoreOptionStrings {
         put("Uncorrected (PAR 1:1)", R.string.ss_core_choice_uncorrected_par_1_1)
         put("Only Overscan Area", R.string.ss_core_choice_only_overscan_area)
         put("All Borders", R.string.ss_core_choice_all_borders)
+        put("Overscan (Uncorrected)", R.string.ss_core_choice_overscan_uncorrected)
+        put("Borders (Uncorrected)", R.string.ss_core_choice_borders_uncorrected)
         put("Box (Downsample 3D/Smooth All)", R.string.ss_core_choice_box_downsample_3d_smooth_all)
         put("Adaptive (Preserve 3D/Smooth 2D)", R.string.ss_core_choice_adaptive_preserve_3d_smooth_2d)
         put("Lazy (background thread, default)", R.string.ss_core_choice_lazy_background_thread_default)

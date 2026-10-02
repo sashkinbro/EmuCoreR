@@ -2374,4 +2374,6 @@
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">2D ポリゴンに精密な座標ではなくネイティブ座標を使用します。一部のゲームでずれや色の誤った 2D 要素・エフェクトを修正できますが、それ以外では無効のままにしてください。ジオメトリ補正が有効である必要があります。</string>
     <string name="ss_core_cpu_recompilermemoryexceptions">CPU リコンパイラ メモリ例外</string>
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">リコンパイラでメモリ例外を有効にし、整列されていないメモリアクセスを捕捉します。一部のゲームとの互換性が向上しますが、性能が低下します。</string>
+    <string name="ss_core_choice_overscan_uncorrected">オーバースキャン（未補正）</string>
+    <string name="ss_core_choice_borders_uncorrected">ボーダー（未補正）</string>
 </resources>

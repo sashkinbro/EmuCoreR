@@ -381,7 +381,8 @@ const char* Settings::GetShaderPrecompileModeName(GPUShaderPrecompileMode mode)
   return s_shader_precompile_mode_names[static_cast<int>(mode)];
 }
 
-static std::array<const char*, 3> s_display_crop_mode_names = {{"None", "Overscan", "Borders"}};
+static std::array<const char*, 5> s_display_crop_mode_names = {
+  {"None", "Overscan", "Borders", "OverscanUncorrected", "BordersUncorrected"}};
 
 std::optional<DisplayCropMode> Settings::ParseDisplayCropMode(const char* str)
 {

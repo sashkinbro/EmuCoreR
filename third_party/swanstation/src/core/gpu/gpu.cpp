@@ -507,6 +507,17 @@ float GPU::GetDisplayAspectRatio() const
            g_settings.controller_types[0] == ControllerType::NamcoGunCon || g_settings.controller_types[1] == ControllerType::NamcoGunCon)
   {
     const CRTCState& cs = m_crtc_state;
+    // Uncorrected crop modes keep the raw pixel aspect; the 4:3 correction is
+    // deliberately not applied.
+    if (g_settings.display_crop_mode == DisplayCropMode::OverscanUncorrected ||
+        g_settings.display_crop_mode == DisplayCropMode::BordersUncorrected)
+    {
+      if (cs.display_width > 0 && cs.display_height > 0)
+        return static_cast<float>(cs.display_width) / static_cast<float>(cs.display_height);
+
+      return 4.0f / 3.0f;
+    }
+
     float relative_width = static_cast<float>(cs.horizontal_visible_end - cs.horizontal_visible_start);
     float relative_height = static_cast<float>(cs.vertical_visible_end - cs.vertical_visible_start);
 
@@ -629,6 +640,7 @@ void GPU::UpdateCRTCDisplayParameters()
         break;
 
       case DisplayCropMode::Overscan:
+      case DisplayCropMode::OverscanUncorrected:
         cs.horizontal_visible_start = static_cast<uint16_t>(std::max<int>(0, 628 + g_settings.display_active_start_offset));
         cs.horizontal_visible_end =
           static_cast<uint16_t>(std::max<int>(cs.horizontal_visible_start, 3188 + g_settings.display_active_end_offset));
@@ -638,6 +650,7 @@ void GPU::UpdateCRTCDisplayParameters()
         break;
 
       case DisplayCropMode::Borders:
+      case DisplayCropMode::BordersUncorrected:
       default:
         cs.horizontal_visible_start = (horizontal_display_start + g_settings.display_active_start_offset);
         cs.horizontal_visible_end = (horizontal_display_end + g_settings.display_active_end_offset);
@@ -666,6 +679,7 @@ void GPU::UpdateCRTCDisplayParameters()
         break;
 
       case DisplayCropMode::Overscan:
+      case DisplayCropMode::OverscanUncorrected:
         cs.horizontal_visible_start = static_cast<uint16_t>(std::max<int>(0, 608 + g_settings.display_active_start_offset));
         cs.horizontal_visible_end =
           static_cast<uint16_t>(std::max<int>(cs.horizontal_visible_start, 3168 + g_settings.display_active_end_offset));
@@ -675,6 +689,7 @@ void GPU::UpdateCRTCDisplayParameters()
         break;
 
       case DisplayCropMode::Borders:
+      case DisplayCropMode::BordersUncorrected:
       default:
         cs.horizontal_visible_start = (horizontal_display_start + g_settings.display_active_start_offset);
         cs.horizontal_visible_end = (horizontal_display_end + g_settings.display_active_end_offset);

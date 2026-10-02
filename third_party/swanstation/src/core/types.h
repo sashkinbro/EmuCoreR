@@ -123,6 +123,8 @@ enum class DisplayCropMode : uint8_t
   None,
   Overscan,
   Borders,
+  OverscanUncorrected,
+  BordersUncorrected,
   Count
 };
 

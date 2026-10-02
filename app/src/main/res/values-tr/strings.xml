@@ -2375,4 +2375,6 @@
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">2B poligonlar için kesin koordinatlar yerine yerel koordinatları kullanır. Bazı oyunlarda hizasız veya yanlış renkli 2B öğeleri ve efektleri düzeltebilir; aksi halde kapalı bırakılmalıdır. Geometri düzeltmesi etkin olmalıdır.</string>
     <string name="ss_core_cpu_recompilermemoryexceptions">CPU derleyici bellek istisnaları</string>
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">Derleyicide bellek istisnalarını etkinleştirir ve hizasız bellek erişimlerini yakalar. Bazı oyunlarla uyumluluğu artırabilir ancak performansı düşürür.</string>
+    <string name="ss_core_choice_overscan_uncorrected">Overscan (düzeltilmemiş)</string>
+    <string name="ss_core_choice_borders_uncorrected">Kenarlıklar (düzeltilmemiş)</string>
 </resources>

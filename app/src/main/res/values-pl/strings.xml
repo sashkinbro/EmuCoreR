@@ -2396,4 +2396,6 @@
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Używa natywnych współrzędnych dla wielokątów 2D zamiast precyzyjnych. Może naprawić przesunięte lub źle pokolorowane elementy i efekty 2D w niektórych grach; w przeciwnym razie lepiej pozostawić wyłączone. Wymaga włączonej korekcji geometrii.</string>
     <string name="ss_core_cpu_recompilermemoryexceptions">Wyjątki pamięci rekompilatora CPU</string>
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">Włącza wyjątki pamięci w rekompilatorze, przechwytując niewyrównane dostępy do pamięci. Może poprawić zgodność z niektórymi grami, ale obniża wydajność.</string>
+    <string name="ss_core_choice_overscan_uncorrected">Overscan (nieskorygowany)</string>
+    <string name="ss_core_choice_borders_uncorrected">Ramki (nieskorygowane)</string>
 </resources>

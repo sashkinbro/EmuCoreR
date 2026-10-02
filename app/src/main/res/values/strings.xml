@@ -2398,4 +2398,6 @@
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Uses native resolution coordinates for 2D polygons instead of precise coordinates. Can fix misaligned or wrongly coloured 2D elements and effects in some games; otherwise should be left disabled. Requires geometry correction enabled.</string>
     <string name="ss_core_cpu_recompilermemoryexceptions">CPU Recompiler Memory Exceptions</string>
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">Enables memory exceptions in the recompiler, catching unaligned memory accesses. Can improve compatibility with some games, but reduces performance.</string>
+    <string name="ss_core_choice_overscan_uncorrected">Overscan (Uncorrected)</string>
+    <string name="ss_core_choice_borders_uncorrected">Borders (Uncorrected)</string>
 </resources>

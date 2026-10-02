@@ -2390,4 +2390,6 @@
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">برای چندضلعی‌های دوبعدی به‌جای مختصات دقیق از مختصات بومی استفاده می‌کند. ممکن است عناصر و جلوه‌های دوبعدی ناهم‌تراز یا بد رنگ را در برخی بازی‌ها اصلاح کند؛ در غیر این صورت بهتر است غیرفعال بماند. نیازمند فعال بودن اصلاح هندسه است.</string>
     <string name="ss_core_cpu_recompilermemoryexceptions">استثناهای حافظه بازکامپایلر CPU</string>
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">استثناهای حافظه را در بازکامپایلر فعال می‌کند و دسترسی‌های ناهم‌تراز به حافظه را می‌گیرد. می‌تواند سازگاری با برخی بازی‌ها را بهبود دهد، اما کارایی را کاهش می‌دهد.</string>
+    <string name="ss_core_choice_overscan_uncorrected">Overscan (اصلاح‌نشده)</string>
+    <string name="ss_core_choice_borders_uncorrected">حاشیه‌ها (اصلاح‌نشده)</string>
 </resources>

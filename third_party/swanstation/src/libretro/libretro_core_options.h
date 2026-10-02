@@ -714,6 +714,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
      {"None", "None"},
      {"Overscan", "Only Overscan Area"},
      {"Borders", "All Borders"},
+     {"OverscanUncorrected", "Overscan (Uncorrected)"},
+     {"BordersUncorrected", "Borders (Uncorrected)"},
      {NULL, NULL},
    },
    "Borders"},

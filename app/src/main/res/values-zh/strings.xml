@@ -2376,4 +2376,6 @@
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">对 2D 多边形使用原生坐标而非精确坐标。可修复部分游戏中错位或颜色错误的 2D 元素和特效；否则建议保持禁用。需要启用几何修正。</string>
     <string name="ss_core_cpu_recompilermemoryexceptions">CPU 重编译器内存异常</string>
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">在重编译器中启用内存异常，捕获未对齐的内存访问。可提高部分游戏的兼容性，但会降低性能。</string>
+    <string name="ss_core_choice_overscan_uncorrected">过扫描（未修正）</string>
+    <string name="ss_core_choice_borders_uncorrected">边框（未修正）</string>
 </resources>

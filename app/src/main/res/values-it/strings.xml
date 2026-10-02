@@ -2375,4 +2375,6 @@
     <string name="ss_core_gpu_pgxpdisableon2dpolygons_desc">Usa coordinate native per i poligoni 2D invece di quelle precise. Può correggere elementi ed effetti 2D disallineati o con colori errati in alcuni giochi; altrimenti è meglio lasciarlo disattivato. Richiede la correzione geometrica attiva.</string>
     <string name="ss_core_cpu_recompilermemoryexceptions">Eccezioni di memoria del recompilatore CPU</string>
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">Abilita le eccezioni di memoria nel recompilatore, intercettando gli accessi non allineati. Può migliorare la compatibilità con alcuni giochi, ma riduce le prestazioni.</string>
+    <string name="ss_core_choice_overscan_uncorrected">Overscan (non corretto)</string>
+    <string name="ss_core_choice_borders_uncorrected">Bordi (non corretti)</string>
 </resources>

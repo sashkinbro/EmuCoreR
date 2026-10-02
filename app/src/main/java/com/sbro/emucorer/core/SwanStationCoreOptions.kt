@@ -809,6 +809,8 @@ object SwanStationCoreOptions {
                 Choice("None", "None"),
                 Choice("Overscan", "Only Overscan Area"),
                 Choice("Borders", "All Borders"),
+                Choice("OverscanUncorrected", "Overscan (Uncorrected)"),
+                Choice("BordersUncorrected", "Borders (Uncorrected)"),
             ),
             defaultValue = "Overscan",
         ),
