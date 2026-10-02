@@ -1344,6 +1344,13 @@ bool GPU_HW_Vulkan::CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCa
 
   if (m_page_decode_scratch.empty())
     m_page_decode_scratch.resize(GPUTexturePageCache::PAGE_TEXELS * GPUTexturePageCache::PAGE_TEXELS);
+
+  // The page upload records image transitions and a buffer->image copy. A
+  // previous batch in the same frame can still have the VRAM render pass open,
+  // and recording those commands inside a render pass is invalid - it shows up
+  // as flickering pages. DrawBatchVertices reopens the pass after the lookup.
+  EndRenderPass();
+
   GPUTexturePageCache::DecodePage(key, m_vram_shadow.data(), m_page_decode_scratch.data());
 
   Vulkan::StagingTexture staging;
@@ -1364,6 +1371,7 @@ bool GPU_HW_Vulkan::CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCa
 
   res.current = next;
   m_page_decode_count++;
+  m_page_decodes_this_frame++;
   return true;
 }
 
@@ -1935,15 +1943,23 @@ bool GPU_HW_Vulkan::CompilePipelines()
             {
               for (uint8_t interlacing = 0; interlacing < 2; interlacing++)
               {
-                VkPipeline pipeline =
-                  GetBatchPipeline(m_texture_filtering, m_true_color, m_scaled_dithering,
-                                   depth_test, render_mode, texture_mode, transparency_mode,
-                                   static_cast<bool>(dithering), static_cast<bool>(interlacing), false,
-                                   g_vulkan_shader_cache->GetPipelineCache(),
-                                   &g_vulkan_shader_cache->PipelineCacheMutex());
-                if (pipeline == VK_NULL_HANDLE)
-                  return false;
-                progress.Increment();
+                const uint8_t cache_mode =
+                  texture_mode & ~static_cast<uint8_t>(GPUTextureMode::RawTextureBit);
+                const bool warm_cached =
+                  (m_texture_filtering == GPUTextureFilter::Nearest) &&
+                  GPUTexturePageCache::IsCacheableTextureMode(static_cast<GPUTextureMode>(cache_mode));
+                for (uint8_t cached_pages = 0; cached_pages <= (warm_cached ? 1 : 0); cached_pages++)
+                {
+                  VkPipeline pipeline =
+                    GetBatchPipeline(m_texture_filtering, m_true_color, m_scaled_dithering,
+                                     depth_test, render_mode, texture_mode, transparency_mode,
+                                     static_cast<bool>(dithering), static_cast<bool>(interlacing),
+                                     cached_pages != 0, g_vulkan_shader_cache->GetPipelineCache(),
+                                     &g_vulkan_shader_cache->PipelineCacheMutex());
+                  if (pipeline == VK_NULL_HANDLE)
+                    return false;
+                  progress.Increment();
+                }
               }
             }
           }
@@ -2210,7 +2226,19 @@ void GPU_HW_Vulkan::StartShaderCompileThreads()
               for (uint8_t interlacing = 0; interlacing < 2; interlacing++)
               {
                 m_shader_compile_cells.push_back(PackBatchCell(filter_idx, depth_test, render_mode, texture_mode,
-                                                               transparency_mode, dithering, interlacing));
+                                                               transparency_mode, dithering, interlacing, 0));
+                // The cached-page variants only exist for the Nearest filter and
+                // the texture modes the page cache can serve. Warm them in the
+                // same pass so the first heavy effect does not compile a PSO on
+                // the main thread mid-frame.
+                const uint8_t cache_mode =
+                  texture_mode & ~static_cast<uint8_t>(GPUTextureMode::RawTextureBit);
+                if (filter_idx == static_cast<uint8_t>(GPUTextureFilter::Nearest) &&
+                    GPUTexturePageCache::IsCacheableTextureMode(static_cast<GPUTextureMode>(cache_mode)))
+                {
+                  m_shader_compile_cells.push_back(PackBatchCell(filter_idx, depth_test, render_mode, texture_mode,
+                                                                 transparency_mode, dithering, interlacing, 1));
+                }
               }
             }
           }
@@ -2298,9 +2326,10 @@ void GPU_HW_Vulkan::ShaderCompileThreadEntryPoint()
     const uint8_t transparency_mode = static_cast<uint8_t>((cell >> 11) & 0x7u);
     const bool dithering = ((cell >> 14) & 0x1u) != 0;
     const bool interlacing = ((cell >> 15) & 0x1u) != 0;
+    const bool cached_pages = ((cell >> 16) & 0x1u) != 0;
 
     GetBatchPipeline(static_cast<GPUTextureFilter>(filter), true_color, scaled_dithering, depth_test, render_mode,
-                     texture_mode, transparency_mode, dithering, interlacing, false, pipeline_cache, nullptr);
+                     texture_mode, transparency_mode, dithering, interlacing, cached_pages, pipeline_cache, nullptr);
   }
 
   g_vulkan_shader_cache->MergeTransientPipelineCache(pipeline_cache);
@@ -3322,18 +3351,25 @@ void GPU_HW_Vulkan::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base
 
     const GPUTexturePageCache::LookupResult lookup =
       m_texture_page_cache.Lookup(key, m_vram_shadow.data(), m_page_frame_number);
-    if (lookup.slot != GPUTexturePageCache::NO_SLOT && EnsurePageResource(lookup.slot))
+    if (lookup.slot != GPUTexturePageCache::NO_SLOT)
     {
       bool valid = lookup.valid;
-      if (!valid && lookup.needs_upload && CPUDecodeAndUploadPage(lookup.slot, key))
+      // New moves can touch dozens of pages at once; decoding and creating all
+      // of them in a single frame stalls the emulation thread. Budget the work
+      // per frame and let the direct VRAM path cover the remaining pages until
+      // the following frames have decoded them.
+      if (!valid && lookup.needs_upload && m_page_decodes_this_frame < MAX_PAGE_DECODES_PER_FRAME)
       {
-        m_texture_page_cache.MarkDecoded(lookup.slot);
-        valid = true;
+        if (EnsurePageResource(lookup.slot) && CPUDecodeAndUploadPage(lookup.slot, key))
+        {
+          m_texture_page_cache.MarkDecoded(lookup.slot);
+          valid = true;
+        }
       }
 
-      // If the upload was deferred (target buffer still in flight) fall back
-      // to the direct VRAM path for this batch.
-      if (valid)
+      // If the upload was deferred (budget spent or target buffer still in
+      // flight) fall back to the direct VRAM path for this batch.
+      if (valid && EnsurePageResource(lookup.slot))
       {
         PageResource& resource = m_page_resources[lookup.slot];
         const PageResource::Buffer& buffer = resource.buffers[resource.current];
@@ -3412,6 +3448,8 @@ void GPU_HW_Vulkan::UpdateDisplay()
 
   // New frame: page textures written from now on are never recycled by the
   // cache while an in-flight frame could still be sampling them.
+  m_page_decodes_this_frame = 0;
+
   m_page_frame_number++;
   m_texture_page_cache.Compact(m_page_frame_number);
 

@@ -242,15 +242,16 @@ private:
 
   // Packs the batch pipeline dimensions into one 32-bit cell key:
   // filter(3) | depth(2) | render(2) | texture(4) | transparency(3) |
-  // dither(1) | interlacing(1).
+  // dither(1) | interlacing(1) | cached_pages(1).
   static constexpr uint32_t PackBatchCell(uint8_t filter, uint8_t depth_test, uint8_t render_mode,
                                           uint8_t texture_mode, uint8_t transparency_mode, uint8_t dithering,
-                                          uint8_t interlacing)
+                                          uint8_t interlacing, uint8_t cached_pages)
   {
     return (static_cast<uint32_t>(filter) & 0x7u) | ((static_cast<uint32_t>(depth_test) & 0x3u) << 3) |
            ((static_cast<uint32_t>(render_mode) & 0x3u) << 5) | ((static_cast<uint32_t>(texture_mode) & 0xFu) << 7) |
            ((static_cast<uint32_t>(transparency_mode) & 0x7u) << 11) |
-           ((static_cast<uint32_t>(dithering) & 0x1u) << 14) | ((static_cast<uint32_t>(interlacing) & 0x1u) << 15);
+           ((static_cast<uint32_t>(dithering) & 0x1u) << 14) | ((static_cast<uint32_t>(interlacing) & 0x1u) << 15) |
+           ((static_cast<uint32_t>(cached_pages) & 0x1u) << 16);
   }
 
   bool CreateTextureReplacementStreamBuffer();
@@ -299,6 +300,14 @@ private:
   // Decode statistics, logged once per ~2 seconds to correlate visual glitches.
   uint32_t m_page_decode_count = 0;
   uint32_t m_page_decode_count_at_last_log = 0;
+  // Decodes performed in the frame currently being ended, used to budget the
+  // decode work in DrawBatchVertices.
+  uint32_t m_page_decodes_this_frame = 0;
+  // A move that uses many new pages can queue dozens of decodes in a single
+  // frame (CPU decode + staging allocation + page texture creation). Spread
+  // them over subsequent frames and let the direct VRAM path cover the
+  // not-yet-decoded pages instead of stalling the frame.
+  static constexpr uint32_t MAX_PAGE_DECODES_PER_FRAME = 6;
 
   // Cached-page batch pipelines, same dimension order as m_batch_pipelines.
   // Only the Nearest filter with the three plain texture formats is ever
