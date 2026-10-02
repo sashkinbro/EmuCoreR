@@ -7,10 +7,12 @@
 # so the libretro core has zero glslangValidator dependency.
 #
 # Usage:
-#     python3 tools/regen_vulkan_spirv.py [--glslang PATH]
+#     python3 tools/regen_vulkan_spirv.py [--glslang PATH] [--glslc PATH]
+#                                         [--out-dir DIR]
 #
-# Requires glslangValidator from the Vulkan SDK or the `glslang-tools`
-# package on Debian / Ubuntu.
+# Requires either glslangValidator (Vulkan SDK, `glslang-tools` package) or
+# glslc (Android NDK shader-tools, shaderc). glslangValidator is preferred when
+# both are present; glslc is used automatically when it is the only one.
 
 import argparse
 import os
@@ -112,17 +114,21 @@ def _batch_fs_textured_nearest_variants():
     ]
     persp_axes = [("persp", []), ("noperp", ["NOPERSP"])]
     dual_axes  = [("nodual", []), ("dual", ["DUAL_SOURCE"])]
+    # CACHED_PAGES selects the hardware page-cache sampling path: binding 1
+    # holds a decoded 256x256 page texture instead of the VRAM atlas.
+    cache_axes = [("", []), ("cached_", ["CACHED_PAGES"])]
     # UV_LIMITS used to be a fifth axis here, PGXP_DEPTH a fourth.
     # Both have been collapsed to runtime branches on the
     # u_uv_limits / u_pgxp_depth cbuffer scalars - v_uv_limits is
     # always declared (the batch VS always emits it when textured)
     # and gl_FragDepth is always written. Brings the Nearest FS cube
     # into parity shape with the Bilinear / JINC2 / xBR families.
-    for i_name, i_defs in interp_axes:
-        for p_name, p_defs in persp_axes:
-            for d_name, d_defs in dual_axes:
-                suffix = f"{i_name}_{p_name}_{d_name}"
-                out.append((suffix, i_defs + p_defs + d_defs))
+    for c_name, c_defs in cache_axes:
+        for i_name, i_defs in interp_axes:
+            for p_name, p_defs in persp_axes:
+                for d_name, d_defs in dual_axes:
+                    suffix = f"{c_name}{i_name}_{p_name}_{d_name}"
+                    out.append((suffix, c_defs + i_defs + p_defs + d_defs))
     return out
 
 
@@ -150,6 +156,14 @@ def _batch_fs_textured_filter_variants():
     return out
 
 
+def _decode_page_variants():
+    return [
+        ("palette4", ["PAGE_PALETTE_4_BIT"]),
+        ("palette8", ["PAGE_PALETTE_8_BIT"]),
+        ("direct16", ["PAGE_DIRECT_16_BIT"]),
+    ]
+
+
 TEMPLATE_VARIANTS = {
     "batch.vert.glsl":                      _batch_vs_variants(),
     "batch_untextured.frag.glsl":           _batch_fs_untextured_variants(),
@@ -157,20 +171,28 @@ TEMPLATE_VARIANTS = {
     "batch_textured_bilinear.frag.glsl":    _batch_fs_textured_filter_variants(),
     "batch_textured_jinc2.frag.glsl":       _batch_fs_textured_filter_variants(),
     "batch_textured_xbr.frag.glsl":         _batch_fs_textured_filter_variants(),
+    "decode_page.frag.glsl":                _decode_page_variants(),
 }
 
 
-def find_glslang(explicit):
+def find_glslang(explicit, glslc_explicit=None):
     if explicit:
-        return explicit
+        return ("glslangValidator", explicit)
+    if glslc_explicit:
+        return ("glslc", glslc_explicit)
+    from shutil import which
     for name in ("glslangValidator", "glslangValidator.exe"):
-        from shutil import which
         path = which(name)
         if path:
-            return path
+            return ("glslangValidator", path)
+    for name in ("glslc", "glslc.exe"):
+        path = which(name)
+        if path:
+            return ("glslc", path)
     sys.stderr.write(
-        "error: glslangValidator not found on PATH. Install the Vulkan SDK\n"
-        "       or the glslang-tools package, or pass --glslang PATH.\n")
+        "error: neither glslangValidator nor glslc found on PATH. Install the\n"
+        "       Vulkan SDK / glslang-tools, or the Android NDK shader-tools,\n"
+        "       or pass --glslang/--glslc PATH.\n")
     sys.exit(1)
 
 
@@ -180,22 +202,31 @@ def sanitize_identifier(stem):
     return name
 
 
-def compile_one(glslang, glsl_path, stage_flag, defines=None):
-    # Write SPIR-V to a temp file under INC_DIR so we don't pollute /tmp on
-    # restricted-filesystem hosts.
-    spv_path = INC_DIR / (glsl_path.stem + ".spv.tmp")
-    cmd = [
-        glslang,
-        "--target-env", "vulkan1.0",
-        "-S", stage_flag,
-        "-V", str(glsl_path),
-        "-o", str(spv_path),
-    ]
+def compile_one(compiler_kind, compiler, glsl_path, stage_flag, defines=None, out_dir=INC_DIR):
+    # Write SPIR-V to a temp file next to the output so we don't pollute /tmp
+    # on restricted-filesystem hosts.
+    spv_path = out_dir / (glsl_path.stem + ".spv.tmp")
+    if compiler_kind == "glslc":
+        cmd = [
+            compiler,
+            "--target-env=vulkan1.0",
+            f"-fshader-stage={stage_flag}",
+            str(glsl_path),
+            "-o", str(spv_path),
+        ]
+    else:
+        cmd = [
+            compiler,
+            "--target-env", "vulkan1.0",
+            "-S", stage_flag,
+            "-V", str(glsl_path),
+            "-o", str(spv_path),
+        ]
     for d in defines or ():
         cmd.append(f"-D{d}")
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        sys.stderr.write(f"glslangValidator failed for {glsl_path.name}:\n")
+        sys.stderr.write(f"{compiler_kind} failed for {glsl_path.name}:\n")
         sys.stderr.write(result.stdout)
         sys.stderr.write(result.stderr)
         if spv_path.exists():
@@ -242,9 +273,13 @@ def emit_inc(identifier, glsl_name, words, out_path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--glslang", help="path to glslangValidator binary")
+    ap.add_argument("--glslc", help="path to glslc binary (shaderc)")
+    ap.add_argument("--out-dir", help="override output directory (for test runs)")
     args = ap.parse_args()
-    glslang = find_glslang(args.glslang)
-    INC_DIR.mkdir(parents=True, exist_ok=True)
+    compiler_kind, compiler = find_glslang(args.glslang, args.glslc)
+    out_dir = Path(args.out_dir).resolve() if args.out_dir else INC_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"using {compiler_kind}: {compiler}")
 
     glsl_files = sorted(GLSL_DIR.glob("*.glsl"))
     if not glsl_files:
@@ -273,8 +308,8 @@ def main():
         if variants is None:
             # Single-variant shader: one .inc, no -D flags.
             identifier = sanitize_identifier(base) + "_" + ident_suffix
-            out_path = INC_DIR / (identifier + ".inc")
-            words = compile_one(glslang, glsl_path, stage_flag)
+            out_path = out_dir / (identifier + ".inc")
+            words = compile_one(compiler_kind, compiler, glsl_path, stage_flag, out_dir=out_dir)
             emit_inc(identifier, glsl_path.name, words, out_path)
             size_kb = (len(words) * 4) / 1024.0
             print(f"  {glsl_path.name:<40} -> {out_path.name}  "
@@ -286,15 +321,15 @@ def main():
             for variant_suffix, defines in variants:
                 identifier = (sanitize_identifier(base) + "_" + ident_suffix +
                               "_" + variant_suffix)
-                out_path = INC_DIR / (identifier + ".inc")
-                words = compile_one(glslang, glsl_path, stage_flag, defines)
+                out_path = out_dir / (identifier + ".inc")
+                words = compile_one(compiler_kind, compiler, glsl_path, stage_flag, defines, out_dir)
                 emit_inc(identifier, glsl_path.name, words, out_path)
                 size_kb = (len(words) * 4) / 1024.0
                 print(f"  {glsl_path.name:<40} -> {out_path.name}  "
                       f"({len(words)} words, {size_kb:.1f} KiB)")
                 total += 1
 
-    print(f"regenerated {total} SPIR-V blob(s) in {INC_DIR}")
+    print(f"regenerated {total} SPIR-V blob(s) in {out_dir}")
 
 
 if __name__ == "__main__":

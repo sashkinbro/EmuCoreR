@@ -88,6 +88,12 @@ class NativeCoreBridge {
      */
     external fun getPresentRect(): FloatArray?
     external fun getAvInfo(handle: Long): LongArray?
+    /**
+     * Per-frame presenter timing as
+     * `{presentCpuNs, fenceWaitNs, coreSyncWaitNs, presentGpuNs, gpuValid}`.
+     * Zeroes outside the Vulkan renderer.
+     */
+    external fun nativeGetPresentStats(): LongArray?
     /** Emulated vertical refresh in Hz, used for audio-synced frame pacing. */
     external fun getFrameRate(handle: Long): Double
 

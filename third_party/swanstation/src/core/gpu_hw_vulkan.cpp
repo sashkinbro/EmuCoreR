@@ -464,9 +464,42 @@ bool LibretroVulkanHostDisplay::Render()
     return true;
   }
 
+  // The frontend presents from this display texture on the GPU queue. Wait
+  // for it to finish consuming the previous frame before this frame's display
+  // pass (or a texture resize) touches the texture, so the next frame's CPU
+  // work overlaps the previous frame's GPU present instead of serializing
+  // behind it.
+  if (m_ri != nullptr && m_ri->wait_sync_index != nullptr)
+    m_ri->wait_sync_index(m_ri->handle);
+
   const uint32_t resolution_scale = g_host_interface_storage.GetResolutionScale();
-  const uint32_t display_width    = static_cast<uint32_t>(m_display_width) * resolution_scale;
-  const uint32_t display_height   = static_cast<uint32_t>(m_display_height) * resolution_scale;
+  uint32_t display_width    = static_cast<uint32_t>(m_display_width) * resolution_scale;
+  uint32_t display_height   = static_cast<uint32_t>(m_display_height) * resolution_scale;
+
+  // The frontend scales this texture into the physical surface. Rendering the
+  // display pass larger than the surface only adds GPU work that the frontend
+  // immediately scales away, so cap it at the surface size while keeping the
+  // display aspect ratio intact. Downscaling switches to a linear sampler so
+  // the reduced pass does not alias.
+  VkSampler display_sampler = m_point_sampler;
+  if (display_width > 0 && display_height > 0)
+  {
+    emucorer_target_size target_size = {};
+    if (g_retro_environment_callback(EMUCORER_ENVIRONMENT_GET_TARGET_SIZE, &target_size) &&
+        target_size.width > 0 && target_size.height > 0)
+    {
+      const double fit =
+        std::min({static_cast<double>(target_size.width) / static_cast<double>(display_width),
+                  static_cast<double>(target_size.height) / static_cast<double>(display_height), 1.0});
+      if (fit < 1.0)
+      {
+        display_width = std::max<uint32_t>(1u, static_cast<uint32_t>(static_cast<double>(display_width) * fit));
+        display_height = std::max<uint32_t>(1u, static_cast<uint32_t>(static_cast<double>(display_height) * fit));
+        display_sampler = m_linear_sampler;
+      }
+    }
+  }
+
   // Lightgun state was cached at controller-update time; do NOT call
   // g_retro_input_state_callback() from the renderer - see the matching
   // comment in gpu_hw_opengl.cpp::Render().
@@ -492,7 +525,7 @@ bool LibretroVulkanHostDisplay::Render()
     const auto [left, top, width, height] = CalculateDrawRect(display_width, display_height, 0, false);
     RenderDisplay(left, top, width, height, m_display_texture_handle, m_display_texture_width, m_display_texture_height,
                   m_display_texture_view_x, m_display_texture_view_y, m_display_texture_view_width,
-                  m_display_texture_view_height);
+                  m_display_texture_view_height, display_sampler);
   }
 
   if (g_settings.controller_show_crosshair && HasSoftwareCursor() && (pos_x > 0 || pos_y > 0))
@@ -528,7 +561,8 @@ bool LibretroVulkanHostDisplay::Render()
 
 void LibretroVulkanHostDisplay::RenderDisplay(int32_t left, int32_t top, int32_t width, int32_t height, void* texture_handle,
                                               uint32_t texture_width, int32_t texture_height, int32_t texture_view_x,
-                                              int32_t texture_view_y, int32_t texture_view_width, int32_t texture_view_height)
+                                              int32_t texture_view_y, int32_t texture_view_width, int32_t texture_view_height,
+                                              VkSampler sampler)
 {
   VkCommandBuffer cmdbuffer = g_vulkan_context->GetCurrentCommandBuffer();
 
@@ -540,7 +574,7 @@ void LibretroVulkanHostDisplay::RenderDisplay(int32_t left, int32_t top, int32_t
     const Vulkan::Texture* vktex = static_cast<Vulkan::Texture*>(texture_handle);
     Vulkan::DescriptorSetUpdateBuilder dsupdate;
     dsupdate.AddCombinedImageSamplerDescriptorWrite(
-      ds, 0, vktex->GetView(), m_point_sampler, vktex->GetLayout());
+      ds, 0, vktex->GetView(), sampler, vktex->GetLayout());
     dsupdate.Update(g_vulkan_context->GetDevice());
   }
 
@@ -683,12 +717,18 @@ void GPU_HW_Vulkan::Reset(bool clear_vram)
 
   EndRenderPass();
 
+  // The shadow VRAM may have been cleared or the backend resources recreated.
+  m_texture_page_cache.InvalidateAll();
+
   if (clear_vram)
     ClearFramebuffer();
 }
 
 bool GPU_HW_Vulkan::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display)
 {
+  if (sw.IsReading())
+    m_texture_page_cache.InvalidateAll();
+
   if (host_texture)
   {
     EndRenderPass();
@@ -785,6 +825,11 @@ void GPU_HW_Vulkan::RestoreGraphicsAPIState()
 
 void GPU_HW_Vulkan::UpdateSettings()
 {
+  // Cache tracking only runs while IsTexturePageCacheEnabled(); when the
+  // filter or the software-renderer-for-readbacks toggle flips across that
+  // boundary, entries recorded under the previous mode can be stale.
+  const bool cache_was_enabled = IsTexturePageCacheEnabled();
+
   GPU_HW::UpdateSettings();
 
   // Stop the background batch-compile worker BEFORE UpdateHWSettings
@@ -806,6 +851,9 @@ void GPU_HW_Vulkan::UpdateSettings()
   bool framebuffer_changed, shaders_changed, only_dim_changed, downsample_changed, display_only_source_changed;
   UpdateHWSettings(&framebuffer_changed, &shaders_changed, &only_dim_changed, &downsample_changed,
                    /*shader_source_changed=*/nullptr, &display_only_source_changed);
+
+  if (cache_was_enabled != IsTexturePageCacheEnabled())
+    m_texture_page_cache.InvalidateAll();
 
   if (framebuffer_changed)
   {
@@ -1247,6 +1295,141 @@ bool GPU_HW_Vulkan::CreateSamplers()
   return true;
 }
 
+bool GPU_HW_Vulkan::EnsurePageResource(uint32_t slot)
+{
+  PageResource& res = m_page_resources[slot];
+  if (res.buffers[0].texture.GetImage() != VK_NULL_HANDLE)
+    return true;
+
+  for (uint32_t i = 0; i < 2; i++)
+  {
+    PageResource::Buffer& buffer = res.buffers[i];
+    if (!buffer.texture.Create(GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS, 1, 1,
+                               VK_FORMAT_R8G8B8A8_UNORM, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_VIEW_TYPE_2D,
+                               VK_IMAGE_TILING_OPTIMAL,
+                               VK_IMAGE_USAGE_SAMPLED_BIT |
+                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT))
+    {
+      Log_ErrorPrintf("Failed to create texture page %u buffer %u", slot, i);
+      return false;
+    }
+
+    buffer.descriptor_set = g_vulkan_context->AllocateGlobalDescriptorSet(m_batch_descriptor_set_layout);
+    if (buffer.descriptor_set == VK_NULL_HANDLE)
+      return false;
+
+    Vulkan::DescriptorSetUpdateBuilder dsubuilder;
+    dsubuilder.AddBufferDescriptorWrite(buffer.descriptor_set, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                                        m_uniform_stream_buffer.GetBuffer(), 0, sizeof(BatchUBOData));
+    dsubuilder.AddCombinedImageSamplerDescriptorWrite(buffer.descriptor_set, 1, buffer.texture.GetView(), m_point_sampler,
+                                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    dsubuilder.Update(g_vulkan_context->GetDevice());
+  }
+
+  res.current = 0;
+  return true;
+}
+
+bool GPU_HW_Vulkan::CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCache::SourceKey& key)
+{
+  PageResource& res = m_page_resources[slot];
+  const uint32_t next = res.current ^ 1u;
+
+  // Never write into a buffer a pending frame may still be sampling.
+  if (res.buffers[next].last_used_frame != 0 &&
+      res.buffers[next].last_used_frame + 2u > m_page_frame_number)
+  {
+    return false;
+  }
+
+  if (m_page_decode_scratch.empty())
+    m_page_decode_scratch.resize(GPUTexturePageCache::PAGE_TEXELS * GPUTexturePageCache::PAGE_TEXELS);
+  GPUTexturePageCache::DecodePage(key, m_vram_shadow.data(), m_page_decode_scratch.data());
+
+  Vulkan::StagingTexture staging;
+  if (!staging.Create(Vulkan::StagingBuffer::Type::Upload, VK_FORMAT_R8G8B8A8_UNORM,
+                      GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS))
+  {
+    return false;
+  }
+  staging.WriteTexels(0, 0, GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS,
+                      m_page_decode_scratch.data(), GPUTexturePageCache::PAGE_TEXELS * sizeof(uint32_t));
+
+  VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
+  Vulkan::Texture& tex = res.buffers[next].texture;
+
+  tex.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  staging.CopyToTexture(cmdbuf, 0, 0, tex, 0, 0, 0, 0, GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS);
+  tex.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+  res.current = next;
+  m_page_decode_count++;
+  return true;
+}
+
+bool GPU_HW_Vulkan::ShouldUsePageCache(uint32_t texture_mode) const
+{
+  if (!IsTexturePageCacheEnabled())
+    return false;
+  if (m_current_replacement_descriptor_set != VK_NULL_HANDLE)
+    return false;
+
+  return GPUTexturePageCache::IsCacheableTextureMode(static_cast<GPUTextureMode>(texture_mode));
+}
+
+bool GPU_HW_Vulkan::IsTexturePageCacheEnabled() const
+{
+  // The cache decodes from m_vram_shadow, which the software renderer-for-
+  // readbacks path does not maintain.
+  return (m_texture_filtering == GPUTextureFilter::Nearest) && (m_sw_renderer == nullptr);
+}
+
+void GPU_HW_Vulkan::OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom)
+{
+  if (IsTexturePageCacheEnabled())
+    m_texture_page_cache.AddDrawnRectangle(left, top, right, bottom);
+}
+
+void GPU_HW_Vulkan::OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom)
+{
+  if (IsTexturePageCacheEnabled())
+    m_texture_page_cache.AddWrittenRectangle(left, top, right, bottom);
+}
+
+void GPU_HW_Vulkan::DestroyPageCacheResources()
+{
+  for (PageResource& res : m_page_resources)
+  {
+    for (PageResource::Buffer& buffer : res.buffers)
+    {
+      Vulkan::Util::SafeFreeGlobalDescriptorSet(buffer.descriptor_set);
+      buffer.texture.Destroy(false);
+      buffer.last_used_frame = 0;
+    }
+    res.current = 0;
+  }
+
+  VkDevice device = g_vulkan_context->GetDevice();
+  m_batch_cached_pipelines.enumerate([device](std::atomic<VkPipeline>& slot) {
+    VkPipeline p = slot.load(std::memory_order_relaxed);
+    if (p != VK_NULL_HANDLE)
+    {
+      vkDestroyPipeline(device, p, nullptr);
+      slot.store(VK_NULL_HANDLE, std::memory_order_relaxed);
+    }
+  });
+  m_batch_cached_fragment_shaders.enumerate([device](std::atomic<VkShaderModule>& slot) {
+    VkShaderModule m = slot.load(std::memory_order_relaxed);
+    if (m != VK_NULL_HANDLE)
+    {
+      vkDestroyShaderModule(device, m, nullptr);
+      slot.store(VK_NULL_HANDLE, std::memory_order_relaxed);
+    }
+  });
+
+  m_texture_page_cache.InvalidateAll();
+}
+
 bool GPU_HW_Vulkan::CreateFramebuffer()
 {
   DestroyFramebuffer();
@@ -1367,6 +1550,10 @@ bool GPU_HW_Vulkan::CreateFramebuffer()
     if (!CreateDownsampleResources(texture_width, texture_height, texture_format))
       return false;
   }
+
+  // The page cache decodes from the freshly created VRAM textures, so any
+  // decoded pages from the previous framebuffer cycle are stale.
+  m_texture_page_cache.InvalidateAll();
 
   ClearDisplay();
   SetFullVRAMDirtyRectangle();
@@ -1724,7 +1911,7 @@ bool GPU_HW_Vulkan::CompilePipelines()
           {
             VkShaderModule shader =
               GetBatchFragmentShader(m_texture_filtering, render_mode, texture_mode,
-                                     static_cast<bool>(dithering), static_cast<bool>(interlacing));
+                                     static_cast<bool>(dithering), static_cast<bool>(interlacing), false);
             if (shader == VK_NULL_HANDLE)
               return false;
             progress.Increment();
@@ -1751,7 +1938,7 @@ bool GPU_HW_Vulkan::CompilePipelines()
                 VkPipeline pipeline =
                   GetBatchPipeline(m_texture_filtering, m_true_color, m_scaled_dithering,
                                    depth_test, render_mode, texture_mode, transparency_mode,
-                                   static_cast<bool>(dithering), static_cast<bool>(interlacing),
+                                   static_cast<bool>(dithering), static_cast<bool>(interlacing), false,
                                    g_vulkan_shader_cache->GetPipelineCache(),
                                    &g_vulkan_shader_cache->PipelineCacheMutex());
                 if (pipeline == VK_NULL_HANDLE)
@@ -2113,14 +2300,14 @@ void GPU_HW_Vulkan::ShaderCompileThreadEntryPoint()
     const bool interlacing = ((cell >> 15) & 0x1u) != 0;
 
     GetBatchPipeline(static_cast<GPUTextureFilter>(filter), true_color, scaled_dithering, depth_test, render_mode,
-                     texture_mode, transparency_mode, dithering, interlacing, pipeline_cache, nullptr);
+                     texture_mode, transparency_mode, dithering, interlacing, false, pipeline_cache, nullptr);
   }
 
   g_vulkan_shader_cache->MergeTransientPipelineCache(pipeline_cache);
 }
 
 VkShaderModule GPU_HW_Vulkan::GetBatchFragmentShader(GPUTextureFilter filter, uint8_t render_mode, uint8_t texture_mode,
-                                                     bool dithering, bool interlacing)
+                                                     bool dithering, bool interlacing, bool cached_pages)
 {
   // Reserved_*Direct16Bit shader-source dedup, applied at the helper
   // entry. Slots for texture_mode 3 / 7 are never written; all
@@ -2139,8 +2326,11 @@ VkShaderModule GPU_HW_Vulkan::GetBatchFragmentShader(GPUTextureFilter filter, ui
   // independently and stay valid across a filter-only setting
   // change (UpdateSettings skips DestroyPipelines in that case).
   std::atomic<VkShaderModule>& slot =
-    m_batch_fragment_shaders[static_cast<uint8_t>(filter)][render_mode][lookup_mode]
-                            [static_cast<uint8_t>(dithering)][static_cast<uint8_t>(interlacing)];
+    cached_pages ?
+      m_batch_cached_fragment_shaders[static_cast<uint8_t>(filter)][render_mode][lookup_mode]
+                                     [static_cast<uint8_t>(dithering)][static_cast<uint8_t>(interlacing)] :
+      m_batch_fragment_shaders[static_cast<uint8_t>(filter)][render_mode][lookup_mode]
+                              [static_cast<uint8_t>(dithering)][static_cast<uint8_t>(interlacing)];
   VkShaderModule existing = slot.load(std::memory_order_acquire);
   if (existing != VK_NULL_HANDLE)
     return existing;
@@ -2174,9 +2364,11 @@ VkShaderModule GPU_HW_Vulkan::GetBatchFragmentShader(GPUTextureFilter filter, ui
     switch (filter)
     {
       case GPUTextureFilter::Nearest:
-        blob_ptr = &Vulkan::EmbeddedShaders::GetBatchTexturedNearestFragmentShaderBlob(
-          m_multisamples > 1, m_per_sample_shading, m_disable_color_perspective,
-          dual_source);
+        blob_ptr = cached_pages ?
+          &Vulkan::EmbeddedShaders::GetBatchTexturedNearestCachedFragmentShaderBlob(
+            m_multisamples > 1, m_per_sample_shading, m_disable_color_perspective, dual_source) :
+          &Vulkan::EmbeddedShaders::GetBatchTexturedNearestFragmentShaderBlob(
+            m_multisamples > 1, m_per_sample_shading, m_disable_color_perspective, dual_source);
         break;
       case GPUTextureFilter::Bilinear:
       case GPUTextureFilter::BilinearBinAlpha:
@@ -2228,7 +2420,7 @@ VkShaderModule GPU_HW_Vulkan::GetBatchFragmentShader(GPUTextureFilter filter, ui
 VkPipeline GPU_HW_Vulkan::GetBatchPipeline(GPUTextureFilter filter, bool true_color, bool scaled_dithering,
                                            uint8_t depth_test, uint8_t render_mode,
                                            uint8_t texture_mode, uint8_t transparency_mode,
-                                           bool dithering, bool interlacing,
+                                           bool dithering, bool interlacing, bool cached_pages,
                                            VkPipelineCache pipeline_cache, std::mutex* pipeline_cache_mutex)
 {
   // Reserved_*Direct16Bit PSO dedup, applied at the helper entry.
@@ -2239,9 +2431,13 @@ VkPipeline GPU_HW_Vulkan::GetBatchPipeline(GPUTextureFilter filter, bool true_co
                                                                                                       texture_mode;
 
   std::atomic<VkPipeline>& slot =
-    m_batch_pipelines[static_cast<uint8_t>(filter)][static_cast<uint8_t>(true_color)]
-                     [static_cast<uint8_t>(scaled_dithering)][depth_test][render_mode][lookup_mode]
-                     [transparency_mode][static_cast<uint8_t>(dithering)][static_cast<uint8_t>(interlacing)];
+    cached_pages ?
+      m_batch_cached_pipelines[static_cast<uint8_t>(filter)][static_cast<uint8_t>(true_color)]
+                             [static_cast<uint8_t>(scaled_dithering)][depth_test][render_mode][lookup_mode]
+                             [transparency_mode][static_cast<uint8_t>(dithering)][static_cast<uint8_t>(interlacing)] :
+      m_batch_pipelines[static_cast<uint8_t>(filter)][static_cast<uint8_t>(true_color)]
+                       [static_cast<uint8_t>(scaled_dithering)][depth_test][render_mode][lookup_mode]
+                       [transparency_mode][static_cast<uint8_t>(dithering)][static_cast<uint8_t>(interlacing)];
 
   // Fast path: lock-free atomic load. This is what DrawBatchVertices
   // hits once a slot is filled (either by the precompile worker or
@@ -2266,7 +2462,7 @@ VkPipeline GPU_HW_Vulkan::GetBatchPipeline(GPUTextureFilter filter, bool true_co
   // both reach the publish step; the loser destroys its pipeline
   // via vkDestroyPipeline and returns the winner's. Wasteful but
   // harmless - PSOs are deterministic on identical descriptors.
-  VkShaderModule fs = GetBatchFragmentShader(filter, render_mode, lookup_mode, dithering, interlacing);
+  VkShaderModule fs = GetBatchFragmentShader(filter, render_mode, lookup_mode, dithering, interlacing, cached_pages);
   if (fs == VK_NULL_HANDLE)
     return VK_NULL_HANDLE;
 
@@ -3037,6 +3233,8 @@ void GPU_HW_Vulkan::DestroyPipelines()
   // m_batch_pipelines, both of which we're about to enumerate-destroy.
   StopShaderCompileThread();
 
+  DestroyPageCacheResources();
+
   // Atomic slot teardown. By this point the worker is stopped and
   // no other thread is touching the arrays, so memory_order_relaxed
   // is sufficient.
@@ -3100,6 +3298,52 @@ void GPU_HW_Vulkan::DestroyPipelines()
 
 void GPU_HW_Vulkan::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base_vertex, uint32_t num_vertices)
 {
+  // Page-cache lookup happens before the VRAM pass is (re)started. The CPU
+  // decode only records a staging->image copy, so it must still run before
+  // BeginVRAMRenderPass to keep the batch self-contained.
+  bool used_page_cache = false;
+  VkDescriptorSet page_descriptor_set = VK_NULL_HANDLE;
+  const uint8_t cache_texture_mode =
+    static_cast<uint8_t>(m_batch.texture_mode) & ~static_cast<uint8_t>(GPUTextureMode::RawTextureBit);
+  if (ShouldUsePageCache(cache_texture_mode) && m_batch_texture_page_x != UINT32_MAX)
+  {
+    GPUTexturePageCache::SourceKey key{};
+    key.page_x = static_cast<uint16_t>(m_batch_texture_page_x);
+    key.page_y = static_cast<uint16_t>(m_batch_texture_page_y);
+    // Direct 16-bit sources never read a palette; zeroing keeps the key
+    // stable across draws that do not program one.
+    if (cache_texture_mode == static_cast<uint8_t>(GPUTextureMode::Palette4Bit) ||
+        cache_texture_mode == static_cast<uint8_t>(GPUTextureMode::Palette8Bit))
+    {
+      key.palette_x = static_cast<uint16_t>(m_batch_texture_palette_x);
+      key.palette_y = static_cast<uint16_t>(m_batch_texture_palette_y);
+    }
+    key.mode = static_cast<GPUTextureMode>(cache_texture_mode);
+
+    const GPUTexturePageCache::LookupResult lookup =
+      m_texture_page_cache.Lookup(key, m_vram_shadow.data(), m_page_frame_number);
+    if (lookup.slot != GPUTexturePageCache::NO_SLOT && EnsurePageResource(lookup.slot))
+    {
+      bool valid = lookup.valid;
+      if (!valid && lookup.needs_upload && CPUDecodeAndUploadPage(lookup.slot, key))
+      {
+        m_texture_page_cache.MarkDecoded(lookup.slot);
+        valid = true;
+      }
+
+      // If the upload was deferred (target buffer still in flight) fall back
+      // to the direct VRAM path for this batch.
+      if (valid)
+      {
+        PageResource& resource = m_page_resources[lookup.slot];
+        const PageResource::Buffer& buffer = resource.buffers[resource.current];
+        page_descriptor_set = buffer.descriptor_set;
+        resource.buffers[resource.current].last_used_frame = m_page_frame_number;
+        used_page_cache = (page_descriptor_set != VK_NULL_HANDLE);
+      }
+    }
+  }
+
   BeginVRAMRenderPass();
 
   VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
@@ -3117,7 +3361,8 @@ void GPU_HW_Vulkan::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base
                      depth_test, static_cast<uint8_t>(render_mode),
                      static_cast<uint8_t>(m_batch.texture_mode),
                      static_cast<uint8_t>(m_batch.transparency_mode), m_batch.dithering, m_batch.interlacing,
-                     g_vulkan_shader_cache->GetPipelineCache(), &g_vulkan_shader_cache->PipelineCacheMutex());
+                     used_page_cache, g_vulkan_shader_cache->GetPipelineCache(),
+                     &g_vulkan_shader_cache->PipelineCacheMutex());
 
   vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
@@ -3129,6 +3374,7 @@ void GPU_HW_Vulkan::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base
   // both have replacements enabled while pointing at different pages, and in
   // that case only the descriptor set changes - the UBO stays clean.
   const VkDescriptorSet batch_set =
+    used_page_cache ? page_descriptor_set :
     (m_current_replacement_descriptor_set != VK_NULL_HANDLE) ? m_current_replacement_descriptor_set :
                                                                m_batch_descriptor_set;
   vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_batch_pipeline_layout, 0, 1, &batch_set, 1,
@@ -3163,6 +3409,29 @@ void GPU_HW_Vulkan::UpdateDisplay()
 {
   GPU_HW::UpdateDisplay();
   EndRenderPass();
+
+  // New frame: page textures written from now on are never recycled by the
+  // cache while an in-flight frame could still be sampling them.
+  m_page_frame_number++;
+  m_texture_page_cache.Compact(m_page_frame_number);
+
+  // Page cache churn diagnostics: a healthy scene settles to near-zero
+  // re-decodes once its textures are resident.
+  if ((m_page_frame_number % 120u) == 0u)
+  {
+    const uint32_t decodes = m_page_decode_count - m_page_decode_count_at_last_log;
+    m_page_decode_count_at_last_log = m_page_decode_count;
+    const GPUTexturePageCache::Stats& stats = m_texture_page_cache.GetStats();
+    Log_InfoPrintf("[PageCache] %u decodes/120f | entries %u | lookups %llu hits %llu reuses %llu "
+                   "misses %llu invalidations %llu drawn %llu",
+                   decodes, m_texture_page_cache.GetAllocatedCount(),
+                   static_cast<unsigned long long>(stats.lookups),
+                   static_cast<unsigned long long>(stats.hits),
+                   static_cast<unsigned long long>(stats.hash_reuses),
+                   static_cast<unsigned long long>(stats.misses),
+                   static_cast<unsigned long long>(stats.invalidations),
+                   static_cast<unsigned long long>(stats.drawn_rejections));
+  }
 
   // Replacement shadow sync runs at the frame boundary, after all rendering
   // for this frame has been recorded. Never during draws: mid-frame readbacks
@@ -3513,6 +3782,10 @@ void GPU_HW_Vulkan::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uin
   // cannot safely emulate this copy because the source may contain newer GPU
   // draws, so mark the destination for a deferred readback instead.
   GPU_HW::CopyVRAM(src_x, src_y, dst_x, dst_y, width, height);
+  // GPU-produced destination contents cannot be reconstructed from the CPU
+  // shadow before a readback lands, so keep these pages out of the page cache
+  // even though this is a CPU-initiated transfer (written clears draw rects).
+  OnVRAMDrawnRectangle(dst_x, dst_x + width, dst_y, dst_y + height);
   if (!IsUsingSoftwareRendererForReadbacks())
     MarkVRAMShadowDirty(dst_x, dst_x + width, dst_y, dst_y + height);
 
@@ -3602,6 +3875,7 @@ void GPU_HW_Vulkan::UpdateVRAMReadTexture()
 
   m_vram_read_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
   GPU_HW::UpdateVRAMReadTexture();
 }
 

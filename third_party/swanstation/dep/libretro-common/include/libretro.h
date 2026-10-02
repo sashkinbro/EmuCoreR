@@ -731,6 +731,23 @@ enum retro_mod
 /** Frontend-internal environment callbacks should include this bit. */
 #define RETRO_ENVIRONMENT_PRIVATE 0x20000
 
+/**
+ * EmuCoreR frontend extension: queries the pixel size of the surface the
+ * frontend scales the core's frame into. The hardware renderers use it to cap
+ * their display pass at the surface size instead of rendering it at the
+ * internal resolution scale only to have the frontend scale it down again.
+ *
+ * @param[out] data <tt>struct emucorer_target_size*</tt>.
+ * @returns \c true if a target size is available.
+ */
+#define EMUCORER_ENVIRONMENT_GET_TARGET_SIZE (RETRO_ENVIRONMENT_PRIVATE + 1)
+
+struct emucorer_target_size
+{
+  uint32_t width;
+  uint32_t height;
+};
+
 /* Environment commands. */
 /**
  * Requests the frontend to set the screen rotation.

@@ -5,6 +5,7 @@
 #include "common/vulkan/texture.h"
 #include "core/host_display.h"
 #include "gpu_hw.h"
+#include "gpu_hw_texture_cache.h"
 #include "texture_replacements.h"
 #include <array>
 #include <atomic>
@@ -57,7 +58,7 @@ protected:
 
   void RenderDisplay(int32_t left, int32_t top, int32_t width, int32_t height, void* texture_handle, uint32_t texture_width,
                      int32_t texture_height, int32_t texture_view_x, int32_t texture_view_y, int32_t texture_view_width,
-                     int32_t texture_view_height);
+                     int32_t texture_view_height, VkSampler sampler);
 
 private:
   static constexpr VkFormat FRAMEBUFFER_FORMAT = VK_FORMAT_R8G8B8A8_UNORM;
@@ -191,13 +192,13 @@ private:
   // snapshot. Both helpers are reentrant under the same tuple - the
   // slot publish under m_batch_shader_mutex handles the race winner.
   VkShaderModule GetBatchFragmentShader(GPUTextureFilter filter, uint8_t render_mode, uint8_t texture_mode,
-                                        bool dithering, bool interlacing);
+                                        bool dithering, bool interlacing, bool cached_pages);
   // pipeline_cache_mutex is only required when callers share the global
   // pipeline cache; background workers pass their own transient cache and
   // leave it null.
   VkPipeline GetBatchPipeline(GPUTextureFilter filter, bool true_color, bool scaled_dithering,
                               uint8_t depth_test, uint8_t render_mode, uint8_t texture_mode,
-                              uint8_t transparency_mode, bool dithering, bool interlacing,
+                              uint8_t transparency_mode, bool dithering, bool interlacing, bool cached_pages,
                               VkPipelineCache pipeline_cache, std::mutex* pipeline_cache_mutex);
 
   // Lazy non-batch PSO compile path. Mirrors the D3D12 backend's
@@ -255,6 +256,55 @@ private:
   bool CreateTextureReplacementStreamBuffer();
 
   bool BlitVRAMReplacementTexture(const TextureReplacementTexture* tex, uint32_t dst_x, uint32_t dst_y, uint32_t width, uint32_t height);
+
+  // Hardware texture page cache. Each slot owns two 256x256 RGBA8 textures
+  // (double buffered) that CPUDecodeAndUploadPage fills from m_vram_shadow via
+  // a staging texture. Re-decoding a stale page writes the buffer that no
+  // recent frame is sampling, so in-flight draws keep the texture they were
+  // queued with.
+  struct PageResource
+  {
+    struct Buffer
+    {
+      Vulkan::Texture texture;
+      VkDescriptorSet descriptor_set = VK_NULL_HANDLE;
+      uint64_t last_used_frame = 0;
+    };
+
+    Buffer buffers[2];
+    uint32_t current = 0;
+  };
+
+  bool EnsurePageResource(uint32_t slot);
+  void DestroyPageCacheResources();
+  // Decodes the page from CPU m_vram_shadow into RGBA8 and uploads via staging.
+  // Returns false when the target buffer is still in flight.
+  bool CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCache::SourceKey& key);
+  // True when the current batch may be drawn through the page cache.
+  bool ShouldUsePageCache(uint32_t texture_mode) const;
+  bool IsTexturePageCacheEnabled() const override;
+
+  void OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) override;
+  void OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) override;
+
+  GPUTexturePageCache m_texture_page_cache;
+  std::array<PageResource, GPUTexturePageCache::MAX_ENTRIES> m_page_resources;
+  // Monotonic frame counter used to avoid recycling page textures that a
+  // recent in-flight frame may still be sampling.
+  uint64_t m_page_frame_number = 0;
+  // Reused CPU scratch buffer for page decodes (256x256 RGBA8).
+  std::vector<uint32_t> m_page_decode_scratch;
+
+
+  // Decode statistics, logged once per ~2 seconds to correlate visual glitches.
+  uint32_t m_page_decode_count = 0;
+  uint32_t m_page_decode_count_at_last_log = 0;
+
+  // Cached-page batch pipelines, same dimension order as m_batch_pipelines.
+  // Only the Nearest filter with the three plain texture formats is ever
+  // filled; the remaining slots stay empty.
+  DimensionalArray<std::atomic<VkPipeline>, 2, 2, 5, 9, 4, 3, 2, 2, 7> m_batch_cached_pipelines{};
+  DimensionalArray<std::atomic<VkShaderModule>, 2, 2, 9, 4, 7> m_batch_cached_fragment_shaders{};
 
   // Composited texture page (texpage-*) GPU resources. Keyed by the manager's
   // replacement id, which is stable per page/mode/palette; `revision` detects

@@ -266,6 +266,17 @@ const EmbeddedShaderBlob& GetBatchTexturedNearestFragmentShaderBlob(bool msaa,
                                                                     bool noperspective_color,
                                                                     bool dual_source);
 
+// Hardware texture page cache variant of the textured-Nearest slice. Same
+// structural cube as the VRAM path (3 x 2 x 2 = 12 blobs); CACHED_PAGES makes
+// the fragment shader sample the decoded 256x256 page texture bound at
+// set 0 binding 1 instead of the VRAM atlas.
+extern const EmbeddedShaderBlob k_batch_textured_nearest_cached_fs_blobs[12];
+
+const EmbeddedShaderBlob& GetBatchTexturedNearestCachedFragmentShaderBlob(bool msaa,
+                                                                          bool per_sample_shading,
+                                                                          bool noperspective_color,
+                                                                          bool dual_source);
+
 // Batch FS, textured-with-Bilinear / BilinearBinAlpha-filter slice.
 // Three structural axes (UV_LIMITS is implicit - all non-Nearest filter
 // sessions have m_using_uv_limits forced true by ShouldUseUVLimits, so
@@ -304,6 +315,19 @@ const EmbeddedShaderBlob& GetBatchTexturedXBRFragmentShaderBlob(bool msaa,
                                                                 bool per_sample_shading,
                                                                 bool noperspective_color,
                                                                 bool dual_source);
+
+// Texture page decode FS. One blob per page format; the decode pass renders a
+// 256x256 RGBA8 page texture from the scaled VRAM read texture so batch draws
+// can sample it with ordinary hardware filtering. The selector takes the
+// native GPUTextureMode value (0 = 4-bit, 1 = 8-bit, 2 = 16-bit direct).
+extern const uint32_t k_decode_page_fs_palette4[];
+extern const size_t k_decode_page_fs_palette4_size_bytes;
+extern const uint32_t k_decode_page_fs_palette8[];
+extern const size_t k_decode_page_fs_palette8_size_bytes;
+extern const uint32_t k_decode_page_fs_direct16[];
+extern const size_t k_decode_page_fs_direct16_size_bytes;
+
+const EmbeddedShaderBlob& GetDecodePageFragmentShaderBlob(uint32_t texture_mode);
 
 
 // Create a VkShaderModule directly from a pre-compiled SPIR-V blob.

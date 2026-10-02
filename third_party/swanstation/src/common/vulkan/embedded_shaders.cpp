@@ -43,10 +43,25 @@ namespace Vulkan::EmbeddedShaders {
 #include "embedded_spirv/batch_textured_jinc2_fs_sample_persp_nodual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_centroid_noperp_dual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_centroid_noperp_nodual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_centroid_noperp_dual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_centroid_noperp_nodual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_centroid_persp_dual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_centroid_persp_nodual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_none_noperp_dual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_none_noperp_nodual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_none_persp_dual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_none_persp_nodual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_sample_noperp_dual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_sample_noperp_nodual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_sample_persp_dual.inc"
+#include "embedded_spirv/batch_textured_nearest_fs_cached_sample_persp_nodual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_centroid_persp_dual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_centroid_persp_nodual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_none_noperp_dual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_none_noperp_nodual.inc"
+#include "embedded_spirv/decode_page_fs_direct16.inc"
+#include "embedded_spirv/decode_page_fs_palette4.inc"
+#include "embedded_spirv/decode_page_fs_palette8.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_none_persp_dual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_none_persp_nodual.inc"
 #include "embedded_spirv/batch_textured_nearest_fs_sample_noperp_dual.inc"
@@ -234,6 +249,37 @@ const EmbeddedShaderBlob& GetBatchTexturedNearestFragmentShaderBlob(bool msaa,
   return k_batch_textured_nearest_fs_blobs[index];
 }
 
+// Hardware texture page cache variant of the textured-Nearest slice. Same
+// index encoding as the VRAM path.
+#define BLOB(name) { k_##name, k_##name##_size_bytes }
+const EmbeddedShaderBlob k_batch_textured_nearest_cached_fs_blobs[12] = {
+  BLOB(batch_textured_nearest_fs_cached_none_persp_nodual), // [ 0]
+  BLOB(batch_textured_nearest_fs_cached_none_persp_dual), // [ 1]
+  BLOB(batch_textured_nearest_fs_cached_none_noperp_nodual), // [ 2]
+  BLOB(batch_textured_nearest_fs_cached_none_noperp_dual), // [ 3]
+  BLOB(batch_textured_nearest_fs_cached_centroid_persp_nodual), // [ 4]
+  BLOB(batch_textured_nearest_fs_cached_centroid_persp_dual), // [ 5]
+  BLOB(batch_textured_nearest_fs_cached_centroid_noperp_nodual), // [ 6]
+  BLOB(batch_textured_nearest_fs_cached_centroid_noperp_dual), // [ 7]
+  BLOB(batch_textured_nearest_fs_cached_sample_persp_nodual), // [ 8]
+  BLOB(batch_textured_nearest_fs_cached_sample_persp_dual), // [ 9]
+  BLOB(batch_textured_nearest_fs_cached_sample_noperp_nodual), // [10]
+  BLOB(batch_textured_nearest_fs_cached_sample_noperp_dual), // [11]
+};
+#undef BLOB
+
+const EmbeddedShaderBlob& GetBatchTexturedNearestCachedFragmentShaderBlob(bool msaa,
+                                                                          bool per_sample_shading,
+                                                                          bool noperspective_color,
+                                                                          bool dual_source)
+{
+  const unsigned interp = per_sample_shading ? 2u : (msaa ? 1u : 0u);
+  const unsigned persp  = noperspective_color ? 1u : 0u;
+  const unsigned dual   = dual_source ? 1u : 0u;
+  const unsigned index  = interp * 4u + persp * 2u + dual;
+  return k_batch_textured_nearest_cached_fs_blobs[index];
+}
+
 // Batch FS textured-Bilinear / BilinearBinAlpha blob table. Index
 // encoding (must match GetBatchTexturedBilinearFragmentShaderBlob
 // below):
@@ -350,6 +396,22 @@ const EmbeddedShaderBlob& GetBatchTexturedXBRFragmentShaderBlob(bool msaa,
   const unsigned dual   = dual_source ? 1u : 0u;
   const unsigned index  = interp * 4u + persp * 2u + dual;
   return k_batch_textured_xbr_fs_blobs[index];
+}
+
+// Texture page decode FS blobs. Indexed by the native GPUTextureMode value:
+// 0 = 4-bit paletted, 1 = 8-bit paletted, 2 = 16-bit direct.
+#define BLOB(name) { k_##name, k_##name##_size_bytes }
+static const EmbeddedShaderBlob k_decode_page_fs_blobs[3] = {
+  BLOB(decode_page_fs_palette4),
+  BLOB(decode_page_fs_palette8),
+  BLOB(decode_page_fs_direct16),
+};
+#undef BLOB
+
+const EmbeddedShaderBlob& GetDecodePageFragmentShaderBlob(uint32_t texture_mode)
+{
+  const uint32_t index = (texture_mode < 3u) ? texture_mode : 2u;
+  return k_decode_page_fs_blobs[index];
 }
 
 VkShaderModule CreateShaderModule(const uint32_t* spv, size_t spv_size_bytes)

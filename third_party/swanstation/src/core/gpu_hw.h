@@ -611,6 +611,24 @@ protected:
   BatchConfig m_batch;
   BatchUBOData m_batch_ubo_data = {};
 
+  // Texture page / palette the vertices currently queued in the batch were
+  // submitted with. Only meaningful while IsTexturePageCacheEnabled(); a
+  // mismatch forces a flush so each batch maps to exactly one decoded page.
+  uint32_t m_batch_texture_page_x = UINT32_MAX;
+  uint32_t m_batch_texture_page_y = UINT32_MAX;
+  uint32_t m_batch_texture_palette_x = UINT32_MAX;
+  uint32_t m_batch_texture_palette_y = UINT32_MAX;
+
+  // True when the backend draws textured primitives from decoded page
+  // textures, which requires batches to stay within a single page/palette.
+  virtual bool IsTexturePageCacheEnabled() const { return false; }
+
+  // Rect-based texture cache notifications. Called by GPU_HW when VRAM is
+  // modified by CPU writes or GPU draws. The backend overrides these to
+  // forward to GPUTexturePageCache::AddWrittenRectangle/AddDrawnRectangle.
+  virtual void OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) {}
+  virtual void OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) {}
+
   // Bounding box of VRAM area that the GPU has drawn into.
   Common::Rectangle<uint32_t> m_vram_dirty_rect;
 

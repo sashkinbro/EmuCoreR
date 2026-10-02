@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <mutex>
@@ -38,6 +39,15 @@ struct CropRect {
     int right;
     int bottom;
 };
+
+uint64_t NowNanos() {
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+void ResetTimestampQueries(VkCommandBuffer command_buffer);
+void WriteTimestampEnd(VkCommandBuffer command_buffer);
+void ReadTimestampResults();
 
 bool IsCropActive(const CropRect& crop) {
     return crop.left > 0 || crop.top > 0 || crop.right > 0 || crop.bottom > 0;
@@ -151,6 +161,18 @@ struct State {
     retro_vulkan_image frame_image = {};
     bool has_frame_image = false;
     uint32_t sync_index = 0;
+
+    // Frame timing for the performance overlay. Written and read on the frame
+    // thread only; the JNI getter is called from that same thread.
+    uint64_t stat_present_cpu_nanos = 0;
+    uint64_t stat_fence_wait_nanos = 0;
+    uint64_t stat_core_sync_wait_nanos = 0;
+    uint64_t stat_present_gpu_nanos = 0;
+    bool stat_gpu_time_valid = false;
+    VkQueryPool timestamp_pool = VK_NULL_HANDLE;
+    float timestamp_period_ns = 0.0f;
+    bool timestamps_supported = false;
+    bool timestamp_pending = false;
 };
 
 State g_vk;
@@ -408,6 +430,29 @@ bool CreateDevice() {
     if (vkCreateFence(g_vk.device, &fence_info, nullptr, &g_vk.frame_fence) != VK_SUCCESS) {
         VK_LOGE("vkCreateFence failed");
         return false;
+    }
+
+    // Timestamp queries for the performance overlay. Only enabled when the
+    // graphics queue actually exposes timestamps.
+    VkPhysicalDeviceProperties device_properties{};
+    vkGetPhysicalDeviceProperties(g_vk.physical_device, &device_properties);
+    uint32_t timestamp_valid_bits = 0;
+    uint32_t family_count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(g_vk.physical_device, &family_count, nullptr);
+    if (family_count > 0) {
+        std::vector<VkQueueFamilyProperties> families(family_count);
+        vkGetPhysicalDeviceQueueFamilyProperties(g_vk.physical_device, &family_count, families.data());
+        if (g_vk.queue_family < family_count) timestamp_valid_bits = families[g_vk.queue_family].timestampValidBits;
+    }
+    if (timestamp_valid_bits > 0 && device_properties.limits.timestampPeriod > 0.0f) {
+        VkQueryPoolCreateInfo query_info{};
+        query_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+        query_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+        query_info.queryCount = 2;
+        if (vkCreateQueryPool(g_vk.device, &query_info, nullptr, &g_vk.timestamp_pool) == VK_SUCCESS) {
+            g_vk.timestamps_supported = true;
+            g_vk.timestamp_period_ns = device_properties.limits.timestampPeriod;
+        }
     }
 
     VkSamplerCreateInfo sampler_info{};
@@ -1059,7 +1104,9 @@ void SetCommandBuffers(void*, uint32_t, const VkCommandBuffer*) {}
 
 void WaitSyncIndex(void*) {
     if (g_vk.device == VK_NULL_HANDLE || g_vk.frame_fence == VK_NULL_HANDLE) return;
+    const uint64_t start_nanos = NowNanos();
     vkWaitForFences(g_vk.device, 1, &g_vk.frame_fence, VK_TRUE, kFenceWaitTimeoutNs);
+    g_vk.stat_core_sync_wait_nanos = NowNanos() - start_nanos;
 }
 
 void LockQueue(void*) {
@@ -1117,6 +1164,7 @@ bool RecordPresentBlit(uint32_t swapchain_index, uint32_t source_width, uint32_t
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS) return false;
+    ResetTimestampQueries(command_buffer);
 
     const VkImage source_image = g_vk.frame_image.create_info.image;
     const VkImageLayout source_layout = g_vk.frame_image.image_layout;
@@ -1179,6 +1227,7 @@ bool RecordPresentBlit(uint32_t swapchain_index, uint32_t source_width, uint32_t
     vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0,
                          nullptr, 0, nullptr, 1, &target_barrier);
 
+    WriteTimestampEnd(command_buffer);
     return vkEndCommandBuffer(command_buffer) == VK_SUCCESS;
 }
 
@@ -1195,6 +1244,7 @@ bool RecordPresentEffect(uint32_t swapchain_index, uint32_t source_width, uint32
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS) return false;
+    ResetTimestampQueries(command_buffer);
 
     const VkImage source_image = g_vk.frame_image.create_info.image;
     const VkImageLayout source_layout = g_vk.frame_image.image_layout;
@@ -1307,6 +1357,7 @@ bool RecordPresentEffect(uint32_t swapchain_index, uint32_t source_width, uint32
     vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &target_barrier);
 
+    WriteTimestampEnd(command_buffer);
     return vkEndCommandBuffer(command_buffer) == VK_SUCCESS;
 }
 #endif  // !EMUCORER_HAVE_LIBRASHADER
@@ -1324,6 +1375,7 @@ bool RecordPresentShaderChain(uint32_t swapchain_index, uint32_t source_width, u
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS) return false;
+    ResetTimestampQueries(command_buffer);
 
     const VkImageLayout source_layout = g_vk.frame_image.image_layout;
     VkImageMemoryBarrier source_barrier{};
@@ -1415,11 +1467,55 @@ bool RecordPresentShaderChain(uint32_t swapchain_index, uint32_t source_width, u
     vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0,
                          nullptr, 0, nullptr, 1, &swapchain_barrier);
 
+    WriteTimestampEnd(command_buffer);
     return vkEndCommandBuffer(command_buffer) == VK_SUCCESS;
 }
 #endif  // EMUCORER_HAVE_LIBRASHADER
 
+// GPU timestamps around the present command buffer. The pool holds a start and
+// an end timestamp; results are read on the next frame after the frame fence
+// has signalled, so reading never stalls the CPU.
+void ResetTimestampQueries(VkCommandBuffer command_buffer) {
+    if (!g_vk.timestamps_supported) return;
+    vkCmdResetQueryPool(command_buffer, g_vk.timestamp_pool, 0, 2);
+    vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, g_vk.timestamp_pool, 0);
+}
+
+void WriteTimestampEnd(VkCommandBuffer command_buffer) {
+    if (!g_vk.timestamps_supported) return;
+    vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, g_vk.timestamp_pool, 1);
+    g_vk.timestamp_pending = true;
+}
+
+void ReadTimestampResults() {
+    if (!g_vk.timestamp_pending || !g_vk.timestamps_supported) return;
+    uint64_t results[2] = {};
+    const VkResult res =
+        vkGetQueryPoolResults(g_vk.device, g_vk.timestamp_pool, 0, 2, sizeof(results), results, sizeof(uint64_t),
+                              VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+    if (res == VK_SUCCESS && results[1] >= results[0]) {
+        g_vk.stat_present_gpu_nanos =
+            static_cast<uint64_t>(static_cast<double>(results[1] - results[0]) * g_vk.timestamp_period_ns);
+        g_vk.stat_gpu_time_valid = true;
+    }
+    g_vk.timestamp_pending = false;
+}
+
 }  // namespace
+
+PresentStats GetLastPresentStats() {
+    PresentStats stats{};
+    stats.present_cpu_nanos = g_vk.stat_present_cpu_nanos;
+    stats.fence_wait_nanos = g_vk.stat_fence_wait_nanos;
+    stats.core_sync_wait_nanos = g_vk.stat_core_sync_wait_nanos;
+    stats.present_gpu_nanos = g_vk.stat_present_gpu_nanos;
+    stats.gpu_time_valid = g_vk.stat_gpu_time_valid;
+    return stats;
+}
+
+void RecordCoreSyncWait(uint64_t nanos) {
+    g_vk.stat_core_sync_wait_nanos = nanos;
+}
 
 bool Prepare(ANativeWindow* window, uint32_t window_generation) {
     if (g_vk.requested || g_vk.active) return true;
@@ -1538,10 +1634,16 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
     }
     if (source_width == 0 || source_height == 0) return false;
 
+    const uint64_t present_start_nanos = NowNanos();
+
     if (vkWaitForFences(g_vk.device, 1, &g_vk.frame_fence, VK_TRUE, kFenceWaitTimeoutNs) != VK_SUCCESS) {
         VK_LOGW("Vulkan frame fence timed out");
         return false;
     }
+    g_vk.stat_fence_wait_nanos = NowNanos() - present_start_nanos;
+    // The fence just waited on covers the previous submission, so the previous
+    // frame's GPU timestamps are ready now.
+    ReadTimestampResults();
     vkResetFences(g_vk.device, 1, &g_vk.frame_fence);
 
     uint32_t swapchain_index = 0;
@@ -1640,11 +1742,11 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
         VK_LOGW("vkQueuePresentKHR failed (0x%x)", result);
         return false;
     }
-    // The core reuses a single frame texture for every frame. Without waiting
-    // for this frame's blit to finish, the core starts overwriting that texture
-    // while the GPU is still sampling it, which shows up as trails/ghosting of
-    // the previous frame during menu transitions.
-    vkWaitForFences(g_vk.device, 1, &g_vk.frame_fence, VK_TRUE, kFenceWaitTimeoutNs);
+    // The core owns a single display texture and presents through it. It waits
+    // for this frame's fence before overwriting that texture on the next frame
+    // (see WaitSyncIndex), so the emulation thread can start the next frame
+    // immediately and run while the GPU finishes this one.
+    g_vk.stat_present_cpu_nanos = NowNanos() - present_start_nanos;
     return true;
 }
 
@@ -1661,6 +1763,8 @@ void Destroy() {
         if (g_vk.present_semaphore != VK_NULL_HANDLE)
             vkDestroySemaphore(g_vk.device, g_vk.present_semaphore, nullptr);
         if (g_vk.frame_fence != VK_NULL_HANDLE) vkDestroyFence(g_vk.device, g_vk.frame_fence, nullptr);
+        if (g_vk.timestamp_pool != VK_NULL_HANDLE)
+            vkDestroyQueryPool(g_vk.device, g_vk.timestamp_pool, nullptr);
         if (g_vk.effect_descriptor_pool != VK_NULL_HANDLE)
             vkDestroyDescriptorPool(g_vk.device, g_vk.effect_descriptor_pool, nullptr);
         if (g_vk.effect_pipeline_layout != VK_NULL_HANDLE)

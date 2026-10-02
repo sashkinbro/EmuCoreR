@@ -37,6 +37,8 @@ add_library(core
     gpu_hw_opengl.h
     gpu_hw_shadergen.cpp
     gpu_hw_shadergen.h
+    gpu_hw_texture_cache.cpp
+    gpu_hw_texture_cache.h
     gpu_hw_vulkan.cpp
     gpu_hw_vulkan.h
     gpu_sw.cpp

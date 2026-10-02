@@ -493,8 +493,30 @@ bool LibretroOpenGLHostDisplay::Render()
   const GLuint fbo = static_cast<GLuint>(
     static_cast<retro_hw_render_callback*>(m_window_info.display_connection)->get_current_framebuffer());
   const uint32_t resolution_scale = g_host_interface_storage.GetResolutionScale();
-  const uint32_t display_width = static_cast<uint32_t>(m_display_width) * resolution_scale;
-  const uint32_t display_height = static_cast<uint32_t>(m_display_height) * resolution_scale;
+  uint32_t display_width = static_cast<uint32_t>(m_display_width) * resolution_scale;
+  uint32_t display_height = static_cast<uint32_t>(m_display_height) * resolution_scale;
+  // The frontend scales this frame into the physical surface. Rendering it
+  // larger than the surface only adds GPU work that is immediately scaled
+  // away, so cap it at the surface size and switch to a linear sampler when
+  // downscaling to avoid aliasing.
+  GLuint display_sampler = m_display_nearest_sampler;
+  if (display_width > 0 && display_height > 0)
+  {
+    emucorer_target_size target_size = {};
+    if (g_retro_environment_callback(EMUCORER_ENVIRONMENT_GET_TARGET_SIZE, &target_size) &&
+        target_size.width > 0 && target_size.height > 0)
+    {
+      const double fit =
+        std::min({static_cast<double>(target_size.width) / static_cast<double>(display_width),
+                  static_cast<double>(target_size.height) / static_cast<double>(display_height), 1.0});
+      if (fit < 1.0)
+      {
+        display_width = std::max<uint32_t>(1u, static_cast<uint32_t>(static_cast<double>(display_width) * fit));
+        display_height = std::max<uint32_t>(1u, static_cast<uint32_t>(static_cast<double>(display_height) * fit));
+        display_sampler = m_display_linear_sampler;
+      }
+    }
+  }
   // Lightgun state was cached at controller-update time; do NOT call
   // g_retro_input_state_callback() from the renderer - that would
   // sample input twice per frame across two callsites, which is
@@ -517,7 +539,7 @@ bool LibretroOpenGLHostDisplay::Render()
     const auto [left, top, width, height] = CalculateDrawRect(display_width, display_height, 0, false);
     RenderDisplay(left, top, width, height, m_display_texture_handle, m_display_texture_width, m_display_texture_height,
                   m_display_texture_view_x, m_display_texture_view_y, m_display_texture_view_width,
-                  m_display_texture_view_height);
+                  m_display_texture_view_height, display_sampler);
   }
 
   if (g_settings.controller_show_crosshair && HasSoftwareCursor() && (pos_x > 0 || pos_y > 0))
@@ -543,7 +565,8 @@ bool LibretroOpenGLHostDisplay::Render()
 
 void LibretroOpenGLHostDisplay::RenderDisplay(int32_t left, int32_t bottom, int32_t width, int32_t height, void* texture_handle,
                                               uint32_t texture_width, int32_t texture_height, int32_t texture_view_x,
-                                              int32_t texture_view_y, int32_t texture_view_width, int32_t texture_view_height)
+                                              int32_t texture_view_y, int32_t texture_view_width, int32_t texture_view_height,
+                                              GLuint sampler)
 {
   glViewport(left, bottom, width, height);
   glDisable(GL_BLEND);
@@ -558,7 +581,7 @@ void LibretroOpenGLHostDisplay::RenderDisplay(int32_t left, int32_t bottom, int3
     static_cast<float>(texture_view_y) / static_cast<float>(texture_height),
     static_cast<float>(texture_view_width) / static_cast<float>(texture_width),
     static_cast<float>(texture_view_height) / static_cast<float>(texture_height));
-  glBindSampler(0, m_display_nearest_sampler);
+  glBindSampler(0, sampler);
   glBindVertexArray(m_display_vao);
   glDrawArrays(GL_TRIANGLES, 0, 3);
   glBindSampler(0, 0);

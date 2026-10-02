@@ -125,6 +125,10 @@ void GPU_HW::Reset(bool clear_vram)
 
   m_batch = {};
   m_batch_ubo_data = {};
+  m_batch_texture_page_x = UINT32_MAX;
+  m_batch_texture_page_y = UINT32_MAX;
+  m_batch_texture_palette_x = UINT32_MAX;
+  m_batch_texture_palette_y = UINT32_MAX;
 
   // Re-seed the per-session cbuffer fields that the line above just
   // zeroed. These three settings live in the batch UBO but are owned
@@ -1264,6 +1268,12 @@ void GPU_HW::IncludeVRAMDirtyRectangle(const Common::Rectangle<uint32_t>& rect)
 {
   m_vram_dirty_rect.Include(rect);
 
+  // Rasterized writes must invalidate decoded texture pages. Bump the
+  // per-sub-page revisions so the page cache can detect exactly which pages
+  // changed instead of invalidating everything overlapping a dirty rectangle.
+  if (IsTexturePageCacheEnabled())
+    OnVRAMDrawnRectangle(rect.left, rect.right, rect.top, rect.bottom);
+
   // the vram area can include the texture page, but the game can leave it as-is. in this case, set it as dirty so the
   // shadow texture is updated
   if (!m_draw_mode.IsTexturePageChanged() &&
@@ -1464,7 +1474,14 @@ void GPU_HW::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, u
   // shadow is otherwise only refreshed by VRAM readbacks. Only the Vulkan
   // backend consumes it; the software renderer-for-readbacks mode owns a
   // separate VRAM buffer and is excluded.
-  if (m_texture_replacements_enabled && !m_sw_renderer)
+  // Notify the rect-based texture cache of a CPU write (clears draw-rects
+  // on written pages and invalidates overlapping entries).
+  if (IsTexturePageCacheEnabled())
+    OnVRAMWrittenRectangle(x, x + width, y, y + height);
+
+  // Keep the CPU-side VRAM shadow current. The texture page cache decodes
+  // from m_vram_shadow, so it must always be up to date.
+  if ((IsTexturePageCacheEnabled() || m_texture_replacements_enabled) && !m_sw_renderer)
     GPU::FillVRAM(x, y, width, height, color);
 }
 
@@ -1477,6 +1494,10 @@ void GPU_HW::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height,
   // shadow sync for texture replacements happens in the backend override which
   // still has the original (possibly wrapping) coordinates.
   IncludeVRAMDirtyRectangle(Common::Rectangle<uint32_t>::FromExtents(x, y, width, height));
+
+  // Notify the texture cache of a CPU write.
+  if (IsTexturePageCacheEnabled())
+    OnVRAMWrittenRectangle(x, x + width, y, y + height);
 
   if (check_mask)
   {
@@ -1491,6 +1512,10 @@ void GPU_HW::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uint32_t d
 
   IncludeVRAMDirtyRectangle(
     Common::Rectangle<uint32_t>::FromExtents(dst_x, dst_y, width, height).Clamped(0, 0, VRAM_WIDTH, VRAM_HEIGHT));
+
+  // Notify the texture cache of a CPU write (CopyVRAM is a CPU-initiated transfer).
+  if (IsTexturePageCacheEnabled())
+    OnVRAMWrittenRectangle(dst_x, dst_x + width, dst_y, dst_y + height);
 
   if (m_GPUSTAT.check_mask_before_draw)
   {
@@ -1546,6 +1571,31 @@ void GPU_HW::DispatchRenderCommand()
   // If this draw now uses a different composited texture page, flush the
   // pending vertices first so they keep the binding they were queued with.
   UpdateTextureReplacement(texture_mode);
+
+  // The page cache binds one decoded page per draw, so a batch must not span
+  // texture pages or palettes. The legacy VRAM path carries the page in the
+  // vertex stream and can batch across them; break only when the cache is in
+  // use.
+  if (IsTexturePageCacheEnabled() && texture_mode != GPUTextureMode::Disabled)
+  {
+    const GPUTextureMode cached_mode =
+      static_cast<GPUTextureMode>(static_cast<uint8_t>(texture_mode) &
+                                  ~static_cast<uint8_t>(GPUTextureMode::RawTextureBit));
+    const bool paletted = (cached_mode == GPUTextureMode::Palette4Bit ||
+                           cached_mode == GPUTextureMode::Palette8Bit);
+    const bool page_changed =
+      (m_draw_mode.texture_page_x != m_batch_texture_page_x || m_draw_mode.texture_page_y != m_batch_texture_page_y ||
+       (paletted && (m_draw_mode.texture_palette_x != m_batch_texture_palette_x ||
+                     m_draw_mode.texture_palette_y != m_batch_texture_palette_y)));
+    if (page_changed)
+    {
+      FlushRender();
+      m_batch_texture_page_x = m_draw_mode.texture_page_x;
+      m_batch_texture_page_y = m_draw_mode.texture_page_y;
+      m_batch_texture_palette_x = m_draw_mode.texture_palette_x;
+      m_batch_texture_palette_y = m_draw_mode.texture_palette_y;
+    }
+  }
 
   EnsureVertexBufferSpaceForCurrentCommand();
 

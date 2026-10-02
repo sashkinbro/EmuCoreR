@@ -64,7 +64,7 @@ protected:
 
   void RenderDisplay(int32_t left, int32_t bottom, int32_t width, int32_t height, void* texture_handle, uint32_t texture_width,
                      int32_t texture_height, int32_t texture_view_x, int32_t texture_view_y, int32_t texture_view_width,
-                     int32_t texture_view_height);
+                     int32_t texture_view_height, GLuint sampler);
 
 private:
   const char* GetGLSLVersionString() const;

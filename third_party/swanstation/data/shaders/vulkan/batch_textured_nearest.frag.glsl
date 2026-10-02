@@ -199,6 +199,20 @@ vec4 SampleFromVRAM(uvec4 texpage, vec2 coords)
 
   bool palette = PALETTE_4_BIT || PALETTE_8_BIT;
 
+#if defined(CACHED_PAGES)
+  // Hardware texture page cache: binding 1 holds the decoded 256x256 page for
+  // this batch's (page, palette, format) key, so sampling is a plain hardware
+  // texture read instead of a per-fragment VRAM fetch plus palette decode.
+  // Coordinates are page-local texels; the texture window is applied here and
+  // the hardware page wraps within its 256 texels.
+  uvec2 icoord;
+  if (palette)
+    icoord = ApplyTextureWindow(FloatToIntegerCoords(coords));
+  else
+    icoord = ApplyTextureWindow(FloatToIntegerCoords(coords) / RESOLUTION_SCALE);
+
+  return texture(samp0, (vec2(icoord & 0xFFu) + vec2(0.5, 0.5)) / vec2(256.0, 256.0));
+#else
   // Texture replacement: when enabled, binding 1 holds a pre-composited RGBA
   // page (256x256 expanded texels for every mode, possibly upscaled) instead of
   // the VRAM atlas. Map the page-local texel coordinates 1:1 onto it; the
@@ -258,6 +272,7 @@ vec4 SampleFromVRAM(uvec4 texpage, vec2 coords)
     uvec2 direct_icoord = uvec2(texpage.x + icoord.x, texpage.y + icoord.y);
     return LoadVRAMTexel(direct_icoord);
   }
+#endif
 }
 
 // --------------------------------------------------------------------
