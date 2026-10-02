@@ -306,21 +306,10 @@ void HostInterface::CheckForSettingsChanges(const Settings& old_settings)
       GTE::UpdateAspectRatio();
     }
 
-  // Any PGXP sub-option change reinitialises PGXP: the tracked values are only
-  // valid for the settings they were collected under, and a live toggle would
-  // otherwise keep rendering with stale data until the game is restarted.
   if (g_settings.gpu_pgxp_enable != old_settings.gpu_pgxp_enable ||
-      (g_settings.gpu_pgxp_enable &&
-       (g_settings.gpu_pgxp_culling != old_settings.gpu_pgxp_culling ||
-        g_settings.gpu_pgxp_texture_correction != old_settings.gpu_pgxp_texture_correction ||
-        g_settings.gpu_pgxp_color_correction != old_settings.gpu_pgxp_color_correction ||
-        g_settings.gpu_pgxp_vertex_cache != old_settings.gpu_pgxp_vertex_cache ||
-        g_settings.gpu_pgxp_cpu != old_settings.gpu_pgxp_cpu ||
-        g_settings.gpu_pgxp_preserve_proj_fp != old_settings.gpu_pgxp_preserve_proj_fp ||
-        g_settings.gpu_pgxp_depth_buffer != old_settings.gpu_pgxp_depth_buffer ||
-        g_settings.gpu_pgxp_disable_2d != old_settings.gpu_pgxp_disable_2d ||
-        g_settings.gpu_pgxp_transparent_depth != old_settings.gpu_pgxp_transparent_depth ||
-        g_settings.gpu_pgxp_tolerance != old_settings.gpu_pgxp_tolerance)))
+      (g_settings.gpu_pgxp_enable && (g_settings.gpu_pgxp_culling != old_settings.gpu_pgxp_culling ||
+                                      g_settings.gpu_pgxp_vertex_cache != old_settings.gpu_pgxp_vertex_cache ||
+                                      g_settings.gpu_pgxp_cpu != old_settings.gpu_pgxp_cpu)))
   {
     if (g_settings.IsUsingCodeCache())
     {
