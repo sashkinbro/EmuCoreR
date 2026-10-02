@@ -591,6 +591,7 @@ GPU_HW_OpenGL::GPU_HW_OpenGL() : GPU_HW() {}
 
 GPU_HW_OpenGL::~GPU_HW_OpenGL()
 {
+  DestroyPageCacheResources();
   DestroyTextureReplacementEntries();
 
   // Destroy objects which don't have destructors to clean them up
@@ -682,12 +683,17 @@ void GPU_HW_OpenGL::Reset(bool clear_vram)
 {
   GPU_HW::Reset(clear_vram);
 
+  DestroyPageCacheResources();
+
   if (clear_vram)
     ClearFramebuffer();
 }
 
 bool GPU_HW_OpenGL::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display)
 {
+  if (sw.IsReading())
+    DestroyPageCacheResources();
+
   if (host_texture)
   {
     HostDisplayTexture* tex = *host_texture;
@@ -819,6 +825,11 @@ void GPU_HW_OpenGL::RestoreGraphicsAPIState()
 
 void GPU_HW_OpenGL::UpdateSettings()
 {
+  // The page cache only tracks writes/draws while IsTexturePageCacheEnabled();
+  // when the filter or the software-renderer-for-readbacks toggle flips across
+  // that boundary, entries recorded under the previous mode can be stale.
+  const bool cache_was_enabled = IsTexturePageCacheEnabled();
+
   GPU_HW::UpdateSettings();
 
   // See GPU_HW_D3D12::UpdateSettings for the rationale on
@@ -853,6 +864,9 @@ void GPU_HW_OpenGL::UpdateSettings()
     display_only_source_changed;
   UpdateHWSettings(&framebuffer_changed, &shaders_changed, &only_dim_changed, &downsample_changed,
                    &shader_source_changed, &display_only_source_changed);
+
+  if (cache_was_enabled != IsTexturePageCacheEnabled())
+    DestroyPageCacheResources();
 
   // A downsample-mode change that UpdateHWSettings did not fold into
   // framebuffer_changed (GL only does Box, so this is Disabled <-> Box -
@@ -1236,6 +1250,13 @@ bool GPU_HW_OpenGL::CompilePrograms()
           for (auto& slot : d)
             slot = GL::Program{};
 
+  for (auto& a : m_cached_render_programs)
+    for (auto& b : a)
+      for (auto& c : b)
+        for (auto& d : c)
+          for (auto& slot : d)
+            slot = GL::Program{};
+
   // Open the disk-backed program cache once. On subsequent calls
   // (UpdateSettings -> CompilePrograms) the instance still holds
   // the index from last time and the disk file hasn't moved, so
@@ -1547,6 +1568,20 @@ bool GPU_HW_OpenGL::PrecompileBatchPrograms(ShaderCompileProgressTracker& progre
           if (!prog)
             return false;
           progress.Increment();
+
+          // Warm the cached-page variants too so the first texture-heavy draw
+          // does not link a program mid-frame. Only the Nearest filter's
+          // cacheable texture modes have such a variant.
+          const uint8_t cache_mode = texture_mode & ~static_cast<uint8_t>(GPUTextureMode::RawTextureBit);
+          if (cur_filter == GPUTextureFilter::Nearest &&
+              GPUTexturePageCache::IsCacheableTextureMode(static_cast<GPUTextureMode>(cache_mode)))
+          {
+            if (!GetBatchProgram(cur_filter, render_mode, texture_mode, static_cast<bool>(dithering),
+                                 static_cast<bool>(interlacing), true))
+            {
+              return false;
+            }
+          }
         }
       }
     }
@@ -1554,7 +1589,8 @@ bool GPU_HW_OpenGL::PrecompileBatchPrograms(ShaderCompileProgressTracker& progre
   return true;
 }
 
-const GL::Program* GPU_HW_OpenGL::GetBatchProgram(GPUTextureFilter filter, uint8_t render_mode, uint8_t texture_mode, bool dithering, bool interlacing)
+const GL::Program* GPU_HW_OpenGL::GetBatchProgram(GPUTextureFilter filter, uint8_t render_mode, uint8_t texture_mode, bool dithering, bool interlacing,
+                                                 bool cached_pages)
 {
   // Reserved_*Direct16Bit dedup. The fragment shader source for
   // texture_mode 3 / 7 is byte-for-byte identical to 2 / 6 after
@@ -1570,7 +1606,9 @@ const GL::Program* GPU_HW_OpenGL::GetBatchProgram(GPUTextureFilter filter, uint8
                                                                                                       texture_mode;
   const uint8_t filter_idx = static_cast<uint8_t>(filter);
 
-  GL::Program& slot = m_render_programs[filter_idx][render_mode][texture_mode][static_cast<uint8_t>(dithering)][static_cast<uint8_t>(interlacing)];
+  GL::Program& slot = (cached_pages ? m_cached_render_programs : m_render_programs)[filter_idx][render_mode][texture_mode]
+                                                                                   [static_cast<uint8_t>(dithering)]
+                                                                                   [static_cast<uint8_t>(interlacing)];
   if (slot.IsValid())
     return &slot;
 
@@ -1588,7 +1626,7 @@ const GL::Program* GPU_HW_OpenGL::GetBatchProgram(GPUTextureFilter filter, uint8
   GPU_HW_ShaderGen tmp_shadergen(
     m_host_display->GetRenderAPI(), m_resolution_scale, m_multisamples, m_per_sample_shading, m_true_color,
     m_scaled_dithering, filter, m_using_uv_limits, m_pgxp_depth_buffer, m_disable_color_perspective,
-    m_supports_dual_source_blend, true);
+    m_supports_dual_source_blend, true, cached_pages);
 
   const bool textured = (static_cast<GPUTextureMode>(lookup_mode) != GPUTextureMode::Disabled);
   const std::string batch_vs = tmp_shadergen.GenerateBatchVertexShader(textured);
@@ -1650,8 +1688,163 @@ const GL::Program* GPU_HW_OpenGL::GetBatchProgram(GPUTextureFilter filter, uint8
   return &slot;
 }
 
+bool GPU_HW_OpenGL::ShouldUsePageCache(uint32_t texture_mode) const
+{
+  if (!IsTexturePageCacheEnabled())
+    return false;
+  // Texture page replacements share texture unit 1 and their composited page
+  // is bound instead of the decoded cache page.
+  if (m_replacement_texture_gl_id != 0)
+    return false;
+  return GPUTexturePageCache::IsCacheableTextureMode(static_cast<GPUTextureMode>(texture_mode));
+}
+
+bool GPU_HW_OpenGL::IsTexturePageCacheEnabled() const
+{
+  return (m_texture_filtering == GPUTextureFilter::Nearest) && (m_sw_renderer == nullptr);
+}
+
+void GPU_HW_OpenGL::OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom)
+{
+  if (IsTexturePageCacheEnabled())
+    m_texture_page_cache.AddDrawnRectangle(left, top, right, bottom);
+}
+
+void GPU_HW_OpenGL::OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom,
+                                           bool shadow_is_authoritative)
+{
+  if (IsTexturePageCacheEnabled())
+    m_texture_page_cache.AddWrittenRectangle(left, top, right, bottom, shadow_is_authoritative);
+}
+
+bool GPU_HW_OpenGL::EnsurePageResource(uint32_t slot)
+{
+  PageResource& res = m_page_resources[slot];
+  if (res.textures[0].GetGLId() != 0)
+    return true;
+
+  for (uint32_t i = 0; i < 2; i++)
+  {
+    if (!res.textures[i].Create(GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS, 1, GL_RGBA8,
+                                GL_RGBA, GL_UNSIGNED_BYTE, nullptr, false, false))
+    {
+      Log_ErrorPrintf("Failed to create GL page texture %u buffer %u", slot, i);
+      return false;
+    }
+    res.last_used_frame[i] = 0;
+  }
+  res.current = 0;
+  return true;
+}
+
+bool GPU_HW_OpenGL::CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCache::SourceKey& key)
+{
+  PageResource& res = m_page_resources[slot];
+  const uint32_t next = res.current ^ 1u;
+  if (res.textures[next].GetGLId() == 0)
+    return false;
+
+  // Never write into the texture a recent frame may still be sampling.
+  if (res.last_used_frame[next] != 0 && res.last_used_frame[next] + 2u > m_page_frame_number)
+    return false;
+
+  if (m_page_decode_scratch.empty())
+    m_page_decode_scratch.resize(GPUTexturePageCache::PAGE_TEXELS * GPUTexturePageCache::PAGE_TEXELS);
+  GPUTexturePageCache::DecodePage(key, m_vram_shadow.data(), m_page_decode_scratch.data());
+
+  res.textures[next].Bind();
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS, GL_RGBA,
+                  GL_UNSIGNED_BYTE, m_page_decode_scratch.data());
+
+  res.current = next;
+  m_page_decodes_this_frame++;
+  return true;
+}
+
+void GPU_HW_OpenGL::SweepUnusedPageResources()
+{
+  for (uint32_t i = 0; i < GPUTexturePageCache::MAX_ENTRIES; i++)
+  {
+    if (m_texture_page_cache.IsSlotAllocated(i))
+      continue;
+
+    PageResource& res = m_page_resources[i];
+    if (res.textures[0].GetGLId() == 0)
+      continue;
+
+    const uint64_t newest = std::max(res.last_used_frame[0], res.last_used_frame[1]);
+    if (newest != 0 && newest + 2u > m_page_frame_number)
+      continue;
+
+    for (uint32_t b = 0; b < 2; b++)
+    {
+      res.textures[b].Destroy();
+      res.last_used_frame[b] = 0;
+    }
+    res.current = 0;
+  }
+}
+
+void GPU_HW_OpenGL::DestroyPageCacheResources()
+{
+  for (PageResource& res : m_page_resources)
+  {
+    for (uint32_t b = 0; b < 2; b++)
+    {
+      res.textures[b].Destroy();
+      res.last_used_frame[b] = 0;
+    }
+    res.current = 0;
+  }
+  m_texture_page_cache.InvalidateAll();
+}
+
 void GPU_HW_OpenGL::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base_vertex, uint32_t num_vertices)
 {
+  // Hardware texture page cache lookup: a decoded page is bound on texture
+  // unit 1 and the CACHED_PAGES program variant samples it instead of the VRAM
+  // atlas. Uploads are budgeted per frame so a page-heavy scene cannot stall a
+  // frame; the remaining pages fall back to the atlas shader.
+  const uint8_t cache_texture_mode =
+    static_cast<uint8_t>(m_batch.texture_mode) & ~static_cast<uint8_t>(GPUTextureMode::RawTextureBit);
+  bool used_page_cache = false;
+  GLuint page_texture_gl_id = 0;
+  if (ShouldUsePageCache(cache_texture_mode) && m_batch_texture_page_x != UINT32_MAX)
+  {
+    GPUTexturePageCache::SourceKey key{};
+    key.page_x = static_cast<uint16_t>(m_batch_texture_page_x);
+    key.page_y = static_cast<uint16_t>(m_batch_texture_page_y);
+    if (cache_texture_mode == static_cast<uint8_t>(GPUTextureMode::Palette4Bit) ||
+        cache_texture_mode == static_cast<uint8_t>(GPUTextureMode::Palette8Bit))
+    {
+      key.palette_x = static_cast<uint16_t>(m_batch_texture_palette_x);
+      key.palette_y = static_cast<uint16_t>(m_batch_texture_palette_y);
+    }
+    key.mode = static_cast<GPUTextureMode>(cache_texture_mode);
+
+    const GPUTexturePageCache::LookupResult lookup =
+      m_texture_page_cache.Lookup(key, m_vram_shadow.data(), m_page_frame_number);
+    if (lookup.slot != GPUTexturePageCache::NO_SLOT)
+    {
+      bool valid = lookup.valid;
+      if (!valid && lookup.needs_upload && m_page_decodes_this_frame < MAX_PAGE_DECODES_PER_FRAME &&
+          EnsurePageResource(lookup.slot) && CPUDecodeAndUploadPage(lookup.slot, key))
+      {
+        m_texture_page_cache.MarkDecoded(lookup.slot);
+        valid = true;
+      }
+
+      if (valid && EnsurePageResource(lookup.slot))
+      {
+        PageResource& res = m_page_resources[lookup.slot];
+        res.last_used_frame[res.current] = m_page_frame_number;
+        page_texture_gl_id = res.textures[res.current].GetGLId();
+        used_page_cache = (page_texture_gl_id != 0);
+      }
+    }
+  }
+
   // Fetch the batch program via the lazy helper. In 'Enabled'
   // precompile mode every slot was filled at CompilePrograms time
   // so this is a fast IsValid() check + array index. In 'Lazy' /
@@ -1666,7 +1859,7 @@ void GPU_HW_OpenGL::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base
   // cubes remain valid and reachable, switching back to a previously-
   // visited filter is a slot validity check.
   const GL::Program* prog = GetBatchProgram(m_texture_filtering, static_cast<uint8_t>(render_mode), static_cast<uint8_t>(m_batch.texture_mode),
-                                            m_batch.dithering, m_batch.interlacing);
+                                            m_batch.dithering, m_batch.interlacing, used_page_cache);
   if (!prog)
     return;
   prog->Bind();
@@ -1680,21 +1873,22 @@ void GPU_HW_OpenGL::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base
 
   SetDepthFunc();
 
-  // Bind the composited texture page replacement on unit 1. The shader only
-  // samples it while u_replacement_enabled is non-zero, but the sampler still
-  // needs a valid binding, so the VRAM read texture doubles as the filler.
-  // The id comparison keeps this off the hot path when the same page stays
+  // Bind texture unit 1: the decoded page texture for cached draws, the
+  // composited replacement for replacement draws, or the VRAM read texture as
+  // the inert filler. Page cache and replacements are mutually exclusive. The
+  // id comparison keeps this off the hot path when the same texture stays
   // bound across batches.
-  const GLuint replacement_gl_id = m_replacement_texture_gl_id;
-  if (m_bound_replacement_texture_gl_id != replacement_gl_id)
+  const GLuint samp1_gl_id = used_page_cache ? page_texture_gl_id :
+                             (m_replacement_texture_gl_id != 0 ? m_replacement_texture_gl_id : 0);
+  if (m_bound_replacement_texture_gl_id != samp1_gl_id)
   {
     glActiveTexture(GL_TEXTURE1);
-    if (replacement_gl_id != 0)
-      glBindTexture(GL_TEXTURE_2D, replacement_gl_id);
+    if (samp1_gl_id != 0)
+      glBindTexture(GL_TEXTURE_2D, samp1_gl_id);
     else
       m_vram_read_texture.Bind();
     glActiveTexture(GL_TEXTURE0);
-    m_bound_replacement_texture_gl_id = replacement_gl_id;
+    m_bound_replacement_texture_gl_id = samp1_gl_id;
   }
 
   glDrawArrays(GL_TRIANGLES, m_batch_base_vertex, num_vertices);
@@ -2035,6 +2229,13 @@ void GPU_HW_OpenGL::ClearDisplay()
 void GPU_HW_OpenGL::UpdateDisplay()
 {
   GPU_HW::UpdateDisplay();
+
+  // New frame: age out unused page cache entries and release the GL textures
+  // of the slots they occupied.
+  m_page_decodes_this_frame = 0;
+  m_page_frame_number++;
+  m_texture_page_cache.Compact(m_page_frame_number);
+  SweepUnusedPageResources();
 
   // Replacement uploads and the VRAM shadow sync run at the frame boundary,
   // after all rendering for this frame is done.

@@ -6,12 +6,12 @@ GPU_HW_ShaderGen::GPU_HW_ShaderGen(HostDisplay::RenderAPI render_api, uint32_t r
                                    bool per_sample_shading, bool true_color, bool scaled_dithering,
                                    GPUTextureFilter texture_filtering, bool uv_limits, bool pgxp_depth,
                                    bool disable_color_perspective, bool supports_dual_source_blend,
-                                   bool use_texture_replacements)
+                                   bool use_texture_replacements, bool use_cached_pages)
   : ShaderGen(render_api, supports_dual_source_blend), m_resolution_scale(resolution_scale),
     m_multisamples(multisamples), m_per_sample_shading(per_sample_shading), m_true_color(true_color),
     m_scaled_dithering(scaled_dithering), m_texture_filter(texture_filtering), m_uv_limits(uv_limits),
     m_pgxp_depth(pgxp_depth), m_disable_color_perspective(disable_color_perspective),
-    m_use_texture_replacements(use_texture_replacements)
+    m_use_texture_replacements(use_texture_replacements), m_use_cached_pages(use_cached_pages)
 {
 }
 
@@ -834,6 +834,11 @@ std::string GPU_HW_ShaderGen::GenerateBatchFragmentShader(GPU_HW::BatchRenderMod
   // draw never recompiles anything - only the descriptor/texture binding and
   // one cbuffer word change.
   DefineMacro(ss, "USE_TEXTURE_REPLACEMENTS", m_use_texture_replacements);
+  // CACHED_PAGES: the Nearest batch fragment shader samples a decoded 256x256
+  // texture page from samp1 instead of the VRAM atlas. Purely a source-level
+  // choice for the OpenGL runtime-generated shaders; the Vulkan path uses its
+  // own pre-baked variant.
+  DefineMacro(ss, "CACHED_PAGES", m_use_cached_pages);
   // PGXP_DEPTH used to live as a compile-time #define driving four
   // `#if !PGXP_DEPTH / o_depth = oalpha * v_pos.z / #endif` writes in
   // the body and the depth_output argument to
@@ -863,7 +868,7 @@ std::string GPU_HW_ShaderGen::GenerateBatchFragmentShader(GPU_HW::BatchRenderMod
   WriteBatchUniformBuffer(ss);
   WriteCommonFunctions(ss, true);
   DeclareTexture(ss, "samp0", 0);
-  if (m_use_texture_replacements)
+  if (m_use_texture_replacements || m_use_cached_pages)
     DeclareTexture(ss, "samp1", 1);
 
   if (m_glsl)
@@ -945,6 +950,23 @@ float4 LoadVRAMTexel(uint2 icoord)
 
 float4 SampleFromVRAM(uint4 texpage, float2 coords)
 {
+  #if CACHED_PAGES
+  // Hardware page cache: samp1 holds the decoded 256x256 page for this
+  // batch's (page, palette, format) key. Sampling is a plain hardware read;
+  // the texture window is applied in page-local space and the hardware page
+  // wraps within its 256 texels. The page texture's first row is the page's
+  // top row, matching the page-local coordinate the atlas path uses.
+  {
+    uint2 icoord;
+    #if PALETTE
+      icoord = ApplyTextureWindow(FloatToIntegerCoords(coords));
+    #else
+      icoord = ApplyTextureWindow(FloatToIntegerCoords(coords) / uint2(RESOLUTION_SCALE, RESOLUTION_SCALE));
+    #endif
+    return SAMPLE_TEXTURE_LEVEL(samp1, (float2(icoord & 0xFFu) + float2(0.5, 0.5)) / float2(256.0, 256.0), 0.0);
+  }
+  #endif
+
   #if USE_TEXTURE_REPLACEMENTS
   // Texture replacement: when the batch was queued with a pre-composited page,
   // samp1 holds final RGBA pixels for a 256x256 expanded-texel page (possibly

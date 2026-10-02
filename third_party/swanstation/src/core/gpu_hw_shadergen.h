@@ -8,7 +8,7 @@ public:
   GPU_HW_ShaderGen(HostDisplay::RenderAPI render_api, uint32_t resolution_scale, uint32_t multisamples, bool per_sample_shading,
                    bool true_color, bool scaled_dithering, GPUTextureFilter texture_filtering, bool uv_limits,
                    bool pgxp_depth, bool disable_color_perspective, bool supports_dual_source_blend,
-                   bool use_texture_replacements = false);
+                   bool use_texture_replacements = false, bool use_cached_pages = false);
   ~GPU_HW_ShaderGen();
 
   std::string GenerateBatchVertexShader(bool textured);
@@ -58,4 +58,8 @@ private:
   // atlas. Only the OpenGL backend consumes the generated source at runtime;
   // the other backends run pre-baked shaders with their own wire-up.
   bool m_use_texture_replacements;
+  // When set, the Nearest batch fragment shader samples a decoded 256x256
+  // texture page from samp1 instead of the VRAM atlas. The page is uploaded
+  // by the OpenGL backend's hardware page cache.
+  bool m_use_cached_pages;
 };

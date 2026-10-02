@@ -16,6 +16,7 @@
 #include "glad.h"
 #include "gpu_hw.h"
 #include "gpu_hw_shadergen.h"
+#include "gpu_hw_texture_cache.h"
 #include "texture_replacements.h"
 #include <array>
 #include <memory>
@@ -195,7 +196,8 @@ private:
   // so the helper stays consistent with its sibling backends even
   // though the single-threaded GL context never reaches it with a
   // non-current filter today.
-  const GL::Program* GetBatchProgram(GPUTextureFilter filter, uint8_t render_mode, uint8_t texture_mode, bool dithering, bool interlacing);
+  const GL::Program* GetBatchProgram(GPUTextureFilter filter, uint8_t render_mode, uint8_t texture_mode, bool dithering, bool interlacing,
+                                     bool cached_pages = false);
 
   void SetDepthFunc();
   void SetDepthFunc(GLenum func);
@@ -252,6 +254,37 @@ private:
   uint64_t m_texture_replacement_used_counter = 0;
   GLuint m_bound_replacement_texture_gl_id = 0;
 
+  // Hardware texture page cache (Nearest only). Decoded 256x256 RGBA8 pages
+  // are uploaded straight into GL textures and sampled through the
+  // CACHED_PAGES batch shader on texture unit 1. Mutually exclusive with
+  // texture page replacements, which share the unit.
+  struct PageResource
+  {
+    // Double buffered so a re-decode writes the texture a recent in-flight
+    // draw is not sampling; uploading into the bound one makes the driver
+    // serialise against the pending draw.
+    GL::Texture textures[2];
+    uint64_t last_used_frame[2] = {0, 0};
+    uint32_t current = 0;
+  };
+
+  bool EnsurePageResource(uint32_t slot);
+  bool CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCache::SourceKey& key);
+  bool ShouldUsePageCache(uint32_t texture_mode) const;
+  bool IsTexturePageCacheEnabled() const override;
+  void SweepUnusedPageResources();
+  void DestroyPageCacheResources();
+  void OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) override;
+  void OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom,
+                              bool shadow_is_authoritative) override;
+
+  GPUTexturePageCache m_texture_page_cache;
+  std::array<PageResource, GPUTexturePageCache::MAX_ENTRIES> m_page_resources;
+  uint64_t m_page_frame_number = 0;
+  uint32_t m_page_decodes_this_frame = 0;
+  static constexpr uint32_t MAX_PAGE_DECODES_PER_FRAME = 6;
+  std::vector<uint32_t> m_page_decode_scratch;
+
   // downsample texture - used for readbacks at >1xIR.
   GL::Texture m_vram_texture;
   GL::Texture m_vram_depth_texture;
@@ -273,6 +306,10 @@ private:
 
   std::array<std::array<std::array<std::array<std::array<GL::Program, 2>, 2>, 9>, 4>, 7>
     m_render_programs;                                          // [filter][render_mode][texture_mode][dithering][interlacing]
+  // Same dimensions as m_render_programs, for the CACHED_PAGES variants. Only
+  // the Nearest filter's cacheable texture modes are populated.
+  std::array<std::array<std::array<std::array<std::array<GL::Program, 2>, 2>, 9>, 4>, 7>
+    m_cached_render_programs;
   std::array<std::array<GL::Program, 3>, 2> m_display_programs; // [depth_24][interlaced]
   std::array<std::array<GL::Program, 2>, 2> m_vram_fill_programs;
   GL::Program m_vram_read_program;
