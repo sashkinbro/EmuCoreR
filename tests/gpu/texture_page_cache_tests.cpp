@@ -96,6 +96,32 @@ int main()
   check(!wrapped_cache.Lookup(wkey, vram.data(), 31).valid,
         "wrapped transfer invalidates wrapped source tail");
 
+  GPUTexturePageCache full_cache;
+  GPUTexturePageCache::SourceKey hot_key{};
+  for (unsigned i = 0; i < GPUTexturePageCache::MAX_ENTRIES; ++i)
+  {
+    hot_key = {static_cast<uint16_t>((i % 16) * 64), static_cast<uint16_t>(((i / 16) % 2) * 256),
+               static_cast<uint16_t>((i / 32) * 16), 400, GPUTextureMode::Palette4Bit};
+    full_cache.MarkDecoded(full_cache.Lookup(hot_key, vram.data(), 100).slot);
+  }
+  check(full_cache.GetAllocatedCount() == GPUTexturePageCache::MAX_ENTRIES,
+        "fill every slot with distinct source keys");
+  check(full_cache.Lookup(hot_key, vram.data(), 101).valid,
+        "repeated lookup of last table slot remains a hit");
+  GPUTexturePageCache::SourceKey first_key{0, 0, 0, 400, GPUTextureMode::Palette4Bit};
+  check(full_cache.Lookup(first_key, vram.data(), 101).valid && full_cache.Lookup(hot_key, vram.data(), 101).valid,
+        "switching keys searches and updates the fast lookup slot");
+  vram[256 * 1024 + 960] ^= 1;
+  full_cache.AddWrittenRectangle(960, 256, 961, 257, true);
+  check(!full_cache.Lookup(hot_key, vram.data(), 102).valid,
+        "fast lookup honors pending content invalidation");
+  full_cache.Compact(1000);
+  check(full_cache.GetAllocatedCount() == 0 && !full_cache.Lookup(hot_key, vram.data(), 1000).valid,
+        "compaction drops the fast lookup slot");
+  full_cache.InvalidateAll();
+  check(!full_cache.Lookup(hot_key, vram.data(), 1001).valid,
+        "full reset drops the fast lookup slot");
+
   std::vector<uint32_t> rgba(256 * 256);
   std::vector<uint16_t> packed(256 * 256);
   for (unsigned y = 0; y < 256; ++y)
@@ -109,8 +135,8 @@ int main()
   for (unsigned word = 0; word < 65536; ++word)
   {
     unsigned r = word & 31, g = (word >> 5) & 31, b = (word >> 10) & 31;
-    unsigned expected = ((r << 3) | (r >> 2)) | (((g << 3) | (g >> 2)) << 8) |
-                        (((b << 3) | (b >> 2)) << 16) | ((word & 0x8000) ? 0xff000000u : 0u);
+    unsigned expected = ((r * 255 + 15) / 31) | (((g * 255 + 15) / 31) << 8) |
+                        (((b * 255 + 15) / 31) << 16) | ((word & 0x8000) ? 0xff000000u : 0u);
     unsigned expected16 = (word & 0x8000) | (r << 10) | (g << 5) | b;
     colours_ok &= rgba[word] == expected && packed[word] == expected16;
   }
