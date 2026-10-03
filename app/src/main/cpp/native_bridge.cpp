@@ -130,6 +130,35 @@ std::vector<uint8_t> BuildFormattedMemoryCard() {
     return data;
 }
 
+constexpr uint32_t kSaveStateMagic = 0x43435544;
+constexpr size_t kSaveStateHeaderSize = 216;
+
+uint32_t LoadLe32(const uint8_t* data) {
+    return static_cast<uint32_t>(data[0]) | (static_cast<uint32_t>(data[1]) << 8) |
+           (static_cast<uint32_t>(data[2]) << 16) | (static_cast<uint32_t>(data[3]) << 24);
+}
+
+size_t SerializedStatePayloadSize(const uint8_t* data, size_t size) {
+    constexpr size_t kCompressionTypeField = 200;
+    constexpr size_t kCompressedSizeField = 204;
+    constexpr size_t kUncompressedSizeField = 208;
+    constexpr size_t kDataOffsetField = 212;
+    if (size < kSaveStateHeaderSize || LoadLe32(data) != kSaveStateMagic) return size;
+
+    const uint32_t compression_type = LoadLe32(data + kCompressionTypeField);
+    const uint32_t compressed_size = LoadLe32(data + kCompressedSizeField);
+    const uint32_t uncompressed_size = LoadLe32(data + kUncompressedSizeField);
+    const uint32_t data_offset = LoadLe32(data + kDataOffsetField);
+    const uint64_t payload_size =
+        static_cast<uint64_t>(compression_type == 0 ? uncompressed_size : compressed_size);
+    if (data_offset < kSaveStateHeaderSize || payload_size == 0) return size;
+
+    const uint64_t total_size = static_cast<uint64_t>(data_offset) + payload_size;
+    if (total_size > size) return size;
+
+    return static_cast<size_t>(total_size);
+}
+
 // ---------------------------------------------------------------------------
 // Frontend state. The libretro core is a process singleton, so this state is
 // global and only accessed from the emulation thread plus short JNI calls.
@@ -2032,14 +2061,15 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_saveState(JNIEnv* env, jobject, jlo
     if (size == 0) return -2;
     std::vector<uint8_t> buffer(size);
     if (!retro_serialize(buffer.data(), buffer.size())) return -3;
+    const size_t payload_size = SerializedStatePayloadSize(buffer.data(), buffer.size());
     const char* chars = env->GetStringUTFChars(path, nullptr);
     int result = -4;
     if (chars != nullptr) {
         FILE* file = fopen(chars, "wb");
         if (file != nullptr) {
-            const size_t written = fwrite(buffer.data(), 1, buffer.size(), file);
+            const size_t written = fwrite(buffer.data(), 1, payload_size, file);
             fclose(file);
-            result = written == buffer.size() ? 0 : -5;
+            result = written == payload_size ? 0 : -5;
         }
         env->ReleaseStringUTFChars(path, chars);
     }
