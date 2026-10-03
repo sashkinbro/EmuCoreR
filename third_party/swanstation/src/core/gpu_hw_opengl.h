@@ -272,6 +272,8 @@ private:
   bool CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCache::SourceKey& key);
   bool ShouldUsePageCache(uint32_t texture_mode) const;
   bool IsTexturePageCacheEnabled() const override;
+  bool IsTexturePageCacheTrackingEnabled() const override { return true; }
+  void DoTexturePageCacheState(StateWrapper& sw) override { m_texture_page_cache.DoState(sw); }
   void SweepUnusedPageResources();
   void DestroyPageCacheResources();
   void OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom) override;

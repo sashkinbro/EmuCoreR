@@ -683,7 +683,10 @@ void GPU_HW_OpenGL::Reset(bool clear_vram)
 {
   GPU_HW::Reset(clear_vram);
 
-  DestroyPageCacheResources();
+  if (clear_vram)
+    DestroyPageCacheResources();
+  else
+    m_texture_page_cache.InvalidateContents(true);
 
   if (clear_vram)
     ClearFramebuffer();
@@ -691,9 +694,6 @@ void GPU_HW_OpenGL::Reset(bool clear_vram)
 
 bool GPU_HW_OpenGL::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display)
 {
-  if (sw.IsReading())
-    DestroyPageCacheResources();
-
   if (host_texture)
   {
     HostDisplayTexture* tex = *host_texture;
@@ -827,9 +827,6 @@ void GPU_HW_OpenGL::RestoreGraphicsAPIState()
 
 void GPU_HW_OpenGL::UpdateSettings()
 {
-  // The page cache only tracks writes/draws while IsTexturePageCacheEnabled();
-  // when the filter or the software-renderer-for-readbacks toggle flips across
-  // that boundary, entries recorded under the previous mode can be stale.
   const bool cache_was_enabled = IsTexturePageCacheEnabled();
 
   GPU_HW::UpdateSettings();
@@ -868,7 +865,7 @@ void GPU_HW_OpenGL::UpdateSettings()
                    &shader_source_changed, &display_only_source_changed);
 
   if (cache_was_enabled != IsTexturePageCacheEnabled())
-    DestroyPageCacheResources();
+    m_texture_page_cache.InvalidateContents();
 
   // A downsample-mode change that UpdateHWSettings did not fold into
   // framebuffer_changed (GL only does Box, so this is Disabled <-> Box -
@@ -1708,15 +1705,13 @@ bool GPU_HW_OpenGL::IsTexturePageCacheEnabled() const
 
 void GPU_HW_OpenGL::OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom)
 {
-  if (IsTexturePageCacheEnabled())
-    m_texture_page_cache.AddDrawnRectangle(left, top, right, bottom);
+  m_texture_page_cache.AddDrawnRectangle(left, top, right, bottom);
 }
 
 void GPU_HW_OpenGL::OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom,
                                            bool shadow_is_authoritative)
 {
-  if (IsTexturePageCacheEnabled())
-    m_texture_page_cache.AddWrittenRectangle(left, top, right, bottom, shadow_is_authoritative);
+  m_texture_page_cache.AddWrittenRectangle(left, top, right, bottom, shadow_is_authoritative);
 }
 
 bool GPU_HW_OpenGL::EnsurePageResource(uint32_t slot)
