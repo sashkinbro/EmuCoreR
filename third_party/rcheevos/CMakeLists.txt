@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 SBRO
-# SPDX-License-Identifier: LicenseRef-EmuCoreR-Proprietary
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Vendored RetroAchievements client library (rcheevos 12.5.0).
 # Only the client + runtime + API + hashing sources are compiled; the

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 SBRO
-// SPDX-License-Identifier: LicenseRef-EmuCoreR-Proprietary
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.sbro.emucorer.ui.emulation
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
