@@ -26,6 +26,9 @@ app/google-services.json
 # Local IGDB catalog builder and credentials
 /IGDB/
 
+# Local planning documents
+/docs/
+
 # IDE
 /.idea/
 *.iml

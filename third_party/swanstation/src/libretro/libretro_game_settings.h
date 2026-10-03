@@ -24,6 +24,7 @@ enum class Trait : uint32_t
   DisablePGXPTextureCorrection,
   DisablePGXPColorCorrection,
   DisablePGXPDepthBuffer,
+  DisablePGXPOn2DPolygons,
   ForcePGXPVertexCache,
   ForcePGXPCPUMode,
   ForceRecompilerMemoryExceptions,
