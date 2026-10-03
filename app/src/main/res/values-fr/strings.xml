@@ -1983,9 +1983,6 @@
     <string name="settings_widescreen_patches">Patchs écran large</string>
     <string name="settings_widescreen_patches_desc">Activer les patchs écran large pour les jeux pris en charge</string>
     <string name="settings_help_widescreen_patches">Charge des patchs écran large lorsque le jeu actuel en a un de disponible. C\'est généralement mieux que d\'étirer l\'image car cela modifie la caméra du jeu et la logique du HUD au lieu de simplement déformer l\'image finale.</string>
-    <string name="settings_no_interlacing_patches">Patchs de désentrelacement</string>
-    <string name="settings_no_interlacing_patches_desc">Activer les patchs sans entrelacement pour les jeux pris en charge</string>
-    <string name="settings_help_no_interlacing_patches">Applique des patchs de désentrelacement lorsque disponibles. Cela vaut la peine d\'essayer dans les jeux avec un effet de peigne (combing), de miroitement ou de scintillement provenant de la sortie entrelacée d\'origine, mais la disponibilité dépend du titre.</string>
     <string name="settings_patches_tab">Patchs</string>
     <string name="settings_patches_download">Télécharger les patchs</string>
     <string name="settings_patches_download_desc">Télécharger la base de patchs communautaire</string>

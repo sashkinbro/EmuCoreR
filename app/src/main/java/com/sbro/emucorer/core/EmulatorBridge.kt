@@ -491,7 +491,6 @@ object EmulatorBridge {
         enableHwMipmapping: Boolean = GsHackDefaults.HW_MIPMAPPING_DEFAULT,
         antiBlur: Boolean = GsHackDefaults.ANTI_BLUR_DEFAULT,
         widescreenPatches: Boolean = false,
-        noInterlacingPatches: Boolean = false,
         cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
         cpuSpriteRenderLevel: Int = GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT,
         softwareClutRender: Int = GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT,
@@ -763,7 +762,6 @@ object EmulatorBridge {
                 add(settingOp("EmuCore/GS", "hw_mipmap", "bool", enableHwMipmapping.toString()))
                 add(settingOp("EmuCore/GS", "pcrtc_antiblur", "bool", antiBlur.toString()))
                 add(settingOp("EmuCore", "EnableWideScreenPatches", "bool", widescreenPatches.toString()))
-                add(settingOp("EmuCore", "EnableNoInterlacingPatches", "bool", noInterlacingPatches.toString()))
                 add(settingOp("EmuCore/GS", "UserHacks", "bool", manualHardwareFixes.toString()))
                 if (manualHardwareFixes) {
                     // Leave per-game GameIndex GS fixes as the only hack layer unless manual fixes are explicitly active.

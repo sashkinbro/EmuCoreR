@@ -1981,9 +1981,6 @@
     <string name="settings_widescreen_patches">वाइडस्क्रीन पैच</string>
     <string name="settings_widescreen_patches_desc">समर्थित गेम्स के लिए वाइडस्क्रीन पैच सक्षम करें</string>
     <string name="settings_help_widescreen_patches">जब वर्तमान गेम में वाइडस्क्रीन पैच उपलब्ध हो तो वाइडस्क्रीन पैच लोड करता है। यह आमतौर पर छवि को खींचने से बेहतर होता है क्योंकि यह केवल अंतिम चित्र को विकृत करने के बजाय गेम के कैमरा और HUD लॉजिक को बदल देता है।</string>
-    <string name="settings_no_interlacing_patches">नो-इंटरलिंग पैच</string>
-    <string name="settings_no_interlacing_patches_desc">समर्थित गेम्स के लिए नो-इंटरलिंग पैच सक्षम करें</string>
-    <string name="settings_help_no_interlacing_patches">जहां उपलब्ध हो वहां नो-इंटरलिंग पैच लागू करता है। मूल इंटरलेस्ड आउटपुट से कॉम्बिंग, टिमटिमाहट या झिलमिलाहट वाले गेम्स में इसे आज़माना उचित है, लेकिन उपलब्धता शीर्षक पर निर्भर करती है।</string>
     <string name="settings_patches_tab">पैच</string>
     <string name="settings_patches_download">पैच डाउनलोड करें</string>
     <string name="settings_patches_download_desc">समुदाय का पैच डेटाबेस डाउनलोड करें</string>

@@ -2002,9 +2002,6 @@
     <string name="settings_widescreen_patches">Patche panoramiczne (Widescreen)</string>
     <string name="settings_widescreen_patches_desc">Włącza oryginalne kody/patche poprawiające ekran w wybranych wspieranych grach z proporcjami dla nowszych telefonów/urządzeń 16:9 / szerokokątnymi.</string>
     <string name="settings_help_widescreen_patches">Wczytuje patche panoramiczne (widescreen), gdy są one dostępne dla danej gry. Jest to zwykle znacznie lepsze rozwiązanie niż rozciąganie obrazu, ponieważ zmienia logikę pracy kamery i HUD-a w grze, zamiast tylko zniekształcać końcowy obraz.</string>
-    <string name="settings_no_interlacing_patches">Patche usuwające przeplot (No-Interlacing)</string>
-    <string name="settings_no_interlacing_patches_desc">Włącza łatki likwidujące rozmyty ekran usuwając uciążliwy błąd obrazu z przeplotem dla PS1. Działa w obsługiwanych w GameDB tytułach.</string>
-    <string name="settings_help_no_interlacing_patches">Stosuje patche usuwające przeplot (no-interlacing), jeśli są dostępne. Warto spróbować w grach, w których widać \"grzebień\", migotanie lub drżenie wywoływane przez oryginalny obraz z przeplotem, jednak dostępność zależy od konkretnego tytułu.</string>
     <string name="settings_patches_tab">Patche</string>
     <string name="settings_patches_download">Pobierz patche</string>
     <string name="settings_patches_download_desc">Pobierz społecznościową bazę patchy</string>

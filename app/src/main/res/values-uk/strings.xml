@@ -1986,9 +1986,6 @@
     <string name="settings_widescreen_patches">Широкоформатні патчі</string>
     <string name="settings_widescreen_patches_desc">Увімкнути широкоформатні патчі для підтримуваних ігор</string>
     <string name="settings_help_widescreen_patches">Завантажує широкоекранні патчі, коли вони доступні для поточної гри. Зазвичай це краще, ніж розтягувати зображення, тому що це змінює логіку камери та HUD гри, а не просто спотворює кінцеве зображення.</string>
-    <string name="settings_no_interlacing_patches">Патчі без черезрядковості</string>
-    <string name="settings_no_interlacing_patches_desc">Увімкнути патчі без черезрядковості для підтримуваних ігор</string>
-    <string name="settings_help_no_interlacing_patches">Застосовує патчі без черезрядкової розгортки, якщо вони доступні. Варто спробувати в іграх із «гребінкою», мерехтінням або тремтінням від оригінального черезрядкового виведення, але доступність залежить від конкретної гри.</string>
     <string name="settings_patches_tab">Патчі</string>
     <string name="settings_patches_download">Завантажити патчі</string>
     <string name="settings_patches_download_desc">Завантажити спільнотну базу патчів</string>

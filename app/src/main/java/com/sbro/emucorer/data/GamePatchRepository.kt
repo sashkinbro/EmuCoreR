@@ -7,7 +7,6 @@ import java.util.Locale
 
 enum class GamePatchKind {
     WIDESCREEN,
-    NO_INTERLACING,
     GENERAL
 }
 
@@ -17,7 +16,10 @@ data class GamePatchEntry(
     val aspectRatioOverride: String? = null,
     val disableWidescreenHack: Boolean = false,
     val author: String? = null
-)
+) {
+    val hasDisplayDirectives: Boolean
+        get() = aspectRatioOverride != null || disableWidescreenHack
+}
 
 class GamePatchRepository(context: Context) {
     private val appContext = context.applicationContext
@@ -80,15 +82,16 @@ class GamePatchRepository(context: Context) {
     fun resolveDirectives(
         serial: String?,
         crc: String?,
-        widescreen: Boolean,
-        noInterlacing: Boolean
+        widescreen: Boolean
     ): GamePatchDirectives {
-        if (!widescreen && !noInterlacing) return GamePatchDirectives()
+        if (!widescreen) return GamePatchDirectives()
         val entries = findPatchFiles(serial, crc).filter { entry ->
             when (entry.kind) {
-                GamePatchKind.WIDESCREEN -> widescreen
-                GamePatchKind.NO_INTERLACING -> noInterlacing
-                GamePatchKind.GENERAL -> widescreen || noInterlacing
+                GamePatchKind.WIDESCREEN -> true
+                // Unclassified files are display patches only when they declare
+                // aspect-ratio directives; everything else in the database
+                // (60 FPS, bug fixes, unused content) must not be auto-applied.
+                GamePatchKind.GENERAL -> entry.hasDisplayDirectives
             }
         }
         return GamePatchDirectives(
@@ -101,15 +104,13 @@ class GamePatchRepository(context: Context) {
     fun buildPatchBlocks(
         serial: String?,
         crc: String?,
-        widescreen: Boolean,
-        noInterlacing: Boolean
+        widescreen: Boolean
     ): List<CheatBlock> {
-        if (!widescreen && !noInterlacing) return emptyList()
+        if (!widescreen) return emptyList()
         val entries = findPatchFiles(serial, crc).filter { entry ->
             when (entry.kind) {
-                GamePatchKind.WIDESCREEN -> widescreen
-                GamePatchKind.NO_INTERLACING -> noInterlacing
-                GamePatchKind.GENERAL -> widescreen || noInterlacing
+                GamePatchKind.WIDESCREEN -> true
+                GamePatchKind.GENERAL -> entry.hasDisplayDirectives
             }
         }
         val merged = linkedMapOf<String, CheatBlock>()
@@ -128,16 +129,9 @@ class GamePatchRepository(context: Context) {
 
     private fun classify(baseName: String): GamePatchKind {
         val tokens = baseName.lowercase(Locale.US).split(Regex("[^a-z0-9]+")).toSet()
-        val noInterlacing = tokens.any { it == "ni" || it == "progressive" || it == "interlace" } ||
-            baseName.contains("interlac", ignoreCase = true)
         val widescreen = tokens.any { it == "ws" || it == "wide" || it == "widescreen" } ||
             baseName.contains("widescreen", ignoreCase = true)
-        return when {
-            widescreen && !noInterlacing -> GamePatchKind.WIDESCREEN
-            noInterlacing && !widescreen -> GamePatchKind.NO_INTERLACING
-            widescreen && noInterlacing -> GamePatchKind.WIDESCREEN
-            else -> GamePatchKind.GENERAL
-        }
+        return if (widescreen) GamePatchKind.WIDESCREEN else GamePatchKind.GENERAL
     }
 
     private fun compactKey(value: String): String =

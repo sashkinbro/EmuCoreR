@@ -1580,7 +1580,6 @@ fun EmulationScreen(
                     onSetFastCdvd = { viewModel.setFastCdvd(it) },
                     onSetEnableCheats = { viewModel.setEnableCheats(it) },
                     onSetWidescreenPatches = { viewModel.setEnableWidescreenPatches(it) },
-                    onSetNoInterlacingPatches = { viewModel.setEnableNoInterlacingPatches(it) },
                     onToggleCheat = { id, enabled -> viewModel.setCheatEnabled(id, enabled) },
                     onSetCheatGroupEnabled = { ids, enabled -> viewModel.setCheatGroupEnabled(ids, enabled) },
                     onRefreshCheats = { viewModel.refreshAvailableCheats() },
@@ -2867,7 +2866,6 @@ private fun EmulationSidebarMenu(
     onSetFastCdvd: (Boolean) -> Unit,
     onSetEnableCheats: (Boolean) -> Unit,
     onSetWidescreenPatches: (Boolean) -> Unit,
-    onSetNoInterlacingPatches: (Boolean) -> Unit,
     onToggleCheat: (String, Boolean) -> Unit,
     onSetCheatGroupEnabled: (List<String>, Boolean) -> Unit,
     onRefreshCheats: () -> Unit,
@@ -3941,16 +3939,6 @@ private fun EmulationSidebarMenu(
                             helpText = stringResource(R.string.settings_help_widescreen_patches),
                             onResetToDefault = {
                                 onSetWidescreenPatches(globalDefaults.enableWidescreenPatches)
-                            }
-                        )
-
-                        SettingsToggle(
-                            title = stringResource(R.string.settings_no_interlacing_patches),
-                            checked = uiState.noInterlacingPatches,
-                            onCheckedChange = onSetNoInterlacingPatches,
-                            helpText = stringResource(R.string.settings_help_no_interlacing_patches),
-                            onResetToDefault = {
-                                onSetNoInterlacingPatches(globalDefaults.enableNoInterlacingPatches)
                             }
                         )
 

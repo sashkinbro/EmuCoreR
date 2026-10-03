@@ -2352,17 +2352,6 @@ private fun SettingsContent(
                                 viewModel.setEnableWidescreenPatches(defaults.enableWidescreenPatches)
                             }
                         )
-                        ToggleItem(
-                            icon = Icons.Rounded.Tune,
-                            title = stringResource(R.string.settings_no_interlacing_patches),
-                            subtitle = stringResource(R.string.settings_no_interlacing_patches_desc),
-                            checked = uiState.enableNoInterlacingPatches,
-                            onCheckedChange = viewModel::setEnableNoInterlacingPatches,
-                            helpText = stringResource(R.string.settings_help_no_interlacing_patches),
-                            onResetToDefault = {
-                                viewModel.setEnableNoInterlacingPatches(defaults.enableNoInterlacingPatches)
-                            }
-                        )
                     }
                 }
 
@@ -4647,7 +4636,6 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Patches, R.string.settings_patches_source_official),
         entry(SettingsTab.Patches, R.string.settings_patches_custom_url),
         entry(SettingsTab.Patches, R.string.settings_widescreen_patches),
-        entry(SettingsTab.Patches, R.string.settings_no_interlacing_patches),
         entry(SettingsTab.Emulation, R.string.settings_show_fps),
         entry(SettingsTab.Emulation, R.string.settings_fast_boot),
         entry(SettingsTab.Emulation, R.string.settings_fps_overlay_mode),

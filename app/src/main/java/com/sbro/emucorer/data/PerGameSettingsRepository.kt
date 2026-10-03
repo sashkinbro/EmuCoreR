@@ -91,7 +91,6 @@ data class PerGameSettings(
     val deinterlaceMode: Int = GsHackDefaults.DEINTERLACE_MODE_DEFAULT,
     val dithering: Int = GsHackDefaults.DITHERING_DEFAULT,
     val enableWidescreenPatches: Boolean = false,
-    val enableNoInterlacingPatches: Boolean = false,
     val cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
     val cpuSpriteRenderLevel: Int = GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT,
     val softwareClutRender: Int = GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT,
@@ -431,7 +430,6 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
             optInt("dithering", GsHackDefaults.DITHERING_DEFAULT)
         ),
         enableWidescreenPatches = optBoolean("enableWidescreenPatches", false),
-        enableNoInterlacingPatches = optBoolean("enableNoInterlacingPatches", false),
         cpuSpriteRenderSize = optInt("cpuSpriteRenderSize", GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT),
         cpuSpriteRenderLevel = optInt("cpuSpriteRenderLevel", GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT),
         softwareClutRender = optInt("softwareClutRender", GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT),
@@ -622,7 +620,6 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("deinterlaceMode")) put("deinterlaceMode", GsHackDefaults.coerceDeinterlaceMode(deinterlaceMode))
         if (shouldWrite("dithering")) put("dithering", GsHackDefaults.coerceDithering(dithering))
         if (shouldWrite("enableWidescreenPatches")) put("enableWidescreenPatches", enableWidescreenPatches)
-        if (shouldWrite("enableNoInterlacingPatches")) put("enableNoInterlacingPatches", enableNoInterlacingPatches)
         if (shouldWrite("cpuSpriteRenderSize")) put("cpuSpriteRenderSize", cpuSpriteRenderSize)
         if (shouldWrite("cpuSpriteRenderLevel")) put("cpuSpriteRenderLevel", cpuSpriteRenderLevel)
         if (shouldWrite("softwareClutRender")) put("softwareClutRender", softwareClutRender)

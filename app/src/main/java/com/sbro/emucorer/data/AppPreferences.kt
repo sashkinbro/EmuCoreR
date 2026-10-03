@@ -181,7 +181,6 @@ data class SettingsSnapshot(
     val shadeBoostSaturation: Int = 50,
     val shadeBoostGamma: Int = 50,
     val enableWidescreenPatches: Boolean = false,
-    val enableNoInterlacingPatches: Boolean = false,
     val patchDatabaseUseOfficial: Boolean = true,
     val patchDatabaseCustomUrl: String? = null,
     val deinterlaceMode: Int = GsHackDefaults.DEINTERLACE_MODE_DEFAULT,
@@ -334,7 +333,7 @@ internal val EMULATOR_CLOUD_KEYS = setOf(
     "skipDuplicateFrames", "textureFiltering", "blendingAccuracy", "texturePreloading",
     "textureReplacementsEnabled", "textureReplacementsAsync", "textureReplacementsPrecache",
     "textureDumpingEnabled", "enableFxaa", "sgsrMode", "casMode", "casSharpness",
-    "tvShader", "enableWidescreenPatches", "enableNoInterlacingPatches",
+    "tvShader", "enableWidescreenPatches",
     "deinterlaceMode", "dithering", "antiBlur", "anisotropicFiltering",
     "enableHwMipmapping", "cpuSpriteRenderSize", "cpuSpriteRenderLevel",
     "softwareClutRender", "gpuTargetClutMode", "skipDrawStart", "skipDrawEnd",
@@ -682,7 +681,6 @@ class AppPreferences(private val context: Context) {
         private val SHADEBOOST_SATURATION = intPreferencesKey("shadeboost_saturation")
         private val SHADEBOOST_GAMMA = intPreferencesKey("shadeboost_gamma")
         private val ENABLE_WIDESCREEN_PATCHES = booleanPreferencesKey("enable_widescreen_patches")
-        private val ENABLE_NO_INTERLACING_PATCHES = booleanPreferencesKey("enable_no_interlacing_patches")
         private val PATCH_DATABASE_USE_OFFICIAL = booleanPreferencesKey("patch_database_use_official")
         private val PATCH_DATABASE_CUSTOM_URL = stringPreferencesKey("patch_database_custom_url")
         private val PATCH_DATABASE_REVISION = intPreferencesKey("patch_database_revision")
@@ -1842,7 +1840,6 @@ class AppPreferences(private val context: Context) {
                 shadeBoostSaturation = prefs[SHADEBOOST_SATURATION] ?: 50,
                 shadeBoostGamma = prefs[SHADEBOOST_GAMMA] ?: 50,
                 enableWidescreenPatches = prefs[ENABLE_WIDESCREEN_PATCHES] ?: false,
-                enableNoInterlacingPatches = prefs[ENABLE_NO_INTERLACING_PATCHES] ?: false,
                 patchDatabaseUseOfficial = prefs[PATCH_DATABASE_USE_OFFICIAL] ?: true,
                 patchDatabaseCustomUrl = prefs[PATCH_DATABASE_CUSTOM_URL],
                 deinterlaceMode = GsHackDefaults.coerceDeinterlaceMode(
@@ -3033,14 +3030,6 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[ENABLE_WIDESCREEN_PATCHES] = enabled }
     }
 
-    val enableNoInterlacingPatches: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[ENABLE_NO_INTERLACING_PATCHES] ?: false
-    }
-
-    suspend fun setEnableNoInterlacingPatches(enabled: Boolean) {
-        context.dataStore.edit { it[ENABLE_NO_INTERLACING_PATCHES] = enabled }
-    }
-
     // Patch database source
     val patchDatabaseUseOfficial: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[PATCH_DATABASE_USE_OFFICIAL] ?: true
@@ -4215,7 +4204,6 @@ class AppPreferences(private val context: Context) {
             put("casSharpness", prefs[CAS_SHARPNESS] ?: 50)
             put("tvShader", prefs[TV_SHADER]?.let(GsHackDefaults::coerceTvShader) ?: GsHackDefaults.TV_SHADER_DEFAULT)
             put("enableWidescreenPatches", prefs[ENABLE_WIDESCREEN_PATCHES] ?: false)
-            put("enableNoInterlacingPatches", prefs[ENABLE_NO_INTERLACING_PATCHES] ?: false)
             put("patchDatabaseUseOfficial", prefs[PATCH_DATABASE_USE_OFFICIAL] ?: true)
             put("patchDatabaseCustomUrl", prefs[PATCH_DATABASE_CUSTOM_URL])
             put("deinterlaceMode", GsHackDefaults.coerceDeinterlaceMode(
@@ -4633,7 +4621,6 @@ class AppPreferences(private val context: Context) {
                 json.optInt("tvShader", GsHackDefaults.TV_SHADER_DEFAULT)
             )
             prefs[ENABLE_WIDESCREEN_PATCHES] = json.optBoolean("enableWidescreenPatches", false)
-            prefs[ENABLE_NO_INTERLACING_PATCHES] = json.optBoolean("enableNoInterlacingPatches", false)
             prefs[PATCH_DATABASE_USE_OFFICIAL] = json.optBoolean("patchDatabaseUseOfficial", true)
             val restoredPatchUrl = json.optString("patchDatabaseCustomUrl").takeIf { it.isNotBlank() }
             if (restoredPatchUrl != null) {

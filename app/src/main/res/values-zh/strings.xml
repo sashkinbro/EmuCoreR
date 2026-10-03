@@ -1982,9 +1982,6 @@
     <string name="settings_widescreen_patches">寬螢幕修補程式</string>
     <string name="settings_widescreen_patches_desc">為支援的遊戲啟用寬螢幕修補程式</string>
     <string name="settings_help_widescreen_patches">当当前游戏有可用的宽屏补丁时加载它们。这通常比拉伸图像更好，因为它改变了游戏的相机和 HUD 逻辑，而不仅仅是扭曲最终画面。</string>
-    <string name="settings_no_interlacing_patches">去交錯修補程式</string>
-    <string name="settings_no_interlacing_patches_desc">為支援的遊戲啟用去交錯修補程式</string>
-    <string name="settings_help_no_interlacing_patches">在可用的情况下应用去隔行补丁。这在原生为隔行输出而存在梳齿效果 (combing)、闪烁或抖动的游戏中值得一试，但可用性取决于具体游戏。</string>
     <string name="settings_patches_tab">补丁</string>
     <string name="settings_patches_download">下载补丁</string>
     <string name="settings_patches_download_desc">下载社区补丁数据库</string>

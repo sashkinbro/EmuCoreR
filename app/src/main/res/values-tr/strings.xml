@@ -1981,9 +1981,6 @@
     <string name="settings_widescreen_patches">Geniş Ekran Yamaları</string>
     <string name="settings_widescreen_patches_desc">Desteklenen oyunlar için geniş ekran yamalarını etkinleştir</string>
     <string name="settings_help_widescreen_patches">Mevcut oyun için bir tane varsa geniş ekran yamalarını yükler. Bu genellikle görüntüyü uzatmaktan daha iyidir çünkü sadece nihai resmi bozmak yerine oyunun kamera ve HUD mantığını değiştirir.</string>
-    <string name="settings_no_interlacing_patches">Titreşim Önleme (No-Interlacing) Yamaları</string>
-    <string name="settings_no_interlacing_patches_desc">Desteklenen oyunlar için titreşim önleme yamalarını etkinleştir</string>
-    <string name="settings_help_no_interlacing_patches">Varsa titreşim önleme (no-interlacing) yamalarını uygular. Orijinal geçmeli (interlaced) çıktıdan kaynaklanan tarama (combing), parlama veya titreme olan oyunlarda denemeye değer, ancak kullanılabilirlik oyuna bağlıdır.</string>
     <string name="settings_patches_tab">Yamalar</string>
     <string name="settings_patches_download">Yamaları indir</string>
     <string name="settings_patches_download_desc">Topluluk yama veritabanını indir</string>

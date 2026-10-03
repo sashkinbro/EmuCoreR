@@ -1985,9 +1985,6 @@
     <string name="settings_widescreen_patches">Широкоформатные патчи</string>
     <string name="settings_widescreen_patches_desc">Включить широкоформатные патчи для поддерживаемых игр</string>
     <string name="settings_help_widescreen_patches">Загружает широкоэкранные патчи, когда они доступны для текущей игры. Обычно это лучше, чем растягивать изображение, потому что это изменяет логику камеры и HUD игры, а не просто искажает конечное изображение.</string>
-    <string name="settings_no_interlacing_patches">Патчи без чересстрочной развертки</string>
-    <string name="settings_no_interlacing_patches_desc">Включить патчи без чересстрочной развертки для поддерживаемых игр</string>
-    <string name="settings_help_no_interlacing_patches">Применяет патчи без чересстрочной развертки, если они доступны. Стоит попробовать в играх с «гребенкой», мерцанием или дрожанием от оригинального чересстрочного вывода, но доступность зависит от конкретной игры.</string>
     <string name="settings_patches_tab">Патчи</string>
     <string name="settings_patches_download">Загрузить патчи</string>
     <string name="settings_patches_download_desc">Загрузить базу патчей сообщества</string>

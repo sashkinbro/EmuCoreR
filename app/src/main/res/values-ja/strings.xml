@@ -1980,9 +1980,6 @@
     <string name="settings_widescreen_patches">ワイドスクリーンパッチ</string>
     <string name="settings_widescreen_patches_desc">サポートされているゲームでワイドスクリーンパッチを有効にします</string>
     <string name="settings_help_widescreen_patches">現在のゲームで利用可能な場合にワイドスクリーンパッチをロードします。これは、最終的な画像を歪めるだけでなく、ゲームのカメラとHUDのロジックを変更するため、通常は画像を伸ばすよりも優れています。</string>
-    <string name="settings_no_interlacing_patches">ノーインターレースパッチ</string>
-    <string name="settings_no_interlacing_patches_desc">サポートされているゲームでノーインターレースパッチを有効にします</string>
-    <string name="settings_help_no_interlacing_patches">利用可能な場合は、ノーインターレースパッチを適用します。これは、元のインターレース出力からのコーミング、シマー、またはフリッカーがあるゲームで試す価値がありますが、利用できるかどうかはタイトルによって異なります。</string>
     <string name="settings_patches_tab">パッチ</string>
     <string name="settings_patches_download">パッチをダウンロード</string>
     <string name="settings_patches_download_desc">コミュニティのパッチデータベースをダウンロード</string>

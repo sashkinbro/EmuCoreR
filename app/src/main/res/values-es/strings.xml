@@ -1983,9 +1983,6 @@
     <string name="settings_widescreen_patches">Parches panorámicos</string>
     <string name="settings_widescreen_patches_desc">Habilitar parches panorámicos para juegos compatibles</string>
     <string name="settings_help_widescreen_patches">Carga parches panorámicos cuando el juego actual tiene uno disponible. Esto suele ser mejor que estirar la imagen porque cambia la cámara del juego y la lógica del HUD en lugar de limitarse a distorsionar la imagen final.</string>
-    <string name="settings_no_interlacing_patches">Parches sin entrelazado</string>
-    <string name="settings_no_interlacing_patches_desc">Habilitar parches sin entrelazado para juegos compatibles</string>
-    <string name="settings_help_no_interlacing_patches">Aplica parches de desentrelazado si están disponibles. Merece la pena probarlo en juegos con efecto de "peine" (combing), brillos o parpadeos de la salida entrelazada original, pero su disponibilidad depende del título.</string>
     <string name="settings_patches_tab">Parches</string>
     <string name="settings_patches_download">Descargar parches</string>
     <string name="settings_patches_download_desc">Descargar la base de parches de la comunidad</string>
