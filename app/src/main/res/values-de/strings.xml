@@ -1983,9 +1983,6 @@
     <string name="settings_widescreen_patches">Widescreen-Patches</string>
     <string name="settings_widescreen_patches_desc">Widescreen-Patches für unterstützte Spiele aktivieren</string>
     <string name="settings_help_widescreen_patches">Lädt Widescreen-Patches, wenn für das aktuelle Spiel einer verfügbar ist. Dies ist meist besser als das Bild zu strecken, da es die Kamera und HUD-Logik des Spiels ändert, anstatt das endgültige Bild einfach nur zu verzerren.</string>
-    <string name="settings_no_interlacing_patches">No-Interlacing-Patches</string>
-    <string name="settings_no_interlacing_patches_desc">No-Interlacing-Patches für unterstützte Spiele aktivieren</string>
-    <string name="settings_help_no_interlacing_patches">Wendet No-Interlacing-Patches an, wo verfügbar. Ein Versuch lohnt sich bei Spielen mit Kamm-Effekten, Flimmern oder Flackern der originalen Interlaced-Ausgabe, aber die Verfügbarkeit hängt vom Titel ab.</string>
     <string name="settings_patches_tab">Patches</string>
     <string name="settings_patches_download">Patches herunterladen</string>
     <string name="settings_patches_download_desc">Community-Patch-Datenbank herunterladen</string>

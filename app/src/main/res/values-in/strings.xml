@@ -1995,9 +1995,6 @@
     <string name="settings_widescreen_patches">Patch Layar Lebar</string>
     <string name="settings_widescreen_patches_desc">Aktifkan patch layar lebar untuk game yang didukung</string>
     <string name="settings_help_widescreen_patches">Memuat patch layar lebar ketika game yang saat ini dipilih memilikinya. Ini biasanya lebih baik daripada meregangkan (stretch) gambar karena itu mengubah logika kamera dan HUD game alih-alih hanya merusak atau menggeser gambar akhir.</string>
-    <string name="settings_no_interlacing_patches">Patch Anti-Interlace</string>
-    <string name="settings_no_interlacing_patches_desc">Aktifkan patch anti-interlace untuk game yang didukung</string>
-    <string name="settings_help_no_interlacing_patches">Menerapkan patch anti-interlace jika tersedia. Layak dicoba untuk game yang mengalami masalah seperti gerigi bergelombang (combing), pantulan kilat (shimmer), atau kedipan dari hasil output awal interlace, tetapi keberadaannya bergantung pada tiap judul.</string>
     <string name="settings_patches_tab">Patch</string>
     <string name="settings_patches_download">Unduh patch</string>
     <string name="settings_patches_download_desc">Unduh basis data patch komunitas</string>

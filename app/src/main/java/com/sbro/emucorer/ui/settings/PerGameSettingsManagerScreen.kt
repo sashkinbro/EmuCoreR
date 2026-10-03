@@ -1031,17 +1031,6 @@ private fun GameSettingsTabContent(
                             )
                         }
                     )
-                    ToggleRow(
-                        title = stringResource(R.string.settings_no_interlacing_patches),
-                        checked = draft.enableNoInterlacingPatches,
-                        onCheckedChange = { onDraftChange(draft.copy(enableNoInterlacingPatches = it)) },
-                        helpText = stringResource(R.string.settings_help_no_interlacing_patches),
-                        onResetToDefault = {
-                            onDraftChange(
-                                draft.copy(enableNoInterlacingPatches = defaultProfile.enableNoInterlacingPatches)
-                            )
-                        }
-                    )
                 }
 
                 EditorSection(title = stringResource(R.string.settings_core_cpu)) {
@@ -1812,7 +1801,6 @@ private fun SettingsSnapshot.toPerGameSettings(game: GameItem): PerGameSettings 
         deinterlaceMode = deinterlaceMode,
         dithering = dithering,
         enableWidescreenPatches = enableWidescreenPatches,
-        enableNoInterlacingPatches = enableNoInterlacingPatches,
         cpuSpriteRenderSize = cpuSpriteRenderSize,
         cpuSpriteRenderLevel = cpuSpriteRenderLevel,
         softwareClutRender = softwareClutRender,
@@ -1956,7 +1944,6 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         deinterlaceMode = pick("deinterlaceMode", deinterlaceMode, defaultProfile.deinterlaceMode),
         dithering = pick("dithering", dithering, defaultProfile.dithering),
         enableWidescreenPatches = pick("enableWidescreenPatches", enableWidescreenPatches, defaultProfile.enableWidescreenPatches),
-        enableNoInterlacingPatches = pick("enableNoInterlacingPatches", enableNoInterlacingPatches, defaultProfile.enableNoInterlacingPatches),
         cpuSpriteRenderSize = pick("cpuSpriteRenderSize", cpuSpriteRenderSize, defaultProfile.cpuSpriteRenderSize),
         cpuSpriteRenderLevel = pick("cpuSpriteRenderLevel", cpuSpriteRenderLevel, defaultProfile.cpuSpriteRenderLevel),
         softwareClutRender = pick("softwareClutRender", softwareClutRender, defaultProfile.softwareClutRender),

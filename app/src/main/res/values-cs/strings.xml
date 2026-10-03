@@ -2002,9 +2002,6 @@
     <string name="settings_widescreen_patches">Širokoúhlé patche</string>
     <string name="settings_widescreen_patches_desc">Povolit širokoúhlé patche pro podporované hry</string>
     <string name="settings_help_widescreen_patches">Načte patche pro širokoúhlý formát, pokud je má aktuální hra k dispozici. To je obvykle lepší než roztahování obrazu, protože to mění logiku kamery a HUD hry, místo pouhého zkreslování konečného obrazu.</string>
-    <string name="settings_no_interlacing_patches">Patche pro zrušení prokládání (No-Interlacing)</string>
-    <string name="settings_no_interlacing_patches_desc">Povolí odstranění prokládání obrazu (no-interlacing) pro podporované hry</string>
-    <string name="settings_help_no_interlacing_patches">Aplikuje patche pro odstranění prokládání (no-interlacing), pokud jsou k dispozici. Stojí to za vyzkoušení ve hrách s "česáním", třepotáním nebo blikáním způsobeným původním prokládaným výstupem, dostupnost ovšem závisí na konkrétním titulu.</string>
     <string name="settings_patches_tab">Patche</string>
     <string name="settings_patches_download">Stáhnout patche</string>
     <string name="settings_patches_download_desc">Stáhnout komunitní databázi patchů</string>

@@ -1996,9 +1996,6 @@
     <string name="settings_widescreen_patches">پچ‌های صفحه عریض</string>
     <string name="settings_widescreen_patches_desc">فعال کردن پچ‌های صفحه عریض برای بازی‌های پشتیبانی شده</string>
     <string name="settings_help_widescreen_patches">زمانی که بازی فعلی پچ عریض داشته باشد، آن را بارگذاری می‌کند.</string>
-    <string name="settings_no_interlacing_patches">پچ‌های بدون درهم‌تنیدگی</string>
-    <string name="settings_no_interlacing_patches_desc">فعال کردن پچ‌های بدون درهم‌تنیدگی برای بازی‌های پشتیبانی شده</string>
-    <string name="settings_help_no_interlacing_patches">در صورت وجود، پچ‌های رفع درهم‌تنیدگی را اعمال می‌کند.</string>
     <string name="settings_patches_tab">پچ‌ها</string>
     <string name="settings_patches_download">دانلود پچ‌ها</string>
     <string name="settings_patches_download_desc">دانلود پایگاه پچ‌های انجمن</string>

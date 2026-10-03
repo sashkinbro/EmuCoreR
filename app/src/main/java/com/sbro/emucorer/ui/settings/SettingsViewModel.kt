@@ -217,7 +217,6 @@ data class SettingsUiState(
     val shadeBoostSaturation: Int = 50,
     val shadeBoostGamma: Int = 50,
     val enableWidescreenPatches: Boolean = false,
-    val enableNoInterlacingPatches: Boolean = false,
     val deinterlaceMode: Int = GsHackDefaults.DEINTERLACE_MODE_DEFAULT,
     val dithering: Int = GsHackDefaults.DITHERING_DEFAULT,
     val anisotropicFiltering: Int = 0,
@@ -518,7 +517,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             shadeBoostSaturation = snapshot.shadeBoostSaturation,
             shadeBoostGamma = snapshot.shadeBoostGamma,
             enableWidescreenPatches = snapshot.enableWidescreenPatches,
-            enableNoInterlacingPatches = snapshot.enableNoInterlacingPatches,
             patchDatabaseUseOfficial = snapshot.patchDatabaseUseOfficial,
             patchDatabaseCustomUrl = snapshot.patchDatabaseCustomUrl,
             deinterlaceMode = snapshot.deinterlaceMode,
@@ -1818,15 +1816,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             markPerformancePresetCustom()
             preferences.setEnableWidescreenPatches(enabled)
             EmulatorBridge.setSetting("EmuCore", "EnableWideScreenPatches", "bool", enabled.toString())
-            NativeApp.reloadPatches()
-        }
-    }
-
-    fun setEnableNoInterlacingPatches(enabled: Boolean) {
-        viewModelScope.launch {
-            markPerformancePresetCustom()
-            preferences.setEnableNoInterlacingPatches(enabled)
-            EmulatorBridge.setSetting("EmuCore", "EnableNoInterlacingPatches", "bool", enabled.toString())
             NativeApp.reloadPatches()
         }
     }

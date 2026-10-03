@@ -246,7 +246,6 @@ data class EmulationUiState(
     val deinterlaceMode: Int = GsHackDefaults.DEINTERLACE_MODE_DEFAULT,
     val dithering: Int = GsHackDefaults.DITHERING_DEFAULT,
     val widescreenPatches: Boolean = false,
-    val noInterlacingPatches: Boolean = false,
     val cpuSpriteRenderSize: Int = GsHackDefaults.CPU_SPRITE_RENDER_SIZE_DEFAULT,
     val cpuSpriteRenderLevel: Int = GsHackDefaults.CPU_SPRITE_RENDER_LEVEL_DEFAULT,
     val softwareClutRender: Int = GsHackDefaults.SOFTWARE_CLUT_RENDER_DEFAULT,
@@ -408,7 +407,6 @@ private data class EmulationLaunchConfig(
     val enableHwMipmapping: Boolean,
     val antiBlur: Boolean,
     val widescreenPatches: Boolean,
-    val noInterlacingPatches: Boolean,
     val cpuSpriteRenderSize: Int,
     val cpuSpriteRenderLevel: Int,
     val softwareClutRender: Int,
@@ -538,7 +536,6 @@ private data class LiveRuntimeSnapshot(
     val deinterlaceMode: Int,
     val dithering: Int,
     val widescreenPatches: Boolean,
-    val noInterlacingPatches: Boolean,
     val cpuSpriteRenderSize: Int,
     val cpuSpriteRenderLevel: Int,
     val softwareClutRender: Int,
@@ -1076,11 +1073,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             preferences.enableWidescreenPatches.collect { value ->
                 applyGlobalRuntimePreferenceUpdate { it.copy(widescreenPatches = value) }
-            }
-        }
-        viewModelScope.launch {
-            preferences.enableNoInterlacingPatches.collect { value ->
-                applyGlobalRuntimePreferenceUpdate { it.copy(noInterlacingPatches = value) }
             }
         }
         viewModelScope.launch {
@@ -1694,7 +1686,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     enableHwMipmapping = config.enableHwMipmapping,
                     antiBlur = config.antiBlur,
                     widescreenPatches = config.widescreenPatches,
-                    noInterlacingPatches = config.noInterlacingPatches,
                     cpuSpriteRenderSize = config.cpuSpriteRenderSize,
                     cpuSpriteRenderLevel = config.cpuSpriteRenderLevel,
                     softwareClutRender = config.softwareClutRender,
@@ -1936,7 +1927,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     deinterlaceMode = liveRuntime.deinterlaceMode,
                     dithering = liveRuntime.dithering,
                     widescreenPatches = liveRuntime.widescreenPatches,
-                    noInterlacingPatches = liveRuntime.noInterlacingPatches,
                     cpuSpriteRenderSize = liveRuntime.cpuSpriteRenderSize,
                     cpuSpriteRenderLevel = liveRuntime.cpuSpriteRenderLevel,
                     softwareClutRender = liveRuntime.softwareClutRender,
@@ -3275,19 +3265,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun setEnableNoInterlacingPatches(enabled: Boolean) {
-        viewModelScope.launch {
-            val newState = markPerformancePresetCustom(_uiState.value).copy(noInterlacingPatches = enabled)
-            persistRuntimeState(newState) {
-                preferences.setPerformancePreset(PerformancePresets.CUSTOM)
-                preferences.setEnableNoInterlacingPatches(enabled)
-            }
-            EmulatorBridge.setSetting("EmuCore", "EnableNoInterlacingPatches", "bool", enabled.toString())
-            withContext(Dispatchers.IO) { syncCheatsForCurrentGame() }
-            updateCrashContext()
-        }
-    }
-
     fun setAnisotropicFiltering(value: Int) {
         viewModelScope.launch {
             val newState = markPerformancePresetCustom(_uiState.value).copy(anisotropicFiltering = value)
@@ -4473,7 +4450,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableHwMipmapping = settings.enableHwMipmapping,
             antiBlur = settings.antiBlur,
             widescreenPatches = settings.enableWidescreenPatches,
-            noInterlacingPatches = settings.enableNoInterlacingPatches,
             cpuSpriteRenderSize = settings.cpuSpriteRenderSize,
             cpuSpriteRenderLevel = settings.cpuSpriteRenderLevel,
             softwareClutRender = settings.softwareClutRender,
@@ -4612,7 +4588,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             deinterlaceMode = settings.deinterlaceMode,
             dithering = settings.dithering,
             widescreenPatches = settings.enableWidescreenPatches,
-            noInterlacingPatches = settings.enableNoInterlacingPatches,
             cpuSpriteRenderSize = settings.cpuSpriteRenderSize,
             cpuSpriteRenderLevel = settings.cpuSpriteRenderLevel,
             softwareClutRender = settings.softwareClutRender,
@@ -4734,7 +4709,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableHwMipmapping = pick("enableHwMipmapping", enableHwMipmapping) { enableHwMipmapping },
             antiBlur = pick("antiBlur", antiBlur) { antiBlur },
             widescreenPatches = pick("enableWidescreenPatches", widescreenPatches) { enableWidescreenPatches },
-            noInterlacingPatches = pick("enableNoInterlacingPatches", noInterlacingPatches) { enableNoInterlacingPatches },
             cpuSpriteRenderSize = pick("cpuSpriteRenderSize", cpuSpriteRenderSize) { cpuSpriteRenderSize },
             cpuSpriteRenderLevel = pick("cpuSpriteRenderLevel", cpuSpriteRenderLevel) { cpuSpriteRenderLevel },
             softwareClutRender = pick("softwareClutRender", softwareClutRender) { softwareClutRender },
@@ -4872,7 +4846,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             deinterlaceMode = pick("deinterlaceMode", deinterlaceMode) { deinterlaceMode },
             dithering = pick("dithering", dithering) { dithering },
             widescreenPatches = pick("enableWidescreenPatches", widescreenPatches) { enableWidescreenPatches },
-            noInterlacingPatches = pick("enableNoInterlacingPatches", noInterlacingPatches) { enableNoInterlacingPatches },
             cpuSpriteRenderSize = pick("cpuSpriteRenderSize", cpuSpriteRenderSize) { cpuSpriteRenderSize },
             cpuSpriteRenderLevel = pick("cpuSpriteRenderLevel", cpuSpriteRenderLevel) { cpuSpriteRenderLevel },
             softwareClutRender = pick("softwareClutRender", softwareClutRender) { softwareClutRender },
@@ -5021,7 +4994,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             deinterlaceMode = deinterlaceMode,
             dithering = dithering,
             enableWidescreenPatches = widescreenPatches,
-            enableNoInterlacingPatches = noInterlacingPatches,
             cpuSpriteRenderSize = cpuSpriteRenderSize,
             cpuSpriteRenderLevel = cpuSpriteRenderLevel,
             softwareClutRender = softwareClutRender,
@@ -5150,7 +5122,6 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         if (deinterlaceMode != settings.deinterlaceMode) add("deinterlaceMode")
         if (dithering != settings.dithering) add("dithering")
         if (profile.enableWidescreenPatches != settings.enableWidescreenPatches) add("enableWidescreenPatches")
-        if (profile.enableNoInterlacingPatches != settings.enableNoInterlacingPatches) add("enableNoInterlacingPatches")
         if (cpuSpriteRenderSize != settings.cpuSpriteRenderSize) add("cpuSpriteRenderSize")
         if (cpuSpriteRenderLevel != settings.cpuSpriteRenderLevel) add("cpuSpriteRenderLevel")
         if (softwareClutRender != settings.softwareClutRender) add("softwareClutRender")
@@ -5250,14 +5221,12 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val patchBlocks = gamePatchRepository.buildPatchBlocks(
             serial = serial,
             crc = crc,
-            widescreen = state.widescreenPatches,
-            noInterlacing = state.noInterlacingPatches
+            widescreen = state.widescreenPatches
         )
         val patchDirectives = gamePatchRepository.resolveDirectives(
             serial = serial,
             crc = crc,
-            widescreen = state.widescreenPatches,
-            noInterlacing = state.noInterlacingPatches
+            widescreen = state.widescreenPatches
         )
         if (patchDirectives.disableWidescreenHack) {
             NativeApp.applyCoreOption("swanstation_GPU_WidescreenHack", "false")

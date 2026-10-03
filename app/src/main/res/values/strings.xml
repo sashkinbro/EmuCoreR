@@ -2004,9 +2004,7 @@
     <string name="settings_widescreen_patches">Widescreen Patches</string>
     <string name="settings_widescreen_patches_desc">Enable widescreen patches for supported games</string>
     <string name="settings_help_widescreen_patches">Loads widescreen patches when the current game has one available. This is usually better than stretching the image because it changes the game\'s camera and HUD logic instead of just distorting the final picture.</string>
-    <string name="settings_no_interlacing_patches">No-Interlacing Patches</string>
-    <string name="settings_no_interlacing_patches_desc">Enable no-interlacing patches for supported games</string>
-    <string name="settings_help_no_interlacing_patches">Applies no-interlacing patches where available. This is worth trying in games with combing, shimmer, or flicker from original interlaced output, but availability depends on the title.</string>
+
     <string name="settings_patches_tab">Patches</string>
     <string name="settings_patches_download">Download patches</string>
     <string name="settings_patches_download_desc">Fetch the community patch database</string>

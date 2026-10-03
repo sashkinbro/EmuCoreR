@@ -134,8 +134,7 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
                     val patchBlocks = patchRepository.buildPatchBlocks(
                         serial = loaded.serial,
                         crc = loaded.crc,
-                        widescreen = preferences.enableWidescreenPatches.first(),
-                        noInterlacing = preferences.enableNoInterlacingPatches.first()
+                        widescreen = preferences.enableWidescreenPatches.first()
                     )
                     cheatRepository.syncActiveCheats(
                         loaded.gameKey,
@@ -296,8 +295,7 @@ fun CheatManagerScreen(onBackClick: () -> Unit) {
                                             val patchBlocks = patchRepository.buildPatchBlocks(
                                                 serial = currentConfig.serial,
                                                 crc = currentConfig.crc,
-                                                widescreen = preferences.enableWidescreenPatches.first(),
-                                                noInterlacing = preferences.enableNoInterlacingPatches.first()
+                                                widescreen = preferences.enableWidescreenPatches.first()
                                             )
                                             cheatRepository.syncActiveCheats(
                                                 currentConfig.gameKey,

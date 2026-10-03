@@ -1981,9 +1981,6 @@
     <string name="settings_widescreen_patches">Patch widescreen</string>
     <string name="settings_widescreen_patches_desc">Abilita patch widescreen per i giochi supportati</string>
     <string name="settings_help_widescreen_patches">Carica le patch widescreen quando il gioco attuale ne ha una disponibile. Questo è solitamente meglio che allungare l\'immagine perché modifica la logica della telecamera e dell\'HUD del gioco invece di distorcere semplicemente l\'immagine finale.</string>
-    <string name="settings_no_interlacing_patches">Patch no-interlacciamento</string>
-    <string name="settings_no_interlacing_patches_desc">Abilita patch no-interlacciamento per i giochi supportati</string>
-    <string name="settings_help_no_interlacing_patches">Applica le patch no-interlacciamento dove disponibili. Vale la pena provarlo in giochi con "combing", sfarfallio o flickering derivanti dall\'output interlacciato originale, ma la disponibilità dipende dal titolo.</string>
     <string name="settings_patches_tab">Patch</string>
     <string name="settings_patches_download">Scarica patch</string>
     <string name="settings_patches_download_desc">Scarica il database di patch della community</string>

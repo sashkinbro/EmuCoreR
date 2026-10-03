@@ -1983,9 +1983,6 @@
     <string name="settings_widescreen_patches">Patches Widescreen</string>
     <string name="settings_widescreen_patches_desc">Ativar patches widescreen para jogos compatíveis</string>
     <string name="settings_help_widescreen_patches">Carrega patches de tela panorâmica quando o jogo atual tiver um disponível. Isso costuma ser melhor do que esticar a imagem, pois altera a lógica da câmera e da interface (HUD) do jogo, em vez de simplesmente distorcer a imagem final.</string>
-    <string name="settings_no_interlacing_patches">Patches sem Entrelaçamento</string>
-    <string name="settings_no_interlacing_patches_desc">Ative patches sem entrelaçamento para jogos compatíveis</string>
-    <string name="settings_help_no_interlacing_patches">Aplica patches sem entrelaçamento quando disponíveis. Vale a pena experimentar em jogos com o efeito de "pente" (combing), cintilação ou trepidação provenientes da saída original entrelaçada, mas a disponibilidade depende do título.</string>
     <string name="settings_patches_tab">Patches</string>
     <string name="settings_patches_download">Baixar patches</string>
     <string name="settings_patches_download_desc">Baixar o banco de patches da comunidade</string>

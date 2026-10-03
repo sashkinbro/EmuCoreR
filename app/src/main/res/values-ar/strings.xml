@@ -1989,9 +1989,6 @@
     <string name="settings_widescreen_patches">تصحيحات الشاشة العريضة</string>
     <string name="settings_widescreen_patches_desc">تفعيل تصحيحات الشاشة العريضة للألعاب المدعومة</string>
     <string name="settings_help_widescreen_patches">يُحمِّل تصحيحات الشاشة العريضة عندما تكون للعبة الحالية تصحيح متاح. عادة ما يكون هذا أفضل من شد الصورة (Stretch) لأنه يغير منطق كاميرا اللعبة وواجهة المستخدم (HUD) بدلاً من مجرد تشويه الصورة النهائية.</string>
-    <string name="settings_no_interlacing_patches">تصحيحات إلغاء التشابك (No-Interlacing)</string>
-    <string name="settings_no_interlacing_patches_desc">تفعيل تصحيحات إلغاء التشابك للألعاب المدعومة</string>
-    <string name="settings_help_no_interlacing_patches">يُطبق تصحيحات إلغاء التشابك (No-interlacing) حيثما أمكن. يستحق التجربة في الألعاب التي تعاني من التمشيط (Combing)، أو الوميض، من المخرجات المتشابكة الأصلية، لكن التوفر يعتمد على العنوان.</string>
     <string name="settings_patches_tab">الترقيعات</string>
     <string name="settings_patches_download">تنزيل الترقيعات</string>
     <string name="settings_patches_download_desc">تنزيل قاعدة ترقيعات المجتمع</string>
