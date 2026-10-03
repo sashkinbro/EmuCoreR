@@ -890,6 +890,8 @@ void GPU_HW::LoadVertices()
 
         m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
         MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
+        if (IsTexturePageCacheEnabled())
+          OnVRAMDrawnRectangle(clip_left, clip_right, clip_top, clip_bottom);
         AddDrawTriangleTicks(native_vertex_positions[0][0], native_vertex_positions[0][1],
                              native_vertex_positions[1][0], native_vertex_positions[1][1],
                              native_vertex_positions[2][0], native_vertex_positions[2][1], rc.shading_enable,
@@ -922,6 +924,8 @@ void GPU_HW::LoadVertices()
 
           m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
           MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
+          if (IsTexturePageCacheEnabled())
+            OnVRAMDrawnRectangle(clip_left, clip_right, clip_top, clip_bottom);
           AddDrawTriangleTicks(native_vertex_positions[2][0], native_vertex_positions[2][1],
                                native_vertex_positions[1][0], native_vertex_positions[1][1],
                                native_vertex_positions[3][0], native_vertex_positions[3][1], rc.shading_enable,
@@ -1040,6 +1044,8 @@ void GPU_HW::LoadVertices()
 
       m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
       MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
+      if (IsTexturePageCacheEnabled())
+        OnVRAMDrawnRectangle(clip_left, clip_right, clip_top, clip_bottom);
       AddDrawRectangleTicks(clip_right - clip_left, clip_bottom - clip_top, rc.texture_enable, rc.transparency_enable);
 
       if (m_sw_renderer)
@@ -1100,6 +1106,8 @@ void GPU_HW::LoadVertices()
 
             m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
             MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
+            if (IsTexturePageCacheEnabled())
+              OnVRAMDrawnRectangle(clip_left, clip_right, clip_top, clip_bottom);
             AddDrawLineTicks(clip_right - clip_left, clip_bottom - clip_top, rc.shading_enable);
 
         // TODO: Should we do a PGXP lookup here? Most lines are 2D.
@@ -1166,6 +1174,8 @@ void GPU_HW::LoadVertices()
 
           m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
           MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
+            if (IsTexturePageCacheEnabled())
+              OnVRAMDrawnRectangle(clip_left, clip_right, clip_top, clip_bottom);
             AddDrawLineTicks(clip_right - clip_left, clip_bottom - clip_top, rc.shading_enable);
 
             // TODO: Should we do a PGXP lookup here? Most lines are 2D.
@@ -1285,11 +1295,12 @@ void GPU_HW::IncludeVRAMDirtyRectangle(const Common::Rectangle<uint32_t>& rect)
 {
   m_vram_dirty_rect.Include(rect);
 
-  // Rasterized writes must invalidate decoded texture pages. Bump the
-  // per-sub-page revisions so the page cache can detect exactly which pages
-  // changed instead of invalidating everything overlapping a dirty rectangle.
-  if (IsTexturePageCacheEnabled())
-    OnVRAMDrawnRectangle(rect.left, rect.right, rect.top, rect.bottom);
+  // NOTE: this helper is only used by CPU/GPU VRAM transfers (FillVRAM,
+  // UpdateVRAM, CopyVRAM), not by rasterized draws - those call
+  // m_vram_dirty_rect.Include() directly and notify the page cache through
+  // OnVRAMDrawnRectangle() at the primitive site. Marking transfer rectangles
+  // as "drawn" here would permanently exclude every CPU-uploaded texture page
+  // from the page cache.
 
   // the vram area can include the texture page, but the game can leave it as-is. in this case, set it as dirty so the
   // shadow texture is updated

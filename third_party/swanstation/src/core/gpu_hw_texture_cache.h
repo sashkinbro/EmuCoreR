@@ -199,9 +199,10 @@ public:
   static void DecodePage(const SourceKey& key, const uint16_t* vram_ptr,
                          uint32_t* rgba_out);
 
-  // Same decode, but writes the exact native 5551 words instead of the
-  // expanded RGBA8 encoding. A1R5G5B5 hardware textures use this: it keeps
-  // the precise PS1 word (including the STP bit) and is much cheaper.
+  // Same decode, but writes native 5551 words with the red/blue fields
+  // swapped into the layout VK_FORMAT_A1R5G5B5_UNORM_PACK16 expects. The
+  // hardware format keeps the exact PS1 word including the STP bit, so this
+  // is much cheaper than the RGBA8 expansion.
   static void DecodePage16(const SourceKey& key, const uint16_t* vram_ptr,
                            uint16_t* out);
 
@@ -270,6 +271,11 @@ private:
   // Invalidates entries whose rects intersect the argument. Returns the
   // number of entries flipped from valid to invalid.
   uint32_t InvalidateEntriesInRect(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
+
+  // Removes draw rects fully contained in the argument from all touched
+  // pages; partially covered rects are kept. Called for writes whose result
+  // the CPU shadow reproduces exactly (write-wins).
+  void ClearDrawRectsInRect(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
 
   // In-bounds implementations of the public rectangle notifications. The
   // public entry points split wrap-around transfers into up to four

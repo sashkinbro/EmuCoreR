@@ -1701,7 +1701,12 @@ bool GPU_HW_OpenGL::ShouldUsePageCache(uint32_t texture_mode) const
 
 bool GPU_HW_OpenGL::IsTexturePageCacheEnabled() const
 {
-  return (m_texture_filtering == GPUTextureFilter::Nearest) && (m_sw_renderer == nullptr);
+  // Disabled on OpenGL: the decoded page upload does not account for GL's
+  // bottom-left texture origin and the page textures are rewritten without an
+  // in-flight fence, which showed up as flickering and missing textures once
+  // the cache started being used. The VRAM atlas path is used instead; the
+  // Vulkan backend has the equivalent pieces and keeps the cache enabled.
+  return false;
 }
 
 void GPU_HW_OpenGL::OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom)
@@ -1752,10 +1757,18 @@ bool GPU_HW_OpenGL::CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCa
     m_page_decode_scratch.resize(GPUTexturePageCache::PAGE_TEXELS * GPUTexturePageCache::PAGE_TEXELS);
   GPUTexturePageCache::DecodePage(key, m_vram_shadow.data(), m_page_decode_scratch.data());
 
+  // Upload on texture unit 1 (the page/replacement slot). Binding on whatever
+  // unit happens to be active would clobber unit 0, where the batch's VRAM
+  // atlas lives, and every following non-cached batch would sample the page
+  // texture instead of the atlas. Drop the cached unit-1 binding id so
+  // DrawBatchVertices re-binds the slot for the batch it is about to draw.
+  glActiveTexture(GL_TEXTURE1);
   res.textures[next].Bind();
   glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS, GL_RGBA,
                   GL_UNSIGNED_BYTE, m_page_decode_scratch.data());
+  glActiveTexture(GL_TEXTURE0);
+  m_bound_replacement_texture_gl_id = 0;
 
   res.current = next;
   m_page_decodes_this_frame++;

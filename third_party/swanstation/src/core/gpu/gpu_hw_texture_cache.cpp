@@ -11,6 +11,17 @@
 static constexpr uint64_t FNV_OFFSET_BASIS = UINT64_C(14695981039346656037);
 static constexpr uint64_t FNV_PRIME = UINT64_C(1099511628211);
 
+// VK_FORMAT_A1R5G5B5_UNORM_PACK16 stores R in bits 14..10 and B in bits 4..0,
+// while PS1 5551 words store B in bits 14..10 and R in bits 4..0. Swap the two
+// colour fields so a raw PS1 word sampled through the hardware format yields
+// the intended colour; the STP/mask bit in bit 15 stays where the shader's
+// alpha test expects it.
+static ALWAYS_INLINE uint16_t SwapRedBlue5551(uint16_t word)
+{
+  return static_cast<uint16_t>((word & 0x8000u) | ((word & 0x001Fu) << 10) | (word & 0x03E0u) |
+                               ((word >> 10) & 0x001Fu));
+}
+
 GPUTexturePageCache::GPUTexturePageCache() : m_use_counter(0), m_allocated_count(0)
 {
   for (Entry& entry : m_entries)
@@ -299,7 +310,7 @@ void GPUTexturePageCache::DecodePage16(const SourceKey& key, const uint16_t* vra
       const uint16_t* src_row = &vram_ptr[((base_y + y) % VRAM_HEIGHT) * VRAM_WIDTH];
       uint16_t* dst_row = &out[y * PAGE_TEXELS];
       for (uint32_t x = 0; x < PAGE_TEXELS; x++)
-        dst_row[x] = src_row[(base_x + x) % VRAM_WIDTH];
+        dst_row[x] = SwapRedBlue5551(src_row[(base_x + x) % VRAM_WIDTH]);
     }
   }
   else if (key.mode == GPUTextureMode::Palette8Bit)
@@ -307,7 +318,7 @@ void GPUTexturePageCache::DecodePage16(const SourceKey& key, const uint16_t* vra
     const uint16_t* pal_row = &vram_ptr[(key.palette_y % VRAM_HEIGHT) * VRAM_WIDTH];
     uint16_t palette[256];
     for (uint32_t i = 0; i < 256u; i++)
-      palette[i] = pal_row[(key.palette_x + i) % VRAM_WIDTH];
+      palette[i] = SwapRedBlue5551(pal_row[(key.palette_x + i) % VRAM_WIDTH]);
 
     for (uint32_t y = 0; y < PAGE_TEXELS; y++)
     {
@@ -326,7 +337,7 @@ void GPUTexturePageCache::DecodePage16(const SourceKey& key, const uint16_t* vra
     const uint16_t* pal_row = &vram_ptr[(key.palette_y % VRAM_HEIGHT) * VRAM_WIDTH];
     uint16_t palette[16];
     for (uint32_t i = 0; i < 16u; i++)
-      palette[i] = pal_row[(key.palette_x + i) % VRAM_WIDTH];
+      palette[i] = SwapRedBlue5551(pal_row[(key.palette_x + i) % VRAM_WIDTH]);
 
     for (uint32_t y = 0; y < PAGE_TEXELS; y++)
     {
@@ -488,6 +499,48 @@ uint32_t GPUTexturePageCache::InvalidateEntriesInRect(uint16_t left, uint16_t to
   return invalidated;
 }
 
+void GPUTexturePageCache::ClearDrawRectsInRect(uint16_t left, uint16_t top, uint16_t right,
+                                               uint16_t bottom)
+{
+  const auto contained = [left, top, right, bottom](const Rect& r) {
+    return r.left >= left && r.top >= top && r.right <= right && r.bottom <= bottom;
+  };
+
+  uint32_t pages = GetPageMask(left, top, right, bottom);
+  while (pages != 0)
+  {
+    const uint32_t page = static_cast<uint32_t>(__builtin_ctz(pages));
+    pages &= ~(1u << page);
+
+    DrawTracker& dt = m_draw_trackers[page];
+    if (dt.count == 0 && !dt.saturated)
+      continue;
+
+    if (dt.saturated)
+    {
+      // The precise rects were collapsed into the union; it can only be
+      // cleared when the write covers every draw recorded for this page.
+      if (contained(dt.total))
+      {
+        dt.count = 0;
+        dt.saturated = false;
+        dt.total = {};
+      }
+      continue;
+    }
+
+    uint32_t write_index = 0;
+    for (uint32_t i = 0; i < dt.count; i++)
+    {
+      if (!contained(dt.rects[i]))
+        dt.rects[write_index++] = dt.rects[i];
+    }
+    dt.count = static_cast<uint8_t>(write_index);
+    if (dt.count == 0)
+      dt.total = {};
+  }
+}
+
 void GPUTexturePageCache::AddWrittenRectangle(uint32_t left, uint32_t top,
                                               uint32_t right, uint32_t bottom,
                                               bool shadow_is_authoritative)
@@ -533,12 +586,13 @@ void GPUTexturePageCache::AddWrittenRectangleInternal(uint16_t left, uint16_t to
 
   if (shadow_is_authoritative)
   {
-    // The CPU shadow reproduces this write exactly, so the entries it
-    // overlaps are simply re-decoded on their next use. Draw rects are left
-    // in place: a CPU write can land in the shadow while the GPU buffer still
-    // holds pixels the game samples (e.g. a back buffer that was drawn a
-    // frame earlier and only cleared now), and clearing them served stale
-    // pages. Drawn regions stay excluded until the cache is invalidated.
+    // The CPU shadow reproduces this write exactly, so overlapping entries are
+    // simply re-decoded on their next use. Draw rects fully covered by the
+    // write are no longer needed: the write wins over the earlier GPU draw for
+    // that area in both the GPU buffer (queue order) and the shadow the cache
+    // decodes from. Partially covered rects stay so GPU-produced pixels never
+    // leak into a decoded page.
+    ClearDrawRectsInRect(left, top, right, bottom);
     InvalidateEntriesInRect(left, top, right, bottom);
   }
   else

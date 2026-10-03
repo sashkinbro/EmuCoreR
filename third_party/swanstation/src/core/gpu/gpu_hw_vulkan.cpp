@@ -1315,8 +1315,23 @@ bool GPU_HW_Vulkan::CreateSamplers()
 bool GPU_HW_Vulkan::EnsurePageResource(uint32_t slot)
 {
   PageResource& res = m_page_resources[slot];
-  if (res.buffers[0].texture.GetImage() != VK_NULL_HANDLE)
+  if (res.buffers[0].texture.GetImage() != VK_NULL_HANDLE &&
+      res.buffers[1].texture.GetImage() != VK_NULL_HANDLE)
     return true;
+
+  // A previous attempt may have failed halfway (texture created, descriptor
+  // set allocation failed); rebuild from scratch so CPUDecodeAndUploadPage can
+  // never be handed a null image or descriptor set.
+  const auto cleanup = [&res]() {
+    for (PageResource::Buffer& buffer : res.buffers)
+    {
+      Vulkan::Util::SafeFreeGlobalDescriptorSet(buffer.descriptor_set);
+      buffer.texture.Destroy(false);
+      buffer.last_used_frame = 0;
+    }
+    res.current = 0;
+  };
+  cleanup();
 
   for (uint32_t i = 0; i < 2; i++)
   {
@@ -1328,12 +1343,17 @@ bool GPU_HW_Vulkan::EnsurePageResource(uint32_t slot)
                                  VK_IMAGE_USAGE_TRANSFER_DST_BIT))
     {
       Log_ErrorPrintf("Failed to create texture page %u buffer %u", slot, i);
+      cleanup();
       return false;
     }
 
     buffer.descriptor_set = g_vulkan_context->AllocateGlobalDescriptorSet(m_batch_descriptor_set_layout);
     if (buffer.descriptor_set == VK_NULL_HANDLE)
+    {
+      Log_ErrorPrintf("Failed to allocate texture page descriptor set %u buffer %u", slot, i);
+      cleanup();
       return false;
+    }
 
     Vulkan::DescriptorSetUpdateBuilder dsubuilder;
     dsubuilder.AddBufferDescriptorWrite(buffer.descriptor_set, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
