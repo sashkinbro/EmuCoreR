@@ -2401,4 +2401,10 @@
     <string name="ss_core_choice_blend">الدمج</string>
     <string name="ss_core_choice_adaptive">تكيفي</string>
     <string name="ss_core_choice_progressive">تدريجي</string>
+    <string name="ss_core_gpu_ditheringmode">التنقيط</string>
+    <string name="ss_core_gpu_ditheringmode_desc">يحدد وضع التنقيط. «بدون قياس» يحتفظ بالنمط الأصلي، و«مُقاس» يقيسه مع الدقة الداخلية، و«ألوان حقيقية» يعطّل التنقيط ويستخدم 8 بتات كاملة لكل قناة.</string>
+    <string name="ss_core_choice_unscaled">بدون قياس</string>
+    <string name="ss_core_choice_scaled">مُقاس</string>
+    <string name="ss_core_choice_true_color">ألوان حقيقية</string>
+    <string name="ss_core_choice_true_color_full">ألوان حقيقية (كاملة)</string>
 </resources>

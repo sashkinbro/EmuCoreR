@@ -2393,4 +2393,10 @@
     <string name="ss_core_choice_blend">ब्लेंड</string>
     <string name="ss_core_choice_adaptive">अनुकूली</string>
     <string name="ss_core_choice_progressive">प्रगतिशील</string>
+    <string name="ss_core_gpu_ditheringmode">डिदरिंग</string>
+    <string name="ss_core_gpu_ditheringmode_desc">डिदरिंग मोड चुनता है। «बिना स्केल» मूल पैटर्न रखता है, «स्केल्ड» इसे आंतरिक रिज़ॉल्यूशन के साथ स्केल करता है, और «ट्रू कलर» डिदरिंग बंद कर हर चैनल के पूरे 8 बिट उपयोग करता है।</string>
+    <string name="ss_core_choice_unscaled">बिना स्केल</string>
+    <string name="ss_core_choice_scaled">स्केल्ड</string>
+    <string name="ss_core_choice_true_color">ट्रू कलर</string>
+    <string name="ss_core_choice_true_color_full">ट्रू कलर (पूर्ण)</string>
 </resources>

@@ -2392,4 +2392,10 @@
     <string name="ss_core_choice_blend">ブレンド</string>
     <string name="ss_core_choice_adaptive">適応</string>
     <string name="ss_core_choice_progressive">プログレッシブ</string>
+    <string name="ss_core_gpu_ditheringmode">ディザリング</string>
+    <string name="ss_core_gpu_ditheringmode_desc">ディザリングモードを選択します。「スケーリングなし」は元のパターンを維持し、「スケーリング」は内部解像度に合わせて拡大し、「トゥルーカラー」はディザリングを無効にしてチャンネルごとに完全な8ビットを使用します。</string>
+    <string name="ss_core_choice_unscaled">スケーリングなし</string>
+    <string name="ss_core_choice_scaled">スケーリング</string>
+    <string name="ss_core_choice_true_color">トゥルーカラー</string>
+    <string name="ss_core_choice_true_color_full">トゥルーカラー（フル）</string>
 </resources>

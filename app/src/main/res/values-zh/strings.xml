@@ -2394,4 +2394,10 @@
     <string name="ss_core_choice_blend">混合</string>
     <string name="ss_core_choice_adaptive">自适应</string>
     <string name="ss_core_choice_progressive">逐行</string>
+    <string name="ss_core_gpu_ditheringmode">抖动</string>
+    <string name="ss_core_gpu_ditheringmode_desc">选择抖动模式。「不缩放」保留原始图案，「缩放」随内部分辨率缩放图案，「真彩色」关闭抖动并使用每通道完整的 8 位。</string>
+    <string name="ss_core_choice_unscaled">不缩放</string>
+    <string name="ss_core_choice_scaled">缩放</string>
+    <string name="ss_core_choice_true_color">真彩色</string>
+    <string name="ss_core_choice_true_color_full">真彩色（完整）</string>
 </resources>

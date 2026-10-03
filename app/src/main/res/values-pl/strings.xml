@@ -2414,4 +2414,10 @@
     <string name="ss_core_choice_blend">Mieszanie</string>
     <string name="ss_core_choice_adaptive">Adaptacyjne</string>
     <string name="ss_core_choice_progressive">Progresywne</string>
+    <string name="ss_core_gpu_ditheringmode">Dithering</string>
+    <string name="ss_core_gpu_ditheringmode_desc">Wybiera tryb ditheringu. „Nieskalowany” zachowuje natywny wzór, „Skalowany” skaluje go wraz z rozdzielczością wewnętrzną, a „Prawdziwe kolory” wyłącza dithering i używa pełnych 8 bitów na kanał.</string>
+    <string name="ss_core_choice_unscaled">Nieskalowany</string>
+    <string name="ss_core_choice_scaled">Skalowany</string>
+    <string name="ss_core_choice_true_color">Prawdziwe kolory</string>
+    <string name="ss_core_choice_true_color_full">Prawdziwe kolory (pełne)</string>
 </resources>

@@ -2395,4 +2395,10 @@
     <string name="ss_core_choice_blend">Blend</string>
     <string name="ss_core_choice_adaptive">Adaptativo</string>
     <string name="ss_core_choice_progressive">Progresivo</string>
+    <string name="ss_core_gpu_ditheringmode">Tramado</string>
+    <string name="ss_core_gpu_ditheringmode_desc">Selecciona el modo de tramado. «Sin escalar» conserva el patrón nativo, «Escalado» lo escala con la resolución interna y «Color real» desactiva el tramado y usa los 8 bits por canal.</string>
+    <string name="ss_core_choice_unscaled">Sin escalar</string>
+    <string name="ss_core_choice_scaled">Escalado</string>
+    <string name="ss_core_choice_true_color">Color real</string>
+    <string name="ss_core_choice_true_color_full">Color real (completo)</string>
 </resources>

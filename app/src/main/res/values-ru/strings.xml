@@ -2397,4 +2397,10 @@
     <string name="ss_core_choice_blend">Смешивание</string>
     <string name="ss_core_choice_adaptive">Адаптивный</string>
     <string name="ss_core_choice_progressive">Прогрессивный</string>
+    <string name="ss_core_gpu_ditheringmode">Дизеринг</string>
+    <string name="ss_core_gpu_ditheringmode_desc">Выбор режима дизеринга. «Без масштабирования» сохраняет исходный узор, «Масштабированный» масштабирует его вместе с внутренним разрешением, а «Истинный цвет» отключает дизеринг и использует полные 8 бит на канал.</string>
+    <string name="ss_core_choice_unscaled">Без масштабирования</string>
+    <string name="ss_core_choice_scaled">Масштабированный</string>
+    <string name="ss_core_choice_true_color">Истинный цвет</string>
+    <string name="ss_core_choice_true_color_full">Истинный цвет (полный)</string>
 </resources>

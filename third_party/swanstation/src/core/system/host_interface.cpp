@@ -276,8 +276,7 @@ void HostInterface::CheckForSettingsChanges(const Settings& old_settings)
         g_settings.gpu_use_software_renderer_for_readbacks != old_settings.gpu_use_software_renderer_for_readbacks ||
         g_settings.gpu_fifo_size != old_settings.gpu_fifo_size ||
         g_settings.gpu_max_run_ahead != old_settings.gpu_max_run_ahead ||
-        g_settings.gpu_true_color != old_settings.gpu_true_color ||
-        g_settings.gpu_scaled_dithering != old_settings.gpu_scaled_dithering ||
+        g_settings.gpu_dithering_mode != old_settings.gpu_dithering_mode ||
         g_settings.gpu_texture_filter != old_settings.gpu_texture_filter ||
         g_settings.display_deinterlacing_mode != old_settings.display_deinterlacing_mode ||
         g_settings.gpu_force_ntsc_timings != old_settings.gpu_force_ntsc_timings ||

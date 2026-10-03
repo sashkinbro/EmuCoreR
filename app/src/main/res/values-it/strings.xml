@@ -2393,4 +2393,10 @@
     <string name="ss_core_choice_blend">Blend</string>
     <string name="ss_core_choice_adaptive">Adattivo</string>
     <string name="ss_core_choice_progressive">Progressivo</string>
+    <string name="ss_core_gpu_ditheringmode">Dithering</string>
+    <string name="ss_core_gpu_ditheringmode_desc">Seleziona la modalità di dithering. «Non scalato» mantiene il pattern nativo, «Scalato» lo scala con la risoluzione interna e «Colori reali» disattiva il dithering e usa tutti gli 8 bit per canale.</string>
+    <string name="ss_core_choice_unscaled">Non scalato</string>
+    <string name="ss_core_choice_scaled">Scalato</string>
+    <string name="ss_core_choice_true_color">Colori reali</string>
+    <string name="ss_core_choice_true_color_full">Colori reali (completi)</string>
 </resources>

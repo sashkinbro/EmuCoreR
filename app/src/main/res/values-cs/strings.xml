@@ -2414,4 +2414,10 @@
     <string name="ss_core_choice_blend">Blend</string>
     <string name="ss_core_choice_adaptive">Adaptivní</string>
     <string name="ss_core_choice_progressive">Progresivní</string>
+    <string name="ss_core_gpu_ditheringmode">Dithering</string>
+    <string name="ss_core_gpu_ditheringmode_desc">Vybere režim ditheringu. „Neškálovaný” zachová nativní vzor, „Škálovaný” jej škáluje s vnitřním rozlišením a „Pravé barvy” vypne dithering a použije plných 8 bitů na kanál.</string>
+    <string name="ss_core_choice_unscaled">Neškálovaný</string>
+    <string name="ss_core_choice_scaled">Škálovaný</string>
+    <string name="ss_core_choice_true_color">Pravé barvy</string>
+    <string name="ss_core_choice_true_color_full">Pravé barvy (plné)</string>
 </resources>

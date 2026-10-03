@@ -39,8 +39,7 @@ struct Settings
   bool gpu_use_thread = true;
   bool gpu_use_software_renderer_for_readbacks = false;
   bool gpu_per_sample_shading = false;
-  bool gpu_true_color = false;
-  bool gpu_scaled_dithering = false;
+  GPUDitheringMode gpu_dithering_mode = DEFAULT_GPU_DITHERING_MODE;
   GPUTextureFilter gpu_texture_filter = GPUTextureFilter::Nearest;
   GPUDownsampleMode gpu_downsample_mode = GPUDownsampleMode::Disabled;
   GPUShaderPrecompileMode gpu_shader_precompile_mode = GPUShaderPrecompileMode::Lazy;
@@ -126,6 +125,19 @@ struct Settings
 
   ALWAYS_INLINE bool UsingPGXPDepthBuffer() const { return gpu_pgxp_enable && gpu_pgxp_depth_buffer; }
   ALWAYS_INLINE bool UsingPGXPCPUMode() const { return gpu_pgxp_enable && gpu_pgxp_cpu; }
+
+  ALWAYS_INLINE bool UsingTrueColor() const { return gpu_dithering_mode >= GPUDitheringMode::TrueColor; }
+  ALWAYS_INLINE bool UsingDithering() const { return gpu_dithering_mode < GPUDitheringMode::TrueColor; }
+  ALWAYS_INLINE bool UsingShaderBlending() const
+  {
+    return gpu_dithering_mode == GPUDitheringMode::UnscaledShaderBlend ||
+           gpu_dithering_mode == GPUDitheringMode::ScaledShaderBlend;
+  }
+  ALWAYS_INLINE bool UsingScaledDithering() const
+  {
+    return gpu_dithering_mode == GPUDitheringMode::Scaled ||
+           gpu_dithering_mode == GPUDitheringMode::ScaledShaderBlend;
+  }
   ALWAYS_INLINE void SetPGXPDepthClearThreshold(float value) { gpu_pgxp_depth_clear_threshold = value / 4096.0f; }
 
   ALWAYS_INLINE bool IsUsingFastmem() const
@@ -174,6 +186,9 @@ struct Settings
   static std::optional<GPUDownsampleMode> ParseDownsampleModeName(const char* str);
   static const char* GetDownsampleModeName(GPUDownsampleMode mode);
 
+  static std::optional<GPUDitheringMode> ParseGPUDitheringModeName(const char* str);
+  static const char* GetGPUDitheringModeName(GPUDitheringMode mode);
+
   static std::optional<GPUShaderPrecompileMode> ParseShaderPrecompileMode(const char* str);
   static const char* GetShaderPrecompileModeName(GPUShaderPrecompileMode mode);
 
@@ -203,6 +218,7 @@ struct Settings
 #endif
   static constexpr GPUTextureFilter DEFAULT_GPU_TEXTURE_FILTER = GPUTextureFilter::Nearest;
   static constexpr GPUDownsampleMode DEFAULT_GPU_DOWNSAMPLE_MODE = GPUDownsampleMode::Disabled;
+  static constexpr GPUDitheringMode DEFAULT_GPU_DITHERING_MODE = GPUDitheringMode::TrueColor;
   static constexpr ConsoleRegion DEFAULT_CONSOLE_REGION = ConsoleRegion::Auto;
   static constexpr float DEFAULT_GPU_PGXP_DEPTH_THRESHOLD = 300.0f;
 

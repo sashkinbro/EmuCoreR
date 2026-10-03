@@ -2392,4 +2392,10 @@
     <string name="ss_core_choice_blend">블렌드</string>
     <string name="ss_core_choice_adaptive">적응형</string>
     <string name="ss_core_choice_progressive">프로그레시브</string>
+    <string name="ss_core_gpu_ditheringmode">디더링</string>
+    <string name="ss_core_gpu_ditheringmode_desc">디더링 모드를 선택합니다. «스케일 없음»은 원래 패턴을 유지하고, «배율»은 내부 해상도에 맞춰 확대하며, «트루 컬러»는 디더링을 끄고 채널당 전체 8비트를 사용합니다.</string>
+    <string name="ss_core_choice_unscaled">스케일 없음</string>
+    <string name="ss_core_choice_scaled">배율</string>
+    <string name="ss_core_choice_true_color">트루 컬러</string>
+    <string name="ss_core_choice_true_color_full">트루 컬러(전체)</string>
 </resources>

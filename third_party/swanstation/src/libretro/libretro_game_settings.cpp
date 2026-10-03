@@ -72,10 +72,13 @@ void Entry::ApplySettings(bool display_osd_messages) const
     g_settings.gpu_multisamples = gpu_multisamples.value();
   if (gpu_per_sample_shading.has_value())
     g_settings.gpu_per_sample_shading = gpu_per_sample_shading.value();
-  if (gpu_true_color.has_value())
-    g_settings.gpu_true_color = gpu_true_color.value();
-  if (gpu_scaled_dithering.has_value())
-    g_settings.gpu_scaled_dithering = gpu_scaled_dithering.value();
+  if (gpu_true_color.has_value() || gpu_scaled_dithering.has_value())
+  {
+    const bool true_color = gpu_true_color.value_or(g_settings.UsingTrueColor());
+    const bool scaled_dithering = gpu_scaled_dithering.value_or(g_settings.UsingScaledDithering());
+    g_settings.gpu_dithering_mode = true_color ? GPUDitheringMode::TrueColor :
+                                      (scaled_dithering ? GPUDitheringMode::Scaled : GPUDitheringMode::Unscaled);
+  }
   if (gpu_force_ntsc_timings.has_value())
     g_settings.gpu_force_ntsc_timings = gpu_force_ntsc_timings.value();
   if (gpu_texture_filter.has_value())
@@ -143,12 +146,13 @@ void Entry::ApplySettings(bool display_osd_messages) const
 
   if (HasTrait(Trait::DisableTrueColor))
   {
-    if (g_settings.gpu_true_color)
+    if (g_settings.UsingTrueColor())
     {
       gamesettings_message.append("True color disabled by game settings. ", 38);
     }
 
-    g_settings.gpu_true_color = false;
+    g_settings.gpu_dithering_mode =
+      g_settings.UsingScaledDithering() ? GPUDitheringMode::Scaled : GPUDitheringMode::Unscaled;
   }
 
   if (HasTrait(Trait::DisableUpscaling))
@@ -163,12 +167,13 @@ void Entry::ApplySettings(bool display_osd_messages) const
 
   if (HasTrait(Trait::DisableScaledDithering))
   {
-    if (g_settings.gpu_scaled_dithering)
+    if (g_settings.UsingScaledDithering())
     {
       gamesettings_message.append("Scaled dithering disabled by game settings. ", 44);
     }
 
-    g_settings.gpu_scaled_dithering = false;
+    if (!g_settings.UsingTrueColor())
+      g_settings.gpu_dithering_mode = GPUDitheringMode::Unscaled;
   }
 
   if (HasTrait(Trait::DisableWidescreen))

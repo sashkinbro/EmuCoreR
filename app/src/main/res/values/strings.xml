@@ -2416,4 +2416,10 @@
     <string name="ss_core_choice_blend">Blend</string>
     <string name="ss_core_choice_adaptive">Adaptive</string>
     <string name="ss_core_choice_progressive">Progressive</string>
+    <string name="ss_core_gpu_ditheringmode">Dithering</string>
+    <string name="ss_core_gpu_ditheringmode_desc">Selects the dithering mode. \'Unscaled\' keeps the native dithering pattern, \'Scaled\' scales it with the internal resolution, and \'True Color\' disables dithering and uses the full 8 bits per channel of color information.</string>
+    <string name="ss_core_choice_unscaled">Unscaled</string>
+    <string name="ss_core_choice_scaled">Scaled</string>
+    <string name="ss_core_choice_true_color">True Color</string>
+    <string name="ss_core_choice_true_color_full">True Color (Full)</string>
 </resources>

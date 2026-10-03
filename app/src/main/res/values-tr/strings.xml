@@ -2393,4 +2393,10 @@
     <string name="ss_core_choice_blend">Blend</string>
     <string name="ss_core_choice_adaptive">Uyarlanabilir</string>
     <string name="ss_core_choice_progressive">Aşamalı</string>
+    <string name="ss_core_gpu_ditheringmode">Dithering</string>
+    <string name="ss_core_gpu_ditheringmode_desc">Dithering modunu seçer. "Ölçeksiz" yerel deseni korur, "Ölçekli" dahili çözünürlükle ölçekler ve "Gerçek renk" dithering\'i kapatıp kanal başına tam 8 bit kullanır.</string>
+    <string name="ss_core_choice_unscaled">Ölçeksiz</string>
+    <string name="ss_core_choice_scaled">Ölçekli</string>
+    <string name="ss_core_choice_true_color">Gerçek renk</string>
+    <string name="ss_core_choice_true_color_full">Gerçek renk (tam)</string>
 </resources>

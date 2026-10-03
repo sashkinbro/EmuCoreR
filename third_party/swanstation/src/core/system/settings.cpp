@@ -98,8 +98,18 @@ void Settings::Load(LibretroSettingsInterface& si)
   gpu_resolution_scale = static_cast<uint32_t>(si.GetIntValue("GPU", "ResolutionScale", 1));
   gpu_use_thread = si.GetBoolValue("GPU", "UseThread", true);
   gpu_use_software_renderer_for_readbacks = si.GetBoolValue("GPU", "UseSoftwareRendererForReadbacks", false);
-  gpu_true_color = si.GetBoolValue("GPU", "TrueColor", false);
-  gpu_scaled_dithering = si.GetBoolValue("GPU", "ScaledDithering", false);
+  const std::string dithering_mode = si.GetStringValue("GPU", "DitheringMode", "");
+  if (!dithering_mode.empty())
+  {
+    gpu_dithering_mode = ParseGPUDitheringModeName(dithering_mode.c_str()).value_or(DEFAULT_GPU_DITHERING_MODE);
+  }
+  else
+  {
+    const bool true_color = si.GetBoolValue("GPU", "TrueColor", true);
+    const bool scaled_dithering = si.GetBoolValue("GPU", "ScaledDithering", true);
+    gpu_dithering_mode = true_color ? GPUDitheringMode::TrueColor :
+                           (scaled_dithering ? GPUDitheringMode::Scaled : GPUDitheringMode::Unscaled);
+  }
   gpu_texture_filter =
     ParseTextureFilterName(
       si.GetStringValue("GPU", "TextureFilter", GetTextureFilterName(DEFAULT_GPU_TEXTURE_FILTER)).c_str())
@@ -376,6 +386,28 @@ std::optional<GPUDownsampleMode> Settings::ParseDownsampleModeName(const char* s
 const char* Settings::GetDownsampleModeName(GPUDownsampleMode mode)
 {
   return s_downsample_mode_names[static_cast<int>(mode)];
+}
+
+static constexpr auto s_gpu_dithering_mode_names =
+  make_array("Unscaled", "UnscaledShaderBlend", "Scaled", "ScaledShaderBlend", "TrueColor", "TrueColorFull");
+
+std::optional<GPUDitheringMode> Settings::ParseGPUDitheringModeName(const char* str)
+{
+  int index = 0;
+  for (const char* name : s_gpu_dithering_mode_names)
+  {
+    if (StringUtil::Strcasecmp(name, str) == 0)
+      return static_cast<GPUDitheringMode>(index);
+
+    index++;
+  }
+
+  return std::nullopt;
+}
+
+const char* Settings::GetGPUDitheringModeName(GPUDitheringMode mode)
+{
+  return s_gpu_dithering_mode_names[static_cast<int>(mode)];
 }
 
 static constexpr auto s_shader_precompile_mode_names = make_array("Disabled", "Enabled", "Lazy");

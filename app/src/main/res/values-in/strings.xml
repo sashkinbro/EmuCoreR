@@ -2407,4 +2407,10 @@
     <string name="ss_core_choice_blend">Blend</string>
     <string name="ss_core_choice_adaptive">Adaptif</string>
     <string name="ss_core_choice_progressive">Progresif</string>
+    <string name="ss_core_gpu_ditheringmode">Dithering</string>
+    <string name="ss_core_gpu_ditheringmode_desc">Memilih mode dithering. «Tidak diskalakan» mempertahankan pola asli, «Terskala» menskalakannya dengan resolusi internal, dan «Warna sebenarnya» menonaktifkan dithering dan memakai 8 bit penuh per kanal.</string>
+    <string name="ss_core_choice_unscaled">Tidak diskalakan</string>
+    <string name="ss_core_choice_scaled">Terskala</string>
+    <string name="ss_core_choice_true_color">Warna sebenarnya</string>
+    <string name="ss_core_choice_true_color_full">Warna sebenarnya (penuh)</string>
 </resources>

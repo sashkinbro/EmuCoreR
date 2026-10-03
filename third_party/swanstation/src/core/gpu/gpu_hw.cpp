@@ -67,8 +67,8 @@ bool GPU_HW::Initialize(HostDisplay* host_display)
   m_multisamples = std::min(g_settings.gpu_multisamples, m_max_multisamples);
   m_render_api = host_display->GetRenderAPI();
   m_per_sample_shading = g_settings.gpu_per_sample_shading && m_supports_per_sample_shading;
-  m_true_color = g_settings.gpu_true_color;
-  m_scaled_dithering = g_settings.gpu_scaled_dithering;
+  m_true_color = g_settings.UsingTrueColor();
+  m_scaled_dithering = g_settings.UsingScaledDithering() && !m_true_color;
   m_texture_filtering = g_settings.gpu_texture_filter;
   m_using_uv_limits = ShouldUseUVLimits();
   m_chroma_smoothing = g_settings.gpu_24bit_chroma_smoothing;
@@ -242,9 +242,11 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
   // three settings the Vulkan backend currently dimensions over.
   // The set may extend to other 2-value spec consts in the future
   // without changing this API.
+  const bool true_color = g_settings.UsingTrueColor();
+  const bool scaled_dithering = g_settings.UsingScaledDithering() && !true_color;
   const bool filter_diff           = (m_texture_filtering != g_settings.gpu_texture_filter);
-  const bool true_color_diff       = (m_true_color != g_settings.gpu_true_color);
-  const bool scaled_dithering_diff = (m_scaled_dithering != g_settings.gpu_scaled_dithering);
+  const bool true_color_diff       = (m_true_color != true_color);
+  const bool scaled_dithering_diff = (m_scaled_dithering != scaled_dithering);
   const bool dim_diff              = filter_diff || true_color_diff || scaled_dithering_diff;
   const bool non_dim_diff =
     (m_resolution_scale != resolution_scale || m_multisamples != multisamples ||
@@ -345,8 +347,8 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
   g_texture_replacements.SetResolutionScale(m_resolution_scale);
   m_multisamples = multisamples;
   m_per_sample_shading = per_sample_shading;
-  m_true_color = g_settings.gpu_true_color;
-  m_scaled_dithering = g_settings.gpu_scaled_dithering;
+  m_true_color = true_color;
+  m_scaled_dithering = scaled_dithering;
   m_texture_filtering = g_settings.gpu_texture_filter;
   m_using_uv_limits = use_uv_limits;
   m_chroma_smoothing = g_settings.gpu_24bit_chroma_smoothing;

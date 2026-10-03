@@ -2395,4 +2395,10 @@
     <string name="ss_core_choice_blend">Blend</string>
     <string name="ss_core_choice_adaptive">Adaptatif</string>
     <string name="ss_core_choice_progressive">Progressif</string>
+    <string name="ss_core_gpu_ditheringmode">Tramage</string>
+    <string name="ss_core_gpu_ditheringmode_desc">Choisit le mode de tramage. « Non mis à l\'échelle » conserve le motif natif, « Mis à l\'échelle » le met à l\'échelle avec la résolution interne, et « Couleurs réelles » désactive le tramage et utilise les 8 bits par canal.</string>
+    <string name="ss_core_choice_unscaled">Non mis à l\'échelle</string>
+    <string name="ss_core_choice_scaled">Mis à l\'échelle</string>
+    <string name="ss_core_choice_true_color">Couleurs réelles</string>
+    <string name="ss_core_choice_true_color_full">Couleurs réelles (complètes)</string>
 </resources>

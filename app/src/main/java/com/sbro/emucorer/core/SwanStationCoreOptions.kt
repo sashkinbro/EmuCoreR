@@ -333,26 +333,17 @@ object SwanStationCoreOptions {
             defaultValue = "1",
         ),
         Option(
-            key = "swanstation_GPU_TrueColor",
-            label = "True Color Rendering",
-            description = "Disables dithering and uses the full 8 bits per channel of color information. May break rendering in some games.",
+            key = "swanstation_GPU_DitheringMode",
+            label = "Dithering",
+            description = "Selects the dithering mode. 'Unscaled' keeps the native dithering pattern, 'Scaled' scales it with the internal resolution, and 'True Color' disables dithering and uses the full 8 bits per channel of color information.",
             category = "enhancement",
             choices = listOf(
-                Choice("true", "Enabled"),
-                Choice("false", "Disabled"),
+                Choice("Unscaled", "Unscaled"),
+                Choice("Scaled", "Scaled"),
+                Choice("TrueColor", "True Color"),
+                Choice("TrueColorFull", "True Color (Full)"),
             ),
-            defaultValue = "true",
-        ),
-        Option(
-            key = "swanstation_GPU_ScaledDithering",
-            label = "Scaled Dithering",
-            description = "Scales the dithering pattern with the internal rendering resolution, making it less noticeable. Usually safe to enable.",
-            category = "enhancement",
-            choices = listOf(
-                Choice("true", "Enabled"),
-                Choice("false", "Disabled"),
-            ),
-            defaultValue = "true",
+            defaultValue = "TrueColor",
         ),
         Option(
             key = "swanstation_GPU_DeinterlacingMode",
@@ -4351,8 +4342,7 @@ object SwanStationCoreOptions {
      */
     fun gameMenuGraphicsOptions(): List<Option> = listOfNotNull(
         option("swanstation_GPU_MSAA"),
-        option("swanstation_GPU_TrueColor"),
-        option("swanstation_GPU_ScaledDithering"),
+        option("swanstation_GPU_DitheringMode"),
         option("swanstation_GPU_DeinterlacingMode"),
         option("swanstation_GPU_TextureFilter"),
         option("swanstation_GPU_PGXPEnable"),

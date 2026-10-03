@@ -84,6 +84,17 @@ enum class GPUDownsampleMode : uint8_t
   Count
 };
 
+enum class GPUDitheringMode : uint8_t
+{
+  Unscaled,
+  UnscaledShaderBlend,
+  Scaled,
+  ScaledShaderBlend,
+  TrueColor,
+  TrueColorFull,
+  MaxCount
+};
+
 // Controls when batch fragment shaders / PSOs are built. There are
 // 144 batch fragment shader permutations on D3D11 / OpenGL and up to
 // 2160 PSO permutations on Vulkan, but most games only ever dispatch a

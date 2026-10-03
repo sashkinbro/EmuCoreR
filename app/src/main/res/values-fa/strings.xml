@@ -2408,4 +2408,10 @@
     <string name="ss_core_choice_blend">ترکیب</string>
     <string name="ss_core_choice_adaptive">تطبیقی</string>
     <string name="ss_core_choice_progressive">پیش‌رونده</string>
+    <string name="ss_core_gpu_ditheringmode">دیترینگ</string>
+    <string name="ss_core_gpu_ditheringmode_desc">حالت دیترینگ را انتخاب می‌کند. «بدون مقیاس» الگوی اصلی را حفظ می‌کند، «مقیاس‌شده» آن را با رزولوشن داخلی مقیاس می‌کند و «رنگ واقعی» دیترینگ را غیرفعال و از ۸ بیت کامل در هر کانال استفاده می‌کند.</string>
+    <string name="ss_core_choice_unscaled">بدون مقیاس</string>
+    <string name="ss_core_choice_scaled">مقیاس‌شده</string>
+    <string name="ss_core_choice_true_color">رنگ واقعی</string>
+    <string name="ss_core_choice_true_color_full">رنگ واقعی (کامل)</string>
 </resources>
