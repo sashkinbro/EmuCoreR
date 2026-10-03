@@ -2385,4 +2385,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">Временная карта (без сохранения)</string>
     <string name="ss_core_cdrom_autodiscchange">Автосмена диска</string>
     <string name="ss_core_cdrom_autodiscchange_desc">Автоматически переключается на следующий диск, когда игра запрашивает смену диска. Работает только для образов с несколькими дисками.</string>
+    <string name="ss_core_main_savestatecompression">Сжатие сохранений</string>
+    <string name="ss_core_main_savestatecompression_desc">Выбирает метод сжатия для сохранений. Высокие уровни сжатия дают меньший размер, но сохранение и загрузка занимают больше времени.</string>
+    <string name="ss_core_choice_uncompressed">Без сжатия</string>
+    <string name="ss_core_choice_deflate_low">Deflate (низкий)</string>
+    <string name="ss_core_choice_deflate_default">Deflate (стандартный)</string>
+    <string name="ss_core_choice_deflate_high">Deflate (высокий)</string>
 </resources>

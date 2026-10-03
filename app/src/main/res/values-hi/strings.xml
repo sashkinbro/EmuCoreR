@@ -2381,4 +2381,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">गैर-स्थायी कार्ड (सहेजा नहीं जाता)</string>
     <string name="ss_core_cdrom_autodiscchange">स्वतः डिस्क बदलें</string>
     <string name="ss_core_cdrom_autodiscchange_desc">जब गेम डिस्क बदलने का अनुरोध करता है तो स्वतः अगली डिस्क पर स्विच हो जाता है। केवल मल्टी-डिस्क इमेज के लिए काम करता है।</string>
+    <string name="ss_core_main_savestatecompression">सेव स्टेट संपीड़न</string>
+    <string name="ss_core_main_savestatecompression_desc">सेव स्टेट के लिए उपयोग की जाने वाली संपीड़न विधि चुनता है। उच्च संपीड़न स्तर छोटी सेव स्टेट बनाते हैं, लेकिन सहेजने और लोड करने में अधिक समय लगता है।</string>
+    <string name="ss_core_choice_uncompressed">असंपीड़ित</string>
+    <string name="ss_core_choice_deflate_low">Deflate (निम्न)</string>
+    <string name="ss_core_choice_deflate_default">Deflate (डिफ़ॉल्ट)</string>
+    <string name="ss_core_choice_deflate_high">Deflate (उच्च)</string>
 </resources>

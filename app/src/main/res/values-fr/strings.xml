@@ -2383,4 +2383,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">Carte non persistante (sans sauvegarde)</string>
     <string name="ss_core_cdrom_autodiscchange">Changement de disque automatique</string>
     <string name="ss_core_cdrom_autodiscchange_desc">Passe automatiquement au disque suivant lorsque le jeu demande un changement de disque. Fonctionne uniquement avec les images multi-disques.</string>
+    <string name="ss_core_main_savestatecompression">Compression des sauvegardes</string>
+    <string name="ss_core_main_savestatecompression_desc">Choisit la méthode de compression des sauvegardes. Les niveaux de compression élevés produisent des sauvegardes plus petites, mais la sauvegarde et le chargement prennent plus de temps.</string>
+    <string name="ss_core_choice_uncompressed">Non compressé</string>
+    <string name="ss_core_choice_deflate_low">Deflate (faible)</string>
+    <string name="ss_core_choice_deflate_default">Deflate (par défaut)</string>
+    <string name="ss_core_choice_deflate_high">Deflate (élevé)</string>
 </resources>

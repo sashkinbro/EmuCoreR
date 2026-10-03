@@ -2402,4 +2402,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">Nepersistentní karta (neukládá se)</string>
     <string name="ss_core_cdrom_autodiscchange">Automatická výměna disku</string>
     <string name="ss_core_cdrom_autodiscchange_desc">Automaticky přepne na další disk, když hra požaduje výměnu disku. Funguje pouze u vícediskových obrazů.</string>
+    <string name="ss_core_main_savestatecompression">Komprese uložených pozic</string>
+    <string name="ss_core_main_savestatecompression_desc">Vybere metodu komprese uložených pozic. Vyšší úrovně komprese vytvářejí menší pozice, ale ukládání a načítání trvá déle.</string>
+    <string name="ss_core_choice_uncompressed">Bez komprese</string>
+    <string name="ss_core_choice_deflate_low">Deflate (nízká)</string>
+    <string name="ss_core_choice_deflate_default">Deflate (výchozí)</string>
+    <string name="ss_core_choice_deflate_high">Deflate (vysoká)</string>
 </resources>

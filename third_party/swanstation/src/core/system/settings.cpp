@@ -70,6 +70,12 @@ void Settings::Load(LibretroSettingsInterface& si)
   enable_8mb_ram = si.GetBoolValue("Console", "Enable8MBRAM", false);
 
   apply_game_settings = si.GetBoolValue("Main", "ApplyGameSettings", true);
+  save_state_compression =
+    ParseSaveStateCompressionModeName(
+      si.GetStringValue("Main", "SaveStateCompression",
+                        GetSaveStateCompressionModeName(DEFAULT_SAVE_STATE_COMPRESSION_MODE))
+        .c_str())
+      .value_or(DEFAULT_SAVE_STATE_COMPRESSION_MODE);
   runahead_frames = static_cast<uint32_t>(si.GetIntValue("Main", "RunaheadFrameCount", 0));
 
   audio_fast_hook = si.GetBoolValue("Audio", "FastHook", true);
@@ -498,4 +504,26 @@ std::optional<MultitapMode> Settings::ParseMultitapModeName(const char* str)
 const char* Settings::GetMultitapModeName(MultitapMode mode)
 {
   return s_multitap_enable_mode_names[static_cast<size_t>(mode)];
+}
+
+static std::array<const char*, static_cast<size_t>(SaveStateCompressionMode::Count)>
+  s_save_state_compression_mode_names = {{"Uncompressed", "DeflateLow", "DeflateDefault", "DeflateHigh"}};
+
+std::optional<SaveStateCompressionMode> Settings::ParseSaveStateCompressionModeName(const char* str)
+{
+  size_t index = 0;
+  for (const char* name : s_save_state_compression_mode_names)
+  {
+    if (StringUtil::Strcasecmp(name, str) == 0)
+      return static_cast<SaveStateCompressionMode>(index);
+
+    index++;
+  }
+
+  return std::nullopt;
+}
+
+const char* Settings::GetSaveStateCompressionModeName(SaveStateCompressionMode mode)
+{
+  return s_save_state_compression_mode_names[static_cast<size_t>(mode)];
 }

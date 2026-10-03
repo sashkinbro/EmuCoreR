@@ -2382,4 +2382,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">非持久存储卡（不保存）</string>
     <string name="ss_core_cdrom_autodiscchange">自动换盘</string>
     <string name="ss_core_cdrom_autodiscchange_desc">当游戏请求换盘时自动切换到下一张光盘。仅适用于多盘镜像。</string>
+    <string name="ss_core_main_savestatecompression">即时存档压缩</string>
+    <string name="ss_core_main_savestatecompression_desc">选择用于即时存档的压缩方式。压缩级别越高，存档越小，但保存和加载耗时更长。</string>
+    <string name="ss_core_choice_uncompressed">不压缩</string>
+    <string name="ss_core_choice_deflate_low">Deflate（低）</string>
+    <string name="ss_core_choice_deflate_default">Deflate（默认）</string>
+    <string name="ss_core_choice_deflate_high">Deflate（高）</string>
 </resources>

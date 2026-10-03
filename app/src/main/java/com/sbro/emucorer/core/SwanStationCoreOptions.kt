@@ -4083,6 +4083,19 @@ object SwanStationCoreOptions {
             defaultValue = "true",
         ),
         Option(
+            key = "swanstation_Main_SaveStateCompression",
+            label = "Save State Compression",
+            description = "Selects the compression method used for save states. Higher compression levels produce smaller save states, but saving and loading takes longer.",
+            category = "advanced",
+            choices = listOf(
+                Choice("Uncompressed", "Uncompressed"),
+                Choice("DeflateLow", "Deflate (Low)"),
+                Choice("DeflateDefault", "Deflate (Default)"),
+                Choice("DeflateHigh", "Deflate (High)"),
+            ),
+            defaultValue = "DeflateDefault",
+        ),
+        Option(
             key = "swanstation_Logging_LogLevel",
             label = "Log Level",
             description = "Sets the level of information logged by the core.",

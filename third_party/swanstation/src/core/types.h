@@ -186,6 +186,15 @@ enum class CPUFastmemMode
   Count
 };
 
+enum class SaveStateCompressionMode : uint8_t
+{
+  Uncompressed,
+  DeflateLow,
+  DeflateDefault,
+  DeflateHigh,
+  Count
+};
+
 // Android ships devices with both 4 KiB and 16 KiB host pages. The page constants are
 // baked into fastmem and the code cache at compile time, so EmuCoreR compiles the core
 // twice and loads the variant that matches the runtime page size.

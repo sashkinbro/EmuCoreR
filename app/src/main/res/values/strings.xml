@@ -2404,4 +2404,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">Non-Persistent Card (Do Not Save)</string>
     <string name="ss_core_cdrom_autodiscchange">Auto-Disc Change</string>
     <string name="ss_core_cdrom_autodiscchange_desc">Automatically switches to the next disc when the game requests a disc change. Only works for multi-disc images.</string>
+    <string name="ss_core_main_savestatecompression">Save State Compression</string>
+    <string name="ss_core_main_savestatecompression_desc">Selects the compression method used for save states. Higher compression levels produce smaller save states, but saving and loading takes longer.</string>
+    <string name="ss_core_choice_uncompressed">Uncompressed</string>
+    <string name="ss_core_choice_deflate_low">Deflate (Low)</string>
+    <string name="ss_core_choice_deflate_default">Deflate (Default)</string>
+    <string name="ss_core_choice_deflate_high">Deflate (High)</string>
 </resources>

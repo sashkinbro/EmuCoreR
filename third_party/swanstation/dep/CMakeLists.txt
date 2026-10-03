@@ -1,5 +1,6 @@
 add_subdirectory(glad)
 add_subdirectory(stb)
+set(MINIZ_DEFLATE_APIS ON CACHE BOOL "Enable miniz's compression API" FORCE)
 add_subdirectory(libchdr EXCLUDE_FROM_ALL)
 add_subdirectory(xxhash)
 add_subdirectory(vulkan-loader)

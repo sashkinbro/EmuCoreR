@@ -24,6 +24,7 @@
 #include "libcrypt_game_codes.h"
 #include "mdec.h"
 #include "memory_card.h"
+#include "miniz.h"
 #include "multitap.h"
 #include "openbios.bin.h"
 #include "pad.h"
@@ -956,6 +957,81 @@ void Reset()
   g_gpu->ResetGraphicsAPIState();
 }
 
+static constexpr uint32_t SAVE_STATE_COMPRESSION_TYPE_NONE = 0;
+static constexpr uint32_t SAVE_STATE_COMPRESSION_TYPE_DEFLATE = 1;
+
+static bool CompressStateData(const uint8_t* uncompressed_data, uint32_t uncompressed_size,
+                              std::vector<uint8_t>* out_data)
+{
+  const SaveStateCompressionMode mode = g_settings.save_state_compression;
+  if (mode == SaveStateCompressionMode::Uncompressed)
+  {
+    out_data->assign(uncompressed_data, uncompressed_data + uncompressed_size);
+    return true;
+  }
+
+  if (mode >= SaveStateCompressionMode::DeflateLow && mode <= SaveStateCompressionMode::DeflateHigh)
+  {
+    const int level = (mode == SaveStateCompressionMode::DeflateLow) ?
+                        1 :
+                        ((mode == SaveStateCompressionMode::DeflateHigh) ? 9 : MZ_DEFAULT_COMPRESSION);
+    mz_ulong compressed_size = mz_compressBound(uncompressed_size);
+    out_data->resize(compressed_size);
+    const int result = mz_compress2(out_data->data(), &compressed_size, uncompressed_data, uncompressed_size, level);
+    if (result != MZ_OK)
+    {
+      Log_ErrorPrintf("mz_compress2() failed: %d", result);
+      return false;
+    }
+
+    out_data->resize(compressed_size);
+    return true;
+  }
+
+  Log_ErrorPrintf("Unknown save state compression mode %u", static_cast<uint32_t>(mode));
+  return false;
+}
+
+static bool DecompressStateData(const uint8_t* compressed_data, uint32_t compressed_size, uint32_t uncompressed_size,
+                                uint32_t compression_type, std::vector<uint8_t>* out_data)
+{
+  if (uncompressed_size == 0 || uncompressed_size > MAX_SAVE_STATE_SIZE)
+  {
+    g_host_interface->ReportFormattedError("Invalid save state data size %u", uncompressed_size);
+    return false;
+  }
+
+  out_data->resize(uncompressed_size);
+
+  if (compression_type == SAVE_STATE_COMPRESSION_TYPE_NONE)
+  {
+    if (compressed_size != uncompressed_size)
+      return false;
+
+    std::memcpy(out_data->data(), compressed_data, uncompressed_size);
+    return true;
+  }
+
+  if (compression_type == SAVE_STATE_COMPRESSION_TYPE_DEFLATE)
+  {
+    if (compressed_size == 0 || compressed_size > MAX_SAVE_STATE_SIZE)
+      return false;
+
+    mz_ulong destination_length = uncompressed_size;
+    const int result = mz_uncompress(out_data->data(), &destination_length, compressed_data, compressed_size);
+    if (result != MZ_OK || destination_length != uncompressed_size)
+    {
+      g_host_interface->ReportFormattedError("Failed to decompress save state data: %d", result);
+      return false;
+    }
+
+    return true;
+  }
+
+  g_host_interface->ReportFormattedError("Unknown save state compression type %u", compression_type);
+  return false;
+}
+
 bool LoadState(ByteStream* state, bool is_memory_state)
 {
   if (IsShutdown())
@@ -1080,16 +1156,31 @@ bool DoLoadState(ByteStream* state, bool force_software_renderer, bool update_di
       UpdatePerGameMemoryCards();
   }
 
-  if (header.data_compression_type != 0)
-  {
-    g_host_interface->ReportFormattedError("Unknown save state compression type %u", header.data_compression_type);
-    return false;
-  }
-
   if (!state->SeekAbsolute(header.offset_to_data))
     return false;
 
-  StateWrapper sw(state, StateWrapper::Mode::Read, header.version);
+  const uint32_t compressed_size = (header.data_compression_type == SAVE_STATE_COMPRESSION_TYPE_NONE) ?
+                                     header.data_uncompressed_size :
+                                     header.data_compressed_size;
+  if (compressed_size == 0 || compressed_size > MAX_SAVE_STATE_SIZE)
+  {
+    g_host_interface->ReportFormattedError("Invalid save state data size %u", compressed_size);
+    return false;
+  }
+
+  std::vector<uint8_t> compressed_data(compressed_size);
+  if (!state->Read2(compressed_data.data(), compressed_size))
+    return false;
+
+  std::vector<uint8_t> uncompressed_data;
+  if (!DecompressStateData(compressed_data.data(), compressed_size, header.data_uncompressed_size,
+                           header.data_compression_type, &uncompressed_data))
+  {
+    return false;
+  }
+
+  ReadOnlyMemoryByteStream data_stream(uncompressed_data.data(), static_cast<uint32_t>(uncompressed_data.size()));
+  StateWrapper sw(&data_stream, StateWrapper::Mode::Read, header.version);
   if (!DoState(sw, nullptr, update_display, is_memory_state))
     return false;
 
@@ -1132,7 +1223,9 @@ bool SaveState(ByteStream* state)
 
     g_gpu->RestoreGraphicsAPIState();
 
-    StateWrapper sw(state, StateWrapper::Mode::Write, SAVE_STATE_VERSION);
+    std::vector<uint8_t> uncompressed_data(MAX_SAVE_STATE_SIZE);
+    MemoryByteStream data_stream(uncompressed_data.data(), static_cast<uint32_t>(uncompressed_data.size()));
+    StateWrapper sw(&data_stream, StateWrapper::Mode::Write, SAVE_STATE_VERSION);
     const bool result = DoState(sw, nullptr, false, false);
 
     g_gpu->ResetGraphicsAPIState();
@@ -1140,8 +1233,33 @@ bool SaveState(ByteStream* state)
     if (!result)
       return false;
 
-    header.data_compression_type = 0;
-    header.data_uncompressed_size = static_cast<uint32_t>(state->GetPosition() - header.offset_to_data);
+    const uint32_t uncompressed_size = static_cast<uint32_t>(data_stream.GetPosition());
+    const uint8_t* write_data = uncompressed_data.data();
+    uint32_t write_size = uncompressed_size;
+    header.data_compression_type = SAVE_STATE_COMPRESSION_TYPE_NONE;
+    header.data_compressed_size = uncompressed_size;
+    header.data_uncompressed_size = uncompressed_size;
+
+    std::vector<uint8_t> compressed_data;
+    if (g_settings.save_state_compression != SaveStateCompressionMode::Uncompressed)
+    {
+      if (!CompressStateData(uncompressed_data.data(), uncompressed_size, &compressed_data))
+        return false;
+
+      // Only use the compressed payload if it actually makes the state smaller.
+      if (compressed_data.size() < uncompressed_size)
+      {
+        write_data = compressed_data.data();
+        write_size = static_cast<uint32_t>(compressed_data.size());
+        header.data_compression_type = SAVE_STATE_COMPRESSION_TYPE_DEFLATE;
+        header.data_compressed_size = write_size;
+      }
+    }
+
+    if (!state->Write2(write_data, write_size))
+      return false;
+
+    Log_InfoPrintf("Save state data compression: %u => %u bytes", uncompressed_size, write_size);
   }
 
   // re-write header

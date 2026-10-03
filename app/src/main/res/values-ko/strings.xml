@@ -2380,4 +2380,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">비영구 카드(저장 안 함)</string>
     <string name="ss_core_cdrom_autodiscchange">디스크 자동 교체</string>
     <string name="ss_core_cdrom_autodiscchange_desc">게임이 디스크 교체를 요청하면 자동으로 다음 디스크로 전환합니다. 멀티 디스크 이미지에서만 작동합니다.</string>
+    <string name="ss_core_main_savestatecompression">세이브 스테이트 압축</string>
+    <string name="ss_core_main_savestatecompression_desc">세이브 스테이트에 사용할 압축 방식을 선택합니다. 압축 수준이 높을수록 세이브 스테이트가 작아지지만 저장과 불러오기가 느려집니다.</string>
+    <string name="ss_core_choice_uncompressed">압축 안 함</string>
+    <string name="ss_core_choice_deflate_low">Deflate(낮음)</string>
+    <string name="ss_core_choice_deflate_default">Deflate(기본)</string>
+    <string name="ss_core_choice_deflate_high">Deflate(높음)</string>
 </resources>

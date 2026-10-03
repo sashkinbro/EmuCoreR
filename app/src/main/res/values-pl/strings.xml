@@ -2402,4 +2402,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">Karta nieutrwalana (bez zapisu)</string>
     <string name="ss_core_cdrom_autodiscchange">Automatyczna zmiana dysku</string>
     <string name="ss_core_cdrom_autodiscchange_desc">Automatycznie przełącza na następny dysk, gdy gra żąda zmiany dysku. Działa tylko dla obrazów wielodyskowych.</string>
+    <string name="ss_core_main_savestatecompression">Kompresja stanów zapisu</string>
+    <string name="ss_core_main_savestatecompression_desc">Wybiera metodę kompresji stanów zapisu. Wyższe poziomy kompresji dają mniejsze stany, ale zapis i wczytywanie trwają dłużej.</string>
+    <string name="ss_core_choice_uncompressed">Bez kompresji</string>
+    <string name="ss_core_choice_deflate_low">Deflate (niski)</string>
+    <string name="ss_core_choice_deflate_default">Deflate (domyślny)</string>
+    <string name="ss_core_choice_deflate_high">Deflate (wysoki)</string>
 </resources>

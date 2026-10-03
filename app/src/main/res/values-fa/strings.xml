@@ -2396,4 +2396,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">کارت غیرماندگار (ذخیره نمی‌شود)</string>
     <string name="ss_core_cdrom_autodiscchange">تعویض خودکار دیسک</string>
     <string name="ss_core_cdrom_autodiscchange_desc">هنگام درخواست تغییر دیسک توسط بازی، به‌طور خودکار به دیسک بعدی می‌رود. فقط برای تصاویر چنددیسکی کار می‌کند.</string>
+    <string name="ss_core_main_savestatecompression">فشرده‌سازی حالت‌های ذخیره</string>
+    <string name="ss_core_main_savestatecompression_desc">روش فشرده‌سازی مورد استفاده برای حالت‌های ذخیره را انتخاب می‌کند. سطوح فشرده‌سازی بالاتر حالت‌های کوچک‌تری می‌سازند، اما ذخیره و بارگذاری بیشتر طول می‌کشد.</string>
+    <string name="ss_core_choice_uncompressed">بدون فشرده‌سازی</string>
+    <string name="ss_core_choice_deflate_low">Deflate (کم)</string>
+    <string name="ss_core_choice_deflate_default">Deflate (پیش‌فرض)</string>
+    <string name="ss_core_choice_deflate_high">Deflate (زیاد)</string>
 </resources>

@@ -2380,4 +2380,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">非永続カード（保存しない）</string>
     <string name="ss_core_cdrom_autodiscchange">ディスク自動交換</string>
     <string name="ss_core_cdrom_autodiscchange_desc">ゲームがディスク交換を要求したとき、自動的に次のディスクに切り替えます。マルチディスクイメージ専用です。</string>
+    <string name="ss_core_main_savestatecompression">セーブステート圧縮</string>
+    <string name="ss_core_main_savestatecompression_desc">セーブステートに使用する圧縮方式を選択します。圧縮レベルが高いほどセーブステートは小さくなりますが、保存と読み込みに時間がかかります。</string>
+    <string name="ss_core_choice_uncompressed">非圧縮</string>
+    <string name="ss_core_choice_deflate_low">Deflate（低）</string>
+    <string name="ss_core_choice_deflate_default">Deflate（標準）</string>
+    <string name="ss_core_choice_deflate_high">Deflate（高）</string>
 </resources>

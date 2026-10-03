@@ -2395,4 +2395,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">Kartu non-persisten (tidak disimpan)</string>
     <string name="ss_core_cdrom_autodiscchange">Ganti disk otomatis</string>
     <string name="ss_core_cdrom_autodiscchange_desc">Otomatis beralih ke disk berikutnya saat game meminta ganti disk. Hanya berlaku untuk image multi-disk.</string>
+    <string name="ss_core_main_savestatecompression">Kompresi save state</string>
+    <string name="ss_core_main_savestatecompression_desc">Memilih metode kompresi yang digunakan untuk save state. Tingkat kompresi yang lebih tinggi menghasilkan save state lebih kecil, tetapi menyimpan dan memuat memerlukan waktu lebih lama.</string>
+    <string name="ss_core_choice_uncompressed">Tidak dikompresi</string>
+    <string name="ss_core_choice_deflate_low">Deflate (Rendah)</string>
+    <string name="ss_core_choice_deflate_default">Deflate (Default)</string>
+    <string name="ss_core_choice_deflate_high">Deflate (Tinggi)</string>
 </resources>

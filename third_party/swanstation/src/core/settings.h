@@ -29,6 +29,7 @@ struct Settings
   bool cpu_fastmem_rewrite = false;
 
   bool apply_game_settings = true;
+  SaveStateCompressionMode save_state_compression = DEFAULT_SAVE_STATE_COMPRESSION_MODE;
 
   uint32_t runahead_frames = 0;
 
@@ -188,6 +189,9 @@ struct Settings
   static std::optional<MultitapMode> ParseMultitapModeName(const char* str);
   static const char* GetMultitapModeName(MultitapMode mode);
 
+  static std::optional<SaveStateCompressionMode> ParseSaveStateCompressionModeName(const char* str);
+  static const char* GetSaveStateCompressionModeName(SaveStateCompressionMode mode);
+
   // Default to D3D11 on Windows as it's more performant and at this point, less buggy.
 #ifdef _WIN32
   static constexpr GPURenderer DEFAULT_GPU_RENDERER = GPURenderer::HardwareD3D11;
@@ -213,6 +217,8 @@ struct Settings
 
   static constexpr DisplayCropMode DEFAULT_DISPLAY_CROP_MODE = DisplayCropMode::Overscan;
   static constexpr DisplayAspectRatio DEFAULT_DISPLAY_ASPECT_RATIO = DisplayAspectRatio::Auto;
+  static constexpr SaveStateCompressionMode DEFAULT_SAVE_STATE_COMPRESSION_MODE =
+    SaveStateCompressionMode::DeflateDefault;
 
   static constexpr uint8_t DEFAULT_CDROM_READAHEAD_SECTORS = 8;
 

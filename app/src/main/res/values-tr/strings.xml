@@ -2381,4 +2381,10 @@
     <string name="ss_core_choice_non_persistent_card_do_not_save">Kalıcı olmayan kart (kaydedilmez)</string>
     <string name="ss_core_cdrom_autodiscchange">Otomatik disk değişimi</string>
     <string name="ss_core_cdrom_autodiscchange_desc">Oyun disk değişimi istediğinde otomatik olarak sonraki diske geçer. Yalnızca çok diskli görüntülerde çalışır.</string>
+    <string name="ss_core_main_savestatecompression">Kayıt durumu sıkıştırma</string>
+    <string name="ss_core_main_savestatecompression_desc">Kayıt durumları için kullanılacak sıkıştırma yöntemini seçer. Yüksek sıkıştırma seviyeleri daha küçük kayıtlar üretir, ancak kaydetme ve yükleme daha uzun sürer.</string>
+    <string name="ss_core_choice_uncompressed">Sıkıştırılmamış</string>
+    <string name="ss_core_choice_deflate_low">Deflate (Düşük)</string>
+    <string name="ss_core_choice_deflate_default">Deflate (Varsayılan)</string>
+    <string name="ss_core_choice_deflate_high">Deflate (Yüksek)</string>
 </resources>
