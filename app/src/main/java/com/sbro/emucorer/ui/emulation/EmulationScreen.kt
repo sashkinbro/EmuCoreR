@@ -3672,6 +3672,8 @@ private fun EmulationSidebarMenu(
                             title = stringResource(R.string.settings_target_fps),
                             options = listOf(
                                 LiveSelectionOption(0, stringResource(R.string.settings_aspect_ratio_auto)),
+                                LiveSelectionOption(25, "25 Hz"),
+                                LiveSelectionOption(30, "30 Hz"),
                                 LiveSelectionOption(50, "50 Hz"),
                                 LiveSelectionOption(60, "60 Hz")
                             ),

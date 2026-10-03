@@ -977,6 +977,22 @@ private fun GameSettingsTabContent(
                         helpText = stringResource(R.string.settings_help_show_fps),
                         onResetToDefault = { onDraftChange(draft.copy(showFps = defaultProfile.showFps)) }
                     )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_target_fps),
+                        options = listOf(
+                            0 to stringResource(R.string.settings_aspect_ratio_auto),
+                            25 to "25 Hz",
+                            30 to "30 Hz",
+                            50 to "50 Hz",
+                            60 to "60 Hz"
+                        ),
+                        selectedValue = draft.targetFps,
+                        onSelected = { onDraftChange(draft.copy(targetFps = it)) },
+                        helpText = stringResource(R.string.settings_target_fps_desc),
+                        onResetToDefault = {
+                            onDraftChange(draft.copy(targetFps = defaultProfile.targetFps))
+                        }
+                    )
                     ToggleRow(
                         title = stringResource(R.string.settings_fast_boot),
                         checked = draft.enableFastBoot,

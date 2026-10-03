@@ -2389,6 +2389,8 @@ private fun SettingsContent(
                             title = stringResource(R.string.settings_target_fps),
                             options = listOf(
                                 0 to stringResource(R.string.settings_aspect_ratio_auto),
+                                25 to "25 Hz",
+                                30 to "30 Hz",
                                 50 to "50 Hz",
                                 60 to "60 Hz"
                             ),
