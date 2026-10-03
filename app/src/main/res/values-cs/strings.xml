@@ -2400,4 +2400,6 @@
     <string name="ss_core_choice_borders_uncorrected">Okraje (neopravené)</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">Samostatná karta pro hru (název souboru)</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">Nepersistentní karta (neukládá se)</string>
+    <string name="ss_core_cdrom_autodiscchange">Automatická výměna disku</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">Automaticky přepne na další disk, když hra požaduje výměnu disku. Funguje pouze u vícediskových obrazů.</string>
 </resources>

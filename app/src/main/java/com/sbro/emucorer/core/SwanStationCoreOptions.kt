@@ -190,6 +190,17 @@ object SwanStationCoreOptions {
             defaultValue = "false",
         ),
         Option(
+            key = "swanstation_CDROM_AutoDiscChange",
+            label = "Auto-Disc Change",
+            description = "Automatically switches to the next disc when the game requests a disc change. Only works for multi-disc images.",
+            category = "console",
+            choices = listOf(
+                Choice("true", "Enabled"),
+                Choice("false", "Disabled"),
+            ),
+            defaultValue = "false",
+        ),
+        Option(
             key = "swanstation_CDROM_ReadSpeedup",
             label = "CD-ROM Read Speedup",
             description = "Speeds up CD-ROM reads by the specified factor. Only applies to double-speed reads, and is ignored when audio is playing. May improve loading speeds in some games, at the cost of breaking others.",

@@ -2378,4 +2378,6 @@
     <string name="ss_core_choice_borders_uncorrected">ボーダー（未補正）</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">ゲームごとに別カード（ファイル名）</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">非永続カード（保存しない）</string>
+    <string name="ss_core_cdrom_autodiscchange">ディスク自動交換</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">ゲームがディスク交換を要求したとき、自動的に次のディスクに切り替えます。マルチディスクイメージ専用です。</string>
 </resources>

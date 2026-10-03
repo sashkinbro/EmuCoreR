@@ -2400,4 +2400,6 @@
     <string name="ss_core_choice_borders_uncorrected">Ramki (nieskorygowane)</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">Osobna karta na grę (tytuł pliku)</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">Karta nieutrwalana (bez zapisu)</string>
+    <string name="ss_core_cdrom_autodiscchange">Automatyczna zmiana dysku</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">Automatycznie przełącza na następny dysk, gdy gra żąda zmiany dysku. Działa tylko dla obrazów wielodyskowych.</string>
 </resources>

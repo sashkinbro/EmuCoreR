@@ -136,6 +136,9 @@ std::string GetMediaSubImagePath(uint32_t index);
 /// Switches to the specified media/disc playlist index.
 bool SwitchMediaSubImage(uint32_t index);
 
+/// Queues an automatic switch to the next disc sub-image at the next frame boundary.
+void QueueAutoDiscChange();
+
 /// Accesses the current cheat list.
 CheatList* GetCheatList();
 

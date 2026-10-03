@@ -75,6 +75,7 @@ struct Settings
   bool cdrom_load_image_to_ram = false;
   bool cdrom_precache_chd = false;
   bool cdrom_mute_cd_audio = false;
+  bool cdrom_auto_disc_change = false;
   uint32_t cdrom_read_speedup = 1;
   uint32_t cdrom_seek_speedup = 1;
 

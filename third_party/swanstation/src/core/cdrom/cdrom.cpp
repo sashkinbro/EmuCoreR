@@ -1465,8 +1465,13 @@ void CDROM::ExecuteCommandSecondResponse(TickCount ticks_late)
     case Command::Pause:
     case Command::Reset:
     case Command::MotorOn:
+      DoStatSecondResponse();
+      break;
+
     case Command::Stop:
       DoStatSecondResponse();
+      if (g_settings.cdrom_auto_disc_change)
+        System::QueueAutoDiscChange();
       break;
 
     default:

@@ -2387,4 +2387,6 @@
     <string name="ss_core_choice_borders_uncorrected">حدود (غير مصحّحة)</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">بطاقة منفصلة لكل لعبة (عنوان الملف)</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">بطاقة غير دائمة (بدون حفظ)</string>
+    <string name="ss_core_cdrom_autodiscchange">تبديل الأقراص تلقائيًا</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">ينتقل تلقائيًا إلى القرص التالي عندما تطلب اللعبة تغيير القرص. يعمل فقط مع الصور متعددة الأقراص.</string>
 </resources>

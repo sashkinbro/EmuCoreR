@@ -2380,4 +2380,6 @@
     <string name="ss_core_choice_borders_uncorrected">边框（未修正）</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">每个游戏单独存储卡（文件标题）</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">非持久存储卡（不保存）</string>
+    <string name="ss_core_cdrom_autodiscchange">自动换盘</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">当游戏请求换盘时自动切换到下一张光盘。仅适用于多盘镜像。</string>
 </resources>

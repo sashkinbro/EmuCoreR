@@ -2379,4 +2379,6 @@
     <string name="ss_core_choice_borders_uncorrected">Kenarlıklar (düzeltilmemiş)</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">Oyun başına ayrı kart (dosya başlığı)</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">Kalıcı olmayan kart (kaydedilmez)</string>
+    <string name="ss_core_cdrom_autodiscchange">Otomatik disk değişimi</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">Oyun disk değişimi istediğinde otomatik olarak sonraki diske geçer. Yalnızca çok diskli görüntülerde çalışır.</string>
 </resources>

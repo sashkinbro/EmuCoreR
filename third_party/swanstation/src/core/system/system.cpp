@@ -82,6 +82,7 @@ static void UpdatePerGameMemoryCards();
 static bool DoLoadState(ByteStream* stream, bool force_software_renderer, bool update_display, bool is_memory_state);
 static bool DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display, bool is_memory_state);
 static void DoRunFrame();
+static void SwitchToNextDisc();
 static bool CreateGPU(GPURenderer renderer);
 
 static void SaveRunaheadState();
@@ -1194,12 +1195,22 @@ void DoRunFrame()
   g_gpu->ResetGraphicsAPIState();
 }
 
+static bool s_auto_disc_change_pending = false;
+
 void RunFrame()
 {
   if (s_runahead_frames > 0)
     DoRunahead();
 
   DoRunFrame();
+
+  // Deferred so the CDROM command that requested the change has fully
+  // completed before the media is swapped.
+  if (s_auto_disc_change_pending)
+  {
+    s_auto_disc_change_pending = false;
+    SwitchToNextDisc();
+  }
 }
 
 void SetVerticalFrequency(float frequency)
@@ -1947,6 +1958,23 @@ bool SwitchMediaSubImage(uint32_t index)
 
   ClearMemorySaveStates();
   return true;
+}
+
+static void SwitchToNextDisc()
+{
+  if (!HasMediaSubImages())
+    return;
+
+  const uint32_t count = GetMediaSubImageCount();
+  if (count < 2)
+    return;
+
+  SwitchMediaSubImage((GetMediaSubImageIndex() + 1) % count);
+}
+
+void QueueAutoDiscChange()
+{
+  s_auto_disc_change_pending = true;
 }
 
 CheatList* GetCheatList()

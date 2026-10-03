@@ -2393,4 +2393,6 @@
     <string name="ss_core_choice_borders_uncorrected">Batas (Tidak Dikoreksi)</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">Kartu terpisah per game (judul berkas)</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">Kartu non-persisten (tidak disimpan)</string>
+    <string name="ss_core_cdrom_autodiscchange">Ganti disk otomatis</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">Otomatis beralih ke disk berikutnya saat game meminta ganti disk. Hanya berlaku untuk image multi-disk.</string>
 </resources>

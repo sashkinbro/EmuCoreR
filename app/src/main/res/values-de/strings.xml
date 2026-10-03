@@ -2381,4 +2381,6 @@
     <string name="ss_core_choice_borders_uncorrected">Ränder (unkorrigiert)</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">Separate Karte pro Spiel (Dateititel)</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">Nicht persistente Karte (nicht speichern)</string>
+    <string name="ss_core_cdrom_autodiscchange">Automatischer Disc-Wechsel</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">Wechselt automatisch zur nächsten Disc, wenn das Spiel einen Disc-Wechsel anfordert. Funktioniert nur bei Multi-Disc-Abbildern.</string>
 </resources>

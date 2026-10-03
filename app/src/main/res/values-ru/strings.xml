@@ -2383,4 +2383,6 @@
     <string name="ss_core_choice_borders_uncorrected">Рамки (без коррекции)</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">Отдельная карта на игру (по имени файла)</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">Временная карта (без сохранения)</string>
+    <string name="ss_core_cdrom_autodiscchange">Автосмена диска</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">Автоматически переключается на следующий диск, когда игра запрашивает смену диска. Работает только для образов с несколькими дисками.</string>
 </resources>

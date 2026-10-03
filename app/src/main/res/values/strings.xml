@@ -2402,4 +2402,6 @@
     <string name="ss_core_choice_borders_uncorrected">Borders (Uncorrected)</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">Separate Card Per Game (File Title)</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">Non-Persistent Card (Do Not Save)</string>
+    <string name="ss_core_cdrom_autodiscchange">Auto-Disc Change</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">Automatically switches to the next disc when the game requests a disc change. Only works for multi-disc images.</string>
 </resources>

@@ -147,6 +147,7 @@ void Settings::Load(LibretroSettingsInterface& si)
   cdrom_load_image_to_ram = si.GetBoolValue("CDROM", "LoadImageToRAM", false);
   cdrom_precache_chd = si.GetBoolValue("CDROM", "PreCacheCHD", false);
   cdrom_mute_cd_audio = si.GetBoolValue("CDROM", "MuteCDAudio", false);
+  cdrom_auto_disc_change = si.GetBoolValue("CDROM", "AutoDiscChange", false);
   cdrom_read_speedup = si.GetIntValue("CDROM", "ReadSpeedup", 1);
   cdrom_seek_speedup = si.GetIntValue("CDROM", "SeekSpeedup", 1);
 

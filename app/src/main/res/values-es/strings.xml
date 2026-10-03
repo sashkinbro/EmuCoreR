@@ -2381,4 +2381,6 @@
     <string name="ss_core_choice_borders_uncorrected">Bordes (sin corregir)</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">Tarjeta separada por juego (título del archivo)</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">Tarjeta no persistente (no se guarda)</string>
+    <string name="ss_core_cdrom_autodiscchange">Cambio de disco automático</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">Cambia automáticamente al siguiente disco cuando el juego solicita un cambio. Solo funciona con imágenes de varios discos.</string>
 </resources>

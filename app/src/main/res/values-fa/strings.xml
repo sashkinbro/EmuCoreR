@@ -2394,4 +2394,6 @@
     <string name="ss_core_choice_borders_uncorrected">حاشیه‌ها (اصلاح‌نشده)</string>
     <string name="ss_core_choice_separate_card_per_game_file_title">کارت جداگانه برای هر بازی (عنوان فایل)</string>
     <string name="ss_core_choice_non_persistent_card_do_not_save">کارت غیرماندگار (ذخیره نمی‌شود)</string>
+    <string name="ss_core_cdrom_autodiscchange">تعویض خودکار دیسک</string>
+    <string name="ss_core_cdrom_autodiscchange_desc">هنگام درخواست تغییر دیسک توسط بازی، به‌طور خودکار به دیسک بعدی می‌رود. فقط برای تصاویر چنددیسکی کار می‌کند.</string>
 </resources>
