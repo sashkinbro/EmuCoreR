@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 SBRO
-// SPDX-License-Identifier: LicenseRef-EmuCoreR-Proprietary
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "vulkan_frontend.h"
 #include "shader_chain.h"

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2026 SBRO
-// SPDX-License-Identifier: LicenseRef-EmuCoreR-Proprietary
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.sbro.emucorer
 
 import android.app.Activity

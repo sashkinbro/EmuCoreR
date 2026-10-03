@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 SBRO
-# SPDX-License-Identifier: LicenseRef-EmuCoreR-Proprietary
+# SPDX-License-Identifier: GPL-3.0-or-later
 cmake_minimum_required(VERSION 3.22)
 project(EmuCoreRAndroid LANGUAGES CXX C)
 
