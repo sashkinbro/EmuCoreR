@@ -2400,4 +2400,6 @@
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">Enables memory exceptions in the recompiler, catching unaligned memory accesses. Can improve compatibility with some games, but reduces performance.</string>
     <string name="ss_core_choice_overscan_uncorrected">Overscan (Uncorrected)</string>
     <string name="ss_core_choice_borders_uncorrected">Borders (Uncorrected)</string>
+    <string name="ss_core_choice_separate_card_per_game_file_title">Separate Card Per Game (File Title)</string>
+    <string name="ss_core_choice_non_persistent_card_do_not_save">Non-Persistent Card (Do Not Save)</string>
 </resources>

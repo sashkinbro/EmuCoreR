@@ -2377,4 +2377,6 @@
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">Abilita le eccezioni di memoria nel recompilatore, intercettando gli accessi non allineati. Può migliorare la compatibilità con alcuni giochi, ma riduce le prestazioni.</string>
     <string name="ss_core_choice_overscan_uncorrected">Overscan (non corretto)</string>
     <string name="ss_core_choice_borders_uncorrected">Bordi (non corretti)</string>
+    <string name="ss_core_choice_separate_card_per_game_file_title">Scheda separata per gioco (titolo del file)</string>
+    <string name="ss_core_choice_non_persistent_card_do_not_save">Scheda non persistente (non salvata)</string>
 </resources>

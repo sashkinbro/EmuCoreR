@@ -2377,4 +2377,6 @@
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">रीकंपाइलर में मेमोरी अपवाद सक्षम करता है और असंरेखित मेमोरी एक्सेस पकड़ता है। कुछ गेम के साथ संगतता सुधार सकता है, पर प्रदर्शन घटाता है।</string>
     <string name="ss_core_choice_overscan_uncorrected">ओवरस्कैन (असंशोधित)</string>
     <string name="ss_core_choice_borders_uncorrected">बॉर्डर (असंशोधित)</string>
+    <string name="ss_core_choice_separate_card_per_game_file_title">प्रति गेम अलग कार्ड (फ़ाइल शीर्षक)</string>
+    <string name="ss_core_choice_non_persistent_card_do_not_save">गैर-स्थायी कार्ड (सहेजा नहीं जाता)</string>
 </resources>

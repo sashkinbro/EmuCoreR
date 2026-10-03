@@ -2381,4 +2381,6 @@
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">Включает обработку исключений памяти в рекомпиляторе, перехватывая невыровненные обращения к памяти. Может улучшить совместимость с некоторыми играми, но снижает производительность.</string>
     <string name="ss_core_choice_overscan_uncorrected">Оверскан (без коррекции)</string>
     <string name="ss_core_choice_borders_uncorrected">Рамки (без коррекции)</string>
+    <string name="ss_core_choice_separate_card_per_game_file_title">Отдельная карта на игру (по имени файла)</string>
+    <string name="ss_core_choice_non_persistent_card_do_not_save">Временная карта (без сохранения)</string>
 </resources>

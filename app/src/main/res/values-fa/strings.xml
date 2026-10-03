@@ -2392,4 +2392,6 @@
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">استثناهای حافظه را در بازکامپایلر فعال می‌کند و دسترسی‌های ناهم‌تراز به حافظه را می‌گیرد. می‌تواند سازگاری با برخی بازی‌ها را بهبود دهد، اما کارایی را کاهش می‌دهد.</string>
     <string name="ss_core_choice_overscan_uncorrected">Overscan (اصلاح‌نشده)</string>
     <string name="ss_core_choice_borders_uncorrected">حاشیه‌ها (اصلاح‌نشده)</string>
+    <string name="ss_core_choice_separate_card_per_game_file_title">کارت جداگانه برای هر بازی (عنوان فایل)</string>
+    <string name="ss_core_choice_non_persistent_card_do_not_save">کارت غیرماندگار (ذخیره نمی‌شود)</string>
 </resources>

@@ -296,10 +296,15 @@ object EmulatorBridge {
                             // shared-card type option.
                             val resolvedPath = resolveMemoryCardPath(fileName)
                             NativeApp.setMemoryCardPath(slotIndex - 1, resolvedPath)
-                            NativeApp.setCoreOption(
-                                "swanstation_MemoryCards_Card${slotIndex}Type",
-                                if (resolvedPath != null) "Shared" else "None"
-                            )
+                            // An explicitly chosen card type wins over the automatic
+                            // Shared/None derived from the slot assignment.
+                            val cardTypeKey = "swanstation_MemoryCards_Card${slotIndex}Type"
+                            if (SwanStationOptions.value(cardTypeKey) == null) {
+                                NativeApp.setCoreOption(
+                                    cardTypeKey,
+                                    if (resolvedPath != null) "Shared" else "None"
+                                )
+                            }
                         }
                     }
                 }

@@ -2379,4 +2379,6 @@
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">Aktiviert Speicherausnahmen im Recompiler, um unausgerichtete Speicherzugriffe abzufangen. Kann die Kompatibilität mit einigen Spielen verbessern, senkt aber die Leistung.</string>
     <string name="ss_core_choice_overscan_uncorrected">Overscan (unkorrigiert)</string>
     <string name="ss_core_choice_borders_uncorrected">Ränder (unkorrigiert)</string>
+    <string name="ss_core_choice_separate_card_per_game_file_title">Separate Karte pro Spiel (Dateititel)</string>
+    <string name="ss_core_choice_non_persistent_card_do_not_save">Nicht persistente Karte (nicht speichern)</string>
 </resources>

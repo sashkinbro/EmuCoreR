@@ -2385,4 +2385,6 @@
     <string name="ss_core_cpu_recompilermemoryexceptions_desc">يُفعّل استثناءات الذاكرة في مُعيد الترجمة لالتقاط عمليات الوصول غير المحاذية للذاكرة. قد يحسّن التوافق مع بعض الألعاب، لكنه يقلل الأداء.</string>
     <string name="ss_core_choice_overscan_uncorrected">Overscan (غير مصحّح)</string>
     <string name="ss_core_choice_borders_uncorrected">حدود (غير مصحّحة)</string>
+    <string name="ss_core_choice_separate_card_per_game_file_title">بطاقة منفصلة لكل لعبة (عنوان الملف)</string>
+    <string name="ss_core_choice_non_persistent_card_do_not_save">بطاقة غير دائمة (بدون حفظ)</string>
 </resources>

@@ -328,6 +328,8 @@ object SwanStationCoreOptionStrings {
         put("Shared Between All Games", R.string.ss_core_choice_shared_between_all_games)
         put("Separate Card Per Game (Game Code)", R.string.ss_core_choice_separate_card_per_game_game_code)
         put("Separate Card Per Game (Game Title)", R.string.ss_core_choice_separate_card_per_game_game_title)
+        put("Separate Card Per Game (File Title)", R.string.ss_core_choice_separate_card_per_game_file_title)
+        put("Non-Persistent Card (Do Not Save)", R.string.ss_core_choice_non_persistent_card_do_not_save)
         put("No Memory Card", R.string.ss_core_choice_no_memory_card)
         put("Enable on Port 1 Only", R.string.ss_core_choice_enable_on_port_1_only)
         put("Enable on Port 2 Only", R.string.ss_core_choice_enable_on_port_2_only)
