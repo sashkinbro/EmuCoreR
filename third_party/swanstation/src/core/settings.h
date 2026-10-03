@@ -138,7 +138,9 @@ struct Settings
     return gpu_dithering_mode == GPUDitheringMode::Scaled ||
            gpu_dithering_mode == GPUDitheringMode::ScaledShaderBlend;
   }
-  ALWAYS_INLINE void SetPGXPDepthClearThreshold(float value) { gpu_pgxp_depth_clear_threshold = value / 4096.0f; }
+  // The user-facing threshold is expressed in the same units as the raw GTE Z
+  // range; normalize it for comparison against the tracked depth.
+  ALWAYS_INLINE void SetPGXPDepthClearThreshold(float value) { gpu_pgxp_depth_clear_threshold = value / 8192.0f; }
 
   ALWAYS_INLINE bool IsUsingFastmem() const
   {

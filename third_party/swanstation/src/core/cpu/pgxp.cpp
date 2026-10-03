@@ -22,15 +22,23 @@
 #include "bus.h"
 #include "cpu_core.h"
 #include "settings.h"
+#include "common/state_wrapper.h"
 #include <climits>
 #include <cmath>
 #include <cstring>
 namespace PGXP {
 
-inline constexpr uint32_t VERTEX_CACHE_WIDTH = 0x800 * 2, VERTEX_CACHE_HEIGHT = 0x800 * 2,
-                     VERTEX_CACHE_SIZE = VERTEX_CACHE_WIDTH * VERTEX_CACHE_HEIGHT,
-                     PGXP_MEM_SIZE = (Bus::RAM_8MB_SIZE + CPU::DCACHE_SIZE) / 4,
-                     PGXP_MEM_SCRATCH_OFFSET = Bus::RAM_8MB_SIZE / 4;
+// GPU vertex coordinates are 11-bit signed, so a 2048x2048 window covers the
+// entire drawable range on both axes. The previous 4096x4096 cache was four
+// times larger than it needed to be.
+inline constexpr uint32_t VERTEX_CACHE_WIDTH = 0x400 * 2, VERTEX_CACHE_HEIGHT = 0x400 * 2,
+                     VERTEX_CACHE_SIZE = VERTEX_CACHE_WIDTH * VERTEX_CACHE_HEIGHT;
+
+// PGXP memory mirrors the console RAM plus the scratchpad, sized from the
+// RAM configuration the bus actually booted with (2MB or 8MB).
+static uint32_t s_mem_value_count = 0;
+static uint32_t s_mem_scratch_offset = 0;
+static uint32_t s_mem_allocated_count = 0;
 
 #define NONE 0
 #define ALL 0xFFFFFFFF
@@ -43,6 +51,15 @@ inline constexpr uint32_t VERTEX_CACHE_WIDTH = 0x800 * 2, VERTEX_CACHE_HEIGHT = 
 #define VALID_012 (VALID_0 | VALID_1 | VALID_2)
 #define VALID_ALL (VALID_0 | VALID_1 | VALID_2 | VALID_3)
 #define INV_VALID_ALL (ALL ^ VALID_ALL)
+
+// Byte 2 marks a tracked Z, byte 3 marks it as imprecise (came through an
+// operation whose effect on the depth value is unknown).
+#define VALID_Z VALID_2
+#define TAINTED_Z VALID_3
+
+// Depth values are normalized to the GTE's 16-bit Z range before reaching the
+// GPU, so the depth buffer and the perspective divide share one scale.
+static constexpr float PGXP_MAX_Z = 65535.0f;
 
 typedef struct PGXP_value_Tag
 {
@@ -94,7 +111,7 @@ static PGXP_value* GetPtr(uint32_t addr);
 static PGXP_value* ReadMem(uint32_t addr);
 
 static const PGXP_value PGXP_value_invalid = {0.f, 0.f, 0.f, {0}, 0};
-static const PGXP_value PGXP_value_zero = {0.f, 0.f, 0.f, {VALID_ALL}, 0};
+static const PGXP_value PGXP_value_zero = {0.f, 0.f, 0.f, {VALID_01 | VALID_Z}, 0};
 
 static PGXP_value CPU_reg[34];
 static PGXP_value CP0_reg[32];
@@ -132,6 +149,69 @@ ALWAYS_INLINE_RELEASE void MaskValidate(PGXP_value* pV, uint32_t psxV, uint32_t 
   pV->flags &= ((pV->value & mask) == (psxV & mask)) ? ALL : (ALL ^ (validMask));
 }
 
+enum class ZState : uint8_t
+{
+  Missing,
+  Tainted,
+  Precise,
+};
+
+ALWAYS_INLINE_RELEASE ZState GetZState(const PGXP_value& v)
+{
+  if ((v.flags & VALID_Z) == 0)
+    return ZState::Missing;
+
+  return (v.flags & TAINTED_Z) ? ZState::Tainted : ZState::Precise;
+}
+
+ALWAYS_INLINE_RELEASE void ClearZ(PGXP_value& v)
+{
+  v.flags &= ~(VALID_Z | TAINTED_Z);
+}
+
+ALWAYS_INLINE_RELEASE void SetZ(PGXP_value& v, float z, bool tainted)
+{
+  v.z = z;
+  v.flags = (v.flags & ~(VALID_Z | TAINTED_Z)) | VALID_Z | (tainted ? TAINTED_Z : 0u);
+}
+
+ALWAYS_INLINE_RELEASE void CopyZState(PGXP_value& dst, const PGXP_value& src)
+{
+  dst.z = src.z;
+  dst.flags = (dst.flags & ~(VALID_Z | TAINTED_Z)) | (src.flags & (VALID_Z | TAINTED_Z));
+}
+
+ALWAYS_INLINE_RELEASE void TaintZ(PGXP_value& v)
+{
+  if (v.flags & VALID_Z)
+    v.flags |= TAINTED_Z;
+}
+
+// Keep the best available Z: a precise one beats an imprecise one, and any
+// tracked Z beats none.
+ALWAYS_INLINE_RELEASE void AdoptZ(PGXP_value& dst, const PGXP_value& src)
+{
+  const ZState src_state = GetZState(src);
+  if (src_state == ZState::Missing)
+    return;
+
+  const ZState dst_state = GetZState(dst);
+  if (dst_state == ZState::Precise || (dst_state == ZState::Tainted && src_state == ZState::Tainted))
+    return;
+
+  CopyZState(dst, src);
+}
+
+// Z for add/sub: the tracked depth belongs to the vertex the value came from,
+// not to the packed components, so it must not be summed. Keep the first
+// operand's Z and fall back to the second only when the first has none.
+ALWAYS_INLINE_RELEASE void CombineZ(PGXP_value& dst, const PGXP_value& a, const PGXP_value& b)
+{
+  dst.flags &= ~(VALID_Z | TAINTED_Z);
+  AdoptZ(dst, a);
+  AdoptZ(dst, b);
+}
+
 ALWAYS_INLINE_RELEASE double f16Sign(double in)
 {
   /* Scale to 16.16, keep the low 32 bits (mod 2^32), then reinterpret those
@@ -161,7 +241,7 @@ ALWAYS_INLINE_RELEASE double f16Overflow(double in)
 ALWAYS_INLINE_RELEASE PGXP_value* GetPtr(uint32_t addr)
 {
   if ((addr & CPU::DCACHE_LOCATION_MASK) == CPU::DCACHE_LOCATION)
-    return &Mem[PGXP_MEM_SCRATCH_OFFSET + ((addr & CPU::DCACHE_OFFSET_MASK) >> 2)];
+    return &Mem[s_mem_scratch_offset + ((addr & CPU::DCACHE_OFFSET_MASK) >> 2)];
 
   const uint32_t paddr = (addr & CPU::PHYSICAL_MEMORY_ADDRESS_MASK);
   if (paddr < Bus::RAM_MIRROR_END)
@@ -225,6 +305,9 @@ ALWAYS_INLINE_RELEASE static void ValidateAndCopyMem16(PGXP_value* dest, uint32_
     dest->y = (dest->x < 0) ? -1.f * sign : 0.f; // 0.f;
     dest->value = value;
     dest->compFlags[1] = VALID; // iCB: High word is valid, just 0
+    // The register was only half overwritten, so any attached Z no longer
+    // describes the whole value.
+    TaintZ(*dest);
     return;
   }
 
@@ -269,9 +352,37 @@ ALWAYS_INLINE_RELEASE static void WriteMem16(const PGXP_value* src, uint32_t add
     {
       dest->z = src->z;
       dest->compFlags[2] = src->compFlags[2];
+      dest->compFlags[3] = src->compFlags[3];
     }
 
     // dest->valid = dest->valid && src->valid;
+  }
+}
+
+// Size the precision mirror from the RAM the bus actually booted with. The
+// buffer is reallocated when the 2MB/8MB configuration changes.
+static void EnsureMemory()
+{
+  const uint32_t ram_size = (Bus::g_ram_size != 0) ? Bus::g_ram_size : Bus::RAM_8MB_SIZE;
+  s_mem_scratch_offset = ram_size / 4;
+  s_mem_value_count = s_mem_scratch_offset + (CPU::DCACHE_SIZE / 4);
+
+  if (Mem && s_mem_allocated_count != s_mem_value_count)
+  {
+    std::free(Mem);
+    Mem = nullptr;
+    s_mem_allocated_count = 0;
+  }
+
+  if (!Mem)
+  {
+    Mem = static_cast<PGXP_value*>(std::calloc(s_mem_value_count, sizeof(PGXP_value)));
+    if (!Mem)
+    {
+      std::fprintf(stderr, "Failed to allocate PGXP memory\n");
+      std::abort();
+    }
+    s_mem_allocated_count = s_mem_value_count;
   }
 }
 
@@ -283,15 +394,7 @@ void Initialize()
   std::memset(GTE_data_reg, 0, sizeof(GTE_data_reg));
   std::memset(GTE_ctrl_reg, 0, sizeof(GTE_ctrl_reg));
 
-  if (!Mem)
-  {
-    Mem = static_cast<PGXP_value*>(std::calloc(PGXP_MEM_SIZE, sizeof(PGXP_value)));
-    if (!Mem)
-    {
-      std::fprintf(stderr, "Failed to allocate PGXP memory\n");
-      std::abort();
-    }
-  }
+  EnsureMemory();
 
   if (g_settings.gpu_pgxp_vertex_cache && !vertexCache)
   {
@@ -313,7 +416,7 @@ void Reset()
   std::memset(GTE_ctrl_reg, 0, sizeof(GTE_ctrl_reg));
 
   if (Mem)
-    std::memset(Mem, 0, sizeof(PGXP_value) * PGXP_MEM_SIZE);
+    std::memset(Mem, 0, sizeof(PGXP_value) * s_mem_value_count);
 
   if (vertexCache)
     std::memset(vertexCache, 0, sizeof(PGXP_value) * VERTEX_CACHE_SIZE);
@@ -330,6 +433,7 @@ void Shutdown()
   {
     std::free(Mem);
     Mem = nullptr;
+    s_mem_allocated_count = 0;
   }
 
   std::memset(GTE_data_reg, 0, sizeof(GTE_data_reg));
@@ -337,6 +441,35 @@ void Shutdown()
 
   std::memset(CPU_reg, 0, sizeof(CPU_reg));
   std::memset(CP0_reg, 0, sizeof(CP0_reg));
+}
+
+bool DoState(StateWrapper& sw)
+{
+  bool has_state = g_settings.gpu_pgxp_enable;
+  sw.Do(&has_state);
+
+  if (!has_state)
+  {
+    if (sw.IsReading())
+      Reset();
+
+    return !sw.HasError();
+  }
+
+  EnsureMemory();
+
+  sw.DoBytes(CPU_reg, sizeof(CPU_reg));
+  sw.DoBytes(CP0_reg, sizeof(CP0_reg));
+  sw.DoBytes(GTE_data_reg, sizeof(GTE_data_reg));
+  sw.DoBytes(GTE_ctrl_reg, sizeof(GTE_ctrl_reg));
+  sw.DoBytes(Mem, sizeof(PGXP_value) * s_mem_value_count);
+
+  // The vertex cache is a derived lookup table; let it rebuild instead of
+  // serializing another cache-sized buffer into every state.
+  if (vertexCache)
+    std::memset(vertexCache, 0, sizeof(PGXP_value) * VERTEX_CACHE_SIZE);
+
+  return !sw.HasError();
 }
 
 // Instruction register decoding
@@ -370,7 +503,11 @@ void GTE_PushSXYZ2f(float x, float y, float z, uint32_t v)
   SXY2.y = y;
   SXY2.z = z;
   SXY2.value = v;
-  SXY2.flags = VALID_ALL;
+  SXY2.flags = VALID_01 | VALID_Z;
+
+  // Register 15 (SXYP) is a mirror of SXY2 on hardware; keep the mirror in
+  // sync so MFC2/SWC2 reads of reg 15 see the vertex that was just pushed.
+  SXYP = SXY2;
 
   if (g_settings.gpu_pgxp_vertex_cache)
     PGXP_CacheVertex(static_cast<int16_t>(static_cast<uint16_t>(v)), static_cast<int16_t>(static_cast<uint16_t>(v >> 16)), SXY2);
@@ -385,7 +522,11 @@ int GTE_NCLIP_valid(uint32_t sxy0, uint32_t sxy1, uint32_t sxy2)
   Validate(&SXY0, sxy0);
   Validate(&SXY1, sxy1);
   Validate(&SXY2, sxy2);
-  if (((SXY0.flags & SXY1.flags & SXY2.flags & VALID_01) == VALID_01)) // && Config.PGXP_GTE && (Config.PGXP_Mode > 0))
+  // Only use the precise NCLIP when all three vertices carry a tracked Z.
+  // Screen-space coordinates pushed by the game itself have no Z, and
+  // feeding them through the precise path makes culling drift from the
+  // hardware result.
+  if (((SXY0.flags & SXY1.flags & SXY2.flags & VALID_012) == VALID_012))
     return 1;
   return 0;
 }
@@ -490,19 +631,19 @@ void CPU_SWC2(uint32_t instr, uint32_t rtVal, uint32_t addr)
 
 ALWAYS_INLINE_RELEASE void PGXP_CacheVertex(int16_t sx, int16_t sy, const PGXP_value& vertex)
 {
-  if (sx >= -0x800 && sx <= 0x7ff && sy >= -0x800 && sy <= 0x7ff)
+  if (sx >= -0x400 && sx <= 0x3ff && sy >= -0x400 && sy <= 0x3ff)
   {
     // Write vertex into cache
-    vertexCache[(sy + 0x800) * VERTEX_CACHE_WIDTH + (sx + 0x800)] = vertex;
+    vertexCache[(sy + 0x400) * VERTEX_CACHE_WIDTH + (sx + 0x400)] = vertex;
   }
 }
 
 static ALWAYS_INLINE_RELEASE PGXP_value* PGXP_GetCachedVertex(short sx, short sy)
 {
-  if (sx >= -0x800 && sx <= 0x7ff && sy >= -0x800 && sy <= 0x7ff)
+  if (sx >= -0x400 && sx <= 0x3ff && sy >= -0x400 && sy <= 0x3ff)
   {
     // Return pointer to cache entry
-    return &vertexCache[(sy + 0x800) * VERTEX_CACHE_WIDTH + (sx + 0x800)];
+    return &vertexCache[(sy + 0x400) * VERTEX_CACHE_WIDTH + (sx + 0x400)];
   }
 
   return nullptr;
@@ -537,12 +678,12 @@ bool GetPreciseVertex(uint32_t addr, uint32_t value, int x, int y, int xOffs, in
     // There is a value here with valid X and Y coordinates
     *out_x = TruncateVertexPosition(vert->x) + static_cast<float>(xOffs);
     *out_y = TruncateVertexPosition(vert->y) + static_cast<float>(yOffs);
-    *out_w = vert->z / 32768.0f;
+    *out_w = vert->z / PGXP_MAX_Z;
 
     if (IsWithinTolerance(*out_x, *out_y, x, y))
     {
       // check validity of z component
-      return ((vert->flags & VALID_2) == VALID_2);
+      return ((vert->flags & VALID_Z) == VALID_Z);
     }
   }
 
@@ -557,7 +698,7 @@ bool GetPreciseVertex(uint32_t addr, uint32_t value, int x, int y, int xOffs, in
     {
       *out_x = TruncateVertexPosition(vert->x) + static_cast<float>(xOffs);
       *out_y = TruncateVertexPosition(vert->y) + static_cast<float>(yOffs);
-      *out_w = vert->z / 32768.0f;
+      *out_w = vert->z / PGXP_MAX_Z;
 
       if (IsWithinTolerance(*out_x, *out_y, x, y))
         return false;
@@ -582,9 +723,123 @@ bool GetPreciseVertex(uint32_t addr, uint32_t value, int x, int y, int xOffs, in
 #define imm_sext(_instr)                                                                                               \
   static_cast<int32_t>(static_cast<int16_t>(_instr & 0xFFFF)) // The immediate part of the instruction register
 
+// LWL/LWR merge bytes of an aligned memory word into a register. Keep the
+// tracked halves that are fully overwritten by memory so the common
+// lwl+lwr unaligned load pattern keeps its precision.
+static void MergeLoad(uint32_t instr, uint32_t rtVal, uint32_t addr)
+{
+  const uint32_t off = addr & UINT32_C(3);
+  const bool left = (op(instr) == 0x22u);
+  const uint32_t first = left ? (3u - off) : 0u; // first register byte from memory
+  const uint32_t last = left ? 3u : (3u - off);  // last register byte from memory
+
+  PGXP_value ret = CPU_reg[rt(instr)];
+  const PGXP_value* mem = GetPtr(addr & ~UINT32_C(3));
+
+  for (uint32_t half = 0; half < 2; half++)
+  {
+    const uint32_t b0 = half * 2u;
+    const bool covered = (first <= b0 && last >= b0 + 1u);
+    const bool touched = (first <= b0 + 1u && last >= b0);
+
+    if (covered)
+    {
+      // Register byte b0 maps to this aligned memory byte; the pair forms a
+      // trackable memory half only when that byte is the even one.
+      const int32_t mem_byte = left ? (static_cast<int32_t>(b0) - static_cast<int32_t>(3u - off))
+                                    : (static_cast<int32_t>(b0) + static_cast<int32_t>(off));
+      if (mem && (mem_byte & 1) == 0 && mem->compFlags[mem_byte >> 1] == VALID)
+      {
+        const float value = (mem_byte >> 1) ? mem->y : mem->x;
+        if (half == 0)
+          ret.x = value;
+        else
+          ret.y = value;
+        ret.compFlags[half] = mem->compFlags[mem_byte >> 1];
+      }
+      else
+      {
+        ret.compFlags[half] = NONE;
+      }
+    }
+    else if (touched)
+    {
+      ret.compFlags[half] = NONE;
+    }
+  }
+
+  if (first == 0u && last == 3u && mem)
+    CopyZState(ret, *mem);
+  else
+    TaintZ(ret);
+
+  ret.value = rtVal;
+  CPU_reg[rt(instr)] = ret;
+}
+
+// SWL/SWR merge bytes of a register into an aligned memory word.
+static void MergeStore(uint32_t instr, uint32_t memVal, uint32_t addr)
+{
+  PGXP_value* mem = GetPtr(addr & ~UINT32_C(3));
+  if (!mem)
+    return;
+
+  const uint32_t off = addr & UINT32_C(3);
+  const bool left = (op(instr) == 0x2Au);
+  const uint32_t first = left ? 0u : off; // first memory byte from the register
+  const uint32_t last = left ? off : 3u;  // last memory byte from the register
+
+  const PGXP_value& src = CPU_reg[rt(instr)];
+
+  for (uint32_t half = 0; half < 2; half++)
+  {
+    const uint32_t b0 = half * 2u;
+    const bool covered = (first <= b0 && last >= b0 + 1u);
+    const bool touched = (first <= b0 + 1u && last >= b0);
+
+    if (covered)
+    {
+      // Memory byte b0 comes from this source register byte.
+      const int32_t src_byte = left ? (static_cast<int32_t>(3u - off) + static_cast<int32_t>(b0))
+                                    : (static_cast<int32_t>(b0) - static_cast<int32_t>(off));
+      if ((src_byte & 1) == 0 && src.compFlags[src_byte >> 1] == VALID)
+      {
+        const float value = (src_byte >> 1) ? src.y : src.x;
+        if (half == 0)
+          mem->x = value;
+        else
+          mem->y = value;
+        mem->compFlags[half] = src.compFlags[src_byte >> 1];
+      }
+      else
+      {
+        mem->compFlags[half] = NONE;
+      }
+    }
+    else if (touched)
+    {
+      mem->compFlags[half] = NONE;
+    }
+  }
+
+  if (first == 0u && last == 3u)
+    CopyZState(*mem, src);
+  else
+    TaintZ(*mem);
+
+  mem->value = memVal;
+}
+
 void CPU_LW(uint32_t instr, uint32_t rtVal, uint32_t addr)
 {
   // Rt = Mem[Rs + Im]
+  const uint32_t opcode = op(instr);
+  if (opcode == 0x22u || opcode == 0x26u)
+  {
+    MergeLoad(instr, rtVal, addr);
+    return;
+  }
+
   ValidateAndCopyMem(&CPU_reg[rt(instr)], addr, rtVal);
 }
 
@@ -616,6 +871,13 @@ void CPU_SH(uint32_t instr, uint16_t rtVal, uint32_t addr)
 void CPU_SW(uint32_t instr, uint32_t rtVal, uint32_t addr)
 {
   // Mem[Rs + Im] = Rt
+  const uint32_t opcode = op(instr);
+  if (opcode == 0x2Au || opcode == 0x2Eu)
+  {
+    MergeStore(instr, rtVal, addr);
+    return;
+  }
+
   PGXP_value* val = &CPU_reg[rt(instr)];
   Validate(val, rtVal);
   WriteMem(val, addr);
@@ -631,6 +893,18 @@ void CPU_MOVE(uint32_t rd_and_rs, uint32_t rsVal)
 void CPU_ADDI(uint32_t instr, uint32_t rsVal)
 {
   // Rt = Rs + Imm (signed)
+  if (rs(instr) == 0)
+  {
+    // Adding to the hardwired zero register is a constant load; do not read
+    // the tracked value of r0, which the CPU itself never writes.
+    CPU_reg[rt(instr)] = PGXP_value_zero;
+    CPU_reg[rt(instr)].x = static_cast<float>(imm_sext(instr));
+    CPU_reg[rt(instr)].y = 0.0f;
+    CPU_reg[rt(instr)].value = static_cast<uint32_t>(imm_sext(instr));
+    CPU_reg[rt(instr)].flags = VALID_01;
+    return;
+  }
+
   psx_value tempImm;
   PGXP_value ret;
 
@@ -829,7 +1103,8 @@ void CPU_ADD(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
     // truncate on overflow/underflow
     ret.y += (ret.y > SHRT_MAX) ? -(USHRT_MAX + 1) : (ret.y < SHRT_MIN) ? USHRT_MAX + 1 : 0.f;
 
-    // TODO: decide which "z/w" component to use
+    // Carry the tracked depth from the operands.
+    CombineZ(ret, CPU_reg[rs(instr)], CPU_reg[rt(instr)]);
 
     ret.halfFlags[0] &= CPU_reg[rt(instr)].halfFlags[0];
   }
@@ -849,6 +1124,15 @@ void CPU_SUB(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
   PGXP_value ret;
   Validate(&CPU_reg[rs(instr)], rsVal);
   Validate(&CPU_reg[rt(instr)], rtVal);
+
+  if (rtVal == 0)
+  {
+    // Subtracting zero is a plain move; keep the tracked value untouched.
+    ret = CPU_reg[rs(instr)];
+    ret.value = rsVal;
+    CPU_reg[rd(instr)] = ret;
+    return;
+  }
 
   // iCB: Only require one valid input
   if (((CPU_reg[rt(instr)].flags & VALID_01) != VALID_01) != ((CPU_reg[rs(instr)].flags & VALID_01) != VALID_01))
@@ -870,6 +1154,9 @@ void CPU_SUB(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 
   // truncate on overflow/underflow
   ret.y += (ret.y > SHRT_MAX) ? -(USHRT_MAX + 1) : (ret.y < SHRT_MIN) ? USHRT_MAX + 1 : 0.f;
+
+  // Carry the tracked depth from the operands.
+  CombineZ(ret, CPU_reg[rs(instr)], CPU_reg[rt(instr)]);
 
   ret.halfFlags[0] &= CPU_reg[rt(instr)].halfFlags[0];
 
@@ -947,16 +1234,8 @@ static void CPU_BITWISE(uint32_t instr, uint32_t rdVal, uint32_t rsVal, uint32_t
   // /iCB Hack
 
   // Get a valid W
-  if ((CPU_reg[rs(instr)].flags & VALID_2) == VALID_2)
-  {
-    ret.z = CPU_reg[rs(instr)].z;
-    ret.compFlags[2] = CPU_reg[rs(instr)].compFlags[2];
-  }
-  else if ((CPU_reg[rt(instr)].flags & VALID_2) == VALID_2)
-  {
-    ret.z = CPU_reg[rt(instr)].z;
-    ret.compFlags[2] = CPU_reg[rt(instr)].compFlags[2];
-  }
+  AdoptZ(ret, CPU_reg[rs(instr)]);
+  AdoptZ(ret, CPU_reg[rt(instr)]);
 
   ret.value = rdVal;
   CPU_reg[rd(instr)] = ret;
@@ -1060,6 +1339,8 @@ void CPU_MULT(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
   }
 
   CPU_Lo = CPU_Hi = CPU_reg[rs(instr)];
+  TaintZ(CPU_Lo);
+  TaintZ(CPU_Hi);
 
   CPU_Lo.halfFlags[0] = CPU_Hi.halfFlags[0] = (CPU_reg[rs(instr)].halfFlags[0] & CPU_reg[rt(instr)].halfFlags[0]);
 
@@ -1108,6 +1389,8 @@ void CPU_MULTU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
   }
 
   CPU_Lo = CPU_Hi = CPU_reg[rs(instr)];
+  TaintZ(CPU_Lo);
+  TaintZ(CPU_Hi);
 
   CPU_Lo.halfFlags[0] = CPU_Hi.halfFlags[0] = (CPU_reg[rs(instr)].halfFlags[0] & CPU_reg[rt(instr)].halfFlags[0]);
 
@@ -1157,6 +1440,8 @@ void CPU_DIV(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
   }
 
   CPU_Lo = CPU_Hi = CPU_reg[rs(instr)];
+  TaintZ(CPU_Lo);
+  TaintZ(CPU_Hi);
 
   CPU_Lo.halfFlags[0] = CPU_Hi.halfFlags[0] = (CPU_reg[rs(instr)].halfFlags[0] & CPU_reg[rt(instr)].halfFlags[0]);
 
@@ -1206,6 +1491,8 @@ void CPU_DIVU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
   }
 
   CPU_Lo = CPU_Hi = CPU_reg[rs(instr)];
+  TaintZ(CPU_Lo);
+  TaintZ(CPU_Hi);
 
   CPU_Lo.halfFlags[0] = CPU_Hi.halfFlags[0] = (CPU_reg[rs(instr)].halfFlags[0] & CPU_reg[rt(instr)].halfFlags[0]);
 
@@ -1245,6 +1532,8 @@ void CPU_SLL(uint32_t instr, uint32_t rtVal)
   Validate(&CPU_reg[rt(instr)], rtVal);
 
   ret = CPU_reg[rt(instr)];
+  // A real shift changes the value the Z was attached to.
+  TaintZ(ret);
 
   // TODO: Shift flags
   double x = f16Unsign(CPU_reg[rt(instr)].x);
@@ -1301,6 +1590,8 @@ void CPU_SRL(uint32_t instr, uint32_t rtVal)
 
   const uint32_t rdVal = rtVal >> sh;
   ret = CPU_reg[rt(instr)];
+  // A real shift changes the value the Z was attached to.
+  TaintZ(ret);
 
   double x = CPU_reg[rt(instr)].x, y = f16Unsign(CPU_reg[rt(instr)].y);
 
@@ -1376,6 +1667,8 @@ void CPU_SRA(uint32_t instr, uint32_t rtVal)
 
   const uint32_t rdVal = static_cast<uint32_t>(static_cast<int32_t>(rtVal) >> sh);
   ret = CPU_reg[rt(instr)];
+  // A real shift changes the value the Z was attached to.
+  TaintZ(ret);
 
   double x = CPU_reg[rt(instr)].x, y = CPU_reg[rt(instr)].y;
 
@@ -1444,6 +1737,8 @@ void CPU_SLLV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
   Validate(&CPU_reg[rs(instr)], rsVal);
 
   ret = CPU_reg[rt(instr)];
+  // A real shift changes the value the Z was attached to.
+  TaintZ(ret);
 
   double x = f16Unsign(CPU_reg[rt(instr)].x);
   double y = f16Unsign(CPU_reg[rt(instr)].y);
@@ -1500,6 +1795,8 @@ void CPU_SRLV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
 
   const uint32_t rdVal = rtVal >> sh;
   ret = CPU_reg[rt(instr)];
+  // A real shift changes the value the Z was attached to.
+  TaintZ(ret);
 
   double x = CPU_reg[rt(instr)].x, y = f16Unsign(CPU_reg[rt(instr)].y);
 
@@ -1576,6 +1873,8 @@ void CPU_SRAV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
 
   const uint32_t rdVal = static_cast<uint32_t>(static_cast<int32_t>(rtVal) >> sh);
   ret = CPU_reg[rt(instr)];
+  // A real shift changes the value the Z was attached to.
+  TaintZ(ret);
 
   double x = CPU_reg[rt(instr)].x, y = CPU_reg[rt(instr)].y;
 

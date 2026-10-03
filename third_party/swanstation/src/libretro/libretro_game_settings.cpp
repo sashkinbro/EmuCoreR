@@ -870,6 +870,25 @@ std::unique_ptr<GameSettings::Entry> GetSettingsForGame(const std::string& game_
     return gs;
   }
 
+  /* Tekken 3 fudges some vertices and submits them in an order that produces
+   * spiky/exploding polygons when characters go offscreen. Force CPU mode and
+   * a small geometry tolerance for these titles, matching DuckStation's game
+   * database.
+   */
+  if (   game_code == "SLUS-00402" /* Tekken 3 (NTSC-U)                            */
+      || game_code == "SCES-01237" /* Tekken 3 (PAL)                               */
+      || game_code == "SCPS-45213" /* Tekken 3 (NTSC-J/Asia)                       */
+      || game_code == "SCPS-45215" /* Tekken 3 (NTSC-J/Asia)                       */
+      || game_code == "SLPS-01300" /* Tekken 3 (NTSC-J)                            */
+      || game_code == "SLPS-91202" /* Tekken 3 [PlayStation the Best] (NTSC-J)     */
+     )
+  {
+    gs->AddTrait(GameSettings::Trait::ForcePGXPCPUMode);
+    gs->AddTrait(GameSettings::Trait::DisablePGXPDepthBuffer);
+    gs->gpu_pgxp_tolerance = 3.0f;
+    return gs;
+  }
+
   /* These Namco PS1 fighters submit character submeshes in an order that lets
    * PGXP-corrected w-values fail the depth test against earlier submeshes of
    * the same model, which causes parts of character bodies to intermittently

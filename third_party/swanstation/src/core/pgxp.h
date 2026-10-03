@@ -21,11 +21,17 @@
 #pragma once
 #include "types.h"
 
+class StateWrapper;
+
 namespace PGXP {
 
 void Initialize();
 void Reset();
 void Shutdown();
+
+/// Serializes the tracked precision state so loading a save state does not
+/// throw away the vertex data the game has already computed.
+bool DoState(StateWrapper& sw);
 
 // -- GTE functions
 // Transforms
