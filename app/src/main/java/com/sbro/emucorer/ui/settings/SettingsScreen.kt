@@ -112,7 +112,6 @@ import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.FlashOn
 import androidx.compose.material.icons.rounded.Texture
-import androidx.compose.material.icons.rounded.CropFree
 import androidx.compose.material.icons.rounded.ArrowLeft
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Straighten
@@ -2205,62 +2204,22 @@ private fun SettingsContent(
                             }
                         )
                         // Edge trims for the emulated picture, applied by the
-                        // presenter before aspect-ratio scaling.
-                        SettingsSection(title = stringResource(R.string.settings_display_crop)) {
-                            SliderItem(
-                                icon = Icons.Rounded.CropFree,
-                                title = stringResource(R.string.settings_display_crop_left),
-                                subtitle = "${uiState.displayCrop.left} px",
-                                value = uiState.displayCrop.left.toFloat(),
-                                range = DisplayCrop.MIN_PIXELS.toFloat()..DisplayCrop.MAX_PIXELS.toFloat(),
-                                steps = DisplayCrop.MAX_PIXELS - DisplayCrop.MIN_PIXELS - 1,
-                                onValueChange = {
-                                    viewModel.setDisplayCrop(uiState.displayCrop.copy(left = it.toInt()))
-                                },
-                                valueLabel = { "${it.toInt()} px" },
-                                helpText = stringResource(R.string.settings_display_crop_desc),
-                                onResetToDefault = { viewModel.setDisplayCrop(defaults.displayCrop) }
-                            )
-                            SliderItem(
-                                icon = Icons.Rounded.CropFree,
-                                title = stringResource(R.string.settings_display_crop_top),
-                                subtitle = "${uiState.displayCrop.top} px",
-                                value = uiState.displayCrop.top.toFloat(),
-                                range = DisplayCrop.MIN_PIXELS.toFloat()..DisplayCrop.MAX_PIXELS.toFloat(),
-                                steps = DisplayCrop.MAX_PIXELS - DisplayCrop.MIN_PIXELS - 1,
-                                onValueChange = {
-                                    viewModel.setDisplayCrop(uiState.displayCrop.copy(top = it.toInt()))
-                                },
-                                valueLabel = { "${it.toInt()} px" },
-                                onResetToDefault = { viewModel.setDisplayCrop(defaults.displayCrop) }
-                            )
-                            SliderItem(
-                                icon = Icons.Rounded.CropFree,
-                                title = stringResource(R.string.settings_display_crop_right),
-                                subtitle = "${uiState.displayCrop.right} px",
-                                value = uiState.displayCrop.right.toFloat(),
-                                range = DisplayCrop.MIN_PIXELS.toFloat()..DisplayCrop.MAX_PIXELS.toFloat(),
-                                steps = DisplayCrop.MAX_PIXELS - DisplayCrop.MIN_PIXELS - 1,
-                                onValueChange = {
-                                    viewModel.setDisplayCrop(uiState.displayCrop.copy(right = it.toInt()))
-                                },
-                                valueLabel = { "${it.toInt()} px" },
-                                onResetToDefault = { viewModel.setDisplayCrop(defaults.displayCrop) }
-                            )
-                            SliderItem(
-                                icon = Icons.Rounded.CropFree,
-                                title = stringResource(R.string.settings_display_crop_bottom),
-                                subtitle = "${uiState.displayCrop.bottom} px",
-                                value = uiState.displayCrop.bottom.toFloat(),
-                                range = DisplayCrop.MIN_PIXELS.toFloat()..DisplayCrop.MAX_PIXELS.toFloat(),
-                                steps = DisplayCrop.MAX_PIXELS - DisplayCrop.MIN_PIXELS - 1,
-                                onValueChange = {
-                                    viewModel.setDisplayCrop(uiState.displayCrop.copy(bottom = it.toInt()))
-                                },
-                                valueLabel = { "${it.toInt()} px" },
-                                onResetToDefault = { viewModel.setDisplayCrop(defaults.displayCrop) }
-                            )
-                        }
+                        // presenter before aspect-ratio scaling. A preset sets
+                        // all four edges at once.
+                        ChoiceSection(
+                            title = stringResource(R.string.settings_display_crop),
+                            options = DisplayCrop.EdgePresets.map { pixels ->
+                                pixels to if (pixels == 0) {
+                                    stringResource(R.string.ss_choice_off)
+                                } else {
+                                    pixels.toString()
+                                }
+                            },
+                            selectedValue = uiState.displayCrop.uniformPixels ?: -1,
+                            onSelect = { viewModel.setDisplayCrop(DisplayCrop.uniform(it)) },
+                            helpText = stringResource(R.string.settings_display_crop_desc),
+                            onResetToDefault = { viewModel.setDisplayCrop(defaults.displayCrop) }
+                        )
                         var coreGraphicsVersion by remember { mutableIntStateOf(0) }
                         CoreOptionSettingsRows(
                             options = remember {

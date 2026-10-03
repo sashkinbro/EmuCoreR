@@ -17,11 +17,17 @@ data class DisplayCrop(
     val isDisabled: Boolean
         get() = left == 0 && top == 0 && right == 0 && bottom == 0
 
+    val uniformPixels: Int?
+        get() = if (left == top && top == right && right == bottom) left else null
+
     companion object {
         const val MIN_PIXELS = 0
         const val MAX_PIXELS = 64
         val None = DisplayCrop()
         val ThinEdges = DisplayCrop(left = 2, top = 2, right = 2, bottom = 2)
         val SafeEdges = DisplayCrop(left = 4, top = 4, right = 4, bottom = 4)
+        val EdgePresets = listOf(0, 2, 4, 6, 8, 10, 12)
+
+        fun uniform(pixels: Int): DisplayCrop = DisplayCrop(pixels, pixels, pixels, pixels)
     }
 }

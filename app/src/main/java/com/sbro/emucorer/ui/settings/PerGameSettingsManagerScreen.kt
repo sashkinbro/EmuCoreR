@@ -911,6 +911,22 @@ private fun GameSettingsTabContent(
                         draft = draft,
                         onDraftChange = onDraftChange
                     )
+                    SelectionRow(
+                        title = stringResource(R.string.settings_display_crop),
+                        options = DisplayCrop.EdgePresets.map { pixels ->
+                            pixels to if (pixels == 0) {
+                                stringResource(R.string.ss_choice_off)
+                            } else {
+                                pixels.toString()
+                            }
+                        },
+                        selectedValue = draft.displayCrop.uniformPixels ?: -1,
+                        onSelected = { onDraftChange(draft.copy(displayCrop = DisplayCrop.uniform(it))) },
+                        helpText = stringResource(R.string.settings_display_crop_desc),
+                        onResetToDefault = {
+                            onDraftChange(draft.copy(displayCrop = defaultProfile.displayCrop))
+                        }
+                    )
                     CoreOptionManagerRows(
                         options = SwanStationCoreOptions.graphicsOptions(),
                         draft = draft,
