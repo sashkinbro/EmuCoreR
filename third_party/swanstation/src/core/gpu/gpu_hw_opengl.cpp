@@ -806,6 +806,8 @@ void GPU_HW_OpenGL::ResetGraphicsAPIState()
 
 void GPU_HW_OpenGL::RestoreGraphicsAPIState()
 {
+  glActiveTexture(GL_TEXTURE0);
+  m_bound_replacement_texture_gl_id = UINT32_MAX;
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_vram_fbo_id);
   glViewport(0, 0, m_vram_texture.GetWidth(), m_vram_texture.GetHeight());
 
@@ -1701,12 +1703,7 @@ bool GPU_HW_OpenGL::ShouldUsePageCache(uint32_t texture_mode) const
 
 bool GPU_HW_OpenGL::IsTexturePageCacheEnabled() const
 {
-  // Disabled on OpenGL: the decoded page upload does not account for GL's
-  // bottom-left texture origin and the page textures are rewritten without an
-  // in-flight fence, which showed up as flickering and missing textures once
-  // the cache started being used. The VRAM atlas path is used instead; the
-  // Vulkan backend has the equivalent pieces and keeps the cache enabled.
-  return false;
+  return (m_texture_filtering == GPUTextureFilter::Nearest) && (m_sw_renderer == nullptr);
 }
 
 void GPU_HW_OpenGL::OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom)
@@ -1725,19 +1722,25 @@ void GPU_HW_OpenGL::OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32
 bool GPU_HW_OpenGL::EnsurePageResource(uint32_t slot)
 {
   PageResource& res = m_page_resources[slot];
-  if (res.textures[0].GetGLId() != 0)
+  if (res.textures[0].GetGLId() != 0 && res.textures[1].GetGLId() != 0)
     return true;
 
+  glActiveTexture(GL_TEXTURE1);
+  m_bound_replacement_texture_gl_id = UINT32_MAX;
   for (uint32_t i = 0; i < 2; i++)
   {
     if (!res.textures[i].Create(GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS, 1, GL_RGBA8,
                                 GL_RGBA, GL_UNSIGNED_BYTE, nullptr, false, false))
     {
       Log_ErrorPrintf("Failed to create GL page texture %u buffer %u", slot, i);
+      for (GL::Texture& texture : res.textures)
+        texture.Destroy();
+      glActiveTexture(GL_TEXTURE0);
       return false;
     }
     res.last_used_frame[i] = 0;
   }
+  glActiveTexture(GL_TEXTURE0);
   res.current = 0;
   return true;
 }
@@ -1768,7 +1771,7 @@ bool GPU_HW_OpenGL::CPUDecodeAndUploadPage(uint32_t slot, const GPUTexturePageCa
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, GPUTexturePageCache::PAGE_TEXELS, GPUTexturePageCache::PAGE_TEXELS, GL_RGBA,
                   GL_UNSIGNED_BYTE, m_page_decode_scratch.data());
   glActiveTexture(GL_TEXTURE0);
-  m_bound_replacement_texture_gl_id = 0;
+  m_bound_replacement_texture_gl_id = UINT32_MAX;
 
   res.current = next;
   m_page_decodes_this_frame++;
@@ -1792,6 +1795,8 @@ void GPU_HW_OpenGL::SweepUnusedPageResources()
 
     for (uint32_t b = 0; b < 2; b++)
     {
+      if (m_bound_replacement_texture_gl_id == res.textures[b].GetGLId())
+        m_bound_replacement_texture_gl_id = UINT32_MAX;
       res.textures[b].Destroy();
       res.last_used_frame[b] = 0;
     }
@@ -1801,6 +1806,7 @@ void GPU_HW_OpenGL::SweepUnusedPageResources()
 
 void GPU_HW_OpenGL::DestroyPageCacheResources()
 {
+  m_bound_replacement_texture_gl_id = UINT32_MAX;
   for (PageResource& res : m_page_resources)
   {
     for (uint32_t b = 0; b < 2; b++)
