@@ -2386,4 +2386,10 @@
     <string name="ss_core_choice_deflate_low">Deflate（低）</string>
     <string name="ss_core_choice_deflate_default">Deflate（標準）</string>
     <string name="ss_core_choice_deflate_high">Deflate（高）</string>
+    <string name="ss_core_gpu_deinterlacingmode">デインターレース</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">インターレース映像の表示方法を選択します。「無効」は1フレームにつき1フィールドを表示（ちらつき）、「ウィーブ」は全ラインを保持（動きで櫛形ノイズ）、「ブレンド」は2つのフィールドを混合、「適応」は動きのアーティファクトを低減、「プログレッシブ」は毎フレーム両フィールドを描画します。</string>
+    <string name="ss_core_choice_weave">ウィーブ</string>
+    <string name="ss_core_choice_blend">ブレンド</string>
+    <string name="ss_core_choice_adaptive">適応</string>
+    <string name="ss_core_choice_progressive">プログレッシブ</string>
 </resources>

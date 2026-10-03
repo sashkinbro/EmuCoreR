@@ -1334,14 +1334,14 @@ std::string GPU_HW_ShaderGen::GenerateDisplayFragmentShader(bool depth_24bit,
   DefineMacro(ss, "INTERLEAVED", interlace_mode == GPU_HW::InterlacedRenderMode::InterleavedFields);
   DefineMacro(ss, "SMOOTH_CHROMA", smooth_chroma);
 
-  // u_resolution_scale appended; u_pad0 keeps the cbuffer 16-byte-
-  // aligned. The 4 callers (D3D11 / D3D12 / OpenGL / Vulkan
-  // GPU_HW_*::UpdateDisplay) must push uniforms in this exact
-  // order: u_vram_offset.x, u_vram_offset.y, u_crop_left,
-  // u_field_offset, u_resolution_scale, u_pad0.
+  // u_resolution_scale and u_deinterlacing_mode appended; the latter
+  // also keeps the cbuffer 16-byte-aligned. The callers
+  // (OpenGL / Vulkan GPU_HW_*::UpdateDisplay) must push uniforms in
+  // this exact order: u_vram_offset.x, u_vram_offset.y, u_crop_left,
+  // u_field_offset, u_resolution_scale, u_deinterlacing_mode.
   DeclareUniformBuffer(ss,
                        {"uint2 u_vram_offset", "uint u_crop_left", "uint u_field_offset", "uint u_resolution_scale",
-                        "uint u_pad0"},
+                        "uint u_deinterlacing_mode"},
                        true);
 
   // Route RESOLUTION_SCALE / VRAM_SIZE / RCP_VRAM_SIZE through the
@@ -1434,6 +1434,19 @@ float3 SampleVRAM24Smoothed(uint2 icoords)
   float2 uv = RGBToYUV(s).yz;
   return YUVToRGB(float3(y, uv));
 }
+
+float3 SampleDisplayColor(uint2 coords)
+{
+  #if DEPTH_24BIT
+    #if SMOOTH_CHROMA
+      return SampleVRAM24Smoothed(coords);
+    #else
+      return SampleVRAM24(coords);
+    #endif
+  #else
+    return LoadVRAM(int2((coords + u_vram_offset) % VRAM_SIZE)).rgb;
+  #endif
+}
 )";
 
   DeclareFragmentEntryPoint(ss, 0, 1, {}, true, 1);
@@ -1442,25 +1455,49 @@ float3 SampleVRAM24Smoothed(uint2 icoords)
   uint2 icoords = uint2(v_pos.xy) + uint2(u_crop_left, 0u);
 
   #if INTERLACED
-    if ((fixYCoord(icoords.y) & 1u) != u_field_offset)
-      discard;
+    #if INTERLEAVED
+      if (u_deinterlacing_mode != 0u)
+      {
+        if (u_deinterlacing_mode == 1u)
+        {
+          o_col0 = float4(SampleDisplayColor(icoords), 1.0);
+        }
+        else
+        {
+          uint2 coords_a = uint2(icoords.x, icoords.y & ~1u);
+          uint2 coords_b = uint2(coords_a.x, coords_a.y | 1u);
+          float3 col_a = SampleDisplayColor(coords_a);
+          float3 col_b = SampleDisplayColor(coords_b);
+          if (u_deinterlacing_mode == 2u)
+          {
+            o_col0 = float4((col_a + col_b) * 0.5, 1.0);
+          }
+          else
+          {
+            float3 current_col = ((icoords.y & 1u) == u_field_offset) ? col_a : col_b;
+            float3 diff3 = abs(col_a - col_b);
+            float diff = max(diff3.r, max(diff3.g, diff3.b));
+            float blend_amount = smoothstep(0.02, 0.12, diff);
+            o_col0 = float4(lerp((col_a + col_b) * 0.5, current_col, blend_amount), 1.0);
+          }
+        }
 
-    #if !INTERLEAVED
-      icoords.y /= 2u;
-    #else
+        return;
+      }
+
+      if ((fixYCoord(icoords.y) & 1u) != u_field_offset)
+        discard;
+
       icoords.y &= ~1u;
+    #else
+      if ((fixYCoord(icoords.y) & 1u) != u_field_offset)
+        discard;
+
+      icoords.y /= 2u;
     #endif
   #endif
 
-  #if DEPTH_24BIT
-    #if SMOOTH_CHROMA
-      o_col0 = float4(SampleVRAM24Smoothed(icoords), 1.0);
-    #else
-      o_col0 = float4(SampleVRAM24(icoords), 1.0);
-    #endif    
-  #else
-    o_col0 = float4(LoadVRAM(int2((icoords + u_vram_offset) % VRAM_SIZE)).rgb, 1.0);
-  #endif
+  o_col0 = float4(SampleDisplayColor(icoords), 1.0);
 }
 )";
 

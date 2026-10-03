@@ -2387,4 +2387,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (निम्न)</string>
     <string name="ss_core_choice_deflate_default">Deflate (डिफ़ॉल्ट)</string>
     <string name="ss_core_choice_deflate_high">Deflate (उच्च)</string>
+    <string name="ss_core_gpu_deinterlacingmode">डीइंटरलेसिंग</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">तय करता है कि इंटरलेस्ड वीडियो कैसे दिखाया जाए। «बंद» हर फ़्रेम में एक फ़ील्ड दिखाता है (टिमटिमाहट), «वीव» सभी पंक्तियाँ रखता है (हिलने पर कंघी), «ब्लेंड» दोनों फ़ील्ड मिलाता है, «अनुकूली» गति कलाकृतियाँ कम करता है, और «प्रगतिशील» हर फ़्रेम में दोनों फ़ील्ड बनाता है।</string>
+    <string name="ss_core_choice_weave">वीव</string>
+    <string name="ss_core_choice_blend">ब्लेंड</string>
+    <string name="ss_core_choice_adaptive">अनुकूली</string>
+    <string name="ss_core_choice_progressive">प्रगतिशील</string>
 </resources>

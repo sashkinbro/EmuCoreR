@@ -2387,4 +2387,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (bassa)</string>
     <string name="ss_core_choice_deflate_default">Deflate (predefinita)</string>
     <string name="ss_core_choice_deflate_high">Deflate (alta)</string>
+    <string name="ss_core_gpu_deinterlacingmode">Deinterlacciamento</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">Seleziona come visualizzare il video interlacciato. «Disattivato» mostra un campo alla volta (sfarfallio), «Weave» mantiene tutte le linee (denti di sega in movimento), «Blend» fonde i due campi, «Adattivo» riduce gli artefatti di movimento e «Progressivo» disegna entrambi i campi in ogni fotogramma.</string>
+    <string name="ss_core_choice_weave">Weave</string>
+    <string name="ss_core_choice_blend">Blend</string>
+    <string name="ss_core_choice_adaptive">Adattivo</string>
+    <string name="ss_core_choice_progressive">Progressivo</string>
 </resources>

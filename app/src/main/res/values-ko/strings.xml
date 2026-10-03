@@ -2386,4 +2386,10 @@
     <string name="ss_core_choice_deflate_low">Deflate(낮음)</string>
     <string name="ss_core_choice_deflate_default">Deflate(기본)</string>
     <string name="ss_core_choice_deflate_high">Deflate(높음)</string>
+    <string name="ss_core_gpu_deinterlacingmode">디인터레이싱</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">인터레이스 영상의 표시 방법을 선택합니다. «사용 안 함»은 프레임당 한 필드를 표시하고(깜빡임), «위브»는 모든 줄을 유지하며(움직임 시 빗살무늬), «블렌드»는 두 필드를 섞고, «적응형»은 움직임 아티팩트를 줄이며, «프로그레시브»는 매 프레임 두 필드를 모두 그립니다.</string>
+    <string name="ss_core_choice_weave">위브</string>
+    <string name="ss_core_choice_blend">블렌드</string>
+    <string name="ss_core_choice_adaptive">적응형</string>
+    <string name="ss_core_choice_progressive">프로그레시브</string>
 </resources>

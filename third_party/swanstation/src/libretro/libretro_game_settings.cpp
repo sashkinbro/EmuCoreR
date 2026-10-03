@@ -133,12 +133,12 @@ void Entry::ApplySettings(bool display_osd_messages) const
 
   if (HasTrait(Trait::ForceInterlacing))
   {
-    if (g_settings.gpu_disable_interlacing)
+    if (g_settings.display_deinterlacing_mode != DisplayDeinterlacingMode::Disabled)
     {
       gamesettings_message.append("Interlacing forced by game settings. ", 36);
     }
 
-    g_settings.gpu_disable_interlacing = false;
+    g_settings.display_deinterlacing_mode = DisplayDeinterlacingMode::Disabled;
   }
 
   if (HasTrait(Trait::DisableTrueColor))

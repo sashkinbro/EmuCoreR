@@ -279,7 +279,7 @@ void HostInterface::CheckForSettingsChanges(const Settings& old_settings)
         g_settings.gpu_true_color != old_settings.gpu_true_color ||
         g_settings.gpu_scaled_dithering != old_settings.gpu_scaled_dithering ||
         g_settings.gpu_texture_filter != old_settings.gpu_texture_filter ||
-        g_settings.gpu_disable_interlacing != old_settings.gpu_disable_interlacing ||
+        g_settings.display_deinterlacing_mode != old_settings.display_deinterlacing_mode ||
         g_settings.gpu_force_ntsc_timings != old_settings.gpu_force_ntsc_timings ||
         g_settings.gpu_24bit_chroma_smoothing != old_settings.gpu_24bit_chroma_smoothing ||
         g_settings.gpu_downsample_mode != old_settings.gpu_downsample_mode ||

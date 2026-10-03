@@ -2402,4 +2402,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (کم)</string>
     <string name="ss_core_choice_deflate_default">Deflate (پیش‌فرض)</string>
     <string name="ss_core_choice_deflate_high">Deflate (زیاد)</string>
+    <string name="ss_core_gpu_deinterlacingmode">رفع درهم‌تنیدگی</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">نحوه نمایش ویدئوی درهم‌تنیده را انتخاب می‌کند. «غیرفعال» هر فریم یک میدان نشان می‌دهد (سوسو)، «بافت» همه خطوط را نگه می‌دارد (شانه‌ای شدن هنگام حرکت)، «ترکیب» دو میدان را می‌آمیزد، «تطبیقی» آثار حرکت را کاهش می‌دهد و «پیش‌رونده» هر فریم هر دو میدان را رسم می‌کند.</string>
+    <string name="ss_core_choice_weave">بافت</string>
+    <string name="ss_core_choice_blend">ترکیب</string>
+    <string name="ss_core_choice_adaptive">تطبیقی</string>
+    <string name="ss_core_choice_progressive">پیش‌رونده</string>
 </resources>

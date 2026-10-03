@@ -2391,4 +2391,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (низкий)</string>
     <string name="ss_core_choice_deflate_default">Deflate (стандартный)</string>
     <string name="ss_core_choice_deflate_high">Deflate (высокий)</string>
+    <string name="ss_core_gpu_deinterlacingmode">Деинтерлейсинг</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">Определяет, как отображать чересстрочное видео. «Выключено» показывает по одному полю за кадр (мерцание), «Сплетение» показывает все строки (гребёнка при движении), «Смешивание» смешивает два поля, «Адаптивный» уменьшает артефакты движения, «Прогрессивный» рисует оба поля каждый кадр.</string>
+    <string name="ss_core_choice_weave">Сплетение</string>
+    <string name="ss_core_choice_blend">Смешивание</string>
+    <string name="ss_core_choice_adaptive">Адаптивный</string>
+    <string name="ss_core_choice_progressive">Прогрессивный</string>
 </resources>

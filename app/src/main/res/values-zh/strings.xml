@@ -2388,4 +2388,10 @@
     <string name="ss_core_choice_deflate_low">Deflate（低）</string>
     <string name="ss_core_choice_deflate_default">Deflate（默认）</string>
     <string name="ss_core_choice_deflate_high">Deflate（高）</string>
+    <string name="ss_core_gpu_deinterlacingmode">反交错</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">选择隔行视频的显示方式。「禁用」每次显示一场（闪烁），「编织」保留所有行（运动时锯齿），「混合」混合两场，「自适应」减少运动伪影，「逐行」每帧绘制两场。</string>
+    <string name="ss_core_choice_weave">编织</string>
+    <string name="ss_core_choice_blend">混合</string>
+    <string name="ss_core_choice_adaptive">自适应</string>
+    <string name="ss_core_choice_progressive">逐行</string>
 </resources>

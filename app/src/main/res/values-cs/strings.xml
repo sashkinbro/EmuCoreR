@@ -2408,4 +2408,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (nízká)</string>
     <string name="ss_core_choice_deflate_default">Deflate (výchozí)</string>
     <string name="ss_core_choice_deflate_high">Deflate (vysoká)</string>
+    <string name="ss_core_gpu_deinterlacingmode">Deinterlacing</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">Určuje, jak se zobrazuje prokládané video. „Vypnuto” zobrazuje jedno pole na snímek (blikání), „Weave” zachová všechny řádky (hřebenový efekt při pohybu), „Blend” smíchá obě pole, „Adaptivní” omezuje artefakty pohybu a „Progresivní” vykreslí obě pole v každém snímku.</string>
+    <string name="ss_core_choice_weave">Weave</string>
+    <string name="ss_core_choice_blend">Blend</string>
+    <string name="ss_core_choice_adaptive">Adaptivní</string>
+    <string name="ss_core_choice_progressive">Progresivní</string>
 </resources>

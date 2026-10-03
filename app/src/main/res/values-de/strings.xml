@@ -2389,4 +2389,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (niedrig)</string>
     <string name="ss_core_choice_deflate_default">Deflate (Standard)</string>
     <string name="ss_core_choice_deflate_high">Deflate (hoch)</string>
+    <string name="ss_core_gpu_deinterlacingmode">Deinterlacing</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">Legt fest, wie interlaced Video dargestellt wird. „Deaktiviert“ zeigt ein Halbbild pro Frame (Flimmern), „Weave“ behält alle Zeilen (Kammartefakte bei Bewegung), „Blend“ mischt beide Halbbilder, „Adaptiv“ reduziert Bewegungsartefakte, „Progressiv“ zeichnet beide Halbbilder in jedem Frame.</string>
+    <string name="ss_core_choice_weave">Weave</string>
+    <string name="ss_core_choice_blend">Blend</string>
+    <string name="ss_core_choice_adaptive">Adaptiv</string>
+    <string name="ss_core_choice_progressive">Progressiv</string>
 </resources>

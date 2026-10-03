@@ -112,7 +112,18 @@ void Settings::Load(LibretroSettingsInterface& si)
     ParseShaderPrecompileMode(
       si.GetStringValue("GPU", "ShaderPrecompile", GetShaderPrecompileModeName(GPUShaderPrecompileMode::Lazy)).c_str())
       .value_or(GPUShaderPrecompileMode::Lazy);
-  gpu_disable_interlacing = si.GetBoolValue("GPU", "DisableInterlacing", true);
+  const std::string deinterlacing_mode = si.GetStringValue("GPU", "DeinterlacingMode", "");
+  if (!deinterlacing_mode.empty())
+  {
+    display_deinterlacing_mode = ParseDisplayDeinterlacingMode(deinterlacing_mode.c_str())
+                                   .value_or(DEFAULT_DISPLAY_DEINTERLACING_MODE);
+  }
+  else
+  {
+    display_deinterlacing_mode = si.GetBoolValue("GPU", "DisableInterlacing", true) ?
+                                   DisplayDeinterlacingMode::Progressive :
+                                   DisplayDeinterlacingMode::Disabled;
+  }
   gpu_force_ntsc_timings = si.GetBoolValue("GPU", "ForceNTSCTimings", false);
   gpu_widescreen_hack = si.GetBoolValue("GPU", "WidescreenHack", false);
   gpu_24bit_chroma_smoothing = si.GetBoolValue("GPU", "ChromaSmoothing24Bit", false);
@@ -433,6 +444,28 @@ std::optional<DisplayAspectRatio> Settings::ParseDisplayAspectRatio(const char* 
 const char* Settings::GetDisplayAspectRatioName(DisplayAspectRatio ar)
 {
   return s_display_aspect_ratio_names[static_cast<int>(ar)];
+}
+
+static std::array<const char*, static_cast<size_t>(DisplayDeinterlacingMode::Count)>
+  s_display_deinterlacing_mode_names = {{"Disabled", "Weave", "Blend", "Adaptive", "Progressive"}};
+
+std::optional<DisplayDeinterlacingMode> Settings::ParseDisplayDeinterlacingMode(const char* str)
+{
+  size_t index = 0;
+  for (const char* name : s_display_deinterlacing_mode_names)
+  {
+    if (StringUtil::Strcasecmp(name, str) == 0)
+      return static_cast<DisplayDeinterlacingMode>(index);
+
+    index++;
+  }
+
+  return std::nullopt;
+}
+
+const char* Settings::GetDisplayDeinterlacingModeName(DisplayDeinterlacingMode mode)
+{
+  return s_display_deinterlacing_mode_names[static_cast<size_t>(mode)];
 }
 
 float Settings::GetDisplayAspectRatioValue() const

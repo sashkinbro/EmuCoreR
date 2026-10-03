@@ -24,7 +24,7 @@ GPU::~GPU() = default;
 bool GPU::Initialize(HostDisplay* host_display)
 {
   m_host_display = host_display;
-  m_force_progressive_scan = g_settings.gpu_disable_interlacing;
+  m_force_progressive_scan = (g_settings.display_deinterlacing_mode == DisplayDeinterlacingMode::Progressive);
   m_force_ntsc_timings = g_settings.gpu_force_ntsc_timings;
   m_crtc_tick_event = TimingEvents::CreateTimingEvent(
     "GPU CRTC Tick", 1, 1,
@@ -43,7 +43,7 @@ bool GPU::Initialize(HostDisplay* host_display)
 
 void GPU::UpdateSettings()
 {
-  m_force_progressive_scan = g_settings.gpu_disable_interlacing;
+  m_force_progressive_scan = (g_settings.display_deinterlacing_mode == DisplayDeinterlacingMode::Progressive);
   m_fifo_size = g_settings.gpu_fifo_size;
   m_max_run_ahead = g_settings.gpu_max_run_ahead;
 

@@ -2401,4 +2401,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (Rendah)</string>
     <string name="ss_core_choice_deflate_default">Deflate (Default)</string>
     <string name="ss_core_choice_deflate_high">Deflate (Tinggi)</string>
+    <string name="ss_core_gpu_deinterlacingmode">Deinterlacing</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">Memilih cara menampilkan video berjalin. «Nonaktif» menampilkan satu field per bingkai (berkedip), «Weave» mempertahankan semua baris (bergerigi saat bergerak), «Blend» mencampur kedua field, «Adaptif» mengurangi artefak gerakan, dan «Progresif» menggambar kedua field setiap bingkai.</string>
+    <string name="ss_core_choice_weave">Weave</string>
+    <string name="ss_core_choice_blend">Blend</string>
+    <string name="ss_core_choice_adaptive">Adaptif</string>
+    <string name="ss_core_choice_progressive">Progresif</string>
 </resources>

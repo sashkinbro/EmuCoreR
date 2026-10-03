@@ -2389,4 +2389,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (faible)</string>
     <string name="ss_core_choice_deflate_default">Deflate (par défaut)</string>
     <string name="ss_core_choice_deflate_high">Deflate (élevé)</string>
+    <string name="ss_core_gpu_deinterlacingmode">Désentrelacement</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">Détermine l\'affichage de la vidéo entrelacée. « Désactivé » affiche un champ par image (scintillement), « Weave » conserve toutes les lignes (peignage en mouvement), « Blend » mélange les deux champs, « Adaptatif » réduit les artefacts de mouvement, « Progressif » affiche les deux champs à chaque image.</string>
+    <string name="ss_core_choice_weave">Weave</string>
+    <string name="ss_core_choice_blend">Blend</string>
+    <string name="ss_core_choice_adaptive">Adaptatif</string>
+    <string name="ss_core_choice_progressive">Progressif</string>
 </resources>

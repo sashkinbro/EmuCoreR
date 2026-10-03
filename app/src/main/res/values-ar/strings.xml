@@ -2395,4 +2395,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (منخفض)</string>
     <string name="ss_core_choice_deflate_default">Deflate (افتراضي)</string>
     <string name="ss_core_choice_deflate_high">Deflate (مرتفع)</string>
+    <string name="ss_core_gpu_deinterlacingmode">إزالة التشابك</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">يحدد كيفية عرض الفيديو المتشابك. «معطّل» يعرض حقلاً واحدًا في كل إطار (وميض)، و«النسج» يحتفظ بكل الأسطر (تشابك عند الحركة)، و«الدمج» يمزج الحقلين، و«التكيفي» يقلل تشوهات الحركة، و«التدريجي» يرسم الحقلين في كل إطار.</string>
+    <string name="ss_core_choice_weave">النسج</string>
+    <string name="ss_core_choice_blend">الدمج</string>
+    <string name="ss_core_choice_adaptive">تكيفي</string>
+    <string name="ss_core_choice_progressive">تدريجي</string>
 </resources>

@@ -2410,4 +2410,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (Low)</string>
     <string name="ss_core_choice_deflate_default">Deflate (Default)</string>
     <string name="ss_core_choice_deflate_high">Deflate (High)</string>
+    <string name="ss_core_gpu_deinterlacingmode">Deinterlacing</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">Selects how interlaced video is displayed. \'Disabled\' shows one field at a time (flickering), \'Weave\' keeps all lines (combing during motion), \'Blend\' blends the two fields, \'Adaptive\' reduces motion artifacts, and \'Progressive\' renders both fields every frame.</string>
+    <string name="ss_core_choice_weave">Weave</string>
+    <string name="ss_core_choice_blend">Blend</string>
+    <string name="ss_core_choice_adaptive">Adaptive</string>
+    <string name="ss_core_choice_progressive">Progressive</string>
 </resources>

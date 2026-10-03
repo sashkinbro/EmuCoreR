@@ -142,6 +142,16 @@ enum class DisplayAspectRatio : uint8_t
   Count
 };
 
+enum class DisplayDeinterlacingMode : uint8_t
+{
+  Disabled,
+  Weave,
+  Blend,
+  Adaptive,
+  Progressive,
+  Count
+};
+
 enum class ControllerType
 {
   None,

@@ -44,7 +44,7 @@ struct Settings
   GPUTextureFilter gpu_texture_filter = GPUTextureFilter::Nearest;
   GPUDownsampleMode gpu_downsample_mode = GPUDownsampleMode::Disabled;
   GPUShaderPrecompileMode gpu_shader_precompile_mode = GPUShaderPrecompileMode::Lazy;
-  bool gpu_disable_interlacing = true;
+  DisplayDeinterlacingMode display_deinterlacing_mode = DEFAULT_DISPLAY_DEINTERLACING_MODE;
   bool gpu_force_ntsc_timings = false;
   bool gpu_widescreen_hack = false;
   bool gpu_pgxp_enable = false;
@@ -183,6 +183,9 @@ struct Settings
   static std::optional<DisplayAspectRatio> ParseDisplayAspectRatio(const char* str);
   static const char* GetDisplayAspectRatioName(DisplayAspectRatio ar);
 
+  static std::optional<DisplayDeinterlacingMode> ParseDisplayDeinterlacingMode(const char* str);
+  static const char* GetDisplayDeinterlacingModeName(DisplayDeinterlacingMode mode);
+
   static std::optional<MemoryCardType> ParseMemoryCardTypeName(const char* str);
   static const char* GetMemoryCardTypeName(MemoryCardType type);
 
@@ -217,6 +220,8 @@ struct Settings
 
   static constexpr DisplayCropMode DEFAULT_DISPLAY_CROP_MODE = DisplayCropMode::Overscan;
   static constexpr DisplayAspectRatio DEFAULT_DISPLAY_ASPECT_RATIO = DisplayAspectRatio::Auto;
+  static constexpr DisplayDeinterlacingMode DEFAULT_DISPLAY_DEINTERLACING_MODE =
+    DisplayDeinterlacingMode::Progressive;
   static constexpr SaveStateCompressionMode DEFAULT_SAVE_STATE_COMPRESSION_MODE =
     SaveStateCompressionMode::DeflateDefault;
 

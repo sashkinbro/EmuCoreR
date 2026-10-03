@@ -46,6 +46,7 @@ layout(push_constant) uniform PushConstants {
   uvec2 u_vram_offset;
   uint  u_crop_left;
   uint  u_field_offset;
+  uint  u_deinterlacing_mode;
 };
 
 layout(set = 0, binding = 1) uniform sampler2DMS samp0;
@@ -133,31 +134,72 @@ vec3 SampleVRAM24Smoothed(uvec2 icoords)
   return YUVToRGB(vec3(y, uv));
 }
 
-void main()
+vec3 SampleDisplayColor(uvec2 coords)
 {
-  uvec2 VRAM_SIZE = uvec2(1024u, 512u) * RESOLUTION_SCALE;
-  uvec2 icoords   = uvec2(gl_FragCoord.xy) + uvec2(u_crop_left, 0u);
-
-  if (INTERLACED)
-  {
-    if ((icoords.y & 1u) != u_field_offset)
-      discard;
-
-    if (INTERLEAVED)
-      icoords.y &= ~1u;
-    else
-      icoords.y /= 2u;
-  }
-
   if (DEPTH_24BIT)
   {
     if (SMOOTH_CHROMA)
-      o_col0 = vec4(SampleVRAM24Smoothed(icoords), 1.0);
+      return SampleVRAM24Smoothed(coords);
     else
-      o_col0 = vec4(SampleVRAM24(icoords), 1.0);
+      return SampleVRAM24(coords);
   }
   else
   {
-    o_col0 = vec4(LoadVRAM(ivec2((icoords + u_vram_offset) % VRAM_SIZE)).rgb, 1.0);
+    uvec2 VRAM_SIZE = uvec2(1024u, 512u) * RESOLUTION_SCALE;
+    return LoadVRAM(ivec2((coords + u_vram_offset) % VRAM_SIZE)).rgb;
   }
+}
+
+void main()
+{
+  uvec2 icoords = uvec2(gl_FragCoord.xy) + uvec2(u_crop_left, 0u);
+
+  if (INTERLACED)
+  {
+    if (INTERLEAVED)
+    {
+      if (u_deinterlacing_mode != 0u)
+      {
+        if (u_deinterlacing_mode == 1u)
+        {
+          o_col0 = vec4(SampleDisplayColor(icoords), 1.0);
+        }
+        else
+        {
+          uvec2 coords_a = uvec2(icoords.x, icoords.y & ~1u);
+          uvec2 coords_b = uvec2(coords_a.x, coords_a.y | 1u);
+          vec3 col_a = SampleDisplayColor(coords_a);
+          vec3 col_b = SampleDisplayColor(coords_b);
+          if (u_deinterlacing_mode == 2u)
+          {
+            o_col0 = vec4((col_a + col_b) * 0.5, 1.0);
+          }
+          else
+          {
+            vec3 current_col = ((icoords.y & 1u) == u_field_offset) ? col_a : col_b;
+            vec3 diff3 = abs(col_a - col_b);
+            float diff = max(diff3.r, max(diff3.g, diff3.b));
+            float blend_amount = smoothstep(0.02, 0.12, diff);
+            o_col0 = vec4(mix((col_a + col_b) * 0.5, current_col, blend_amount), 1.0);
+          }
+        }
+
+        return;
+      }
+
+      if ((icoords.y & 1u) != u_field_offset)
+        discard;
+
+      icoords.y &= ~1u;
+    }
+    else
+    {
+      if ((icoords.y & 1u) != u_field_offset)
+        discard;
+
+      icoords.y /= 2u;
+    }
+  }
+
+  o_col0 = vec4(SampleDisplayColor(icoords), 1.0);
 }

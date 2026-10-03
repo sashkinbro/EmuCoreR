@@ -2408,4 +2408,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (niski)</string>
     <string name="ss_core_choice_deflate_default">Deflate (domyślny)</string>
     <string name="ss_core_choice_deflate_high">Deflate (wysoki)</string>
+    <string name="ss_core_gpu_deinterlacingmode">Deinterlacing</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">Określa sposób wyświetlania obrazu z przeplotem. „Wyłączone” pokazuje jedno pole na klatkę (migotanie), „Przeplot” zachowuje wszystkie linie (grzebień podczas ruchu), „Mieszanie” łączy oba pola, „Adaptacyjne” ogranicza artefakty ruchu, a „Progresywne” rysuje oba pola w każdej klatce.</string>
+    <string name="ss_core_choice_weave">Przeplot</string>
+    <string name="ss_core_choice_blend">Mieszanie</string>
+    <string name="ss_core_choice_adaptive">Adaptacyjne</string>
+    <string name="ss_core_choice_progressive">Progresywne</string>
 </resources>

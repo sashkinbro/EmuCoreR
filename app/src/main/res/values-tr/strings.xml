@@ -2387,4 +2387,10 @@
     <string name="ss_core_choice_deflate_low">Deflate (Düşük)</string>
     <string name="ss_core_choice_deflate_default">Deflate (Varsayılan)</string>
     <string name="ss_core_choice_deflate_high">Deflate (Yüksek)</string>
+    <string name="ss_core_gpu_deinterlacingmode">Deinterlacing</string>
+    <string name="ss_core_gpu_deinterlacingmode_desc">Geçmeli videonun nasıl görüntüleneceğini seçer. "Kapalı" her karede tek alan gösterir (titreme), "Weave" tüm satırları korur (harekette taraklanma), "Blend" iki alanı harmanlar, "Uyarlanabilir" hareket artefaktlarını azaltır ve "Aşamalı" her karede iki alanı da çizer.</string>
+    <string name="ss_core_choice_weave">Weave</string>
+    <string name="ss_core_choice_blend">Blend</string>
+    <string name="ss_core_choice_adaptive">Uyarlanabilir</string>
+    <string name="ss_core_choice_progressive">Aşamalı</string>
 </resources>
