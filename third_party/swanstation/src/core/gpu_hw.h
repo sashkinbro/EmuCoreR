@@ -622,6 +622,8 @@ protected:
   // True when the backend draws textured primitives from decoded page
   // textures, which requires batches to stay within a single page/palette.
   virtual bool IsTexturePageCacheEnabled() const { return false; }
+  virtual bool IsTexturePageCacheTrackingEnabled() const { return false; }
+  virtual void DoTexturePageCacheState(StateWrapper& sw) {}
 
   // Rect-based texture cache notifications. Called by GPU_HW when VRAM is
   // modified by CPU writes or GPU draws. The backend overrides these to

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "gpu_hw_texture_cache.h"
+#include "common/state_wrapper.h"
 
 #include <algorithm>
 #include <cstring>
@@ -29,6 +30,7 @@ GPUTexturePageCache::GPUTexturePageCache() : m_use_counter(0), m_allocated_count
     entry.last_used_frame = 0;
     entry.last_use = 0;
     entry.valid = false;
+    entry.hash_valid = false;
     entry.decoded = false;
     entry.allocated = false;
     entry.page_membership = 0;
@@ -381,14 +383,17 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
 
       // The entry was invalidated by a write/draw that may not have changed
       // its actual content. Content-hash revalidation avoids a re-decode.
-      const HashCacheKey hash_key{HashPage(key, vram_ptr), HashPalette(key, vram_ptr), key.mode};
-      if (entry.decoded && hash_key == entry.hash_key)
+      if (!entry.hash_valid)
+      {
+        entry.pending_hash_key = HashCacheKey{HashPage(key, vram_ptr), HashPalette(key, vram_ptr), key.mode};
+        entry.hash_valid = true;
+      }
+      if (entry.decoded && entry.pending_hash_key == entry.hash_key)
       {
         entry.valid = true;
         return LookupResult{i, true, false, false};
       }
 
-      entry.hash_key = hash_key;
       return LookupResult{i, false, false, true};
     }
 
@@ -419,7 +424,8 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
     m_allocated_count++;
 
   entry.key = key;
-  entry.hash_key = HashCacheKey{HashPage(key, vram_ptr), HashPalette(key, vram_ptr), key.mode};
+  entry.pending_hash_key = HashCacheKey{HashPage(key, vram_ptr), HashPalette(key, vram_ptr), key.mode};
+  entry.hash_valid = true;
   entry.texture_rect = GetPageSourceRect(key);
   entry.palette_rect = GetPagePaletteRect(key);
   entry.last_use = m_use_counter;
@@ -435,8 +441,9 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
 
 void GPUTexturePageCache::MarkDecoded(uint32_t slot)
 {
-  if (slot >= MAX_ENTRIES)
+  if (slot >= MAX_ENTRIES || !m_entries[slot].allocated || !m_entries[slot].hash_valid)
     return;
+  m_entries[slot].hash_key = m_entries[slot].pending_hash_key;
   m_entries[slot].valid = true;
   m_entries[slot].decoded = true;
 }
@@ -446,6 +453,7 @@ void GPUTexturePageCache::InvalidateAll()
   for (uint32_t i = 0; i < MAX_ENTRIES; i++)
   {
     m_entries[i].valid = false;
+    m_entries[i].hash_valid = false;
     m_entries[i].decoded = false;
     if (m_entries[i].allocated)
     {
@@ -455,11 +463,37 @@ void GPUTexturePageCache::InvalidateAll()
   }
   m_allocated_count = 0;
 
+  InvalidateContents(true);
+}
+
+void GPUTexturePageCache::InvalidateContents(bool clear_draw_rects)
+{
+  for (Entry& entry : m_entries)
+  {
+    entry.valid = false;
+    entry.hash_valid = false;
+  }
+  if (!clear_draw_rects)
+    return;
   for (DrawTracker& dt : m_draw_trackers)
   {
     dt.count = 0;
     dt.saturated = false;
     dt.total = {};
+  }
+}
+
+void GPUTexturePageCache::DoState(StateWrapper& sw)
+{
+  if (sw.IsReading())
+    InvalidateContents(true);
+  for (DrawTracker& dt : m_draw_trackers)
+  {
+    sw.Do(&dt.count);
+    sw.Do(&dt.saturated);
+    sw.DoBytes(&dt.total, sizeof(dt.total));
+    dt.count = std::min<uint8_t>(dt.count, MAX_DRAW_RECTS_PER_PAGE);
+    sw.DoBytes(dt.rects, dt.count * sizeof(Rect));
   }
 }
 
@@ -483,14 +517,15 @@ uint32_t GPUTexturePageCache::InvalidateEntriesInRect(uint16_t left, uint16_t to
         bits &= ~(UINT64_C(1) << bit_idx);
         const uint32_t slot = w * 64u + bit_idx;
         Entry& entry = m_entries[slot];
-        if (!entry.allocated || !entry.valid)
+        if (!entry.allocated || (!entry.valid && !entry.hash_valid))
           continue;
 
         if (entry.texture_rect.Intersects(left, top, right, bottom) ||
             (entry.palette_rect.Valid() && entry.palette_rect.Intersects(left, top, right, bottom)))
         {
+          invalidated += entry.valid;
           entry.valid = false;
-          invalidated++;
+          entry.hash_valid = false;
         }
       }
     }

@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <cstring>
 
+class StateWrapper;
+
 // CPU-side texture page cache with content-hash validation, rectangle-based
 // invalidation, and GPU draw-rect tracking.
 //
@@ -145,6 +147,8 @@ public:
 
   // Invalidates all entries (VRAM reset, context reset, resolution change).
   void InvalidateAll();
+  void InvalidateContents(bool clear_draw_rects = false);
+  void DoState(StateWrapper& sw);
 
   // ---- Rectangle-based invalidation ----
 
@@ -222,11 +226,13 @@ private:
   {
     SourceKey key;
     HashCacheKey hash_key;
+    HashCacheKey pending_hash_key;
     Rect texture_rect;
     Rect palette_rect;
     uint64_t last_used_frame;
     uint64_t last_use; // monotonic use counter for LRU
     bool valid;
+    bool hash_valid;
     bool decoded; // true once a decode completed for hash_key
     bool allocated;
 

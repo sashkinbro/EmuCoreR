@@ -175,8 +175,23 @@ void GPU_HW::Reset(bool clear_vram)
 
 bool GPU_HW::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display)
 {
-  if (!GPU::DoState(sw, host_texture, update_display))
+  if (!GPU::DoState(sw, host_texture, false))
     return false;
+
+  if (host_texture && IsTexturePageCacheTrackingEnabled())
+  {
+    if (m_sw_renderer && sw.IsWriting())
+    {
+      m_sw_renderer->Sync(false);
+      std::memcpy(m_vram_shadow.data(), m_sw_renderer->GetVRAM(), VRAM_WIDTH * VRAM_HEIGHT * sizeof(uint16_t));
+    }
+    sw.DoBytes(m_vram_shadow.data(), VRAM_WIDTH * VRAM_HEIGHT * sizeof(uint16_t));
+    DoTexturePageCacheState(sw);
+    if (sw.HasError())
+      return false;
+    if (m_sw_renderer && sw.IsReading())
+      std::memcpy(m_sw_renderer->GetVRAM(), m_vram_shadow.data(), VRAM_WIDTH * VRAM_HEIGHT * sizeof(uint16_t));
+  }
 
   // invalidate the whole VRAM read texture when loading state
   if (sw.IsReading())
@@ -187,6 +202,8 @@ bool GPU_HW::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool u
     BumpVRAMPageRevisions(0, VRAM_WIDTH, 0, VRAM_HEIGHT);
     SetFullVRAMDirtyRectangle();
     ResetBatchVertexDepth();
+    if (update_display)
+      UpdateDisplay();
   }
 
   return true;
@@ -890,7 +907,7 @@ void GPU_HW::LoadVertices()
 
         m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
         MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
-        if (IsTexturePageCacheEnabled())
+        if (IsTexturePageCacheTrackingEnabled())
           OnVRAMDrawnRectangle(clip_left, clip_right, clip_top, clip_bottom);
         AddDrawTriangleTicks(native_vertex_positions[0][0], native_vertex_positions[0][1],
                              native_vertex_positions[1][0], native_vertex_positions[1][1],
@@ -924,7 +941,7 @@ void GPU_HW::LoadVertices()
 
           m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
           MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
-          if (IsTexturePageCacheEnabled())
+          if (IsTexturePageCacheTrackingEnabled())
             OnVRAMDrawnRectangle(clip_left, clip_right, clip_top, clip_bottom);
           AddDrawTriangleTicks(native_vertex_positions[2][0], native_vertex_positions[2][1],
                                native_vertex_positions[1][0], native_vertex_positions[1][1],
@@ -1044,7 +1061,7 @@ void GPU_HW::LoadVertices()
 
       m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
       MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
-      if (IsTexturePageCacheEnabled())
+      if (IsTexturePageCacheTrackingEnabled())
         OnVRAMDrawnRectangle(clip_left, clip_right, clip_top, clip_bottom);
       AddDrawRectangleTicks(clip_right - clip_left, clip_bottom - clip_top, rc.texture_enable, rc.transparency_enable);
 
@@ -1106,7 +1123,7 @@ void GPU_HW::LoadVertices()
 
             m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
             MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
-            if (IsTexturePageCacheEnabled())
+            if (IsTexturePageCacheTrackingEnabled())
               OnVRAMDrawnRectangle(clip_left, clip_right, clip_top, clip_bottom);
             AddDrawLineTicks(clip_right - clip_left, clip_bottom - clip_top, rc.shading_enable);
 
@@ -1174,7 +1191,7 @@ void GPU_HW::LoadVertices()
 
           m_vram_dirty_rect.Include(clip_left, clip_right, clip_top, clip_bottom);
           MarkVRAMShadowDirty(clip_left, clip_right, clip_top, clip_bottom);
-            if (IsTexturePageCacheEnabled())
+            if (IsTexturePageCacheTrackingEnabled())
               OnVRAMDrawnRectangle(clip_left, clip_right, clip_top, clip_bottom);
             AddDrawLineTicks(clip_right - clip_left, clip_bottom - clip_top, rc.shading_enable);
 
@@ -1401,7 +1418,11 @@ void GPU_HW::UpdateSoftwareRenderer(bool copy_vram_from_hw)
   if (!new_enabled)
   {
     if (m_sw_renderer)
+    {
+      m_sw_renderer->Sync(false);
+      std::memcpy(m_vram_shadow.data(), m_sw_renderer->GetVRAM(), VRAM_WIDTH * VRAM_HEIGHT * sizeof(uint16_t));
       m_sw_renderer->Shutdown();
+    }
     m_sw_renderer.reset();
     return;
   }
@@ -1498,19 +1519,11 @@ void GPU_HW::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, u
   IncludeVRAMDirtyRectangle(
     Common::Rectangle<uint32_t>::FromExtents(x, y, width, height).Clamped(0, 0, VRAM_WIDTH, VRAM_HEIGHT));
 
-  // Keep the CPU-side VRAM shadow current for texture replacement hashing. The
-  // shadow is otherwise only refreshed by VRAM readbacks. Only the Vulkan
-  // backend consumes it; the software renderer-for-readbacks mode owns a
-  // separate VRAM buffer and is excluded.
-  // Notify the rect-based texture cache of a CPU write. Fills have no mask,
-  // so the CPU shadow reproduces their result exactly.
-  if (IsTexturePageCacheEnabled())
-    OnVRAMWrittenRectangle(x, x + width, y, y + height, true);
-
-  // Keep the CPU-side VRAM shadow current. The texture page cache decodes
-  // from m_vram_shadow, so it must always be up to date.
-  if ((IsTexturePageCacheEnabled() || m_texture_replacements_enabled) && !m_sw_renderer)
+  if ((IsTexturePageCacheTrackingEnabled() || m_texture_replacements_enabled) && !m_sw_renderer)
     GPU::FillVRAM(x, y, width, height, color);
+
+  if (IsTexturePageCacheTrackingEnabled())
+    OnVRAMWrittenRectangle(x, x + width, y, y + height, !IsInterlacedRenderingEnabled());
 }
 
 void GPU_HW::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, const void* data, bool set_mask, bool check_mask)
@@ -1527,7 +1540,7 @@ void GPU_HW::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height,
   // against destination bits whose source is the CPU shadow, which is stale
   // wherever the GPU produced pixels, so only unmasked writes are
   // authoritative for the shadow.
-  if (IsTexturePageCacheEnabled())
+  if (IsTexturePageCacheTrackingEnabled())
     OnVRAMWrittenRectangle(x, x + width, y, y + height, !check_mask);
 
   if (check_mask)
@@ -1547,7 +1560,7 @@ void GPU_HW::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uint32_t d
   // Notify the texture cache of a CPU-initiated transfer. The destination is
   // produced by the GPU from a source that may contain GPU draws, so the CPU
   // shadow cannot reproduce it.
-  if (IsTexturePageCacheEnabled())
+  if (IsTexturePageCacheTrackingEnabled())
     OnVRAMWrittenRectangle(dst_x, dst_x + width, dst_y, dst_y + height, false);
 
   if (m_GPUSTAT.check_mask_before_draw)

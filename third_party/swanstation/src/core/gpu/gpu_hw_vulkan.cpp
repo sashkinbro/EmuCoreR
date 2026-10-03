@@ -717,8 +717,10 @@ void GPU_HW_Vulkan::Reset(bool clear_vram)
 
   EndRenderPass();
 
-  // The shadow VRAM may have been cleared or the backend resources recreated.
-  m_texture_page_cache.InvalidateAll();
+  if (clear_vram)
+    m_texture_page_cache.InvalidateAll();
+  else
+    m_texture_page_cache.InvalidateContents(true);
 
   if (clear_vram)
     ClearFramebuffer();
@@ -726,9 +728,6 @@ void GPU_HW_Vulkan::Reset(bool clear_vram)
 
 bool GPU_HW_Vulkan::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display)
 {
-  if (sw.IsReading())
-    m_texture_page_cache.InvalidateAll();
-
   if (host_texture)
   {
     EndRenderPass();
@@ -825,9 +824,6 @@ void GPU_HW_Vulkan::RestoreGraphicsAPIState()
 
 void GPU_HW_Vulkan::UpdateSettings()
 {
-  // Cache tracking only runs while IsTexturePageCacheEnabled(); when the
-  // filter or the software-renderer-for-readbacks toggle flips across that
-  // boundary, entries recorded under the previous mode can be stale.
   const bool cache_was_enabled = IsTexturePageCacheEnabled();
 
   GPU_HW::UpdateSettings();
@@ -853,7 +849,7 @@ void GPU_HW_Vulkan::UpdateSettings()
                    /*shader_source_changed=*/nullptr, &display_only_source_changed);
 
   if (cache_was_enabled != IsTexturePageCacheEnabled())
-    m_texture_page_cache.InvalidateAll();
+    m_texture_page_cache.InvalidateContents();
 
   if (framebuffer_changed)
   {
@@ -1447,15 +1443,13 @@ bool GPU_HW_Vulkan::IsTexturePageCacheEnabled() const
 
 void GPU_HW_Vulkan::OnVRAMDrawnRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom)
 {
-  if (IsTexturePageCacheEnabled())
-    m_texture_page_cache.AddDrawnRectangle(left, top, right, bottom);
+  m_texture_page_cache.AddDrawnRectangle(left, top, right, bottom);
 }
 
 void GPU_HW_Vulkan::OnVRAMWrittenRectangle(uint32_t left, uint32_t right, uint32_t top, uint32_t bottom,
                                            bool shadow_is_authoritative)
 {
-  if (IsTexturePageCacheEnabled())
-    m_texture_page_cache.AddWrittenRectangle(left, top, right, bottom, shadow_is_authoritative);
+  m_texture_page_cache.AddWrittenRectangle(left, top, right, bottom, shadow_is_authoritative);
 }
 
 void GPU_HW_Vulkan::SweepUnusedPageResources()
