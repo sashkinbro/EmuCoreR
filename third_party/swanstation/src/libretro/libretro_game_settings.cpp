@@ -889,6 +889,44 @@ std::unique_ptr<GameSettings::Entry> GetSettingsForGame(const std::string& game_
     return gs;
   }
 
+  /* PGXP compatibility data carried over from the GPL-3 era game database. */
+  if (   game_code == "SCES-02105" /* CTR - Crash Team Racing (Europe)              */
+      || game_code == "SCUS-94426" /* CTR - Crash Team Racing (USA)                 */
+      || game_code == "SCUS-94459" /* CTR - Crash Team Racing (USA) (Demo)          */
+      || game_code == "SCPS-45470" /* Crash Bandicoot Racing                       */
+      || game_code == "SCPS-10118" /* Crash Bandicoot Racing (Japan)               */
+      || game_code == "PCPX-96183" /* Crash Bandicoot Racing (Japan) (Demo)        */
+      || game_code == "SCPS-91230" /* Crash Bandicoot Racing [PS the Best]         */
+     )
+  {
+    // Preserving projection precision punches holes in the geometry.
+    gs->gpu_pgxp_projection_precision = false;
+    return gs;
+  }
+
+  if (   game_code == "SCUS-94592" /* Wild Arms 2 (USA) (Demo)                     */
+      || game_code == "SLED-01196" /* Newman Haas Racing (Europe) (Demo)           */
+      || game_code == "SLPM-86111" /* Metal Gear Solid [Premium Package]           */
+     )
+  {
+    gs->AddTrait(GameSettings::Trait::ForcePGXPCPUMode);
+    return gs;
+  }
+
+  if (   game_code == "SCES-03697" /* Syphon Filter 3 (Europe)                     */
+      || game_code == "SCES-03698" /* Syphon Filter 3 (France)                     */
+      || game_code == "SCES-03699" /* Syphon Filter 3 (Germany)                    */
+      || game_code == "SCES-03700" /* Syphon Filter 3 (Italy)                      */
+      || game_code == "SCES-03701" /* Syphon Filter 3 - Sentencia Final (Spain)    */
+      || game_code == "SCED-03780" /* Syphon Filter 3 - Sentencia Final (Demo)     */
+      || game_code == "SCUS-94640" /* Syphon Filter 3 (USA)                        */
+      || game_code == "SCUS-94661" /* Syphon Filter 3 (USA) (Demo)                 */
+     )
+  {
+    gs->AddTrait(GameSettings::Trait::ForcePGXPVertexCache);
+    return gs;
+  }
+
   /* These Namco PS1 fighters submit character submeshes in an order that lets
    * PGXP-corrected w-values fail the depth test against earlier submeshes of
    * the same model, which causes parts of character bodies to intermittently
