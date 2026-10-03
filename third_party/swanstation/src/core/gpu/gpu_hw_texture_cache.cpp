@@ -222,10 +222,10 @@ uint32_t GPUTexturePageCache::VRAM16ToRGBA8(uint16_t pixel)
   const uint32_t b5 = (pixel >> 10) & 0x1Fu;
   const uint32_t stp = (pixel >> 15) & 0x1u;
 
-  // 5-bit to 8-bit expansion matching the shader's roundEven(v * 31).
-  const uint32_t r8 = (r5 << 3) | (r5 >> 2);
-  const uint32_t g8 = (g5 << 3) | (g5 >> 2);
-  const uint32_t b8 = (b5 << 3) | (b5 >> 2);
+  // Match the RGBA8 render target conversion of the VRAM upload shader (v / 31).
+  const uint32_t r8 = (r5 * 527u + 23u) >> 6;
+  const uint32_t g8 = (g5 * 527u + 23u) >> 6;
+  const uint32_t b8 = (b5 * 527u + 23u) >> 6;
 
   // Alpha carries the STP bit exactly as the backend's VRAM texture does:
   // 0x0000 decodes to fully transparent (the shader discards all-zero
@@ -366,6 +366,36 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
   if (AreSourcePagesDrawn(key))
     return LookupResult{NO_SLOT, false, false, false};
 
+  const auto lookup_entry = [&](uint32_t slot) {
+    Entry& entry = m_entries[slot];
+    entry.last_use = m_use_counter;
+    entry.last_used_frame = frame_number;
+
+    if (entry.valid)
+      return LookupResult{slot, true, false, false};
+
+    // The entry was invalidated by a write/draw that may not have changed
+    // its actual content. Content-hash revalidation avoids a re-decode.
+    if (!entry.hash_valid)
+    {
+      entry.pending_hash_key = HashCacheKey{HashPage(key, vram_ptr), HashPalette(key, vram_ptr), key.mode};
+      entry.hash_valid = true;
+    }
+    if (entry.decoded && entry.pending_hash_key == entry.hash_key)
+    {
+      entry.valid = true;
+      return LookupResult{slot, true, false, false};
+    }
+
+    return LookupResult{slot, false, false, true};
+  };
+
+  if (m_last_lookup_slot != NO_SLOT && m_entries[m_last_lookup_slot].allocated &&
+      m_entries[m_last_lookup_slot].key == key)
+  {
+    return lookup_entry(m_last_lookup_slot);
+  }
+
   uint32_t free_slot = NO_SLOT;
   uint32_t lru_slot = NO_SLOT;
   uint64_t lru_use = std::numeric_limits<uint64_t>::max();
@@ -375,26 +405,8 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
     Entry& entry = m_entries[i];
     if (entry.allocated && entry.key == key)
     {
-      entry.last_use = m_use_counter;
-      entry.last_used_frame = frame_number;
-
-      if (entry.valid)
-        return LookupResult{i, true, false, false};
-
-      // The entry was invalidated by a write/draw that may not have changed
-      // its actual content. Content-hash revalidation avoids a re-decode.
-      if (!entry.hash_valid)
-      {
-        entry.pending_hash_key = HashCacheKey{HashPage(key, vram_ptr), HashPalette(key, vram_ptr), key.mode};
-        entry.hash_valid = true;
-      }
-      if (entry.decoded && entry.pending_hash_key == entry.hash_key)
-      {
-        entry.valid = true;
-        return LookupResult{i, true, false, false};
-      }
-
-      return LookupResult{i, false, false, true};
+      m_last_lookup_slot = i;
+      return lookup_entry(i);
     }
 
     if (!entry.allocated)
@@ -435,6 +447,7 @@ GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& k
   entry.allocated = true;
 
   RegisterEntryInPages(slot);
+  m_last_lookup_slot = slot;
 
   return LookupResult{slot, false, newly_allocated, true};
 }
@@ -450,6 +463,7 @@ void GPUTexturePageCache::MarkDecoded(uint32_t slot)
 
 void GPUTexturePageCache::InvalidateAll()
 {
+  m_last_lookup_slot = NO_SLOT;
   for (uint32_t i = 0; i < MAX_ENTRIES; i++)
   {
     m_entries[i].valid = false;
@@ -780,6 +794,8 @@ void GPUTexturePageCache::Compact(uint64_t current_frame)
       entry.valid = false;
       entry.decoded = false;
       m_allocated_count--;
+      if (m_last_lookup_slot == i)
+        m_last_lookup_slot = NO_SLOT;
     }
   }
 }

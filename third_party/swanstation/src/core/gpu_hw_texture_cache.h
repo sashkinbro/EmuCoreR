@@ -14,7 +14,7 @@ class StateWrapper;
 // invalidation, and GPU draw-rect tracking.
 //
 //   1. CPU decode: pages are decoded on the CPU from m_vram_shadow into RGBA8
-//      buffers, then uploaded via staging. No GPU decode passes, no render
+//      or packed 16-bit buffers, then uploaded via staging. No GPU decode passes, no render
 //      pass breaks.
 //
 //   2. Rectangle invalidation: AddWrittenRectangle (CPU writes) and
@@ -48,7 +48,8 @@ public:
   static constexpr uint32_t PAGE_TEXELS = 256;
 
   // Upper bound on live cache entries. Each slot owns two persistent
-  // 256x256 RGBA8 textures (512 KiB) in the backend once allocated.
+  // 256x256 textures once allocated: RGBA8 (512 KiB), or packed 16-bit
+  // on Vulkan when supported (256 KiB).
   static constexpr uint32_t MAX_ENTRIES = 256;
 
   // Returned when no slot can be handed out.
@@ -295,4 +296,5 @@ private:
   DrawTracker m_draw_trackers[NUM_VRAM_PAGES];
   uint64_t m_use_counter;
   uint32_t m_allocated_count;
+  uint32_t m_last_lookup_slot = NO_SLOT;
 };
