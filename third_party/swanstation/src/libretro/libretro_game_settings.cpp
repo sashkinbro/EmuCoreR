@@ -236,6 +236,16 @@ void Entry::ApplySettings(bool display_osd_messages) const
     g_settings.gpu_pgxp_color_correction = false;
   }
 
+  if (HasTrait(Trait::DisablePGXPOn2DPolygons))
+  {
+    if (g_settings.gpu_pgxp_enable && !g_settings.gpu_pgxp_disable_2d)
+    {
+      gamesettings_message.append("PGXP disabled on 2D polygons by game settings. ", 48);
+    }
+
+    g_settings.gpu_pgxp_disable_2d = true;
+  }
+
   if (HasTrait(Trait::ForcePGXPVertexCache))
   {
     if (g_settings.gpu_pgxp_enable && !g_settings.gpu_pgxp_vertex_cache)
@@ -955,6 +965,123 @@ std::unique_ptr<GameSettings::Entry> GetSettingsForGame(const std::string& game_
      )
   {
     gs->AddTrait(GameSettings::Trait::DisablePGXPDepthBuffer);
+    return gs;
+  }
+
+  /* PGXP overrides from the EmuCoreR test games list. */
+  if (
+    game_code == "SCES-00010" /* WipEout */
+      || game_code == "SCPS-10098" /* WipEout 3 */
+      || game_code == "SCPS-45078" /* Wipeout XL */
+      || game_code == "SCUS-94301" /* WipEout */
+      || game_code == "SCUS-94351" /* Wipeout XL */
+      || game_code == "SIPS-60003" /* WipEout */
+      || game_code == "SLPS-01160" /* Xenogears (Disc 1) */
+      || game_code == "SLUS-00664" /* Xenogears (Disc 1) */
+      || game_code == "SLUS-00865" /* WipEout 3 */ )
+  {
+    gs->AddTrait(GameSettings::Trait::DisablePGXPOn2DPolygons);
+    gs->AddTrait(GameSettings::Trait::ForcePGXPCPUMode);
+    return gs;
+  }
+
+  if (
+    game_code == "SCES-01922" /* Rollcage Stage II */
+      || game_code == "SCUS-94306" /* Twisted Metal 2 */
+      || game_code == "SLES-01041" /* Hogs of War */
+      || game_code == "SLES-01207" /* LEGO Racers */
+      || game_code == "SLES-01219" /* Azure Dreams */
+      || game_code == "SLES-01304" /* Breath of Fire III */
+      || game_code == "SLES-01319" /* Breath of Fire III */
+      || game_code == "SLES-01320" /* Breath of Fire III */
+      || game_code == "SLES-01515" /* Duke Nukem - Time to Kill */
+      || game_code == "SLES-01619" /* Duke Nukem - Time to Kill */
+      || game_code == "SLES-02452" /* Tenchu 2 - Birth of the Stealth Assassins */
+      || game_code == "SLES-02462" /* Tenchu 2 - Birth of the Stealth Assassins */
+      || game_code == "SLES-02463" /* Tenchu 2 - Birth of the Stealth Assassins */
+      || game_code == "SLES-02464" /* Tenchu 2 - Birth of the Stealth Assassins */
+      || game_code == "SLES-02465" /* Tenchu 2 - Birth of the Stealth Assassins */
+      || game_code == "SLES-02469" /* Vandal Hearts II */
+      || game_code == "SLES-02496" /* Vandal Hearts II */
+      || game_code == "SLES-02497" /* Vandal Hearts II */
+      || game_code == "SLES-02529" /* Resident Evil 3 - Nemesis */
+      || game_code == "SLES-02530" /* Resident Evil 3 - Nemesis */
+      || game_code == "SLES-02531" /* Resident Evil 3 - Nemesis */
+      || game_code == "SLES-02532" /* Resident Evil 3 - Nemesis */
+      || game_code == "SLES-02533" /* Resident Evil 3 - Nemesis */
+      || game_code == "SLES-02591" /* Roswell Conspiracies - Aliens, Myths & Legends */
+      || game_code == "SLES-02698" /* Resident Evil 3 - Nemesis */
+      || game_code == "SLES-02751" /* Nightmare Creatures II */
+      || game_code == "SLES-03405" /* Duke Nukem - Land of the Babes */
+      || game_code == "SLES-03425" /* World's Scariest Police Chases */
+      || game_code == "SLES-03440" /* Duke Nukem - Land of the Babes */
+      || game_code == "SLPM-86379" /* Valkyrie Profile (Disc 1) */
+      || game_code == "SLPS-00990" /* Breath of Fire III */
+      || game_code == "SLUS-00422" /* Breath of Fire III */
+      || game_code == "SLUS-00581" /* LEGO Racers */
+      || game_code == "SLUS-00583" /* Duke Nukem - Time to Kill */
+      || game_code == "SLUS-00614" /* Azure Dreams */
+      || game_code == "SLUS-00867" /* Rollcage Stage II */
+      || game_code == "SLUS-00923" /* Resident Evil 3 - Nemesis */
+      || game_code == "SLUS-00939" /* Tenchu 2 - Birth of the Stealth Assassins */
+      || game_code == "SLUS-00940" /* Vandal Hearts II */
+      || game_code == "SLUS-01002" /* Duke Nukem - Land of the Babes */
+      || game_code == "SLUS-01062" /* Roswell Conspiracies - Aliens, Myths & Legends */
+      || game_code == "SLUS-01112" /* Nightmare Creatures II */
+      || game_code == "SLUS-01156" /* Valkyrie Profile (Disc 1) */
+      || game_code == "SLUS-01165" /* World's Scariest Police Chases */
+      || game_code == "SLUS-01195" /* Hogs of War */
+      || game_code == "SLUS-01369" /* Looney Tunes - Sheep Raider */ )
+  {
+    gs->AddTrait(GameSettings::Trait::ForcePGXPCPUMode);
+    return gs;
+  }
+
+  if (
+    game_code == "SCPS-45486" /* Vagrant Story */
+      || game_code == "SLES-02754" /* Vagrant Story */
+      || game_code == "SLES-02755" /* Vagrant Story */
+      || game_code == "SLES-02756" /* Vagrant Story */
+      || game_code == "SLUS-01040" /* Vagrant Story */ )
+  {
+    gs->AddTrait(GameSettings::Trait::ForcePGXPCPUMode);
+    gs->gpu_pgxp_projection_precision = true;
+    gs->gpu_pgxp_tolerance = 4.0f;
+    return gs;
+  }
+
+  if (
+    game_code == "SLES-03623" /* Spider-Man 2 - Enter - Electro */
+      || game_code == "SLES-03625" /* Spider-Man 2 - Enter - Electro */
+      || game_code == "SLPM-87073" /* Spider-Man 2 - Enter - Electro */
+      || game_code == "SLUS-01161" /* Driver 2 (Disc 1) */
+      || game_code == "SLUS-01378" /* Spider-Man 2 - Enter - Electro */ )
+  {
+    gs->AddTrait(GameSettings::Trait::ForcePGXPCPUMode);
+    gs->gpu_pgxp_tolerance = 3.0f;
+    return gs;
+  }
+
+  if (
+    game_code == "SLUS-00339" /* Persona */
+      || game_code == "SLPS-00500" /* Megami Ibunroku Persona - Be Your True Mind */
+      || game_code == "SLPS-91029" /* Megami Ibunroku Persona - Be Your True Mind */
+      || game_code == "SLPM-87192" /* Megami Ibunroku Persona [PSOne Books] */ )
+  {
+    gs->gpu_pgxp_projection_precision = false;
+    return gs;
+  }
+
+  if (
+    game_code == "SCES-01050" /* Ghost in the Shell */
+      || game_code == "SCES-01074" /* Ghost in the Shell */
+      || game_code == "SCES-01075" /* Ghost in the Shell */
+      || game_code == "SCPS-45092" /* Ghost in the Shell */
+      || game_code == "SLES-03428" /* Evil Dead - Hail to the King (Disc 1) */
+      || game_code == "SLUS-00552" /* Ghost in the Shell */
+      || game_code == "SLUS-01072" /* Evil Dead - Hail to the King (Disc 1) */ )
+  {
+    gs->gpu_pgxp_projection_precision = true;
     return gs;
   }
 
