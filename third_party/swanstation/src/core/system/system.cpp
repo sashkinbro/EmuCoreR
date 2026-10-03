@@ -868,12 +868,18 @@ bool DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_di
       CPU::CodeCache::Flush();
   }
 
-  // only reset pgxp if we're not runahead-rollbacking. the value checks will save us from broken rendering, and it
-  // saves using imprecise values for a frame in 30fps games.
-  if (sw.IsReading() && g_settings.gpu_pgxp_enable && !is_memory_state)
+  // Rewind/memory states do not carry PGXP data (it would dwarf the state), so
+  // drop the cached precision and let it rebuild. Persistent save states from
+  // version 56 onwards serialize it with the rest of the system below.
+  if (sw.IsReading() && g_settings.gpu_pgxp_enable && (is_memory_state || sw.GetVersion() < 56))
     PGXP::Reset();
 
   if (!sw.DoMarker("Bus") || !Bus::DoState(sw))
+    return false;
+
+  // Bus::DoState has restored the RAM size by now, so the PGXP mirror is sized
+  // to match the state being loaded.
+  if (!is_memory_state && sw.GetVersion() >= 56 && !PGXP::DoState(sw))
     return false;
 
   if (!sw.DoMarker("DMA") || !g_dma.DoState(sw))
