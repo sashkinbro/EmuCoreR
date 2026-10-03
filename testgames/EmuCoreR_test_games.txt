@@ -1,0 +1,205 @@
+﻿# EmuCoreR test games - versions 0.0.7 - 0.0.8 - 0.0.9
+#
+# fix  - expected per-game override for this title
+# test - what to verify on RG556 / Lenovo Xiaoxin Pad Pro GT before enabling it by default
+
+[SLUS-01017] Alundra 2 - A New Legend Begins
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check polygon stability
+
+[SLUS-00875] Spider-Man
+  fix:  ForcePGXPCPUMode + gpuPGXPTolerance: 3
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode + tolerance 3; check lightning and mirrored geometry
+
+[SCUS-94244] Crash Bandicoot - Warped
+  fix:  DisablePGXPColorCorrection
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - no perspective-correct colors; check shadows
+
+[SLUS-01485] Tony Hawk's Pro Skater 4
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the board and skater up close
+
+[SCUS-94306] Twisted Metal 2
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check vehicle sprites
+
+[SLUS-01158] Persona 2 - Eternal Punishment
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check battle scenes
+
+[SLUS-00656] Rat Attack!
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the floor texture
+
+[SLUS-00581] LEGO Racers
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the track for gaps
+
+[SLUS-01415] Harry Potter and the Sorcerer's Stone
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check characters and walls
+
+[SLUS-01419] Tony Hawk's Pro Skater 3
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the board and skater up close
+
+[SLUS-01369] Looney Tunes - Sheep Raider
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check seams and near-camera surfaces
+
+[SCUS-94426] CTR - Crash Team Racing
+  fix:  gpuPGXPPreserveProjFP: false
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - disable projection precision; check walls and floors for gaps
+
+[SLUS-01040] Vagrant Story
+  fix:  ForcePGXPCPUMode + gpuPGXPPreserveProjFP: true + gpuPGXPTolerance: 4
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode + projection precision + tolerance 4; check the targeting line
+
+[SLUS-00923] Resident Evil 3 - Nemesis
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check character models while walking
+
+[SLUS-01378] Spider-Man 2 - Enter - Electro
+  fix:  ForcePGXPCPUMode + gpuPGXPTolerance: 3
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode + tolerance 3; check lightning and mirrored geometry
+
+[SLUS-00940] Vandal Hearts II
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check sprites
+
+[SLUS-01112] Nightmare Creatures II
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check texture stability
+
+[SLUS-00634] Croc 2
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the whole scene
+
+[SCUS-94640] Syphon Filter 3
+  fix:  ForcePGXPVertexCache
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - force vertex cache; check that vertices resolve with the cache enabled
+
+[SLUS-01165] World's Scariest Police Chases
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the scene for gaps
+
+[SCUS-94351] Wipeout XL
+  fix:  ForcePGXPCPUMode + DisablePGXPOn2DPolygons
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode + ignore 2D; check ships and HUD text
+
+[SLUS-00818] Street Sk8er
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check sprites
+
+[SLUS-01072] Evil Dead - Hail to the King (Disc 1)
+  fix:  gpuPGXPPreserveProjFP: true
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - enable projection precision; check character models
+
+[SCUS-94228] Spyro the Dragon
+  fix:  ForcePGXPCPUMode + DisablePGXPCulling
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode + no culling; check portal areas
+
+[SLUS-00867] Rollcage Stage II
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the track for gaps
+
+[SLUS-01156] Valkyrie Profile (Disc 1)
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check screen transitions and battles
+
+[SCUS-94467] Spyro - Year of the Dragon
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check geometry the game rewrites
+
+[SLUS-00865] WipEout 3
+  fix:  ForcePGXPCPUMode + DisablePGXPOn2DPolygons
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode + ignore 2D; check ships and HUD text
+
+[SCUS-94301] WipEout
+  fix:  ForcePGXPCPUMode + DisablePGXPOn2DPolygons
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode + ignore 2D; check ships and HUD text
+
+[SLUS-01503] Harry Potter and the Chamber of Secrets
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check characters and walls
+
+[SLUS-01134] Formula One 2000
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check skybox and sprites
+
+[SLUS-00939] Tenchu 2 - Birth of the Stealth Assassins
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check geometry the game rewrites
+
+[SLUS-01195] Hogs of War
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the minimap
+
+[SCUS-94457] Grandia (Disc 1)
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check field and battle scenes
+
+[SLUS-00552] Ghost in the Shell
+  fix:  gpuPGXPPreserveProjFP: true
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - enable projection precision; check floor tiles
+
+[SLUS-00339] Persona
+  fix:  gpuPGXPPreserveProjFP: false
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - disable projection precision; check walls and floors for gaps
+
+[SLUS-00860] Tony Hawk's Pro Skater
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the board and skater up close
+
+[SLUS-00614] Azure Dreams
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check sprites while the camera moves
+
+[SLUS-00594] Metal Gear Solid (Disc 1)
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check that geometry stops wobbling with PGXP on
+
+[SLUS-00402] Tekken 3
+  fix:  ForcePGXPCPUMode + gpuPGXPTolerance: 3
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode + tolerance 3; check for spikes when characters exit the view
+
+[SLUS-01002] Duke Nukem - Land of the Babes
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check wall textures
+
+[SLUS-01066] Tony Hawk's Pro Skater 2
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the board and skater up close
+
+[SLUS-01062] Roswell Conspiracies - Aliens, Myths & Legends
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check for gaps and wobble
+
+[SCUS-94425] Spyro 2 - Ripto's Rage!
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check geometry the game rewrites
+
+[SLUS-01161] Driver 2 (Disc 1)
+  fix:  ForcePGXPCPUMode + gpuPGXPTolerance: 3
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode + tolerance 3; check pedestrians and car shadows
+
+[SLUS-00583] Duke Nukem - Time to Kill
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check wall textures
+
+[SLUS-00664] Xenogears (Disc 1)
+  fix:  DisablePGXPOn2DPolygons + ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode + ignore 2D; check battle shadows, radar and menu text
+
+[SLUS-00870] Formula One 99
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check skybox
+
+[SLUS-00530] Croc - Legend of the Gobbos
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check the whole scene
+
+[SLUS-00422] Breath of Fire III
+  fix:  ForcePGXPCPUMode
+  test: RG556 / Lenovo Xiaoxin Pad Pro GT - needs CPU mode; check sprites while the camera pans
+
