@@ -799,12 +799,10 @@ fun VectorAnalogStick(
         }
     }
     val isActivelyPressed = pressed || activePointerId != null
-    val pressScale = animatedPressScale(
-        pressed = isActivelyPressed,
-        effect = pressEffect,
-        growScale = 1.12f,
-        label = "vector_analog_stick_scale"
-    )
+    // Analog sticks keep a fixed footprint while in use: the thumb travels under
+    // the finger, so scaling the whole stick makes the control look like it is
+    // jumping and shifts its visual center while dragging.
+    val pressScale = 1f
     val glowProgress by animateFloatAsState(
         targetValue = if (isActivelyPressed && pressEffect == TouchControlPressEffect.GLOW) 1f else 0f,
         animationSpec = tween(durationMillis = 110),
