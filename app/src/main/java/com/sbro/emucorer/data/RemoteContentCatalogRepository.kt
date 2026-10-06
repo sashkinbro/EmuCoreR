@@ -1,6 +1,7 @@
 package com.sbro.emucorer.data
 
 import android.content.Context
+import android.util.Log
 import com.sbro.emucorer.core.CatalogAccess
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -13,6 +14,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 data class RemoteTexturePart(
     val downloadUrl: String,
@@ -108,37 +110,63 @@ class RemoteContentCatalogRepository(context: Context) {
         parser: (String) -> List<T>,
         forceRefresh: Boolean
     ): RemoteCatalogResult<T> {
-        if (!forceRefresh && cacheFile.isFile) {
+        val cachedEntries = if (cacheFile.isFile) {
+            runCatching { parser(cacheFile.readText()) }
+                .getOrNull()
+                ?.takeIf { it.isNotEmpty() }
+        } else {
+            null
+        }
+        if (!forceRefresh && cachedEntries != null) {
             val cacheAge = (System.currentTimeMillis() - cacheFile.lastModified()).coerceAtLeast(0L)
             if (cacheAge <= CATALOG_CACHE_TTL_MS) {
-                runCatching { parser(cacheFile.readText()) }
-                    .getOrNull()
-                    ?.takeIf { it.isNotEmpty() }
-                    ?.let { entries ->
-                        // A fresh cache is the normal fast path, not an offline fallback warning.
-                        return RemoteCatalogResult(entries, fromCache = false, cacheHit = true)
-                    }
+                // A fresh cache is the normal fast path, not an offline fallback warning.
+                // The screen only schedules a background refresh when the network was
+                // not consulted recently, so an app-start prefetch is not repeated by
+                // the first screen that opens right after.
+                val lastFetch = lastNetworkFetchAt[cacheFile.name] ?: 0L
+                val cacheHit = System.currentTimeMillis() - lastFetch > CATALOG_REFRESH_COOLDOWN_MS
+                return RemoteCatalogResult(cachedEntries, fromCache = false, cacheHit = cacheHit)
             }
         }
         var lastError: Throwable? = null
         urls.forEach { url ->
+            val result = runCatching { fetchCatalog(url, cacheFile, parser) }
+            result.getOrNull()?.let { entries ->
+                lastNetworkFetchAt[cacheFile.name] = System.currentTimeMillis()
+                return RemoteCatalogResult(entries, fromCache = false)
+            }
+            lastError = result.exceptionOrNull()
+            Log.w(TAG, "Catalog fetch failed for $url", lastError)
+        }
+        if (cachedEntries != null) {
+            return RemoteCatalogResult(cachedEntries, fromCache = true, error = lastError, cacheHit = true)
+        }
+        return RemoteCatalogResult(emptyList(), fromCache = false, error = lastError)
+    }
+
+    private fun <T> fetchCatalog(url: String, cacheFile: File, parser: (String) -> List<T>): List<T> {
+        var lastError: Throwable? = null
+        for (attempt in 1..CATALOG_FETCH_ATTEMPTS) {
             val result = runCatching {
                 val raw = fetchBytes(url, MAX_CATALOG_BYTES).toString(Charsets.UTF_8)
                 val parsed = parser(raw)
                 require(parsed.isNotEmpty()) { "Remote catalog is empty" }
-                writeAtomically(cacheFile, raw)
+                // A failed cache write must not fail the load: the entries are
+                // already in memory and the next load simply tries again.
+                runCatching { writeAtomically(cacheFile, raw) }
                 parsed
             }
-            result.getOrNull()?.let { return RemoteCatalogResult(it, fromCache = false) }
+            result.getOrNull()?.let { return it }
             lastError = result.exceptionOrNull()
+            val error = lastError
+            if (error != null && error.isPermanentHttpFailure()) break
+            if (attempt < CATALOG_FETCH_ATTEMPTS) {
+                Log.w(TAG, "Catalog attempt $attempt/$CATALOG_FETCH_ATTEMPTS failed for $url", error)
+                Thread.sleep(CATALOG_FETCH_RETRY_DELAY_MS * attempt)
+            }
         }
-        if (cacheFile.exists()) {
-            runCatching { parser(cacheFile.readText()) }
-                .getOrNull()
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { return RemoteCatalogResult(it, fromCache = true, error = lastError, cacheHit = true) }
-        }
-        return RemoteCatalogResult(emptyList(), fromCache = false, error = lastError)
+        throw lastError ?: IOException("Catalog fetch failed")
     }
 
     private fun parseTextureCatalog(raw: String): List<RemoteTexturePack> {
@@ -240,8 +268,8 @@ class RemoteContentCatalogRepository(context: Context) {
 
     private fun openConnection(url: String): HttpURLConnection {
         val connection = URL(url).openConnection() as HttpURLConnection
-        connection.connectTimeout = 15_000
-        connection.readTimeout = 45_000
+        connection.connectTimeout = 10_000
+        connection.readTimeout = 20_000
         connection.instanceFollowRedirects = true
         connection.setRequestProperty("Accept", "application/json, application/octet-stream, text/plain, */*")
         connection.setRequestProperty("User-Agent", "EmuCoreR-Android")
@@ -256,21 +284,35 @@ class RemoteContentCatalogRepository(context: Context) {
     }
 
     private fun writeAtomically(target: File, contents: String) {
-        target.parentFile?.mkdirs()
-        val temp = File(target.parentFile, "${target.name}.tmp")
-        temp.writeText(contents)
-        if (!temp.renameTo(target)) {
-            temp.copyTo(target, overwrite = true)
-            temp.delete()
+        synchronized(CACHE_LOCK) {
+            target.parentFile?.mkdirs()
+            // A unique temp name keeps two concurrent writers (prefetch plus a
+            // screen load) from clobbering each other's partial file.
+            val temp = File(target.parentFile, "${target.name}.${System.nanoTime()}.tmp")
+            try {
+                temp.writeText(contents)
+                if (!temp.renameTo(target)) {
+                    temp.copyTo(target, overwrite = true)
+                }
+            } finally {
+                temp.delete()
+            }
         }
     }
 
     private companion object {
+        const val TAG = "RemoteContentCatalog"
         const val MAX_CATALOG_BYTES = 8L * 1024L * 1024L
         const val MAX_CHEAT_BYTES = 2L * 1024L * 1024L
         const val MAX_TEXTURE_ARCHIVE_BYTES = 16L * 1024L * 1024L * 1024L
         const val MAX_TEXTURE_PART_BYTES = 2L * 1024L * 1024L * 1024L
         const val CATALOG_CACHE_TTL_MS = 6L * 60L * 60L * 1000L
+        const val CATALOG_FETCH_ATTEMPTS = 3
+        const val CATALOG_FETCH_RETRY_DELAY_MS = 600L
+        const val CATALOG_REFRESH_COOLDOWN_MS = 60_000L
+
+        val CACHE_LOCK = Any()
+        val lastNetworkFetchAt = ConcurrentHashMap<String, Long>()
 
         val RAW_CHEAT_CODE_REGEX = Regex("[0-9A-Fa-f]{8}[\\s:+-]+[0-9A-Fa-f]{1,8}")
         val LIBRETRO_CHEAT_CODE_REGEX = Regex("^cheat\\d+_code\\s*=", RegexOption.IGNORE_CASE)
@@ -287,6 +329,14 @@ private fun JsonObject.stringList(name: String): List<String> =
 
 private fun String.requireHttps(): String = trim().also { require(it.isHttpsUrl()) }
 private fun String.isHttpsUrl(): Boolean = startsWith("https://", ignoreCase = true)
+
+private val HTTP_STATUS_REGEX = Regex("HTTP (\\d{3})")
+
+// A 4xx response (except 408/429) means retrying the same request cannot help.
+private fun Throwable.isPermanentHttpFailure(): Boolean {
+    val code = message?.let { HTTP_STATUS_REGEX.find(it)?.groupValues?.get(1)?.toIntOrNull() } ?: return false
+    return code in 400..499 && code != 408 && code != 429
+}
 
 private fun normalizeSerial(value: String): String? {
     val compact = value.trim().uppercase(Locale.US).replace(Regex("[-_ ]"), "")

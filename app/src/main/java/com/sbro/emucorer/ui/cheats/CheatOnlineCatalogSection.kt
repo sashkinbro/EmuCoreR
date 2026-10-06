@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -59,6 +60,8 @@ import com.sbro.emucorer.ui.theme.neon.neonButtonShape
 import com.sbro.emucorer.ui.theme.neon.neonShape
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -149,31 +152,59 @@ internal fun CheatOnlineCatalogSection(
     var cached by rememberRetainedState("cheat_online_catalog.cached", false)
     var loadFailed by rememberRetainedState("cheat_online_catalog.load_failed", false)
     var installingPackId by rememberRetainedState<String?>("cheat_online_catalog.installing", null)
+    // Bumped by the Retry button to restart the loader; also lets each automatic
+    // attempt force a network fetch instead of silently re-reading the cache.
+    var retryToken by rememberRetainedState("cheat_online_catalog.retry_token", 0)
 
     val installSuccessMessage = stringResource(R.string.cheat_catalog_install_success)
     val installFailureMessage = stringResource(R.string.cheat_catalog_install_failed)
 
-    LaunchedEffect(Unit) {
-        val loaded = withContext(Dispatchers.IO) {
-            val catalog = catalogRepository.loadCheatCatalog()
-            catalog to installState.installedCheats()
-        }
-        // A failed refresh (offline, bad response) must not wipe a previously
-        // loaded catalog: only replace the packs when the new result is usable.
-        if (loaded.first.entries.isNotEmpty() || packs.isEmpty()) {
-            packs = loaded.first.entries
-            cached = loaded.first.fromCache
-            loadFailed = loaded.first.entries.isEmpty()
-        }
-        installed = loaded.second
-        loading = false
-        if (loaded.first.cacheHit) {
-            val refreshed = withContext(Dispatchers.IO) { catalogRepository.loadCheatCatalog(forceRefresh = true) }
-            if (refreshed.entries.isNotEmpty()) {
-                packs = refreshed.entries
-                cached = refreshed.fromCache
-                loadFailed = false
+    LaunchedEffect(retryToken) {
+        // The first attempt uses the cache fast path; every automatic retry after
+        // a failure (and every manual retry) actually hits the network. This is
+        // what makes a catalog that failed once recover without restarting the
+        // app, e.g. when the very first request after install hasn't got a
+        // usable network yet.
+        var attempt = 0
+        var retryDelayMs = CHEAT_CATALOG_RETRY_BASE_DELAY_MS
+        while (isActive) {
+            val forceRefresh = retryToken > 0 || attempt > 0
+            // Keep an already loaded catalog on screen while it is refreshed in
+            // the background; only an empty section shows the loading spinner.
+            if (attempt == 0 && packs.isEmpty()) loading = true
+            val catalog = withContext(Dispatchers.IO) {
+                runCatching { catalogRepository.loadCheatCatalog(forceRefresh = forceRefresh) }.getOrNull()
             }
+            val loadedState = withContext(Dispatchers.IO) {
+                runCatching { installState.installedCheats() }.getOrNull()
+            }
+            // A failed refresh (offline, bad response) must not wipe a previously
+            // loaded catalog: only replace the packs when the new result is usable.
+            if (catalog != null && (catalog.entries.isNotEmpty() || packs.isEmpty())) {
+                packs = catalog.entries
+                cached = catalog.fromCache
+                loadFailed = catalog.entries.isEmpty()
+            } else if (catalog == null && packs.isEmpty()) {
+                loadFailed = true
+            }
+            loadedState?.let { installed = it }
+            loading = false
+            if (!loadFailed) {
+                if (catalog?.cacheHit == true && !forceRefresh) {
+                    val refreshed = withContext(Dispatchers.IO) {
+                        runCatching { catalogRepository.loadCheatCatalog(forceRefresh = true) }.getOrNull()
+                    }
+                    if (refreshed != null && refreshed.entries.isNotEmpty()) {
+                        packs = refreshed.entries
+                        cached = refreshed.fromCache
+                        loadFailed = false
+                    }
+                }
+                break
+            }
+            attempt += 1
+            delay(retryDelayMs)
+            retryDelayMs = (retryDelayMs * 2).coerceAtMost(CHEAT_CATALOG_RETRY_MAX_DELAY_MS)
         }
     }
 
@@ -259,11 +290,23 @@ internal fun CheatOnlineCatalogSection(
                         Text(stringResource(R.string.content_catalog_loading))
                     }
                     CheatOnlinePhase.NO_GAME, CheatOnlinePhase.EMPTY -> CheatCatalogEmptyState()
-                    CheatOnlinePhase.ERROR -> Text(
-                        text = stringResource(R.string.content_catalog_failed),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    CheatOnlinePhase.ERROR -> Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.content_catalog_failed),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        OutlinedButton(
+                            shape = neonButtonShape(),
+                            onClick = { retryToken += 1 }
+                        ) {
+                            Icon(Icons.Rounded.Refresh, contentDescription = null)
+                            Spacer(Modifier.width(7.dp))
+                            Text(stringResource(R.string.hub_retry))
+                        }
+                    }
                     CheatOnlinePhase.CONTENT -> Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         if (selection.matchingPacks.isNotEmpty()) {
                             CheatCatalogSectionTitle(
@@ -280,42 +323,48 @@ internal fun CheatOnlineCatalogSection(
                                         val targetSerial = serial ?: return@CheatCatalogCard
                                         installingPackId = pack.id
                                         scope.launch {
-                                            val success = withContext(Dispatchers.IO) {
-                                                runCatching {
-                                                    val text = catalogRepository.downloadCheatText(pack)
-                                                    val gameKey = when {
-                                                        !targetSerial.isBlank() && !crc.isNullOrBlank() ->
-                                                            "${targetSerial}_$crc"
-                                                        !crc.isNullOrBlank() -> crc
-                                                        else -> targetSerial
-                                                    }
-                                                    val imported = cheatRepository.importCheatFile(
-                                                        gameKey = gameKey,
-                                                        contents = text,
-                                                        enableAllByDefault = false,
-                                                        mergeWithExisting = true
-                                                    )
-                                                    if (imported > 0) {
-                                                        preferences.setEnableCheats(true)
-                                                        installState.recordCheat(pack, targetSerial, crc)
-                                                        true
-                                                    } else {
-                                                        false
-                                                    }
-                                                }.getOrDefault(false)
-                                            }
-                                            installingPackId = null
-                                            if (success) {
-                                                installed = withContext(Dispatchers.IO) {
-                                                    installState.installedCheats()
+                                            try {
+                                                val success = withContext(Dispatchers.IO) {
+                                                    runCatching {
+                                                        val text = catalogRepository.downloadCheatText(pack)
+                                                        val gameKey = when {
+                                                            !targetSerial.isBlank() && !crc.isNullOrBlank() ->
+                                                                "${targetSerial}_$crc"
+                                                            !crc.isNullOrBlank() -> crc
+                                                            else -> targetSerial
+                                                        }
+                                                        val imported = cheatRepository.importCheatFile(
+                                                            gameKey = gameKey,
+                                                            contents = text,
+                                                            enableAllByDefault = false,
+                                                            mergeWithExisting = true
+                                                        )
+                                                        if (imported > 0) {
+                                                            preferences.setEnableCheats(true)
+                                                            installState.recordCheat(pack, targetSerial, crc)
+                                                            true
+                                                        } else {
+                                                            false
+                                                        }
+                                                    }.getOrDefault(false)
                                                 }
-                                                onInstalled()
+                                                if (success) {
+                                                    installed = withContext(Dispatchers.IO) {
+                                                        installState.installedCheats()
+                                                    }
+                                                    onInstalled()
+                                                }
+                                                Toast.makeText(
+                                                    context,
+                                                    if (success) installSuccessMessage else installFailureMessage,
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            } finally {
+                                                // Leaving the screen cancels this scope; without the
+                                                // finally the retained state would keep the card stuck
+                                                // in the "installing" state until the process dies.
+                                                installingPackId = null
                                             }
-                                            Toast.makeText(
-                                                context,
-                                                if (success) installSuccessMessage else installFailureMessage,
-                                                Toast.LENGTH_LONG
-                                            ).show()
                                         }
                                     }
                                 )
@@ -524,3 +573,6 @@ private enum class CheatOnlinePhase {
     ERROR,
     CONTENT
 }
+
+private const val CHEAT_CATALOG_RETRY_BASE_DELAY_MS = 2_000L
+private const val CHEAT_CATALOG_RETRY_MAX_DELAY_MS = 30_000L

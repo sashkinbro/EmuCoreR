@@ -22,6 +22,7 @@ private object RetainedStateStore {
     private val states = HashMap<String, MutableState<*>>()
 
     @Suppress("UNCHECKED_CAST")
+    @Synchronized
     fun <T> get(key: String, initialValue: T): MutableState<T> =
         states.getOrPut(key) { mutableStateOf(initialValue) } as MutableState<T>
 }
