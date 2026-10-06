@@ -272,7 +272,6 @@ object NativeApp {
     /** Ownership remains after a worker failure until explicit shutdown completes. */
     @JvmStatic fun hasOwnedVm(): Boolean = CoreRuntime.hasSession()
     val runtimeFailure get() = CoreRuntime.failure
-    @JvmStatic fun getGameSerial(): String? = extractPs1Serial(saveStatePathSource())
     private fun saveStatePathSource(): String =
         saveStateIdentityPath?.takeIf(String::isNotBlank) ?: currentGamePath
 
@@ -404,19 +403,6 @@ object NativeApp {
         Log.i(TAG, message)
         CrashLogger.logInfo("Native", message)
     }
-
-    @JvmStatic
-    fun openContentUri(uriString: String): Int {
-        val context = getContext() ?: return -1
-        return try {
-            val sanitized = uriString.substringBefore('|')
-            val descriptor = context.contentResolver.openFileDescriptor(sanitized.toUri(), "r")
-            descriptor?.detachFd() ?: -1
-        } catch (_: Exception) {
-            -1
-        }
-    }
-
 
     /** Root directory that stores native core data such as caches, settings and memory cards. */
     @JvmStatic

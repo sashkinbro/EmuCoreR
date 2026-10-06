@@ -334,11 +334,12 @@ object EmulatorBridge {
         // Keep the native layer on the same data root as the runtime directories;
         // saves and memory cards previously ignored the configured location.
         NativeApp.reloadDataRoot(emulatorDataPath ?: "")
-        val runtimeDirectories = EmulatorStorage.runtimeDirectories(context, emulatorDataPath)
         // The bundled core reads replacement textures from the app's texture
         // root (it appends the running game code), so the texture manager and
         // the emulator share a single directory.
-        NativeApp.setTextureReplacementsPathOverride(runtimeDirectories.textures.absolutePath)
+        NativeApp.setTextureReplacementsPathOverride(
+            EmulatorStorage.texturesDir(context, emulatorDataPath).absolutePath
+        )
         NativeApp.setCrashContextString("emu_renderer_name", rendererName(resolvedRenderer))
         NativeApp.logCrashBreadcrumb(
             "applyRuntimeConfig renderer=${rendererName(resolvedRenderer)}($resolvedRenderer) upscale=$upscaleMultiplier aspect=$aspectRatio fastBoot=$enableFastBoot"

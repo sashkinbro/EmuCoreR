@@ -4296,9 +4296,6 @@ object SwanStationCoreOptions {
 
     fun option(key: String): Option? = optionsByKey[key]
 
-    fun categoryLabel(categoryKey: String): String =
-        categoryList.firstOrNull { it.key == categoryKey }?.label ?: categoryKey
-
     /** Graphics tab: visual enhancements and display geometry. */
     fun graphicsOptions(): List<Option> =
         (forCategory("enhancement") + forCategory("display"))
@@ -4359,10 +4356,4 @@ object SwanStationCoreOptions {
         option("swanstation_GPU_PGXPDepthClearThreshold"),
         option("swanstation_GPU_DownsampleMode")
     )
-
-    fun resolutionScaleChoices(): List<Choice> =
-        option("swanstation_GPU_ResolutionScale")?.choices.orEmpty()
-
-    fun cropModeChoices(): List<Choice> =
-        option("swanstation_Display_CropMode")?.choices.orEmpty()
 }

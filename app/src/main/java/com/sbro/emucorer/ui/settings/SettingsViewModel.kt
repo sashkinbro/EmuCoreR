@@ -431,10 +431,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             preferences.setTouchControlVisualStyle(TouchControlVisualStyle.MODERN)
         }
     }
-    fun saveCustomTheme(config: CustomThemeConfig, activate: Boolean) = viewModelScope.launch {
-        if (!_uiState.value.isProUnlocked) return@launch
-        if (activate) preferences.applyCustomTheme(config) else preferences.setCustomTheme(config)
-    }
     fun saveCustomThemeLibrary(library: CustomThemeLibrary, activate: Boolean) {
         val current = _uiState.value
         if (!current.isProUnlocked) return

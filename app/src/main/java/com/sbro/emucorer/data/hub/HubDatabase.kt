@@ -139,9 +139,6 @@ interface HubDao {
     @Query("SELECT * FROM hub_items WHERE id = :id LIMIT 1")
     suspend fun item(id: String): HubItemEntity?
 
-    @Query("SELECT * FROM hub_items WHERE id = :id LIMIT 1")
-    fun observeItem(id: String): Flow<HubItemEntity?>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertItems(items: List<HubItemEntity>)
 

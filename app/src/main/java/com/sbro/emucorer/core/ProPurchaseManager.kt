@@ -38,10 +38,6 @@ enum class ProPurchaseTier(val productId: String) {
 
     companion object {
         val productIds: Set<String> = entries.mapTo(linkedSetOf(), ProPurchaseTier::productId)
-
-        fun fromProductId(productId: String): ProPurchaseTier? {
-            return entries.firstOrNull { it.productId == productId }
-        }
     }
 }
 

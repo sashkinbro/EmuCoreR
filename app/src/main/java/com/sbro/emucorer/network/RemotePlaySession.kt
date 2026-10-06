@@ -146,10 +146,6 @@ object RemotePlaySession {
         }
     }
 
-    fun sendButton(index: Int, range: Int, pressed: Boolean) {
-        sendControllerButton(padIndex = 1, index = index, range = range, pressed = pressed)
-    }
-
     /** Forwards a guest's physical or mapped controller input to player 2 on the host. */
     fun forwardGuestButton(index: Int, range: Int, pressed: Boolean): Boolean {
         val current = _state.value

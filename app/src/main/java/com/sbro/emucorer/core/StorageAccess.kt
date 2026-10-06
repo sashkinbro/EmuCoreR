@@ -12,14 +12,6 @@ object StorageAccess {
         return takePersistablePermission(context, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
-    fun takePersistableReadWritePermission(context: Context, uri: Uri): Boolean {
-        return takePersistablePermission(
-            context,
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        )
-    }
-
     fun releasePersistedPermission(context: Context, rawPath: String?) {
         if (rawPath.isNullOrBlank() || !rawPath.startsWith("content://")) return
         val uri = runCatching { Uri.parse(rawPath) }.getOrNull() ?: return

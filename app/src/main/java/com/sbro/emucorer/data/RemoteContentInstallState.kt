@@ -106,13 +106,6 @@ class RemoteContentInstallState(context: Context) {
         writeState(root)
     }
 
-    fun removeCheatsForGame(packIds: Collection<String>) = synchronized(lock) {
-        val root = readState()
-        val cheats = root.optJSONObject("cheats") ?: return@synchronized
-        packIds.forEach { cheats.remove(it) }
-        writeState(root)
-    }
-
     private fun readState(): JSONObject {
         if (!stateFile.exists()) return JSONObject()
         return runCatching { JSONObject(stateFile.readText()) }.getOrDefault(JSONObject())

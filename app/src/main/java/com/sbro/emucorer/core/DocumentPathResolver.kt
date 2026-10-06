@@ -62,7 +62,6 @@ object DocumentPathResolver {
     )
 
     private val biosImageExtensions = setOf("bin", "rom", "7d", "8g")
-    private val biosArtifactExtensions = setOf("mec", "nvm", "elf")
     private val biosNameHints = listOf("scph", "ps1", "psx", "bios")
     private const val MAX_IMPORTED_BIOS_BYTES = 8L * 1024L * 1024L
 
@@ -798,8 +797,7 @@ object DocumentPathResolver {
     private fun isLikelyImportedBiosName(name: String?): Boolean {
         val fileName = name?.lowercase() ?: return false
         val ext = fileName.substringAfterLast('.', "")
-        return ext in biosImageExtensions ||
-            (ext in biosArtifactExtensions && biosNameHints.any(fileName::contains))
+        return ext in biosImageExtensions && biosNameHints.any(fileName::contains)
     }
 
     private fun isLikelyMainBiosName(name: String?): Boolean {

@@ -204,8 +204,6 @@ object SwanStationOptions {
         prefs?.edit()?.putString(key, value)?.apply()
     }
 
-    fun effectiveValue(option: SsOption): String = cache[option.key] ?: option.defaultValue
-
     fun initialize(context: Context) {
         prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         cache.clear()

@@ -2,12 +2,6 @@
 <resources>
     <string name="emulation_runtime_failure_title">Emulation stopped</string>
     <string name="emulation_runtime_failure_description">The runtime encountered an error and cannot safely continue. Exit this session and start the game again. The renderer was not changed automatically.\n\nDetails:\n</string>
-    <string name="onboarding_core_title">Built for PlayStation</string>
-    <string name="onboarding_core_subtitle">A clean PS1 core with a reference interpreter, ARM64 JIT, and Vulkan renderer.</string>
-    <string name="onboarding_core_card_title">Native PS1 architecture</string>
-    <string name="onboarding_core_card_cpu">R3000A execution uses a correctness-first interpreter and an ARM64 JIT.</string>
-    <string name="onboarding_core_card_gpu">The PS1 GPU is rendered through Vulkan with a software reference path.</string>
-    <string name="onboarding_core_card_reference">No purchase tier is required; every core feature is available.</string>
     <string name="app_name">EmuCoreR</string>
 
     <!-- Navigation -->
@@ -347,13 +341,11 @@
     <string name="settings_help_gamepad_right_stick_up_to_r2">Maps the R2 analog trigger to upward movement on the right stick for both gamepads and on-screen controls. This can help racing games where throttle is bound to right stick up.</string>
     <string name="settings_help_gamepad_right_stick_down_to_l2">Maps the L2 analog trigger to downward movement on the right stick for both gamepads and on-screen controls. This can help racing games where brake is bound to right stick down.</string>
     <string name="settings_help_hide_overlay_on_gamepad">Hides the touch overlay whenever a physical controller is active. This makes the screen cleaner, but turn it off if you still want touch buttons available while a controller is connected.</string>
-    <string name="settings_help_compact_controls">Uses a tighter overlay layout that takes less space around the edges of the screen. Good for smaller phones, but some players may prefer the larger spacing of the standard layout.</string>
     <string name="settings_help_stick_scale">Changes the size of the analog stick touch areas. Larger values make them easier to grab during action-heavy games, while smaller values leave more room for the picture and nearby buttons.</string>
     <string name="settings_help_cheats">Loads enabled cheat patches for the current game. Useful for widescreen, fan fixes, translations, or gameplay cheats, but the wrong patch version can break stability or apply to the wrong release of a game.</string>
     <string name="settings_help_show_fps">Shows a live performance overlay while the game is running. Use it when tuning settings or checking whether a slowdown comes from emulation speed, frame pacing, or the game itself.</string>
     <string name="settings_help_fps_overlay_mode">Chooses between a simple FPS readout and a more detailed stats panel. Use the compact mode if you just want a quick speed check, or the extended mode when you are actively tuning performance.</string>
     <string name="settings_help_fps_overlay_position">Places the FPS or stats overlay in one of the four corners. Move it away from touch controls, HUD elements, subtitles, or minimaps so it stays readable without covering important game info.</string>
-    <string name="settings_compact_controls">Compact touch controls</string>
     <string name="settings_keep_screen_on">Keep screen awake</string>
     <string name="settings_keep_screen_on_desc">Prevent the screen from dimming while playing.</string>
     <string name="settings_fps_overlay_position">Stats position</string>
@@ -400,12 +392,8 @@
     <string name="texture_manager_options">Runtime Options</string>
     <string name="texture_manager_enable_replacements">Load replacement textures</string>
     <string name="texture_manager_enable_replacements_desc">Load vram-write, texpage and texupload packs in PNG, JPG, TGA or BMP from each game serial folder.</string>
-    <string name="texture_manager_async_loading">Async loading</string>
-    <string name="texture_manager_async_loading_desc">Load replacement textures on a worker thread while the game runs.</string>
     <string name="texture_manager_precache">Precache replacements</string>
     <string name="texture_manager_precache_desc">Load the full pack up front. Faster in-game lookups, but heavier on startup and memory.</string>
-    <string name="texture_manager_dumping">Dump replaceable textures</string>
-    <string name="texture_manager_dumping_desc">Save detected game textures into the dumps folder for pack creation.</string>
     <string name="texture_manager_storage">Texture Storage</string>
     <string name="texture_manager_installed_packs">Installed Packs</string>
     <string name="texture_manager_summary_meta">%1$d packs, %2$d replacements, %3$d dumps, %4$s total</string>
@@ -474,21 +462,15 @@
     <string name="settings_touch_controls">Touch Controls</string>
     <string name="settings_gamepad_section">Gamepad</string>
     <string name="settings_enable_cheats">Enable Cheats</string>
-    <string name="settings_device_profile_family_exynos">Exynos</string>
-    <string name="settings_device_profile_family_tensor">Tensor</string>
-    <string name="settings_device_profile_family_generic">Generic Android</string>
 
     <string name="settings_fast_boot_desc">Skips the BIOS disc boot - disable for games that hang before starting</string>
     <string name="settings_help_fast_boot">Skips the PlayStation BIOS startup sequence and boots the disc directly. Disable it if a game hangs on a black screen at startup or relies on the BIOS animation.</string>
 
     <string name="emulation_cheats_title">Cheats</string>
-    <string name="emulation_cheats_open_button">Cheats</string>
     <string name="emulation_cheats_empty">No cheats were found for this game.</string>
     <string name="emulation_cheats_group_enable">Enable all in group</string>
 
     <string name="settings_disabled_short">Disabled</string>
-    <string name="settings_normal_short">Normal</string>
-    <string name="settings_aggressive_short">Aggressive</string>
 
     <string name="settings_more_options">More options</string>
     <string name="settings_reset_all_title">Reset all settings</string>
@@ -541,23 +523,7 @@
     <string name="onboarding_page_3_subtitle">Build your personal game library with beautiful covers, detailed information, and quick access to your favorites.</string>
     <string name="onboarding_page_4_title">Ready to Play</string>
     <string name="onboarding_page_4_subtitle">Add a BIOS file and choose one or more game folders to get started.</string>
-    <string name="onboarding_profile_title">Choose your startup profile</string>
-    <string name="onboarding_profile_subtitle">Safe is recommended for most devices and games. Fast can improve speed on weaker phones, but it may reduce compatibility and stability.</string>
 
-    <string name="onboarding_chipset_dialog_title">Detected processor</string>
-    <string name="onboarding_chipset_dialog_family">Family</string>
-    <string name="onboarding_chipset_dialog_recommended">Recommended choice</string>
-    <string name="onboarding_chipset_dialog_soc">SoC</string>
-    <string name="onboarding_chipset_dialog_hardware">Hardware</string>
-    <string name="onboarding_chipset_dialog_device">Device</string>
-    <string name="onboarding_chipset_dialog_recommend_mediatek">%1$s / %2$s or %3$s</string>
-    <string name="onboarding_chipset_dialog_recommend_manual">Choose the closest option manually</string>
-    <string name="onboarding_chipset_dialog_ok">OK</string>
-    <string name="gpu_chipset_snapdragon_title">Snapdragon</string>
-    <string name="gpu_chipset_mediatek_title">MediaTek</string>
-    <string name="gpu_adreno_title">Adreno</string>
-    <string name="gpu_mali_title">Mali</string>
-    <string name="gpu_powervr_title">PowerVR</string>
     <string name="settings_mediatek_notice_title">MediaTek compatibility</string>
     <string name="settings_mediatek_notice_message">MediaTek support is still experimental. Crashes, visual artifacts, and unstable behavior may occur while we continue improving compatibility and performance.\n\nIf you experience graphics issues, try OpenGL with ANGLE enabled. If the issues persist, use the Software renderer.</string>
     <string name="onboarding_title">Get ready to play</string>
@@ -602,8 +568,6 @@
     <string name="catalog_empty_title">No matches found</string>
     <string name="catalog_empty_body">Try a different game name or a shorter search phrase.</string>
     <string name="formats_title">Supported Formats</string>
-    <string name="formats_overview_title">Game Formats</string>
-    <string name="formats_overview_body">EmuCoreR currently mounts verified PlayStation BIN/CUE disc images.</string>
     <string name="formats_ps1_supported_title">Verified PS1 formats</string>
     <string name="formats_ps1_supported_body">The current core scans and boots CUE, BIN, ISO, IMG, CHD and PBP, ECM, MDS disc images.</string>
     <string name="formats_ps1_recommended_title">Recommended dump layout</string>
@@ -611,12 +575,6 @@
     <string name="formats_ps1_planned_title">Multi-disc playlists</string>
     <string name="formats_ps1_planned_body">M3U playlists are read by the bundled core. The library indexes disc images only, so open an M3U directly from the disc picker.</string>
     <string name="formats_converter_unavailable">ISO to CHD conversion is not available in this build.</string>
-    <string name="formats_converter_status_idle">Ready to pick an ISO image.</string>
-    <string name="formats_converter_status_preparing">Preparing the selected ISO…</string>
-    <string name="formats_converter_status_ready">CHD is ready. Choose where to save it.</string>
-    <string name="formats_converter_status_saving">Saving the converted CHD…</string>
-    <string name="formats_converter_status_done">CHD saved successfully.</string>
-    <string name="formats_converter_status_failed">Conversion did not finish.</string>
     <string name="formats_converter_success_title">Conversion complete</string>
     <string name="formats_converter_failed_title">Conversion failed</string>
     <string name="formats_converter_invalid_iso_body">Please choose an `.iso` file for conversion.</string>
@@ -764,7 +722,6 @@
     <string name="home_game_menu_custom_cover_failed">Failed to apply custom cover.</string>
     <string name="save">Save</string>
     <string name="delete">Delete</string>
-    <string name="error_storage_permission_not_persisted">Android did not grant permanent access to this location. Please choose it again in the system picker.</string>
     <string name="settings_touch_haptics_strength">Touch haptic strength</string>
     <string name="settings_touch_haptics_test">Test touch haptics</string>
     <string name="settings_touch_haptics_test_desc">Previews the selected press-and-release feel at the current strength.</string>
@@ -988,8 +945,6 @@
     <string name="texture_catalog_description">Choose a library game to see compatible community texture packs.</string>
     <string name="texture_catalog_no_packs">No verified texture packs are available for this game yet.</string>
     <string name="texture_catalog_pack_meta">Version %1$s • %2$s • %3$d files</string>
-    <string name="texture_download_channel_name">Texture downloads</string>
-    <string name="texture_download_channel_description">Background texture-pack downloads and installation</string>
     <string name="texture_downloads_title">Downloads</string>
     <string name="texture_download_status_queued">Queued</string>
     <string name="texture_download_status_downloading">Downloading</string>
@@ -1000,8 +955,6 @@
     <string name="texture_download_status_completed">Installed</string>
     <string name="texture_download_status_failed">Download failed</string>
     <string name="texture_download_status_cancelled">Cancelled</string>
-    <string name="texture_download_notification_progress">%1$d%% • %2$s/s • %3$s left</string>
-    <string name="texture_download_eta_estimating">Estimating…</string>
     <string name="texture_download_progress_detail">%1$s / %2$s • %3$s/s • %4$s left</string>
     <string name="texture_download_progress_estimating">%1$s / %2$s • estimating time…</string>
     <string name="texture_download_retry">Retry</string>
@@ -1168,8 +1121,6 @@
     <string name="touch_control_creator_delete">Delete</string>
     <string name="touch_control_creator_empty">No custom controls yet</string>
     <string name="touch_control_creator_empty_desc">Create extra buttons here. The free standard controls and their existing layout editor stay unchanged.</string>
-    <string name="touch_control_creator_live_canvas">Live game canvas</string>
-    <string name="touch_control_creator_drag_hint">Drag the selected control or use the precise position sliders.</string>
     <string name="touch_control_creator_identity">Identity and action</string>
     <string name="touch_control_creator_name">Control name</string>
     <string name="touch_control_creator_action">Controller action</string>
@@ -1186,8 +1137,6 @@
     <string name="touch_control_creator_width">Width</string>
     <string name="touch_control_creator_height">Height</string>
     <string name="touch_control_creator_corner">Corner radius</string>
-    <string name="touch_control_creator_position_x">Horizontal position</string>
-    <string name="touch_control_creator_position_y">Vertical position</string>
     <string name="touch_control_creator_appearance">Colors and border</string>
     <string name="touch_control_creator_fill">Button fill</string>
     <string name="touch_control_creator_foreground">Symbol or text</string>
@@ -1230,7 +1179,6 @@
     <string name="touch_control_creator_local_preview">Live button preview</string>
     <string name="touch_control_creator_normal_state">Normal</string>
     <string name="touch_control_creator_pressed_state">Pressed</string>
-    <string name="touch_control_creator_canvas_label">Gameplay overlay</string>
     <string name="touch_control_creator_presets">Starting styles</string>
     <string name="touch_control_creator_preset_classic">Classic</string>
     <string name="touch_control_creator_preset_glass">Glass</string>
@@ -1444,7 +1392,6 @@
     <string name="ss_choice_aspect_custom">Custom</string>
     <string name="ss_choice_crop_overscan">Overscan</string>
     <string name="ss_choice_crop_borders">Borders</string>
-    <string name="ss_choice_crop_all">All</string>
     <string name="ss_choice_region_ntsc_j">NTSC-J (Japan)</string>
     <string name="ss_choice_region_ntsc_u">NTSC-U (US, Canada)</string>
     <string name="ss_choice_region_pal">PAL (Europe, Australia)</string>
@@ -1536,12 +1483,6 @@
     <string name="ss_core_choice_8x_ssaa">8x SSAA</string>
     <string name="ss_core_choice_16x_ssaa">16x SSAA</string>
     <string name="ss_core_choice_32x_ssaa">32x SSAA</string>
-    <string name="ss_core_gpu_truecolor">True Color Rendering</string>
-    <string name="ss_core_gpu_truecolor_desc">Disables dithering and uses the full 8 bits per channel of color information. May break rendering in some games.</string>
-    <string name="ss_core_gpu_scaleddithering">Scaled Dithering</string>
-    <string name="ss_core_gpu_scaleddithering_desc">Scales the dithering pattern with the internal rendering resolution, making it less noticeable. Usually safe to enable.</string>
-    <string name="ss_core_gpu_disableinterlacing">Disable Interlacing</string>
-    <string name="ss_core_gpu_disableinterlacing_desc">Disables interlaced rendering and display in the GPU. Some games can render in 480p this way, but others will break.</string>
     <string name="ss_core_gpu_forcentsctimings">Force NTSC Timings</string>
     <string name="ss_core_gpu_forcentsctimings_desc">Forces PAL games to run at NTSC timings, i.e. 60hz. Some PAL games will run at their "normal" speeds, while others will break.</string>
     <string name="ss_core_display_force4_3for24bit">Force 4:3 For 24-Bit Display</string>
@@ -1850,10 +1791,6 @@
     <string name="settings_frame_skip_desc">Skips presenting rendered frames to reduce host load. Higher values are choppier but faster.</string>
     <string name="settings_display_crop">Display crop</string>
     <string name="settings_display_crop_desc">Trims pixels from the edges of the picture before scaling. Increase a value until the unwanted border disappears.</string>
-    <string name="settings_display_crop_left">Left edge</string>
-    <string name="settings_display_crop_top">Top edge</string>
-    <string name="settings_display_crop_right">Right edge</string>
-    <string name="settings_display_crop_bottom">Bottom edge</string>
     <string name="settings_widescreen_patches">Widescreen Patches</string>
     <string name="settings_widescreen_patches_desc">Enable widescreen patches for supported games</string>
     <string name="settings_help_widescreen_patches">Loads widescreen patches when the current game has one available. This is usually better than stretching the image because it changes the game\'s camera and HUD logic instead of just distorting the final picture.</string>
@@ -1904,14 +1841,10 @@
     <string name="achievements_not_signed_in">Sign in to RetroAchievements on the Achievements screen to track your progress.</string>
     <string name="achievements_no_game">Start a game to see its achievements here.</string>
     <string name="achievements_loading">Loading achievements…</string>
-    <string name="achievements_progress">%1$d of %2$d unlocked</string>
-    <string name="achievements_points">%1$d/%2$d points</string>
     <string name="achievements_mastered">Mastered!</string>
-    <string name="achievements_rarity">%1$.1f%% of players</string>
     <string name="achievements_error">RetroAchievements error: %1$s</string>
     <string name="achievements_unlocked_header">Unlocked</string>
     <string name="achievements_locked_header">Locked</string>
-    <string name="achievements_unlock_notification">%1$s (+%2$d)</string>
     <string name="achievements_unavailable">RetroAchievements is not supported by this build.</string>
     <string name="shell_achievements">Achievements</string>
     <string name="feature_gate_unavailable_body">Cheat and texture managers are only available in the official EmuCoreR app.</string>
