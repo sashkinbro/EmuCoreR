@@ -137,15 +137,6 @@ object ImageConversionManager {
     }
 
     private fun convertWithFallback(stagedIso: File, outputFile: File): Int {
-        if (NativeApp.hasNativeTools) {
-            val nativeResult = runCatching { NativeApp.convertIsoToChd(stagedIso.absolutePath) }
-                .getOrDefault(Int.MIN_VALUE)
-            if (nativeResult == 0 && outputFile.exists() && outputFile.length() > 0L) {
-                return 0
-            }
-            outputFile.delete()
-        }
-
         return runCatching {
             convertIsoToChdPortable(stagedIso, outputFile)
         }.getOrElse { error ->

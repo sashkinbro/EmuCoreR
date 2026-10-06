@@ -1,6 +1,6 @@
 package com.sbro.emucorer.data
 
-/** Source-frame crop in native PS2 pixels, applied before aspect-ratio scaling. */
+/** Source-frame crop in native pixels, applied before aspect-ratio scaling. */
 data class DisplayCrop(
     val left: Int = 0,
     val top: Int = 0,

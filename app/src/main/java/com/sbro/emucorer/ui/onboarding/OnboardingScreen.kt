@@ -110,7 +110,6 @@ import com.sbro.emucorer.core.LocalTvUiEnvironment
 import com.sbro.emucorer.core.TvUiMetrics
 import com.sbro.emucorer.core.availableProSupportOffers
 
-import com.sbro.emucorer.core.PerformanceProfiles
 import com.sbro.emucorer.ui.common.EmulatorDataLocationDialog
 import com.sbro.emucorer.ui.common.GamepadFocusHighlightMode
 import com.sbro.emucorer.ui.common.ProSupportOptionsDialog
@@ -1575,43 +1574,6 @@ private fun OnboardingSetupScrollHint(
 }
 
 @Composable
-private fun OnboardingPerformanceProfileContent(
-    selectedProfile: Int,
-    onSelectProfile: (Int) -> Unit,
-    requestInitialFocus: Boolean = false,
-    contentFocusRequester: FocusRequester? = null,
-    modifier: Modifier = Modifier
-) {
-    val fallbackFocusRequester = remember { FocusRequester() }
-    val firstProfileFocusRequester = contentFocusRequester ?: fallbackFocusRequester
-    LaunchedEffect(requestInitialFocus) {
-        if (requestInitialFocus) {
-            delay(100.milliseconds)
-            runCatching { firstProfileFocusRequester.requestFocus() }
-        }
-    }
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        ProfileCard(
-            title = stringResource(R.string.onboarding_profile_safe_title),
-            description = stringResource(R.string.onboarding_profile_safe_desc),
-            selected = selectedProfile == PerformanceProfiles.SAFE,
-            onClick = { onSelectProfile(PerformanceProfiles.SAFE) },
-            modifier = Modifier.focusRequester(firstProfileFocusRequester)
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        ProfileCard(
-            title = stringResource(R.string.onboarding_profile_fast_title),
-            description = stringResource(R.string.onboarding_profile_fast_desc),
-            selected = selectedProfile == PerformanceProfiles.FAST,
-            onClick = { onSelectProfile(PerformanceProfiles.FAST) }
-        )
-    }
-}
-
-@Composable
 @Suppress("unused")
 private fun ChipsetInfoDialog(
     chipsetInfo: DeviceChipsetInfo,
@@ -1698,109 +1660,6 @@ private fun ChipsetInfoRow(
         )
     }
 }
-
-@Composable
-@Suppress("unused")
-private fun CompactProfileCard(
-    title: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = neonShape(20.dp),
-        color = if (selected) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.11f)
-        } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-        },
-        tonalElevation = if (selected) 5.dp else 1.dp,
-        border = androidx.compose.foundation.BorderStroke(
-            if (selected) 2.dp else 1.dp,
-            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)
-        ),
-        onClick = onClick
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                contentDescription = null,
-                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProfileCard(
-    title: String,
-    description: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .gamepadFocusableCard(
-                shape = neonShape(32.dp),
-                interactionSource = interactionSource,
-                addFocusTarget = false,
-                focusHighlightMode = GamepadFocusHighlightMode.Always
-            ),
-        shape = neonShape(32.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-        tonalElevation = if (selected) 6.dp else 2.dp,
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-        ),
-        interactionSource = interactionSource,
-        onClick = onClick
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = if (selected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                contentDescription = null,
-                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
 
 @Composable
 private fun SetupCard(

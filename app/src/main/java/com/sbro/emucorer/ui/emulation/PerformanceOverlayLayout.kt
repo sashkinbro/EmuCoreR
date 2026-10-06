@@ -39,14 +39,13 @@ internal fun buildPerformanceOverlayLayout(
 
     fun metricForSegment(segment: String): Int = when {
         segment.startsWith("FPS:") -> PerformanceOverlayMetrics.FPS
-        segment.startsWith("VPS:") -> PerformanceOverlayMetrics.VPS
         segment.startsWith("Speed:") -> PerformanceOverlayMetrics.SPEED
         segment.startsWith("Target:") -> PerformanceOverlayMetrics.TARGET
         else -> 0
     }
 
     fun filterLine(line: String): String? {
-        if (line.startsWith("FPS:") || line.startsWith("VPS:") ||
+        if (line.startsWith("FPS:") ||
             line.startsWith("Speed:") || line.startsWith("Target:")
         ) {
             return line.split(" | ")
@@ -60,13 +59,8 @@ internal fun buildPerformanceOverlayLayout(
 
         val metric = when {
             isRendererLine(line) -> PerformanceOverlayMetrics.RENDERER
-            line.startsWith("VRAM:") -> PerformanceOverlayMetrics.VRAM
             line.startsWith("Frame:") -> PerformanceOverlayMetrics.FRAME_TIME
-            line.startsWith("Queue:") -> PerformanceOverlayMetrics.QUEUE
             line.startsWith("Res:") -> PerformanceOverlayMetrics.RESOLUTION
-            line.startsWith("GPU Core:") -> PerformanceOverlayMetrics.GPU_CORE
-            line.startsWith("JIT:") -> PerformanceOverlayMetrics.JIT
-            line.startsWith("CD-ROM:") -> PerformanceOverlayMetrics.CDROM
             line.startsWith("CPU:") -> PerformanceOverlayMetrics.HOST_CPU
             line.startsWith("GPU:") -> PerformanceOverlayMetrics.HOST_GPU
             line.startsWith("Audio:") -> PerformanceOverlayMetrics.AUDIO
@@ -84,11 +78,7 @@ internal fun buildPerformanceOverlayLayout(
         ) {
             return null
         }
-        return if (line.startsWith("Queue:")) {
-            line.replaceFirst("Queue:", "GS Queue:")
-        } else {
-            line
-        }
+        return line
     }
 
     val filtered = text.lineSequence()
@@ -98,37 +88,29 @@ internal fun buildPerformanceOverlayLayout(
         .toList()
 
     val topLines = filtered.filter { line ->
-        line.startsWith("FPS:") || line.startsWith("VPS:") ||
+        line.startsWith("FPS:") ||
             line.startsWith("Speed:") || line.startsWith("Target:")
-    }
-    val processorLines = filtered.filter { line ->
-        line.startsWith("GPU Core:") || line.startsWith("JIT:") || line.startsWith("CD-ROM:")
     }
     val hardwareLines = filtered.filter { line ->
         line.startsWith("CPU:") || line.startsWith("GPU:")
     }
     val audioLines = filtered.filter { line -> line.startsWith("Audio:") }
     val rendererLine = filtered.firstOrNull(::isRendererLine)
-    val vramLine = filtered.firstOrNull { it.startsWith("VRAM:") }
     val bottomLines = buildList {
-        when {
-            rendererLine != null && vramLine != null -> add("$rendererLine | $vramLine")
-            rendererLine != null -> add(rendererLine)
-            vramLine != null -> add(vramLine)
-        }
+        rendererLine?.let(::add)
         addAll(filtered.filter { line ->
-            line.startsWith("Frame:") || line.startsWith("GS Queue:") || line.startsWith("Res:")
+            line.startsWith("Frame:") || line.startsWith("Res:")
         })
     }
-    val knownLines = (topLines + processorLines + hardwareLines + audioLines + bottomLines).toSet()
+    val knownLines = (topLines + hardwareLines + audioLines + bottomLines).toSet()
     val unknownLines = filtered.filterNot { line ->
-        line in knownLines || line == rendererLine || line == vramLine
+        line in knownLines || line == rendererLine
     }
 
     return PerformanceOverlayLayout(
         mainLines = (
             listOf(fixedHeaderLine).filter(String::isNotBlank) +
-                topLines + processorLines + hardwareLines + audioLines + unknownLines
+                topLines + hardwareLines + audioLines + unknownLines
             ).map(::compactPerformanceOverlayLine),
         bottomLines = bottomLines.map(::compactPerformanceOverlayLine)
     )

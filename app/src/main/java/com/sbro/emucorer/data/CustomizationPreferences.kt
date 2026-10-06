@@ -150,28 +150,20 @@ enum class GameMenuSectionId(val tab: GameMenuTabId) {
     SAVE_STATES(GameMenuTabId.SESSION),
     AUTO_SAVE(GameMenuTabId.SESSION),
     QUICK_ACTIONS(GameMenuTabId.SESSION),
-    SESSION_DEBUG_TOOLS(GameMenuTabId.SESSION),
     AUTOMATION(GameMenuTabId.SESSION),
-    GAME_PROFILE(GameMenuTabId.SESSION),
     CONTROLS_GENERAL(GameMenuTabId.CONTROLS),
     CONTROLS_TOUCH(GameMenuTabId.CONTROLS),
     CONTROLS_GAMEPAD(GameMenuTabId.CONTROLS),
     EMULATION_PERFORMANCE(GameMenuTabId.EMULATION),
-    EMULATION_SPEED(GameMenuTabId.EMULATION),
     EMULATION_CPU(GameMenuTabId.EMULATION),
     EMULATION_AUDIO(GameMenuTabId.EMULATION),
     EMULATION_CHEATS(GameMenuTabId.CHEATS),
     GRAPHICS_DISPLAY(GameMenuTabId.GRAPHICS),
-    GRAPHICS_RENDERING(GameMenuTabId.GRAPHICS),
     GRAPHICS_SCREEN(GameMenuTabId.GRAPHICS)
 }
 
 /**
  * Tabs and sections backed by the current PS1 runtime or by frontend-owned state.
- *
- * The remaining enum values are retained solely so preferences imported from the
- * earlier PS2 frontend can be decoded and migrated without crashing. They must
- * not be offered by the EmuCoreR UI until there is a real core implementation.
  */
 val SupportedGameMenuTabs: List<GameMenuTabId> = listOf(
     GameMenuTabId.SESSION,

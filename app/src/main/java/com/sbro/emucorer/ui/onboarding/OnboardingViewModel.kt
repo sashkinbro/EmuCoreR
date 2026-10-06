@@ -124,28 +124,29 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             if (previousPath != uri.toString()) {
                 StorageAccess.releasePersistedPermission(application, previousPath)
             }
-            val audioSettings = preferences.settingsSnapshot.first()
+            val settings = preferences.settingsSnapshot.first()
             EmulatorBridge.applyRuntimeConfig(
                 biosPath = uri.toString(),
                 emulatorDataPath = _uiState.value.emulatorDataPath,
-                renderer = audioSettings.renderer,
-                gpuHardwareProfile = GpuHardwareProfiles.detectHardwareProfile(),
-                audioVolume = audioSettings.audioVolume,
-                audioFastForwardVolume = audioSettings.audioFastForwardVolume,
-                audioMuted = audioSettings.audioMuted,
-                audioInterpolation = audioSettings.audioInterpolation,
-                audioSyncMode = audioSettings.audioSyncMode,
-                audioLightweightSpu2 = audioSettings.audioLightweightSpu2,
-                audioBackend = audioSettings.audioBackend,
-                audioBufferMs = audioSettings.audioBufferMs,
-                audioOutputLatencyMs = audioSettings.audioOutputLatencyMs,
-                audioMinimalOutputLatency = audioSettings.audioMinimalOutputLatency,
-                enableFastmem = audioSettings.enableFastmem,
-                deinterlaceMode = audioSettings.deinterlaceMode,
-                dithering = audioSettings.dithering,
-                upscaleMultiplier = EmulatorBridge.getSetting("EmuCoreR", "UpscaleMultiplier", "float")?.toFloatOrNull()
-                    ?: EmulatorBridge.getSetting("EmuCoreR", "UpscaleMultiplier", "int")?.toIntOrNull()?.toFloat()
-                    ?: 1f
+                renderer = settings.renderer,
+                upscaleMultiplier = settings.upscaleMultiplier,
+                aspectRatio = settings.aspectRatio,
+                displayCrop = settings.displayCrop,
+                audioVolume = settings.audioVolume,
+                audioMuted = settings.audioMuted,
+                audioOutputLatencyMs = settings.audioOutputLatencyMs,
+                audioMinimalOutputLatency = settings.audioMinimalOutputLatency,
+                enableFastBoot = settings.enableFastBoot,
+                frameLimitEnabled = settings.frameLimitEnabled,
+                targetFps = settings.targetFps,
+                textureFiltering = settings.textureFiltering,
+                shaderChainEnabled = settings.shaderChainEnabled,
+                shaderChainPreset = settings.shaderChainPreset,
+                widescreenPatches = settings.enableWidescreenPatches,
+                enableIcacheEmulation = settings.enableIcacheEmulation,
+                cdReadAhead = settings.cdReadAhead,
+                enableCddaAudio = settings.enableCddaAudio,
+                multitapMode = settings.multitapMode
             )
         }
     }
