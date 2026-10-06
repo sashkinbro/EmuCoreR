@@ -84,13 +84,7 @@ class DriveBackupArchive(private val context: Context) {
         }
     }
 
-    private fun portablePerGame(json: JSONObject): JSONObject = JSONObject(json.toString()).apply {
-        optJSONArray("profiles")?.let { array ->
-            for (i in 0 until array.length()) {
-                array.getJSONObject(i).apply { remove("customDriverPath"); put("gpuDriverType", 0) }
-            }
-        }
-    }
+    private fun portablePerGame(json: JSONObject): JSONObject = JSONObject(json.toString())
 
     private suspend fun exportSettings(): JSONObject = preferences.exportJson()
         .put("emulationSideArtwork", preferences.emulationSideArtwork.first().preferenceValue)
@@ -327,7 +321,7 @@ class DriveBackupArchive(private val context: Context) {
         const val FORMAT = "emucorer-drive-backup"
         val ALL_CATEGORIES = setOf("settings", "memory-cards", "save-states", "cheat-files", "patches", "customization", "textures")
         private val JSON_FILES = setOf("settings.json", "per-game.json", "cheats.json")
-        private val LOCAL_KEYS = setOf("hiddenGamePaths", "biosPath", "gamePath", "gamePaths", "emulatorDataPath", "customDriverPath", "gpuDriverType", "gpuHardwareProfile", "onboardingCompleted", "dev9LocalLinkRoomCode", "dev9LocalLinkPeerId", "dev9LocalLinkAddress", "dev9Dns1", "dev9Dns2", "coverDownloadBaseUrl", "arcadeCoverDownloadBaseUrl")
+        private val LOCAL_KEYS = setOf("hiddenGamePaths", "biosPath", "gamePath", "gamePaths", "emulatorDataPath", "onboardingCompleted", "coverDownloadBaseUrl", "arcadeCoverDownloadBaseUrl")
         private val STYLE_KEYS = setOf("themeMode", "customTheme", "customThemeLibrary", "appFontChoice", "appFontScale", "customFontName", "homeGridScale", "homeBackgroundDim", "homeBackgroundType", "homeBackgroundPreset", "emulationSideArtworkDim", "emulationSideArtwork", "touchControlVisualStyle", "touchControlPressEffect", "gameMenuLayoutStyle", "drawerVisualStyle", "coverArtStyle")
         private const val MAX_JSON_BYTES = 32L * 1024 * 1024
         private const val SPACE_RESERVE = 32L * 1024 * 1024

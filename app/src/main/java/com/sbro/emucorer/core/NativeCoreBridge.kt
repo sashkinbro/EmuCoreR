@@ -95,10 +95,6 @@ class NativeCoreBridge {
     fun coreName(): String? = "SwanStation"
     fun coreVersion(): String? = getSystemInfo().removePrefix("SwanStation ").trim()
 
-    // Compatibility surface used by the app layer. The libretro frontend owns
-    // AAudio buffering; cheats go through retro_cheat_set in the native bridge.
-    fun setAudioBufferMs(@Suppress("UNUSED_PARAMETER") milliseconds: Int) = Unit
-
     /** Loads active GameShark-style codes from a PCSX `.cht` container. */
     external fun loadCheats(path: String)
     external fun clearCheats()
@@ -169,32 +165,4 @@ class NativeCoreBridge {
     external fun getDiscMetadata(path: String): String?
 
     external fun getDiscMetadataFd(fd: Int, offset: Long, size: Long): String?
-
-    // ---------------------------------------------------------------------
-    // Legacy self-test surface. The bespoke EmuCoreR core was replaced by
-    // SwanStation, so these report availability instead of running suites.
-    // ---------------------------------------------------------------------
-    fun getHostInfo(): String = getSystemInfo()
-    private fun unavailable(@Suppress("UNUSED_PARAMETER") name: String): String =
-        "SwanStation core: '$name' self-test is not available for the libretro core"
-
-    fun runSmoke(): String = unavailable("smoke")
-    fun runCpuTests(): String = unavailable("cpu")
-    fun runIrqTimerTests(): String = unavailable("irq-timer")
-    fun runDmaTests(): String = unavailable("dma")
-    fun runGteTests(): String = unavailable("gte")
-    fun runGpuTests(): String = unavailable("gpu")
-    fun runSpuMdecTests(): String = unavailable("spu-mdec")
-    fun runCdromSioTests(): String = unavailable("cdrom-sio")
-    fun runJitTests(): String = unavailable("jit")
-    fun runBiosTests(): String = unavailable("bios")
-    fun runOptimizedTests(): String = unavailable("optimized")
-    fun runRegressionTests(): String = unavailable("regression")
-    fun runFinalTests(): String = unavailable("final")
-    fun runDiscLoaderTests(): String = unavailable("disc-loader")
-    fun runAsyncDiscTests(): String = unavailable("async-disc")
-    fun runSavestateFileTests(): String = unavailable("savestate")
-    fun runBootTests(): String = unavailable("boot")
-    fun runGamesBootTests(): String = unavailable("games-boot")
-    fun runHostThreadTests(): String = unavailable("host-thread")
 }

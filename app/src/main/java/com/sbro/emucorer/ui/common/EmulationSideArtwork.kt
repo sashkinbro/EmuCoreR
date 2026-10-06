@@ -71,7 +71,7 @@ fun calculateSideArtworkPreviewGutters(
 
 /**
  * Calculates conservative side gutters for the renderer's aspect-ratio modes.
- * Auto starts at the PS2-standard 4:3 until the renderer reports its exact draw rectangle.
+ * Auto starts at the standard 4:3 until the renderer reports its exact draw rectangle.
  */
 fun calculateSideArtworkGutters(
     widthPx: Int,

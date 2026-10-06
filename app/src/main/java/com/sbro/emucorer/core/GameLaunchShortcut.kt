@@ -17,15 +17,7 @@ object GameLaunchShortcut {
     const val EXTRA_BOOT_BIOS = "com.sbro.emucorer.extra.BOOT_BIOS"
     const val EXTRA_BOOT_SMOKE_PROBE = "com.sbro.emucorer.extra.BOOT_SMOKE_PROBE"
     const val EXTRA_AUTOTEST_MODE = "com.sbro.emucorer.extra.AUTOTEST_MODE"
-    const val EXTRA_ENABLE_EE_RECOMPILER = "com.sbro.emucorer.extra.ENABLE_EE_RECOMPILER"
-    const val EXTRA_ENABLE_IOP_RECOMPILER = "com.sbro.emucorer.extra.ENABLE_IOP_RECOMPILER"
-    const val EXTRA_ENABLE_VU0_RECOMPILER = "com.sbro.emucorer.extra.ENABLE_VU0_RECOMPILER"
-    const val EXTRA_ENABLE_VU1_RECOMPILER = "com.sbro.emucorer.extra.ENABLE_VU1_RECOMPILER"
-    const val EXTRA_ENABLE_FASTMEM = "com.sbro.emucorer.extra.ENABLE_FASTMEM"
-    const val EXTRA_ENABLE_MTVU = "com.sbro.emucorer.extra.ENABLE_MTVU"
     const val EXTRA_RENDERER = "com.sbro.emucorer.extra.RENDERER"
-    const val EXTRA_GS_DUMP_FRAMES = "com.sbro.emucorer.extra.GS_DUMP_FRAMES"
-    const val EXTRA_GS_DUMP_DELAY_MS = "com.sbro.emucorer.extra.GS_DUMP_DELAY_MS"
 
     private const val SCHEME = "emucorer"
     private const val HOST = "launch"
@@ -40,15 +32,7 @@ object GameLaunchShortcut {
         val bootBios: Boolean = false,
         val bootSmokeProbe: Boolean = false,
         val autotestMode: Boolean = false,
-        val enableEeRecompiler: Boolean? = null,
-        val enableIopRecompiler: Boolean? = null,
-        val enableVu0Recompiler: Boolean? = null,
-        val enableVu1Recompiler: Boolean? = null,
-        val enableFastmem: Boolean? = null,
-        val enableMtvu: Boolean? = null,
-        val renderer: Int? = null,
-        val gsDumpFrames: Int? = null,
-        val gsDumpDelayMs: Int? = null
+        val renderer: Int? = null
     )
 
     fun requestPinnedShortcut(
@@ -110,24 +94,8 @@ object GameLaunchShortcut {
             bootBios = bootBios,
             bootSmokeProbe = bootSmokeProbe,
             autotestMode = autotestMode,
-            enableEeRecompiler = optionalBooleanExtra(intent, EXTRA_ENABLE_EE_RECOMPILER)
-                ?: optionalBooleanQuery(data, "enableEeRecompiler"),
-            enableIopRecompiler = optionalBooleanExtra(intent, EXTRA_ENABLE_IOP_RECOMPILER)
-                ?: optionalBooleanQuery(data, "enableIopRecompiler"),
-            enableVu0Recompiler = optionalBooleanExtra(intent, EXTRA_ENABLE_VU0_RECOMPILER)
-                ?: optionalBooleanQuery(data, "enableVu0Recompiler"),
-            enableVu1Recompiler = optionalBooleanExtra(intent, EXTRA_ENABLE_VU1_RECOMPILER)
-                ?: optionalBooleanQuery(data, "enableVu1Recompiler"),
-            enableFastmem = optionalBooleanExtra(intent, EXTRA_ENABLE_FASTMEM)
-                ?: optionalBooleanQuery(data, "enableFastmem"),
-            enableMtvu = optionalBooleanExtra(intent, EXTRA_ENABLE_MTVU)
-                ?: optionalBooleanQuery(data, "enableMtvu"),
             renderer = optionalIntExtra(intent, EXTRA_RENDERER)
-                ?: optionalIntQuery(data, "renderer"),
-            gsDumpFrames = optionalIntExtra(intent, EXTRA_GS_DUMP_FRAMES)
-                ?: optionalIntQuery(data, "gsDumpFrames"),
-            gsDumpDelayMs = optionalIntExtra(intent, EXTRA_GS_DUMP_DELAY_MS)
-                ?: optionalIntQuery(data, "gsDumpDelayMs")
+                ?: optionalIntQuery(data, "renderer")
         )
     }
 
@@ -140,15 +108,7 @@ object GameLaunchShortcut {
         intent.removeExtra(EXTRA_BOOT_BIOS)
         intent.removeExtra(EXTRA_BOOT_SMOKE_PROBE)
         intent.removeExtra(EXTRA_AUTOTEST_MODE)
-        intent.removeExtra(EXTRA_ENABLE_EE_RECOMPILER)
-        intent.removeExtra(EXTRA_ENABLE_IOP_RECOMPILER)
-        intent.removeExtra(EXTRA_ENABLE_VU0_RECOMPILER)
-        intent.removeExtra(EXTRA_ENABLE_VU1_RECOMPILER)
-        intent.removeExtra(EXTRA_ENABLE_FASTMEM)
-        intent.removeExtra(EXTRA_ENABLE_MTVU)
         intent.removeExtra(EXTRA_RENDERER)
-        intent.removeExtra(EXTRA_GS_DUMP_FRAMES)
-        intent.removeExtra(EXTRA_GS_DUMP_DELAY_MS)
         if (intent.data?.scheme == SCHEME && intent.data?.host == HOST) {
             intent.data = null
         }
@@ -170,19 +130,6 @@ object GameLaunchShortcut {
     private fun optionalIntQuery(data: Uri?, key: String): Int? {
         if (data?.scheme != SCHEME || data.host != HOST) return null
         return data.getQueryParameter(key)?.toIntOrNull()
-    }
-
-    private fun optionalBooleanExtra(intent: Intent, key: String): Boolean? {
-        return if (intent.hasExtra(key)) intent.getBooleanExtra(key, false) else null
-    }
-
-    private fun optionalBooleanQuery(data: Uri?, key: String): Boolean? {
-        if (data?.scheme != SCHEME || data.host != HOST) return null
-        return when (data.getQueryParameter(key)?.lowercase()) {
-            "true", "1", "yes", "on" -> true
-            "false", "0", "no", "off" -> false
-            else -> null
-        }
     }
 
     private fun normalizeSaveSlot(slot: Int?): Int? {

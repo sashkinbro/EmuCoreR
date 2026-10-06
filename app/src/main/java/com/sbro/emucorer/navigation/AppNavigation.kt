@@ -68,7 +68,6 @@ import com.sbro.emucorer.ui.discord.DiscordScreen
 import com.sbro.emucorer.ui.emulation.EmulationScreen
 import com.sbro.emucorer.ui.formats.SupportedFormatsScreen
 import com.sbro.emucorer.ui.feedback.FeedbackScreen
-import com.sbro.emucorer.ui.gamedb.GameDbBrowserScreen
 import com.sbro.emucorer.ui.home.HomeScreen
 import com.sbro.emucorer.ui.hub.HubScreen
 import com.sbro.emucorer.ui.hub.detail.HubDetailScreen
@@ -109,15 +108,7 @@ data class EmulationRoute(
     val bootBios: Boolean = false,
     val bootSmokeProbe: Boolean = false,
     val autotestMode: Boolean = false,
-    val enableEeRecompiler: Boolean? = null,
-    val enableIopRecompiler: Boolean? = null,
-    val enableVu0Recompiler: Boolean? = null,
-    val enableVu1Recompiler: Boolean? = null,
-    val enableFastmem: Boolean? = null,
-    val enableMtvu: Boolean? = null,
     val renderer: Int? = null,
-    val gsDumpFrames: Int? = null,
-    val gsDumpDelayMs: Int? = null,
     val exitAppOnExit: Boolean = false
 )
 
@@ -167,9 +158,6 @@ data class SaveManagerRoute(
 
 @Serializable
 object MemoryCardManagerRoute
-
-@Serializable
-data class GameDbBrowserRoute(val query: String? = null)
 
 @Serializable
 object AchievementsRoute
@@ -514,13 +502,6 @@ onNavigateAchievements = navigateAchievements,
                         onCreateShortcutClick = { game ->
                             GameLaunchShortcut.requestPinnedShortcut(context, game)
                         },
-                        onOpenGameDbClick = { game ->
-                            navController.navigate(
-                                GameDbBrowserRoute(query = game.serial?.takeIf { it.isNotBlank() } ?: game.title)
-                            ) {
-                                launchSingleTop = true
-                            }
-                        },
                         onMenuClick = openDrawer,
                         onShelfModeChanged = { isShelfMode ->
                             homeDrawerEnabled = !isShelfMode
@@ -691,15 +672,7 @@ onNavigateAchievements = navigateAchievements,
                     bootSmokeProbe = route.bootSmokeProbe,
                     saveSlot = route.saveSlot,
                     autotestMode = route.autotestMode,
-                    enableEeRecompilerOverride = route.enableEeRecompiler,
-                    enableIopRecompilerOverride = route.enableIopRecompiler,
-                    enableVu0RecompilerOverride = route.enableVu0Recompiler,
-                    enableVu1RecompilerOverride = route.enableVu1Recompiler,
-                    enableFastmemOverride = route.enableFastmem,
-                    enableMtvuOverride = route.enableMtvu,
                     rendererOverride = route.renderer,
-                    gsDumpFrames = route.gsDumpFrames,
-                    gsDumpDelayMs = route.gsDumpDelayMs,
                     restoredAfterProcessDeath = blockRestoredEmulationRoute,
                     onExit = { activePlayTimeMs ->
                         if (route.exitAppOnExit) {
@@ -852,11 +825,6 @@ onNavigateAchievements = navigateAchievements,
                                 launchSingleTop = true
                             }
                         },
-                        onOpenGameDbBrowser = {
-                            navController.navigate(GameDbBrowserRoute()) {
-                                launchSingleTop = true
-                            }
-                        },
                         onOpenControlsLayoutEditor = {
                             navController.navigate(ControlsLayoutEditorRoute()) {
                                 launchSingleTop = true
@@ -932,14 +900,6 @@ onNavigateAchievements = navigateAchievements,
                         onBackClick = { navController.popBackStack() }
                     )
                 }
-            }
-
-            composable<GameDbBrowserRoute> { backStackEntry ->
-                val route = backStackEntry.toRoute<GameDbBrowserRoute>()
-                GameDbBrowserScreen(
-                    initialQuery = route.query,
-                    onBackClick = { navController.popBackStack() }
-                )
             }
 
             composable<GameSettingsManagerRoute> { backStackEntry ->
@@ -1146,15 +1106,7 @@ onNavigateAchievements = navigateAchievements,
                     bootBios = launchRequest.bootBios,
                     bootSmokeProbe = launchRequest.bootSmokeProbe,
                     autotestMode = launchRequest.autotestMode,
-                    enableEeRecompiler = launchRequest.enableEeRecompiler,
-                    enableIopRecompiler = launchRequest.enableIopRecompiler,
-                    enableVu0Recompiler = launchRequest.enableVu0Recompiler,
-                    enableVu1Recompiler = launchRequest.enableVu1Recompiler,
-                    enableFastmem = launchRequest.enableFastmem,
-                    enableMtvu = launchRequest.enableMtvu,
                     renderer = launchRequest.renderer,
-                    gsDumpFrames = launchRequest.gsDumpFrames,
-                    gsDumpDelayMs = launchRequest.gsDumpDelayMs,
                     exitAppOnExit = true
                 )
             ) {

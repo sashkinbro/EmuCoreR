@@ -170,7 +170,6 @@ fun HomeScreen(
     onLoadSaveClick: (GameItem) -> Unit,
     onManageGameClick: (GameItem) -> Unit,
     onCreateShortcutClick: (GameItem) -> Unit,
-    onOpenGameDbClick: (GameItem) -> Unit,
     onMenuClick: (() -> Unit)? = null,
     onShelfModeChanged: (Boolean) -> Unit = {},
     viewModel: HomeViewModel = viewModel()
@@ -473,7 +472,6 @@ fun HomeScreen(
                         onLongClickLoadSave = onLoadSaveClick,
                         onLongClickManage = onManageGameClick,
                         onLongClickCreateShortcut = onCreateShortcutClick,
-                        onLongClickOpenGameDb = onOpenGameDbClick,
                         onLongClickCustomCover = { game ->
                             gameAwaitingPickerLaunch = game
                         }
@@ -584,7 +582,6 @@ fun HomeScreen(
                                                         onLongClickLoadSave = { onLoadSaveClick(game) },
                                                         onLongClickManage = { onManageGameClick(game) },
                                                         onLongClickCreateShortcut = { onCreateShortcutClick(game) },
-                                                        onLongClickOpenGameDb = { onOpenGameDbClick(game) },
                                                         onLongClickCustomCover = {
                                                             gameAwaitingPickerLaunch = game
                                                         },
@@ -634,7 +631,6 @@ fun HomeScreen(
                                                                 onLongClickLoadSave = { onLoadSaveClick(game) },
                                                                 onLongClickManage = { onManageGameClick(game) },
                                                                 onLongClickCreateShortcut = { onCreateShortcutClick(game) },
-                                                                onLongClickOpenGameDb = { onOpenGameDbClick(game) },
                                                                 onLongClickCustomCover = {
                                                                     gameAwaitingPickerLaunch = game
                                                                 }
@@ -650,7 +646,6 @@ fun HomeScreen(
                                                                 onLongClickLoadSave = { onLoadSaveClick(game) },
                                                                 onLongClickManage = { onManageGameClick(game) },
                                                                 onLongClickCreateShortcut = { onCreateShortcutClick(game) },
-                                                                onLongClickOpenGameDb = { onOpenGameDbClick(game) },
                                                                 onLongClickCustomCover = {
                                                                     gameAwaitingPickerLaunch = game
                                                                 }
@@ -1482,7 +1477,6 @@ private fun RecentGameCard(
     onLongClickLoadSave: () -> Unit,
     onLongClickManage: () -> Unit,
     onLongClickCreateShortcut: () -> Unit,
-    onLongClickOpenGameDb: () -> Unit,
     onLongClickCustomCover: () -> Unit,
     compact: Boolean,
     coverScale: Float
@@ -1569,10 +1563,6 @@ private fun RecentGameCard(
                     showMenu = false
                     onLongClickCreateShortcut()
                 },
-                onOpenGameDb = {
-                    showMenu = false
-                    onLongClickOpenGameDb()
-                },
                 onCustomCover = {
                     showMenu = false
                     onLongClickCustomCover()
@@ -1594,7 +1584,6 @@ private fun GameCard(
     onLongClickLoadSave: () -> Unit,
     onLongClickManage: () -> Unit,
     onLongClickCreateShortcut: () -> Unit,
-    onLongClickOpenGameDb: () -> Unit,
     onLongClickCustomCover: () -> Unit
 ) {
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
@@ -1684,10 +1673,6 @@ private fun GameCard(
                     showMenu = false
                     onLongClickCreateShortcut()
                 },
-                onOpenGameDb = {
-                    showMenu = false
-                    onLongClickOpenGameDb()
-                },
                 onCustomCover = {
                     showMenu = false
                     onLongClickCustomCover()
@@ -1709,7 +1694,6 @@ private fun GameListCard(
     onLongClickLoadSave: () -> Unit,
     onLongClickManage: () -> Unit,
     onLongClickCreateShortcut: () -> Unit,
-    onLongClickOpenGameDb: () -> Unit,
     onLongClickCustomCover: () -> Unit
 ) {
     val debouncedClick = rememberDebouncedClick(onClick = onClick)
@@ -1824,10 +1808,6 @@ private fun GameListCard(
                     showMenu = false
                     onLongClickCreateShortcut()
                 },
-                onOpenGameDb = {
-                    showMenu = false
-                    onLongClickOpenGameDb()
-                },
                 onCustomCover = {
                     showMenu = false
                     onLongClickCustomCover()
@@ -1890,7 +1870,6 @@ internal fun GameCardContextMenu(
     onLoadSave: () -> Unit,
     onManage: () -> Unit,
     onCreateShortcut: () -> Unit,
-    onOpenGameDb: () -> Unit,
     onCustomCover: () -> Unit
 ) {
     DropdownMenu(

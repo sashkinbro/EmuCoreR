@@ -520,14 +520,7 @@ class SaveStateRepository(private val context: Context) {
             return previewFile.absolutePath
         }
 
-        return runCatching {
-            val bytes = NativeApp.getSaveStateScreenshot(saveFile.absolutePath) ?: return@runCatching null
-            FileOutputStream(previewFile).use { output ->
-                output.write(bytes)
-            }
-            previewFile.setLastModified(saveFile.lastModified())
-            previewFile.absolutePath
-        }.getOrNull()
+        return null
     }
 
     private fun listAllEntriesFast(): List<SaveStateEntryInfo> {

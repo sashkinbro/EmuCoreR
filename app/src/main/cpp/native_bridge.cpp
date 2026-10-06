@@ -2166,7 +2166,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_hasDiscMedia(JNIEnv*, jobject, jlon
 }
 
 // Disc metadata for the library layer: "title\nserial\nserial" (the app uses
-// the serial; the title stays filename-derived because the core has no gamedb).
+// the serial; the title stays filename-derived because the core has no game database).
 JNIEXPORT jstring JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_getDiscMetadata(JNIEnv* env, jobject, jstring path) {
     if (path == nullptr) return nullptr;

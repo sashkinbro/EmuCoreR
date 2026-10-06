@@ -192,7 +192,7 @@ import com.sbro.emucorer.core.upscaleMultiplierKey
 import com.sbro.emucorer.core.SwanStationCoreOptions
 import com.sbro.emucorer.core.SwanStationCoreOptionStrings
 import com.sbro.emucorer.core.LocalTvUiEnvironment
-import com.sbro.emucorer.core.PerformanceProfiles
+
 import com.sbro.emucorer.core.RendererDefaults
 import com.sbro.emucorer.core.TvInterfaceMode
 import com.sbro.emucorer.core.TvUiPolicy
@@ -288,7 +288,6 @@ fun SettingsScreen(
     onBackClick: (() -> Unit)? = null,
     onOpenLanguageScreen: (() -> Unit)? = null,
     onOpenMemoryCardManager: (() -> Unit)? = null,
-    onOpenGameDbBrowser: (() -> Unit)? = null,
     onOpenControlsLayoutEditor: (() -> Unit)? = null,
     onOpenThemeManager: (() -> Unit)? = null,
     onOpenTouchControlCreator: (() -> Unit)? = null,
@@ -619,7 +618,6 @@ fun SettingsScreen(
                     searchQuery = ""
                 },
                 onOpenMemoryCardManager = onOpenMemoryCardManager,
-                onOpenGameDbBrowser = onOpenGameDbBrowser,
                 onOpenControlsLayoutEditor = onOpenControlsLayoutEditor,
                 onOpenThemeManager = onOpenThemeManager,
                 onOpenTouchControlCreator = onOpenTouchControlCreator,
@@ -1246,7 +1244,6 @@ private fun SettingsContent(
     topInset: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
     onOpenMemoryCardManager: (() -> Unit)? = null,
-    onOpenGameDbBrowser: (() -> Unit)? = null,
     onOpenControlsLayoutEditor: (() -> Unit)? = null,
     onOpenThemeManager: (() -> Unit)? = null,
     onOpenTouchControlCreator: (() -> Unit)? = null
@@ -2387,34 +2384,6 @@ private fun SettingsContent(
                             onSelect = viewModel::setTargetFps,
                             helpText = stringResource(R.string.settings_target_fps_desc),
                             onResetToDefault = { viewModel.setTargetFps(defaults.targetFps) }
-                        )
-                        SliderItem(
-                            icon = Icons.Rounded.Timelapse,
-                            title = stringResource(R.string.settings_vertical_refresh_ntsc),
-                            subtitle = String.format(Locale.US, "%.2f Hz", uiState.ntscFramerate),
-                            value = uiState.ntscFramerate,
-                            range = AppPreferences.MIN_REGION_FRAMERATE..AppPreferences.MAX_REGION_FRAMERATE,
-                            steps = 0,
-                            onValueChange = viewModel::setNtscFramerate,
-                            valueLabel = { String.format(Locale.US, "%.2f Hz", it) },
-                            helpText = stringResource(R.string.settings_help_vertical_refresh),
-                            onResetToDefault = {
-                                viewModel.setNtscFramerate(defaults.ntscFramerate)
-                            }
-                        )
-                        SliderItem(
-                            icon = Icons.Rounded.Timelapse,
-                            title = stringResource(R.string.settings_vertical_refresh_pal),
-                            subtitle = String.format(Locale.US, "%.2f Hz", uiState.palFramerate),
-                            value = uiState.palFramerate,
-                            range = AppPreferences.MIN_REGION_FRAMERATE..AppPreferences.MAX_REGION_FRAMERATE,
-                            steps = 0,
-                            onValueChange = viewModel::setPalFramerate,
-                            valueLabel = { String.format(Locale.US, "%.2f Hz", it) },
-                            helpText = stringResource(R.string.settings_help_vertical_refresh),
-                            onResetToDefault = {
-                                viewModel.setPalFramerate(defaults.palFramerate)
-                            }
                         )
                         ChoiceSection(
                             title = stringResource(R.string.settings_frame_skip),
@@ -3782,18 +3751,14 @@ private fun gameMenuSectionLabel(section: GameMenuSectionId): String = when (sec
     GameMenuSectionId.AUTO_SAVE -> stringResource(R.string.settings_game_menu_section_auto_save)
     GameMenuSectionId.QUICK_ACTIONS -> stringResource(R.string.settings_game_menu_section_quick_actions)
     GameMenuSectionId.AUTOMATION -> stringResource(R.string.settings_game_menu_section_automation)
-    GameMenuSectionId.GAME_PROFILE -> stringResource(R.string.settings_game_menu_section_game_profile)
-    GameMenuSectionId.SESSION_DEBUG_TOOLS -> stringResource(R.string.settings_game_menu_section_debug_tools)
     GameMenuSectionId.CONTROLS_GENERAL -> stringResource(R.string.settings_game_menu_section_controls_general)
     GameMenuSectionId.CONTROLS_TOUCH -> stringResource(R.string.settings_touch_controls_section)
     GameMenuSectionId.CONTROLS_GAMEPAD -> stringResource(R.string.settings_gamepad_controls_section)
     GameMenuSectionId.EMULATION_PERFORMANCE -> stringResource(R.string.emulation_performance_stats)
-    GameMenuSectionId.EMULATION_SPEED -> stringResource(R.string.settings_speed_hacks)
     GameMenuSectionId.EMULATION_CPU -> stringResource(R.string.settings_core_cpu)
     GameMenuSectionId.EMULATION_AUDIO -> stringResource(R.string.settings_core_audio)
     GameMenuSectionId.EMULATION_CHEATS -> stringResource(R.string.settings_enable_cheats)
     GameMenuSectionId.GRAPHICS_DISPLAY -> stringResource(R.string.settings_game_menu_section_graphics_display)
-    GameMenuSectionId.GRAPHICS_RENDERING -> stringResource(R.string.settings_rendering_section)
     GameMenuSectionId.GRAPHICS_SCREEN -> stringResource(R.string.emulation_screen_tab)
 }
 
@@ -6057,28 +6022,6 @@ private fun gyroModeOptions(): List<Pair<Int, String>> = listOf(
     AppPreferences.GYRO_MODE_STEERING to stringResource(R.string.settings_gyro_steering)
 )
 
-private fun resolveManualTargetFps(currentTargetFps: Int, defaultTargetFps: Int): Int {
-    return when {
-        currentTargetFps > 0 -> currentTargetFps
-        defaultTargetFps > 0 -> defaultTargetFps
-        else -> 60
-    }
-}
-
-private fun formatFramerateHz(value: Float): String {
-    val rounded = kotlin.math.round(value * 100f) / 100f
-    val whole = rounded.toInt()
-    return if (rounded == whole.toFloat()) {
-        "$whole Hz"
-    } else {
-        "$rounded Hz"
-    }
-}
-
-private fun formatSpeedMultiplier(value: Float): String {
-    return "%.2fx".format(java.util.Locale.US, value)
-}
-
 @Composable
 private fun fpsOverlayCornerOptions(): List<Pair<Int, String>> = listOf(
     AppPreferences.FPS_OVERLAY_CORNER_TOP_LEFT to stringResource(R.string.settings_fps_overlay_corner_top_left),
@@ -6086,11 +6029,6 @@ private fun fpsOverlayCornerOptions(): List<Pair<Int, String>> = listOf(
     AppPreferences.FPS_OVERLAY_CORNER_BOTTOM_LEFT to stringResource(R.string.settings_fps_overlay_corner_bottom_left),
     AppPreferences.FPS_OVERLAY_CORNER_BOTTOM_RIGHT to stringResource(R.string.settings_fps_overlay_corner_bottom_right)
 )
-
-@Composable
-private fun cpuSpriteRenderSizeOptions(): List<Pair<Int, String>> = (0..10).map { value ->
-    value to if (value == 0) stringResource(R.string.settings_disabled_short) else value.toString()
-}
 
 @Composable
 private fun fpsOverlayMetricOptions(): List<Pair<Int, String>> = listOf(

@@ -328,25 +328,6 @@ private fun fpsOverlayMetricLiveOptions(): List<Pair<Int, String>> = listOf(
     PerformanceOverlayMetrics.AUDIO to stringResource(R.string.settings_fps_metric_audio)
 )
 
-@Composable
-private fun eeCycleRateLiveOptions(): List<LiveSelectionOption> = listOf(
-    LiveSelectionOption(-3, "50%"),
-    LiveSelectionOption(-2, "60%"),
-    LiveSelectionOption(-1, "75%"),
-    LiveSelectionOption(0, "100%"),
-    LiveSelectionOption(1, "130%"),
-    LiveSelectionOption(2, "180%"),
-    LiveSelectionOption(3, "300%")
-)
-
-@Composable
-private fun eeCycleSkipLiveOptions(): List<LiveSelectionOption> = listOf(
-    LiveSelectionOption(0, stringResource(R.string.settings_ee_cycle_disabled)),
-    LiveSelectionOption(1, stringResource(R.string.settings_ee_cycle_mild)),
-    LiveSelectionOption(2, stringResource(R.string.settings_ee_cycle_moderate)),
-    LiveSelectionOption(3, stringResource(R.string.settings_ee_cycle_maximum))
-)
-
 private fun Int.toOverlayAlignment(): Alignment = when (this) {
     AppPreferences.FPS_OVERLAY_CORNER_TOP_LEFT -> Alignment.TopStart
     AppPreferences.FPS_OVERLAY_CORNER_BOTTOM_LEFT -> Alignment.BottomStart
@@ -377,15 +358,7 @@ fun EmulationScreen(
     bootSmokeProbe: Boolean = false,
     saveSlot: Int? = null,
     autotestMode: Boolean = false,
-    enableEeRecompilerOverride: Boolean? = null,
-    enableIopRecompilerOverride: Boolean? = null,
-    enableVu0RecompilerOverride: Boolean? = null,
-    enableVu1RecompilerOverride: Boolean? = null,
-    enableFastmemOverride: Boolean? = null,
-    enableMtvuOverride: Boolean? = null,
     rendererOverride: Int? = null,
-    gsDumpFrames: Int? = null,
-    gsDumpDelayMs: Int? = null,
     restoredAfterProcessDeath: Boolean = false,
     onExit: (activePlayTimeMs: Long) -> Unit,
     viewModel: EmulationViewModel = viewModel()
@@ -452,9 +425,6 @@ fun EmulationScreen(
             delay(5_000L)
             achievementUnlockBanner = null
         }
-    }
-    LaunchedEffect(uiState.localMultiplayerMode) {
-        EmulatorBridge.setLocalMultiplayerMode(uiState.localMultiplayerMode)
     }
     val swapDiscPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -750,15 +720,7 @@ fun EmulationScreen(
         bootToBios,
         bootSmokeProbe,
         autotestMode,
-        enableEeRecompilerOverride,
-        enableIopRecompilerOverride,
-        enableVu0RecompilerOverride,
-        enableVu1RecompilerOverride,
-        enableFastmemOverride,
-        enableMtvuOverride,
         rendererOverride,
-        gsDumpFrames,
-        gsDumpDelayMs,
         restoredAfterProcessDeath
     ) {
         if (restoredAfterProcessDeath) return@LaunchedEffect
@@ -768,15 +730,7 @@ fun EmulationScreen(
             bootToBios = bootToBios,
             bootSmokeProbe = bootSmokeProbe,
             autotestMode = autotestMode,
-            enableEeRecompilerOverride = enableEeRecompilerOverride,
-            enableIopRecompilerOverride = enableIopRecompilerOverride,
-            enableVu0RecompilerOverride = enableVu0RecompilerOverride,
-            enableVu1RecompilerOverride = enableVu1RecompilerOverride,
-            enableFastmemOverride = enableFastmemOverride,
-            enableMtvuOverride = enableMtvuOverride,
-            rendererOverride = rendererOverride,
-            gsDumpFrames = gsDumpFrames,
-            gsDumpDelayMs = gsDumpDelayMs
+            rendererOverride = rendererOverride
         )
     }
 
@@ -1536,8 +1490,6 @@ fun EmulationScreen(
                     onSetAutoSaveIntervalMinutes = { viewModel.setAutoSaveIntervalMinutes(it) },
                     onSetAutoSaveOnExit = { viewModel.setAutoSaveOnExit(it) },
                     onSetAutoLoadOnStart = { viewModel.setAutoLoadOnStart(it) },
-                    onSaveGameSettingsProfile = { viewModel.saveCurrentGameSettingsProfile() },
-                    onResetGameSettingsProfile = { viewModel.resetCurrentGameSettingsProfile() },
                     onSetCoreOption = { key, value -> viewModel.setCoreOption(key, value) },
                     onNextSlot = { viewModel.setSlot(uiState.currentSlot + 1) },
                     onPrevSlot = { viewModel.setSlot(uiState.currentSlot - 1) },
@@ -1545,8 +1497,7 @@ fun EmulationScreen(
                     onSetFrameLimit = { viewModel.toggleFrameLimit() },
                     onSetTargetFps = { viewModel.setTargetFps(it) },
                     onSetFrameSkip = { viewModel.setFrameSkip(it) },
-                    onSetNtscFramerate = { viewModel.setNtscFramerate(it) },
-                    onSetPalFramerate = { viewModel.setPalFramerate(it) },
+
                     onSetFpsOverlayMode = { viewModel.setFpsOverlayMode(it) },
                     onSetFpsOverlayCorner = { viewModel.setFpsOverlayCorner(it) },
                     onSetFpsOverlayScale = { viewModel.setFpsOverlayScale(it) },
@@ -1575,38 +1526,13 @@ fun EmulationScreen(
                     onSetAspectRatio = { viewModel.setAspectRatio(it) },
                     onSetDisplayCrop = { viewModel.setDisplayCrop(it) },
                     onSetLocalMultiplayerMode = viewModel::setLocalMultiplayerMode,
-                    onSetMtvu = { viewModel.setMtvu(it) },
-                    onSetThreadPinning = { viewModel.setThreadPinning(it) },
-                    onSetFastCdvd = { viewModel.setFastCdvd(it) },
                     onSetEnableCheats = { viewModel.setEnableCheats(it) },
                     onSetWidescreenPatches = { viewModel.setEnableWidescreenPatches(it) },
                     onToggleCheat = { id, enabled -> viewModel.setCheatEnabled(id, enabled) },
                     onSetCheatGroupEnabled = { ids, enabled -> viewModel.setCheatGroupEnabled(ids, enabled) },
                     onRefreshCheats = { viewModel.refreshAvailableCheats() },
-                    onSetEeCycleRate = { viewModel.setEeCycleRate(it) },
-                    onSetEeCycleSkip = { viewModel.setEeCycleSkip(it) },
-                    onSetEnableDisableStalls = { viewModel.setEnableDisableStalls(it) },
-                    onSetEnablePreciseExceptions = { viewModel.setEnablePreciseExceptions(it) },
-                    onSetEnableTurboCd = { viewModel.setEnableTurboCd(it) },
-                    onSetEnableXaDecoding = { viewModel.setEnableXaDecoding(it) },
-                    onSetEnableSpuReverb = { viewModel.setEnableSpuReverb(it) },
-                    onSetEnableSpuThread = { viewModel.setEnableSpuThread(it) },
                     onSetAudioVolume = { viewModel.setAudioVolume(it) },
                     onSetAudioMuted = { viewModel.setAudioMuted(it) },
-                    onSetNeonEnhancement = { viewModel.setNeonEnhancement(it) },
-                    onSetNeonEnhancementSpeedHack = { viewModel.setNeonEnhancementSpeedHack(it) },
-                    onSetNeonEnhancementTexAdj = { viewModel.setNeonEnhancementTexAdj(it) },
-                    onSetNeonInterlace = { viewModel.setNeonInterlace(it) },
-                    onSetGpuThreadRendering = { viewModel.setGpuThreadRendering(it) },
-                    onSetShowOverscan = { viewModel.setShowOverscan(it) },
-                    onSetScreenCentering = { viewModel.setScreenCentering(it) },
-                    onSetScreenCenteringX = { viewModel.setScreenCenteringX(it) },
-                    onSetScreenCenteringY = { viewModel.setScreenCenteringY(it) },
-                    onSetScreenCenteringHAdj = { viewModel.setScreenCenteringHAdj(it) },
-                    onSetEnableFractionalFramerate = { viewModel.setEnableFractionalFramerate(it) },
-                    onSetAltFlipMode = { viewModel.setAltFlipMode(it) },
-                    onSetEnableRgb32Output = { viewModel.setEnableRgb32Output(it) },
-                    onSetEnableScaleHires = { viewModel.setEnableScaleHires(it) },
                     onExit = requestExitClick,
                     modifier = Modifier
                         .fillMaxHeight()
@@ -2822,8 +2748,6 @@ private fun EmulationSidebarMenu(
     onSetAutoSaveIntervalMinutes: (Int) -> Unit,
     onSetAutoSaveOnExit: (Boolean) -> Unit,
     onSetAutoLoadOnStart: (Boolean) -> Unit,
-    onSaveGameSettingsProfile: () -> Unit,
-    onResetGameSettingsProfile: () -> Unit,
     onSetCoreOption: (String, String) -> Unit,
     onNextSlot: () -> Unit,
     onPrevSlot: () -> Unit,
@@ -2831,8 +2755,6 @@ private fun EmulationSidebarMenu(
     onSetFrameLimit: () -> Unit,
     onSetTargetFps: (Int) -> Unit,
     onSetFrameSkip: (Int) -> Unit,
-    onSetNtscFramerate: (Float) -> Unit,
-    onSetPalFramerate: (Float) -> Unit,
     onSetFpsOverlayMode: (Int) -> Unit,
     onSetFpsOverlayCorner: (Int) -> Unit,
     onSetFpsOverlayScale: (Int) -> Unit,
@@ -2861,38 +2783,13 @@ private fun EmulationSidebarMenu(
     onSetAspectRatio: (Int) -> Unit,
     onSetDisplayCrop: (DisplayCrop) -> Unit,
     onSetLocalMultiplayerMode: (Int) -> Unit,
-    onSetMtvu: (Boolean) -> Unit,
-    onSetThreadPinning: (Boolean) -> Unit,
-    onSetFastCdvd: (Boolean) -> Unit,
     onSetEnableCheats: (Boolean) -> Unit,
     onSetWidescreenPatches: (Boolean) -> Unit,
     onToggleCheat: (String, Boolean) -> Unit,
     onSetCheatGroupEnabled: (List<String>, Boolean) -> Unit,
     onRefreshCheats: () -> Unit,
-    onSetEeCycleRate: (Int) -> Unit,
-    onSetEeCycleSkip: (Int) -> Unit,
-    onSetEnableDisableStalls: (Boolean) -> Unit,
-    onSetEnablePreciseExceptions: (Boolean) -> Unit,
-    onSetEnableTurboCd: (Boolean) -> Unit,
-    onSetEnableXaDecoding: (Boolean) -> Unit,
-    onSetEnableSpuReverb: (Boolean) -> Unit,
-    onSetEnableSpuThread: (Boolean) -> Unit,
     onSetAudioVolume: (Int) -> Unit,
     onSetAudioMuted: (Boolean) -> Unit,
-    onSetNeonEnhancement: (Boolean) -> Unit,
-    onSetNeonEnhancementSpeedHack: (Boolean) -> Unit,
-    onSetNeonEnhancementTexAdj: (Boolean) -> Unit,
-    onSetNeonInterlace: (Int) -> Unit,
-    onSetGpuThreadRendering: (Int) -> Unit,
-    onSetShowOverscan: (Boolean) -> Unit,
-    onSetScreenCentering: (Int) -> Unit,
-    onSetScreenCenteringX: (Int) -> Unit,
-    onSetScreenCenteringY: (Int) -> Unit,
-    onSetScreenCenteringHAdj: (Int) -> Unit,
-    onSetEnableFractionalFramerate: (Boolean) -> Unit,
-    onSetAltFlipMode: (Int) -> Unit,
-    onSetEnableRgb32Output: (Boolean) -> Unit,
-    onSetEnableScaleHires: (Boolean) -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -3335,69 +3232,6 @@ private fun EmulationSidebarMenu(
 
                         }
 
-                        if (section == GameMenuSectionId.GAME_PROFILE) {
-                        SidebarSectionTitle(
-                            text = stringResource(R.string.game_settings_overlay_section).uppercase(),
-                            color = sectionTitleColor,
-                            topPadding = sectionLabelTopPadding,
-                            horizontalInset = sectionLabelInset
-                        )
-
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = neonShape(18.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(
-                                        if (uiState.gameSettingsProfileActive) {
-                                            R.string.game_settings_overlay_profile_active
-                                        } else {
-                                            R.string.game_settings_overlay_profile_inactive
-                                        }
-                                    ),
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = stringResource(R.string.game_settings_overlay_profile_note),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                MenuButton(
-                                    icon = Icons.Rounded.Save,
-                                    text = stringResource(R.string.game_settings_overlay_save),
-                                    onClick = onSaveGameSettingsProfile,
-                                    enabled = !uiState.isActionInProgress,
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f)
-                                )
-                            }
-                            Box(modifier = Modifier.weight(1f)) {
-                                MenuButton(
-                                    icon = Icons.Rounded.Restore,
-                                    text = stringResource(R.string.game_settings_overlay_reset),
-                                    onClick = onResetGameSettingsProfile,
-                                    enabled = !uiState.isActionInProgress && uiState.gameSettingsProfileActive,
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
-                                )
-                            }
-                        }
-
-                        }
                             }
 
                     }
@@ -3679,30 +3513,6 @@ private fun EmulationSidebarMenu(
                             onValueChange = onSetTargetFps,
                             helpText = stringResource(R.string.settings_target_fps_desc),
                             onResetToDefault = { onSetTargetFps(globalDefaults.targetFps) }
-                        )
-
-                        LiveSliderRow(
-                            title = stringResource(R.string.settings_vertical_refresh_ntsc),
-                            valueLabelForValue = { "$it Hz" },
-                            valueLabelForFloat = { refresh -> String.format(Locale.US, "%.2f Hz", refresh) },
-                            value = uiState.ntscFramerate,
-                            range = AppPreferences.MIN_REGION_FRAMERATE..AppPreferences.MAX_REGION_FRAMERATE,
-                            steps = 0,
-                            onValueChange = onSetNtscFramerate,
-                            helpText = stringResource(R.string.settings_help_vertical_refresh),
-                            onResetToDefault = { onSetNtscFramerate(globalDefaults.ntscFramerate) }
-                        )
-
-                        LiveSliderRow(
-                            title = stringResource(R.string.settings_vertical_refresh_pal),
-                            valueLabelForValue = { "$it Hz" },
-                            valueLabelForFloat = { refresh -> String.format(Locale.US, "%.2f Hz", refresh) },
-                            value = uiState.palFramerate,
-                            range = AppPreferences.MIN_REGION_FRAMERATE..AppPreferences.MAX_REGION_FRAMERATE,
-                            steps = 0,
-                            onValueChange = onSetPalFramerate,
-                            helpText = stringResource(R.string.settings_help_vertical_refresh),
-                            onResetToDefault = { onSetPalFramerate(globalDefaults.palFramerate) }
                         )
 
                         LiveSelectionRow(
@@ -5342,9 +5152,8 @@ private fun buildPerformanceAnnotatedText(text: String, speedPercent: Float): An
         addRepeatedStyle(
             text,
             listOf(
-                "EmuCoreR", "FPS:", "VPS:", "Speed:", "Target:",
-                "Frame:", "GS Queue:", "Res:", "CPU:", "GPU:",
-                "Audio:", "GPU Core:", "JIT:", "CD-ROM:", "VRAM:"
+                "EmuCoreR", "FPS:", "Speed:", "Target:",
+                "Frame:", "Res:", "CPU:", "GPU:", "Audio:"
             ),
             SpanStyle(color = Color(0xFF9DD7FF))
         )
@@ -5355,7 +5164,6 @@ private fun buildPerformanceAnnotatedText(text: String, speedPercent: Float): An
         )
         addLineValueStyle(text, "Speed:", speedColor)
         addLineValueStyle(text, "FPS:", Color(0xFFB9F7CF), stopAt = " | ")
-        addLineValueStyle(text, "VPS:", Color(0xFFB9F7CF), stopAt = " | ")
         addLineValueStyle(text, "Target:", Color(0xFFB9F7CF), stopAt = " | ")
     }
 }

@@ -50,13 +50,10 @@ object NativeApp {
     private var profilerActive = false
     private var hangTraceActive = false
 
-    @JvmStatic fun initialize(path: String, apiVer: Int) = Unit
-
     @JvmStatic fun reloadDataRoot(path: String) { dataRootOverride = path.takeIf(String::isNotBlank) }
     @JvmStatic fun setSaveStateIdentityPath(path: String?) {
         saveStateIdentityPath = path?.takeIf(String::isNotBlank)
     }
-    @JvmStatic fun setSystemCaBundlePath(path: String) = Unit
     @JvmStatic fun getGameTitle(path: String): String? {
         val fallback = if (path.startsWith("content://")) {
             contextRef?.get()?.let { DocumentPathResolver.getDisplayName(it, path) }
@@ -130,16 +127,12 @@ object NativeApp {
     }.getOrNull()
     @JvmStatic fun setAudioOutputGain(volume: Int, muted: Boolean) =
         CoreRuntime.setAudioGain(volume, muted)
-    @JvmStatic fun setAudioBufferMs(milliseconds: Int) = runCatching {
-        CoreRuntime.bridge.setAudioBufferMs(milliseconds)
-    }
     @JvmStatic fun setAudioOutputLatencyMs(milliseconds: Int) = runCatching {
         CoreRuntime.bridge.setAudioOutputLatencyMs(milliseconds)
     }
     @JvmStatic fun setAudioLowLatency(enabled: Boolean) = runCatching {
         CoreRuntime.bridge.setAudioLowLatency(enabled)
     }
-    @JvmStatic fun queueGsDump(frames: Int) = Unit
     @JvmStatic @Synchronized fun setPadButton(padIndex: Int, index: Int, range: Int, pressed: Boolean) {
         if (padIndex !in 0..1) return
         if (index == PAD_ANALOG_TOGGLE) {
@@ -166,17 +159,9 @@ object NativeApp {
         else padButtons[padIndex] or (1 shl bit)
         CoreRuntime.setPadButtons(padIndex, effectivePadButtons(padIndex))
     }
-    @JvmStatic fun setInternetLinkTransportReady(ready: Boolean) = Unit
-    @JvmStatic fun resetInternetLinkTransport() = Unit
-    @JvmStatic fun pushInternetLinkFrame(frame: ByteArray): Boolean = false
-    @JvmStatic fun pollInternetLinkFrame(): ByteArray? = null
-    @JvmStatic fun setPadPressureModifierAmount(amountPercent: Int) = Unit
     @JvmStatic fun onHostKeyEvent(keyCode: Int, pressed: Boolean) {
         setPadButton(0, keyCode, 0, pressed)
     }
-    @JvmStatic fun onHostMousePosition(x: Float, y: Float) = Unit
-    @JvmStatic fun onHostMouseButton(button: Int, pressed: Boolean) = Unit
-    @JvmStatic fun onHostMouseWheel(deltaX: Float, deltaY: Float) = Unit
     @JvmStatic fun resetKeyStatus() { resetPadState(0); resetPadState(1) }
     @JvmStatic @Synchronized fun resetPadState(padIndex: Int) {
         if (padIndex !in 0..1) return
@@ -205,11 +190,6 @@ object NativeApp {
     // resolution increase is the 2x "enhanced resolution" buffer.
     @JvmStatic fun getMaxUpscaleMultiplier(renderer: Int): Int =
         if (RendererDefaults.toCoreRenderer(renderer) == RendererDefaults.CORE_SOFTWARE) 1 else UPSCALE_MAX.toInt()
-    @JvmStatic fun renderGpu(value: Int) = Unit
-    @JvmStatic fun setCustomDriverPath(path: String) {
-        CoreRuntime.updateSetting("EmuCoreR/GPU", "CustomDriverPath", path)
-    }
-    @JvmStatic fun setNativeLibraryDir(path: String) = Unit
     @JvmStatic fun beginSettingsBatch() = Unit
     @JvmStatic fun endSettingsBatch() = Unit
     @JvmStatic fun setSetting(section: String, key: String, type: String, value: String): Boolean =
@@ -282,17 +262,12 @@ object NativeApp {
     }
     @JvmStatic fun restartRenderer(renderer: Int): Boolean = CoreRuntime.restartWithRenderer(renderer)
     @JvmStatic fun changeDisc(path: String): Boolean = CoreRuntime.changeDisc(path)
-    @JvmStatic fun runBootSmokeProbe(path: String, steps: Int): Int = 0
     @JvmStatic fun runJitExecutableMemorySmokeTest(): Boolean = runCatching {
         CoreRuntime.bridge.getDiagnostics().contains("\"jit_w_x_ok\": 1")
     }.getOrDefault(false)
-    @JvmStatic fun runEeFpuDivRoundingSelfTest(): String = "not applicable to R3000A"
-    @JvmStatic fun bootElf(path: String): Boolean = false
-    @JvmStatic fun bootIrx(path: String): Boolean = false
     @JvmStatic fun pause() = CoreRuntime.pause()
     @JvmStatic fun resume() = CoreRuntime.resume()
     @JvmStatic fun shutdown() = CoreRuntime.shutdown()
-    @JvmStatic fun refreshBIOS() = Unit
     @JvmStatic fun hasValidVm(): Boolean = CoreRuntime.isRunning()
     /** Ownership remains after a worker failure until explicit shutdown completes. */
     @JvmStatic fun hasOwnedVm(): Boolean = CoreRuntime.hasSession()
@@ -329,7 +304,6 @@ object NativeApp {
     }
     @JvmStatic fun getCurrentSaveStatePath(slot: Int): String? =
         getSaveStatePathForFile(saveStatePathSource(), slot)
-    @JvmStatic fun getSaveStateScreenshot(path: String): ByteArray? = null
     @JvmStatic fun listMemoryCards(): String? {
         val context = getContext() ?: return "[]"
         val directory = EmulatorStorage.memoryCardsDir(context, dataRootOverride).apply { mkdirs() }
@@ -356,14 +330,12 @@ object NativeApp {
             CoreRuntime.bridge.createMemoryCard(file.absolutePath) == 0
         }.getOrDefault(false)
     }
-    @JvmStatic fun convertIsoToChd(inputIsoPath: String): Int = -1
     @JvmStatic fun startJitProfiler() { profilerActive = true }
     @JvmStatic fun stopJitProfiler() { profilerActive = false }
     @JvmStatic fun isJitProfilerActive(): Boolean = profilerActive
     @JvmStatic fun startHangTrace() { hangTraceActive = true }
     @JvmStatic fun stopHangTrace() { hangTraceActive = false }
     @JvmStatic fun isHangTraceActive(): Boolean = hangTraceActive
-    @JvmStatic fun setNativeCrashLogFilePath(path: String) = Unit
 
     @JvmStatic
     fun parseMemoryCardList(raw: String?): List<NativeMemoryCardInfo> {
