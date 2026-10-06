@@ -5199,64 +5199,7 @@ private fun AnnotatedString.Builder.addLineValueStyle(
         addStyle(SpanStyle(color = color), valueStart, valueEnd)
 }
 
-@Composable
-private fun LiveChipsSelectionRow(
-    title: String,
-    options: List<Pair<Int, String>>,
-    currentValue: Int,
-    onValueChange: (Int) -> Unit,
-    helpText: String? = null,
-    onResetToDefault: (() -> Unit)? = null
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val context = LocalContext.current
-    val resetToast = stringResource(R.string.settings_reset_to_default_toast)
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 4.dp)
-                .combinedClickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = {},
-                    onLongClick = onResetToDefault?.let {
-                        {
-                            it()
-                            Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f)
-            )
-            helpText?.let {
-                SettingHelpButton(title = title, description = it)
-            }
-        }
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalViewportBleed(18.dp),
-            contentPadding = PaddingValues(horizontal = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(options) { (value, label) ->
-                FilterChip(
-                    shape = neonChipShape(),
-                    selected = currentValue == value,
-                    onClick = { onValueChange(value) },
-                    label = { Text(text = label) }
-                )
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun LiveBitmaskChoiceRow(

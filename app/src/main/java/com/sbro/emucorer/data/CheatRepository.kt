@@ -24,13 +24,6 @@ data class CheatGameConfig(
     val blocks: List<CheatBlock>
 )
 
-data class CheatFileEntry(
-    val gameKey: String,
-    val fileName: String,
-    val displayName: String,
-    val blockCount: Int
-)
-
 class CheatRepository(private val context: Context) {
     private val preferences = AppPreferences(context)
     private val importedDir = EmulatorStorage.importedCheatsDir(context)
@@ -57,31 +50,6 @@ class CheatRepository(private val context: Context) {
         return gameKeys.firstNotNullOfOrNull { gameKey ->
             getGameConfig(gameKey, serial, crc)
         }
-    }
-
-    fun listImportedCheatFiles(): List<CheatFileEntry> {
-        return importedDir.listFiles { file -> file.isFile && file.extension.equals("pnach", ignoreCase = true) }
-            ?.sortedBy { it.name.lowercase() }
-            ?.map { file ->
-                val raw = runCatching { file.readText() }.getOrDefault("")
-                CheatFileEntry(
-                    gameKey = file.nameWithoutExtension,
-                    fileName = file.name,
-                    displayName = file.nameWithoutExtension.replace('_', ' '),
-                    blockCount = parseCheatBlocks(raw).size
-                )
-            }
-            .orEmpty()
-    }
-
-    fun getImportedCheatText(gameKey: String): String? {
-        val file = resolveImportedFile(gameKey)
-        if (!file.exists()) return null
-        return runCatching { file.readText() }.getOrNull()
-    }
-
-    fun updateImportedCheatText(gameKey: String, contents: String): Int {
-        return importCheatFile(gameKey = gameKey, contents = contents)
     }
 
     fun importCheatFile(

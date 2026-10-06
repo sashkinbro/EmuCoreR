@@ -754,8 +754,6 @@ internal object CoreRuntime {
 
     fun diagnostics(): String = sessionLock.withLock { bridge.getDiagnostics() }
 
-    fun gpuBackendSubmissions(): Long = 0L
-
     fun updateSetting(section: String, key: String, value: String): Boolean {
         if ((section == "EmuCoreR" || section == "EmuCore/GS") && key == "Renderer") {
             val renderer = value.toIntOrNull() ?: return false

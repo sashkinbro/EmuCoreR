@@ -10,23 +10,6 @@ object GpuHardwareProfiles {
     private var cachedDetectedProfile: Int? = null
     private var cachedMediaTekHardware: Boolean? = null
 
-    fun normalize(profile: Int): Int = when (profile) {
-        MALI -> MALI
-        POWERVR -> POWERVR
-        ADRENO -> ADRENO
-        else -> MALI
-    }
-
-    fun isMediatekProfile(profile: Int): Boolean {
-        return normalize(profile) == MALI || normalize(profile) == POWERVR
-    }
-
-    // Pass only the SoC-vendor hint. "mediatek" intentionally parses as an automatic GPU override:
-    // the native renderer still uses GL_RENDERER/VkPhysicalDeviceProperties for the actual GPU,
-    // which matters because older MediaTek generations can use PowerVR instead of Mali.
-    fun coreOverrideFor(@Suppress("UNUSED_PARAMETER") profile: Int): String =
-        if (isMediaTekHardware()) "mediatek" else "auto"
-
     fun isMediaTekHardware(): Boolean {
         cachedMediaTekHardware?.let { return it }
         return hasMediaTekSocHints(buildHardwareHints()).also { cachedMediaTekHardware = it }

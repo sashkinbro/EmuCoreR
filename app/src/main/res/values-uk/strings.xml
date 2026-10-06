@@ -1,14 +1,8 @@
 
 <resources>
-    <string name="onboarding_core_title">Створено для PlayStation</string>
-    <string name="onboarding_core_subtitle">Чисте ядро PS1 з еталонним інтерпретатором, ARM64 JIT і рендерером Vulkan.</string>
     <string name="emulation_runtime_failure_title">Емуляцію зупинено</string>
     <string name="emulation_runtime_failure_description">Під час роботи виникла помилка, і коректно продовжити сеанс неможливо. Вийдіть із сеансу та запустіть гру знову. Рендерер не змінювався автоматично.\n\nПодробиці:\n</string>
     <string name="app_name">EmuCoreR</string>
-    <string name="onboarding_core_card_title">Нативна архітектура PS1</string>
-    <string name="onboarding_core_card_cpu">R3000A працює через точний інтерпретатор і ARM64 JIT.</string>
-    <string name="onboarding_core_card_gpu">Графіка PS1 виводиться через Vulkan із програмним еталонним шляхом.</string>
-    <string name="onboarding_core_card_reference">Усі можливості ядра доступні без платної підписки.</string>
 
     <string name="shell_library">Бібліотека</string>
     <string name="shell_catalog_search">Пошук PS1</string>
@@ -157,7 +151,6 @@
     <string name="settings_pad_vibration_desc">Увімкнути вібрацію в підтримуваних іграх і на підтримуваних пристроях.</string>
     <string name="settings_show_fps">Показувати лічильник FPS</string>
     <string name="settings_show_fps_desc">Відображати частоту кадрів під час гри.</string>
-    <string name="settings_compact_controls">Компактне сенсорне керування</string>
     <string name="settings_keep_screen_on">Не вимикати екран</string>
     <string name="settings_keep_screen_on_desc">Запобігати затемненню екрана під час гри.</string>
     <string name="shell_quick_actions">Швидкі дії</string>
@@ -180,17 +173,11 @@
     <string name="settings_touch_controls">Сенсорне керування</string>
     <string name="settings_gamepad_section">Геймпад</string>
     <string name="settings_enable_cheats">Увімкнути чіти</string>
-    <string name="settings_device_profile_family_exynos">Exynos</string>
-    <string name="settings_device_profile_family_tensor">Tensor</string>
-    <string name="settings_device_profile_family_generic">Звичайний Android</string>
 
     <string name="emulation_cheats_title">Чіти</string>
-    <string name="emulation_cheats_open_button">Чіти</string>
     <string name="emulation_cheats_empty">Для цієї гри чітів не знайдено.</string>
     <string name="emulation_cheats_group_enable">Увімкнути всі в групі</string>
     <string name="settings_disabled_short">Вимк.</string>
-    <string name="settings_normal_short">Normal</string>
-    <string name="settings_aggressive_short">Aggressive</string>
     <string name="settings_more_options">Додаткові дії</string>
     <string name="settings_reset_all_title">Скинути всі налаштування</string>
     <string name="settings_reset_all_action">Скинути всі налаштування</string>
@@ -233,8 +220,6 @@
     <string name="onboarding_page_3_subtitle">Створіть особисту бібліотеку ігор з гарними обкладинками, детальною інформацією та швидким доступом до улюблених ігор.</string>
     <string name="onboarding_page_4_title">Готові до гри</string>
     <string name="onboarding_page_4_subtitle">Додайте файл BIOS та виберіть папку з іграми для початку.</string>
-    <string name="onboarding_profile_title">Виберіть стартовий профіль</string>
-    <string name="onboarding_profile_subtitle">Безпечний профіль рекомендований для більшості пристроїв та ігор. Швидкий може дати більше швидкості на слабких телефонах, але знижує сумісність і стабільність.</string>
     <string name="onboarding_title">Готуйтеся до гри</string>
     <string name="onboarding_subtitle">Додайте файл BIOS та виберіть папку з іграми.</string>
     <string name="onboarding_bios_title">Виберіть файл BIOS</string>
@@ -272,8 +257,6 @@
     <string name="catalog_empty_title">Збігів не знайдено</string>
     <string name="catalog_empty_body">Спробуйте іншу назву гри або коротшу пошукову фразу.</string>
     <string name="formats_title">Підтримувані формати</string>
-    <string name="formats_overview_title">Формати Ігор</string>
-    <string name="formats_overview_body">EmuCoreR зараз монтує перевірені образи дисків PlayStation у форматах BIN/CUE.</string>
     <string name="formats_ps1_supported_title">Перевірені формати PS1</string>
     <string name="formats_ps1_supported_body">Поточне ядро сканує та завантажує образи дисків CUE, BIN, ISO, IMG, CHD і PBP, ECM, MDS.</string>
     <string name="formats_ps1_recommended_title">Рекомендована структура дампа</string>
@@ -281,12 +264,6 @@
     <string name="formats_ps1_planned_title">Плейлисти з кількох дисків</string>
     <string name="formats_ps1_planned_body">Вбудоване ядро читає плейлисти M3U. Бібліотека індексує лише образи дисків, тож відкривайте M3U напряму з вибору диска.</string>
     <string name="formats_converter_unavailable">Конвертація ISO в CHD недоступна в цій збірці.</string>
-    <string name="formats_converter_status_idle">Готово до вибору ISO-образу.</string>
-    <string name="formats_converter_status_preparing">Підготовка вибраного ISO…</string>
-    <string name="formats_converter_status_ready">CHD готовий. Виберіть, куди його зберегти.</string>
-    <string name="formats_converter_status_saving">Збереження готового CHD…</string>
-    <string name="formats_converter_status_done">CHD успішно збережено.</string>
-    <string name="formats_converter_status_failed">Конвертацію не вдалося завершити.</string>
     <string name="formats_converter_success_title">Конвертацію завершено</string>
     <string name="formats_converter_failed_title">Помилка конвертації</string>
     <string name="formats_converter_invalid_iso_body">Для конвертації виберіть файл `.iso`.</string>
@@ -400,7 +377,6 @@
     <string name="settings_help_overlay_scale">Змінює розмір екранних кнопок і стіків. Збільште його, якщо точність дотику важливіша за місце на екрані; зменште його, якщо накладання закриває занадто багато зображення.</string>
     <string name="settings_help_overlay_opacity">Контролює, наскільки щільним або прозорим виглядає сенсорне керування. Менша непрозорість робить огляд гри чистішим, тоді як вища непрозорість робить кнопки помітнішими в темних або насичених сценах.</string>
     <string name="settings_help_hide_overlay_on_gamepad">Приховує сенсорне накладання щоразу, коли активний фізичний контролер. Це робить екран чистішим, але вимкніть цю функцію, якщо ви все ще хочете, щоб сенсорні кнопки були доступні під час підключеного контролера.</string>
-    <string name="settings_help_compact_controls">Використовує більш щільний макет накладання, який займає менше місця по краях екрана. Підходить для невеликих телефонів, але деякі гравці можуть віддати перевагу більшому інтервалу в стандартному макеті.</string>
     <string name="settings_help_stick_scale">Змінює розмір сенсорних областей аналогового стіка. Вищі значення полегшують їхнє захоплення в динамічних іграх, тоді як менші значення залишають більше місця для зображення і сусідніх кнопок.</string>
     <string name="settings_help_cheats">Завантажує увімкнені чит-патчі для поточної гри. Корисно для широкого екрана, фанатських виправлень, перекладів або читів ігрового процесу, але неправильна версія патча може порушити стабільність або застосуватися до неправильного випуску гри.</string>
     <string name="settings_help_show_fps">Відображає живе накладання продуктивності під час роботи гри. Використовуйте його при налаштуванні параметрів або перевірці того, чи відбувається уповільнення через швидкість емулятора, кадрування або саму гру.</string>
@@ -608,12 +584,8 @@
     <string name="texture_manager_options">Параметри виконання</string>
     <string name="texture_manager_enable_replacements">Завантажувати текстури для заміни</string>
     <string name="texture_manager_enable_replacements_desc">Завантажувати пакети vram-write, texpage та texupload у форматі PNG, JPG, TGA або BMP з папки з серійним номером кожної гри.</string>
-    <string name="texture_manager_async_loading">Асинхронне завантаження</string>
-    <string name="texture_manager_async_loading_desc">Завантажувати текстури для заміни в робочому потоці під час гри.</string>
     <string name="texture_manager_precache">Передкешування замін</string>
     <string name="texture_manager_precache_desc">Завантажити весь пакет заздалегідь. Прискорює пошук у грі, але збільшує навантаження під час запуску та споживання пам\'яті.</string>
-    <string name="texture_manager_dumping">Дампити замінні текстури</string>
-    <string name="texture_manager_dumping_desc">Зберігати виявлені текстури гри в папку дампів для створення пакетів.</string>
     <string name="texture_manager_storage">Сховище текстур</string>
     <string name="texture_manager_installed_packs">Встановлені пакети</string>
     <string name="texture_manager_summary_meta">%1$d пакетів, %2$d замін, %3$d дампів, загалом %4$s</string>
@@ -644,20 +616,6 @@
     <string name="close">Закрити</string>
     <string name="memory_card_type_file_desc">Необроблена карта PlayStation • 128 КіБ • .mcd</string>
     <string name="memory_card_file_size">Файл • %1$s</string>
-    <string name="onboarding_chipset_dialog_title">Виявлений процесор</string>
-    <string name="onboarding_chipset_dialog_family">Сімейство</string>
-    <string name="onboarding_chipset_dialog_recommended">Рекомендований вибір</string>
-    <string name="onboarding_chipset_dialog_soc">SoC</string>
-    <string name="onboarding_chipset_dialog_hardware">Обладнання</string>
-    <string name="onboarding_chipset_dialog_device">Пристрій</string>
-    <string name="onboarding_chipset_dialog_recommend_mediatek">%1$s / %2$s або %3$s</string>
-    <string name="onboarding_chipset_dialog_recommend_manual">Виберіть найбільш відповідний варіант вручну</string>
-    <string name="onboarding_chipset_dialog_ok">ОК</string>
-    <string name="gpu_chipset_snapdragon_title">Snapdragon</string>
-    <string name="gpu_chipset_mediatek_title">MediaTek</string>
-    <string name="gpu_adreno_title">Adreno</string>
-    <string name="gpu_mali_title">Mali</string>
-    <string name="gpu_powervr_title">PowerVR</string>
     <string name="settings_racing_mode">Гоночний режим</string>
     <string name="settings_racing_mode_desc">Торкніться кнопок дій та тригерів (шифтів), щоб утримувати їх натиснутими, і торкніться знову, щоб відпустити.</string>
     <string name="settings_sticky_buttons">Кнопки з фіксацією</string>
@@ -680,7 +638,6 @@
     <string name="emulation_auto_load_on_start_desc">Автоматично завантажувати останнє автозбереження цієї гри під час її запуску.</string>
     <string name="settings_mediatek_notice_title">Сумісність із MediaTek</string>
     <string name="settings_mediatek_notice_message">Підтримка MediaTek поки що експериментальна. Можливі вильоти, графічні артефакти та нестабільна робота, поки ми продовжуємо покращувати сумісність і продуктивність.\n\nЯкщо виникають проблеми з графікою, спробуйте OpenGL з увімкненим ANGLE. Якщо проблеми залишаться, використовуйте програмний рендерер Software.</string>
-    <string name="error_storage_permission_not_persisted">Android не надав постійний доступ до цього розташування. Будь ласка, виберіть його ще раз у системному вікні.</string>
     <string name="settings_touch_haptics">Тактильна віддача сенсорного керування</string>
     <string name="settings_touch_haptics_desc">Короткочасна тактильна віддача при натисканні на екранні елементи керування.</string>
     <string name="settings_gamepad_button_haptics">Тактильна віддача кнопок геймпада</string>
@@ -963,8 +920,6 @@
     <string name="texture_catalog_description">Виберіть гру з бібліотеки, щоб переглянути сумісні текстурні паки спільноти.</string>
     <string name="texture_catalog_no_packs">Для цієї гри поки немає перевірених текстурних паків.</string>
     <string name="texture_catalog_pack_meta">Версія %1$s • %2$s • файлів: %3$d</string>
-    <string name="texture_download_channel_name">Завантаження текстур</string>
-    <string name="texture_download_channel_description">Фонове завантаження та встановлення текстурних паків</string>
     <string name="texture_downloads_title">Завантаження</string>
     <string name="texture_download_status_queued">У черзі</string>
     <string name="texture_download_status_downloading">Завантаження</string>
@@ -975,8 +930,6 @@
     <string name="texture_download_status_completed">Встановлено</string>
     <string name="texture_download_status_failed">Не вдалося завантажити</string>
     <string name="texture_download_status_cancelled">Скасовано</string>
-    <string name="texture_download_notification_progress">%1$d%% • %2$s/с • залишилось %3$s</string>
-    <string name="texture_download_eta_estimating">Оцінювання…</string>
     <string name="texture_download_progress_detail">%1$s / %2$s • %3$s/с • залишилось %4$s</string>
     <string name="texture_download_progress_estimating">%1$s / %2$s • оцінювання часу…</string>
     <string name="texture_download_retry">Повторити</string>
@@ -1140,8 +1093,6 @@
     <string name="touch_control_creator_delete">Видалити</string>
     <string name="touch_control_creator_empty">Поки немає власних кнопок</string>
     <string name="touch_control_creator_empty_desc">Створюйте додаткові кнопки тут. Безкоштовні стандартні елементи керування та їхній редактор залишаться без змін.</string>
-    <string name="touch_control_creator_live_canvas">Живе полотно гри</string>
-    <string name="touch_control_creator_drag_hint">Перетягніть вибрану кнопку або скористайтеся повзунками для точного позиціювання.</string>
     <string name="touch_control_creator_identity">Ідентифікація та дія</string>
     <string name="touch_control_creator_name">Назва кнопки</string>
     <string name="touch_control_creator_action">Дія контролера</string>
@@ -1158,8 +1109,6 @@
     <string name="touch_control_creator_width">Ширина</string>
     <string name="touch_control_creator_height">Висота</string>
     <string name="touch_control_creator_corner">Радіус кутів</string>
-    <string name="touch_control_creator_position_x">Позиція по горизонталі</string>
-    <string name="touch_control_creator_position_y">Позиція по вертикали</string>
     <string name="touch_control_creator_appearance">Кольори та контур</string>
     <string name="touch_control_creator_fill">Заливка кнопки</string>
     <string name="touch_control_creator_foreground">Символ або текст</string>
@@ -1204,7 +1153,6 @@
     <string name="touch_control_creator_local_preview">Живий попередній перегляд кнопки</string>
     <string name="touch_control_creator_normal_state">Звичайний</string>
     <string name="touch_control_creator_pressed_state">Натиснутий</string>
-    <string name="touch_control_creator_canvas_label">Ігровий оверлей</string>
     <string name="touch_control_creator_presets">Початкові стилі</string>
     <string name="touch_control_creator_preset_classic">Класика</string>
     <string name="touch_control_creator_preset_glass">Скло</string>
@@ -1420,7 +1368,6 @@
     <string name="ss_choice_aspect_custom">Власне</string>
     <string name="ss_choice_crop_overscan">Оверскан</string>
     <string name="ss_choice_crop_borders">Рамки</string>
-    <string name="ss_choice_crop_all">Усе</string>
     <string name="ss_choice_region_ntsc_j">NTSC-J (Японія)</string>
     <string name="ss_choice_region_ntsc_u">NTSC-U (США, Канада)</string>
     <string name="ss_choice_region_pal">PAL (Європа, Австралія)</string>
@@ -1511,12 +1458,6 @@
     <string name="ss_core_choice_8x_ssaa">8x SSAA</string>
     <string name="ss_core_choice_16x_ssaa">16x SSAA</string>
     <string name="ss_core_choice_32x_ssaa">32x SSAA</string>
-    <string name="ss_core_gpu_truecolor">Істинний колір</string>
-    <string name="ss_core_gpu_truecolor_desc">Вимикає дизеринг і використовує повні 8 біт на канал інформації про колір. Може зламати рендеринг у деяких іграх.</string>
-    <string name="ss_core_gpu_scaleddithering">Масштабований дизеринг</string>
-    <string name="ss_core_gpu_scaleddithering_desc">Масштабує візерунок дизерингу разом із внутрішньою роздільністю, роблячи його менш помітним. Зазвичай безпечно вмикати.</string>
-    <string name="ss_core_gpu_disableinterlacing">Вимкнути черезрядковість</string>
-    <string name="ss_core_gpu_disableinterlacing_desc">Вимикає черезрядковий рендеринг і вивід у GPU. Деякі ігри можуть так виводити 480p, але інші працюватимуть неправильно.</string>
     <string name="ss_core_gpu_forcentsctimings">Примусові таймінги NTSC</string>
     <string name="ss_core_gpu_forcentsctimings_desc">Примушує PAL-ігри працювати з таймінгами NTSC, тобто 60 Гц. Деякі PAL-ігри працюватимуть із \'нормальною\' швидкістю, а інші зламаються.</string>
     <string name="ss_core_display_force4_3for24bit">Примусово 4:3 для 24-бітного зображення</string>
@@ -1824,10 +1765,6 @@
     <string name="settings_frame_skip_desc">Пропускає показ зрендерених кадрів, щоб зменшити навантаження. Більші значення — рваніше, але швидше.</string>
     <string name="settings_display_crop">Обрізання зображення</string>
     <string name="settings_display_crop_desc">Прибирає пікселі з країв зображення перед масштабуванням. Збільшуйте значення, доки зайва рамка не зникне.</string>
-    <string name="settings_display_crop_left">Лівий край</string>
-    <string name="settings_display_crop_top">Верхній край</string>
-    <string name="settings_display_crop_right">Правий край</string>
-    <string name="settings_display_crop_bottom">Нижній край</string>
     <string name="settings_widescreen_patches">Широкоформатні патчі</string>
     <string name="settings_widescreen_patches_desc">Увімкнути широкоформатні патчі для підтримуваних ігор</string>
     <string name="settings_help_widescreen_patches">Завантажує широкоекранні патчі, коли вони доступні для поточної гри. Зазвичай це краще, ніж розтягувати зображення, тому що це змінює логіку камери та HUD гри, а не просто спотворює кінцеве зображення.</string>
@@ -1877,14 +1814,10 @@
     <string name="achievements_not_signed_in">Увійдіть у RetroAchievements на екрані «Досягнення», щоб відстежувати прогрес.</string>
     <string name="achievements_no_game">Запустіть гру, щоб побачити тут її досягнення.</string>
     <string name="achievements_loading">Завантаження досягнень…</string>
-    <string name="achievements_progress">%1$d з %2$d відкрито</string>
-    <string name="achievements_points">%1$d/%2$d очок</string>
     <string name="achievements_mastered">Гру пройдено повністю!</string>
-    <string name="achievements_rarity">%1$.1f%% гравців</string>
     <string name="achievements_error">Помилка RetroAchievements: %1$s</string>
     <string name="achievements_unlocked_header">Відкриті</string>
     <string name="achievements_locked_header">Закриті</string>
-    <string name="achievements_unlock_notification">%1$s (+%2$d)</string>
     <string name="achievements_unavailable">Ця збірка не підтримує RetroAchievements.</string>
     <string name="shell_achievements">Досягнення</string>
     <string name="feature_gate_unavailable_body">Менеджери чітів і текстур доступні лише в офіційному застосунку EmuCoreR.</string>

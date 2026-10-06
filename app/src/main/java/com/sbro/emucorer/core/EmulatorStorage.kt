@@ -13,15 +13,6 @@ enum class EmulatorDataLocation {
 object EmulatorStorage {
     private val verifiedCustomRoots = ConcurrentHashMap.newKeySet<String>()
 
-    data class RuntimeDirectories(
-        val saveStates: File,
-        val memoryCards: File,
-        val textures: File,
-        val cheats: File,
-        val patches: File,
-        val logs: File
-    )
-
     data class StandardDataRoot(
         val directory: File,
         val preferencePath: String?
@@ -93,14 +84,6 @@ object EmulatorStorage {
         return defaultRoot(context).apply { ensureRootDirectories(this) }
     }
 
-    fun prepareCustomDataRoot(customRootPath: String?): Boolean {
-        val customRoot = customRootPath
-            ?.takeIf { it.isNotBlank() }
-            ?.let(::File)
-            ?: return false
-        return prepareRoot(customRoot)
-    }
-
     fun saveStatesDir(context: Context, customRootPath: String? = null): File =
         File(root(context, customRootPath), "sstates").apply { mkdirs() }
 
@@ -115,22 +98,6 @@ object EmulatorStorage {
 
     fun patchesDir(context: Context, customRootPath: String? = null): File =
         File(root(context, customRootPath), "patches").apply { mkdirs() }
-
-    fun logDir(context: Context, customRootPath: String? = null): File =
-        File(root(context, customRootPath), "logs").apply { mkdirs() }
-
-    fun runtimeDirectories(context: Context, customRootPath: String? = null): RuntimeDirectories {
-        val root = root(context, customRootPath)
-        fun directory(name: String): File = File(root, name).apply { mkdirs() }
-        return RuntimeDirectories(
-            saveStates = directory("sstates"),
-            memoryCards = directory("memcards"),
-            textures = directory("textures"),
-            cheats = directory("cheats"),
-            patches = directory("patches"),
-            logs = directory("logs")
-        )
-    }
 
     fun appStateDir(context: Context): File = File(root(context), "app-state").apply { mkdirs() }
 

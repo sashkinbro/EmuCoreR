@@ -201,8 +201,8 @@ internal val EMULATOR_CLOUD_KEYS = setOf(
     "gamepadRightStickUpToR2", "gamepadRightStickDownToL2", "gamepadButtonHaptics",
     "enableFastBoot", "frameSkip",
     "textureFiltering",
-    "textureReplacementsEnabled", "textureReplacementsAsync", "textureReplacementsPrecache",
-    "textureDumpingEnabled", "enableWidescreenPatches",
+    "textureReplacementsEnabled", "textureReplacementsPrecache",
+    "enableWidescreenPatches",
     "enableIcacheEmulation", "enableCddaAudio", "cdReadAhead", "multitapMode",
     "enableAutoGamepad", "hideOverlayOnGamepad", "gamepadBindings",
     "frameLimitEnabled", "targetFps",
@@ -445,9 +445,7 @@ class AppPreferences(private val context: Context) {
         private val FRAME_SKIP = intPreferencesKey("frame_skip")
         private val TEXTURE_FILTERING = intPreferencesKey("texture_filtering")
         private val TEXTURE_REPLACEMENTS_ENABLED = booleanPreferencesKey("texture_replacements_enabled")
-        private val TEXTURE_REPLACEMENTS_ASYNC = booleanPreferencesKey("texture_replacements_async")
         private val TEXTURE_REPLACEMENTS_PRECACHE = booleanPreferencesKey("texture_replacements_precache")
-        private val TEXTURE_DUMPING_ENABLED = booleanPreferencesKey("texture_dumping_enabled")
         private val ENABLE_WIDESCREEN_PATCHES = booleanPreferencesKey("enable_widescreen_patches")
         private val PATCH_DATABASE_USE_OFFICIAL = booleanPreferencesKey("patch_database_use_official")
         private val PATCH_DATABASE_CUSTOM_URL = stringPreferencesKey("patch_database_custom_url")
@@ -2028,28 +2026,12 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[TEXTURE_REPLACEMENTS_ENABLED] = enabled }
     }
 
-    val textureReplacementsAsync: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[TEXTURE_REPLACEMENTS_ASYNC] ?: true
-    }
-
-    suspend fun setTextureReplacementsAsync(enabled: Boolean) {
-        context.dataStore.edit { it[TEXTURE_REPLACEMENTS_ASYNC] = enabled }
-    }
-
     val textureReplacementsPrecache: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[TEXTURE_REPLACEMENTS_PRECACHE] ?: false
     }
 
     suspend fun setTextureReplacementsPrecache(enabled: Boolean) {
         context.dataStore.edit { it[TEXTURE_REPLACEMENTS_PRECACHE] = enabled }
-    }
-
-    val textureDumpingEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[TEXTURE_DUMPING_ENABLED] ?: false
-    }
-
-    suspend fun setTextureDumpingEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[TEXTURE_DUMPING_ENABLED] = enabled }
     }
 
     // Widescreen Patches
@@ -2763,9 +2745,7 @@ class AppPreferences(private val context: Context) {
             put("frameSkip", (prefs[FRAME_SKIP] ?: 0).coerceIn(0, 4))
             put("textureFiltering", (prefs[TEXTURE_FILTERING] ?: 0).coerceIn(0, 3))
             put("textureReplacementsEnabled", prefs[TEXTURE_REPLACEMENTS_ENABLED] ?: false)
-            put("textureReplacementsAsync", prefs[TEXTURE_REPLACEMENTS_ASYNC] ?: true)
             put("textureReplacementsPrecache", prefs[TEXTURE_REPLACEMENTS_PRECACHE] ?: false)
-            put("textureDumpingEnabled", prefs[TEXTURE_DUMPING_ENABLED] ?: false)
             put("enableWidescreenPatches", prefs[ENABLE_WIDESCREEN_PATCHES] ?: false)
             put("patchDatabaseUseOfficial", prefs[PATCH_DATABASE_USE_OFFICIAL] ?: true)
             put("patchDatabaseCustomUrl", prefs[PATCH_DATABASE_CUSTOM_URL])
@@ -3028,9 +3008,7 @@ class AppPreferences(private val context: Context) {
             prefs[FRAME_SKIP] = json.optInt("frameSkip", 0).coerceIn(0, 4)
             prefs[TEXTURE_FILTERING] = json.optInt("textureFiltering", 0).coerceIn(0, 3)
             prefs[TEXTURE_REPLACEMENTS_ENABLED] = json.optBoolean("textureReplacementsEnabled", false)
-            prefs[TEXTURE_REPLACEMENTS_ASYNC] = json.optBoolean("textureReplacementsAsync", true)
             prefs[TEXTURE_REPLACEMENTS_PRECACHE] = json.optBoolean("textureReplacementsPrecache", false)
-            prefs[TEXTURE_DUMPING_ENABLED] = json.optBoolean("textureDumpingEnabled", false)
             prefs[ENABLE_WIDESCREEN_PATCHES] = json.optBoolean("enableWidescreenPatches", false)
             prefs[PATCH_DATABASE_USE_OFFICIAL] = json.optBoolean("patchDatabaseUseOfficial", true)
             val restoredPatchUrl = json.optString("patchDatabaseCustomUrl").takeIf { it.isNotBlank() }

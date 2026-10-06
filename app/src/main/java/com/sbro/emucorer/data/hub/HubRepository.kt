@@ -168,14 +168,6 @@ class HubRepository private constructor(context: Context) {
         }
     }
 
-    suspend fun setFavorite(contentId: String, favorite: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val entity = dao.item(contentId) ?: return@withContext false
-        val item = entity.toDomain(dao.favorite(contentId) != null)
-        val currentlyFavorite = dao.favorite(contentId) != null
-        if (currentlyFavorite == favorite) return@withContext favorite
-        toggleFavorite(item)
-    }
-
     suspend fun cachedAsset(
         url: String,
         sha256: String,

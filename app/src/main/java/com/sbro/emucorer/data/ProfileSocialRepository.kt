@@ -136,11 +136,6 @@ class ProfileSocialRepository {
         firestore.collection(USERS).document(uid).collection(BLOCKS).document(otherUid).delete().await()
     }
 
-    suspend fun isBlocked(otherUid: String): Boolean {
-        val uid = auth.currentUser?.uid ?: return false
-        return firestore.collection(USERS).document(uid).collection(BLOCKS).document(otherUid).get().await().exists()
-    }
-
     private fun DocumentSnapshot.toFriendship(uid: String): ProfileFriendship? {
         val members = (get("members") as? List<*>)?.filterIsInstance<String>().orEmpty()
         val otherUid = members.firstOrNull { it != uid } ?: return null

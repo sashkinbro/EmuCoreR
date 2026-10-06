@@ -12,9 +12,7 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.MessageDigest
 import java.util.Locale
-import java.util.UUID
 
 data class RemoteTexturePart(
     val downloadUrl: String,
@@ -66,7 +64,6 @@ class RemoteContentCatalogRepository(context: Context) {
     private val appContext = context.applicationContext
     private val json = Json { ignoreUnknownKeys = true }
     private val cacheDir = File(appContext.filesDir, "remote-content").apply { mkdirs() }
-    private val downloadDir = File(appContext.cacheDir, "remote-content-downloads").apply { mkdirs() }
 
     fun loadTextureCatalog(forceRefresh: Boolean = false): RemoteCatalogResult<RemoteTexturePack> = loadCatalog(
         urls = CatalogAccess.textureCatalogUrls(),
@@ -81,46 +78,6 @@ class RemoteContentCatalogRepository(context: Context) {
         parser = ::parseCheatCatalog,
         forceRefresh = forceRefresh
     )
-
-    fun downloadTexturePack(
-        pack: RemoteTexturePack,
-        onProgress: (Float) -> Unit = {}
-    ): File {
-        require(pack.sizeBytes in 1..MAX_TEXTURE_ARCHIVE_BYTES) { "Texture archive size is invalid" }
-        val target = File(downloadDir, "${sanitizeFileName(pack.id)}-${UUID.randomUUID()}.zip")
-        val payloads = pack.parts.ifEmpty {
-            listOf(RemoteTexturePart(pack.downloadUrl, pack.sizeBytes, pack.sha256))
-        }
-        require(payloads.sumOf(RemoteTexturePart::sizeBytes) == pack.sizeBytes)
-        val temporaryParts = mutableListOf<File>()
-        try {
-            var completedBytes = 0L
-            payloads.forEachIndexed { index, part ->
-                require(part.downloadUrl.isHttpsUrl()) { "Texture download must use HTTPS" }
-                require(part.sizeBytes in 1..MAX_TEXTURE_PART_BYTES) { "Texture archive part size is invalid" }
-                val temporary = File(downloadDir, "${target.name}.part${index + 1}")
-                temporaryParts += downloadFile(
-                    url = part.downloadUrl,
-                    target = temporary,
-                    expectedSize = part.sizeBytes,
-                    maxBytes = MAX_TEXTURE_PART_BYTES,
-                    expectedSha256 = part.sha256
-                ) { partProgress ->
-                    val downloaded = completedBytes + (part.sizeBytes * partProgress).toLong()
-                    onProgress((downloaded.toDouble() / pack.sizeBytes).toFloat().coerceIn(0f, 1f))
-                }
-                completedBytes += part.sizeBytes
-            }
-            concatenateAndVerify(temporaryParts, target, pack.sizeBytes, pack.sha256)
-            onProgress(1f)
-            return target
-        } catch (error: Throwable) {
-            target.delete()
-            throw error
-        } finally {
-            temporaryParts.forEach(File::delete)
-        }
-    }
 
     fun downloadCheatText(pack: RemoteCheatPack): String {
         require(pack.downloadUrl.isHttpsUrl()) { "Cheat download must use HTTPS" }
@@ -143,12 +100,6 @@ class RemoteContentCatalogRepository(context: Context) {
             }
         ) { "Downloaded file does not contain supported cheat codes" }
         return text
-    }
-
-    fun discardDownload(file: File?) {
-        if (file != null && file.parentFile?.canonicalFile == downloadDir.canonicalFile) {
-            file.delete()
-        }
     }
 
     private fun <T> loadCatalog(
@@ -263,61 +214,6 @@ class RemoteContentCatalogRepository(context: Context) {
         }.distinctBy(RemoteCheatPack::id)
     }
 
-    private fun downloadFile(
-        url: String,
-        target: File,
-        expectedSize: Long,
-        maxBytes: Long,
-        expectedSha256: String,
-        onProgress: (Float) -> Unit
-    ): File {
-        val part = File(target.parentFile, "${target.name}.part")
-        part.delete()
-        try {
-            val connection = openConnection(url)
-            try {
-                val responseLength = connection.contentLengthLong
-                if (responseLength > maxBytes) throw IOException("Download is too large")
-                val total = if (responseLength > 0) responseLength else expectedSize
-                val digest = MessageDigest.getInstance("SHA-256")
-                var copied = 0L
-                connection.inputStream.buffered().use { input ->
-                    part.outputStream().buffered().use { output ->
-                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 4)
-                        while (true) {
-                            val read = input.read(buffer)
-                            if (read < 0) break
-                            copied += read
-                            if (copied > maxBytes) throw IOException("Download is too large")
-                            digest.update(buffer, 0, read)
-                            output.write(buffer, 0, read)
-                            if (total > 0) onProgress((copied.toFloat() / total).coerceIn(0f, 1f))
-                        }
-                    }
-                }
-                if (expectedSize > 0 && copied != expectedSize) {
-                    throw IOException("Downloaded size does not match the catalog")
-                }
-                val actualHash = digest.digest().joinToString("") { byte -> "%02X".format(byte) }
-                if (!actualHash.equals(expectedSha256, ignoreCase = true)) {
-                    throw IOException("Downloaded SHA-256 does not match the catalog")
-                }
-                if (!part.renameTo(target)) {
-                    part.copyTo(target, overwrite = true)
-                    part.delete()
-                }
-                onProgress(1f)
-                return target
-            } finally {
-                connection.disconnect()
-            }
-        } catch (error: Throwable) {
-            part.delete()
-            target.delete()
-            throw error
-        }
-    }
-
     private fun fetchBytes(url: String, maxBytes: Long): ByteArray {
         require(url.isHttpsUrl()) { "Only HTTPS downloads are allowed" }
         val connection = openConnection(url)
@@ -339,47 +235,6 @@ class RemoteContentCatalogRepository(context: Context) {
             }
         } finally {
             connection.disconnect()
-        }
-    }
-
-    private fun concatenateAndVerify(
-        parts: List<File>,
-        target: File,
-        expectedSize: Long,
-        expectedSha256: String
-    ) {
-        val temporary = File(target.parentFile, "${target.name}.assembling")
-        temporary.delete()
-        try {
-            val digest = MessageDigest.getInstance("SHA-256")
-            var copied = 0L
-            temporary.outputStream().buffered().use { output ->
-                val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 4)
-                parts.forEach { part ->
-                    part.inputStream().buffered().use { input ->
-                        while (true) {
-                            val read = input.read(buffer)
-                            if (read < 0) break
-                            output.write(buffer, 0, read)
-                            digest.update(buffer, 0, read)
-                            copied += read
-                        }
-                    }
-                }
-            }
-            if (copied != expectedSize) throw IOException("Downloaded size does not match the catalog")
-            val actualHash = digest.digest().joinToString("") { byte -> "%02X".format(byte) }
-            if (!actualHash.equals(expectedSha256, ignoreCase = true)) {
-                throw IOException("Downloaded SHA-256 does not match the catalog")
-            }
-            if (!temporary.renameTo(target)) {
-                temporary.copyTo(target, overwrite = true)
-                temporary.delete()
-            }
-        } catch (error: Throwable) {
-            temporary.delete()
-            target.delete()
-            throw error
         }
     }
 
@@ -409,9 +264,6 @@ class RemoteContentCatalogRepository(context: Context) {
             temp.delete()
         }
     }
-
-    private fun sanitizeFileName(value: String): String =
-        value.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120).ifBlank { "content" }
 
     private companion object {
         const val MAX_CATALOG_BYTES = 8L * 1024L * 1024L
