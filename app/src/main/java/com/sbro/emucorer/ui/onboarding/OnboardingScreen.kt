@@ -126,55 +126,6 @@ import kotlin.time.Duration.Companion.milliseconds
 import com.sbro.emucorer.ui.theme.neon.neonShape
 import com.sbro.emucorer.ui.theme.neon.neonButtonShape
 
-private enum class DeviceChipsetFamily {
-    Snapdragon, MediaTek, Exynos, Tensor, Unknown
-}
-
-private data class DeviceChipsetInfo(
-    val family: DeviceChipsetFamily,
-    val manufacturer: String,
-    val socModel: String,
-    val hardware: String,
-    val deviceModel: String
-)
-
-@Suppress("unused")
-private fun detectDeviceChipsetInfo(): DeviceChipsetInfo {
-    val socManufacturer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        Build.SOC_MANUFACTURER
-    } else {
-        ""
-    }
-    val socModel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        Build.SOC_MODEL
-    } else {
-        ""
-    }
-    val hardware = listOf(Build.HARDWARE, Build.BOARD, Build.DEVICE)
-        .filterNot { it.isNullOrBlank() }
-        .joinToString(" / ")
-    val deviceModel = listOf(Build.MANUFACTURER, Build.MODEL)
-        .filterNot { it.isNullOrBlank() }
-        .joinToString(" ")
-    val hints = listOf(socManufacturer, socModel, hardware, deviceModel)
-        .joinToString(" ")
-        .lowercase(Locale.US)
-    val family = when {
-        listOf("qualcomm", "qcom", "snapdragon", "adreno").any(hints::contains) -> DeviceChipsetFamily.Snapdragon
-        listOf("mediatek", "mtk", "mt").any(hints::contains) -> DeviceChipsetFamily.MediaTek
-        listOf("exynos", "samsung").any(hints::contains) -> DeviceChipsetFamily.Exynos
-        listOf("tensor", "gs101", "gs201", "gs301").any(hints::contains) -> DeviceChipsetFamily.Tensor
-        else -> DeviceChipsetFamily.Unknown
-    }
-    return DeviceChipsetInfo(
-        family = family,
-        manufacturer = socManufacturer.ifBlank { Build.MANUFACTURER.orEmpty() },
-        socModel = socModel.ifBlank { Build.BOARD.orEmpty() },
-        hardware = hardware.ifBlank { Build.HARDWARE.orEmpty() },
-        deviceModel = deviceModel
-    )
-}
-
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
@@ -218,6 +169,7 @@ fun OnboardingScreen(
         0.dp
     }
     val landscapeSetupScrollState = rememberScrollState()
+    val landscapeContentScrollState = rememberScrollState()
     val landscapeSetupScrollProgress by remember(landscapeSetupScrollState) {
         derivedStateOf {
             if (landscapeSetupScrollState.maxValue > 0) {
@@ -237,6 +189,8 @@ fun OnboardingScreen(
         if (pagerState.currentPage != uiState.currentPage) {
             viewModel.setCurrentPage(pagerState.currentPage)
         }
+        if (!isLandscape) return@LaunchedEffect
+        landscapeContentScrollState.scrollTo(0)
     }
 
     LaunchedEffect(uiState.currentPage) {
@@ -490,37 +444,56 @@ fun OnboardingScreen(
                                     2 -> R.string.onboarding_page_3_subtitle
                                     else -> R.string.onboarding_page_4_subtitle
                                 }
-                                Text(
-                                    text = stringResource(subtitleRes),
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        lineHeight = 28.sp,
-                                        fontWeight = FontWeight.Normal,
-                                        letterSpacing = 0.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
+                                Column(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 40.dp)
-                                        .statusBarsPadding()
-                                        .padding(top = 32.dp)
-                                )
+                                        .fillMaxSize()
+                                        .verticalScroll(landscapeContentScrollState)
+                                        .statusBarsPadding(),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = stringResource(subtitleRes),
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            lineHeight = 28.sp,
+                                            fontWeight = FontWeight.Normal,
+                                            letterSpacing = 0.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 40.dp)
+                                            .padding(vertical = 24.dp)
+                                    )
+                                }
                             } else if (page == 3) {
-                                OnboardingProContent(
-                                    isProUnlocked = uiState.isProUnlocked,
-                                    proPrice = uiState.proPrice,
-                                    isProductLoading = uiState.isProProductLoading,
-                                    isPurchaseInProgress = uiState.isProPurchaseInProgress,
-                                    onPurchase = { (context as? Activity)?.let(viewModel::purchasePro) },
-                                    onShowSupportOptions = if (supportOffers.isNotEmpty()) {
-                                        { showProSupportOptions = true }
-                                    } else {
-                                        null
-                                    },
-                                    requestInitialFocus = tvUiEnabled && pagerState.currentPage == page,
-                                    contentFocusRequester = pageContentFocusRequesters[page],
-                                    modifier = Modifier.padding(horizontal = 32.dp)
-                                )
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .verticalScroll(landscapeContentScrollState)
+                                        .statusBarsPadding(),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    OnboardingProContent(
+                                        isProUnlocked = uiState.isProUnlocked,
+                                        proPrice = uiState.proPrice,
+                                        isProductLoading = uiState.isProProductLoading,
+                                        isPurchaseInProgress = uiState.isProPurchaseInProgress,
+                                        onPurchase = { (context as? Activity)?.let(viewModel::purchasePro) },
+                                        onShowSupportOptions = if (supportOffers.isNotEmpty()) {
+                                            { showProSupportOptions = true }
+                                        } else {
+                                            null
+                                        },
+                                        requestInitialFocus = tvUiEnabled && pagerState.currentPage == page,
+                                        contentFocusRequester = pageContentFocusRequesters[page],
+                                        modifier = Modifier
+                                            .padding(horizontal = 24.dp)
+                                            .padding(vertical = 24.dp)
+                                    )
+                                }
                             } else if (page == 4) {
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     Column(
@@ -847,37 +820,6 @@ private fun OnboardingHeroSetup(
 }
 
 @Composable
-private fun OnboardingHeroProfile(
-    modifier: Modifier = Modifier,
-    showSubtitle: Boolean = true
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.widthIn(max = 480.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.onboarding_profile_title),
-            style = MaterialTheme.typography.displaySmall.copy(
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.5).sp
-            ),
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center
-        )
-        if (showSubtitle) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.onboarding_profile_subtitle),
-                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-        }
-    }
-}
-
-@Composable
 private fun OnboardingHeroPro(
     modifier: Modifier = Modifier,
     showSubtitle: Boolean = true
@@ -1024,98 +966,6 @@ private fun OnboardingProContent(
     }
 }
 
-@Composable
-private fun OnboardingHeroCore(
-    modifier: Modifier = Modifier,
-    showSubtitle: Boolean = true
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.widthIn(max = 480.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(112.dp)
-                .clip(neonShape(32.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Memory,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(56.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(28.dp))
-        Text(
-            text = stringResource(R.string.onboarding_core_title),
-            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center
-        )
-        if (showSubtitle) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.onboarding_core_subtitle),
-                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun OnboardingCoreContent(
-    requestInitialFocus: Boolean = false,
-    contentFocusRequester: FocusRequester? = null,
-    modifier: Modifier = Modifier
-) {
-    val coreFocusRequester = contentFocusRequester ?: remember { FocusRequester() }
-    LaunchedEffect(requestInitialFocus) {
-        if (requestInitialFocus) {
-            delay(100.milliseconds)
-            runCatching { coreFocusRequester.requestFocus() }
-        }
-    }
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .focusRequester(coreFocusRequester)
-            .widthIn(max = 520.dp),
-        shape = neonShape(24.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-        tonalElevation = 4.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.onboarding_core_card_title),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = stringResource(R.string.onboarding_core_card_cpu),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = stringResource(R.string.onboarding_core_card_gpu),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = stringResource(R.string.onboarding_core_card_reference),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-}
 @Composable
 private fun OnboardingPageIndicator(
     currentPage: Int,
@@ -1570,94 +1420,6 @@ private fun OnboardingSetupScrollHint(
                 )
             }
         }
-    }
-}
-
-@Composable
-@Suppress("unused")
-private fun ChipsetInfoDialog(
-    chipsetInfo: DeviceChipsetInfo,
-    onDismiss: () -> Unit
-) {
-    val familyLabel = when (chipsetInfo.family) {
-        DeviceChipsetFamily.Snapdragon -> stringResource(R.string.gpu_chipset_snapdragon_title)
-        DeviceChipsetFamily.MediaTek -> stringResource(R.string.gpu_chipset_mediatek_title)
-        DeviceChipsetFamily.Exynos -> stringResource(R.string.settings_device_profile_family_exynos)
-        DeviceChipsetFamily.Tensor -> stringResource(R.string.settings_device_profile_family_tensor)
-        DeviceChipsetFamily.Unknown -> stringResource(R.string.settings_device_profile_family_generic)
-    }
-    val recommendedProfile = when (chipsetInfo.family) {
-        DeviceChipsetFamily.Snapdragon -> "${stringResource(R.string.gpu_chipset_snapdragon_title)} / ${stringResource(R.string.gpu_adreno_title)}"
-        DeviceChipsetFamily.MediaTek -> stringResource(
-            R.string.onboarding_chipset_dialog_recommend_mediatek,
-            stringResource(R.string.gpu_chipset_mediatek_title),
-            stringResource(R.string.gpu_mali_title),
-            stringResource(R.string.gpu_powervr_title)
-        )
-        else -> stringResource(R.string.onboarding_chipset_dialog_recommend_manual)
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                imageVector = Icons.Rounded.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        },
-        title = {
-            Text(text = stringResource(R.string.onboarding_chipset_dialog_title))
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ChipsetInfoRow(
-                    label = stringResource(R.string.onboarding_chipset_dialog_family),
-                    value = familyLabel
-                )
-                ChipsetInfoRow(
-                    label = stringResource(R.string.onboarding_chipset_dialog_recommended),
-                    value = recommendedProfile
-                )
-                ChipsetInfoRow(
-                    label = stringResource(R.string.onboarding_chipset_dialog_soc),
-                    value = chipsetInfo.socModel.ifBlank { stringResource(R.string.settings_not_set) }
-                )
-                ChipsetInfoRow(
-                    label = stringResource(R.string.onboarding_chipset_dialog_hardware),
-                    value = chipsetInfo.hardware.ifBlank { stringResource(R.string.settings_not_set) }
-                )
-                ChipsetInfoRow(
-                    label = stringResource(R.string.onboarding_chipset_dialog_device),
-                    value = chipsetInfo.deviceModel.ifBlank { stringResource(R.string.settings_not_set) }
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.onboarding_chipset_dialog_ok))
-            }
-        },
-        shape = neonShape(24.dp)
-    )
-}
-
-@Composable
-private fun ChipsetInfoRow(
-    label: String,
-    value: String
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
     }
 }
 
