@@ -21,9 +21,8 @@ data class InstalledRemoteCheat(
 
 class RemoteContentInstallState(context: Context) {
     private val stateFile = File(EmulatorStorage.appStateDir(context.applicationContext), "remote-content.json")
-    private val lock = Any()
 
-    fun installedTextures(): Map<String, InstalledRemoteTexture> = synchronized(lock) {
+    fun installedTextures(): Map<String, InstalledRemoteTexture> = synchronized(STATE_LOCK) {
         val textures = readState().optJSONObject("textures") ?: return@synchronized emptyMap()
         buildMap {
             textures.keys().forEach { id ->
@@ -45,7 +44,7 @@ class RemoteContentInstallState(context: Context) {
         }
     }
 
-    fun installedCheats(): Map<String, InstalledRemoteCheat> = synchronized(lock) {
+    fun installedCheats(): Map<String, InstalledRemoteCheat> = synchronized(STATE_LOCK) {
         val cheats = readState().optJSONObject("cheats") ?: return@synchronized emptyMap()
         buildMap {
             cheats.keys().forEach { id ->
@@ -69,7 +68,7 @@ class RemoteContentInstallState(context: Context) {
     fun recordTexture(pack: RemoteTexturePack, serial: String) =
         recordTexture(pack.id, pack.version, serial)
 
-    fun recordTexture(packId: String, version: String, serial: String) = synchronized(lock) {
+    fun recordTexture(packId: String, version: String, serial: String) = synchronized(STATE_LOCK) {
         val root = readState()
         val textures = root.optJSONObject("textures") ?: JSONObject().also { root.put("textures", it) }
         textures.put(
@@ -82,7 +81,7 @@ class RemoteContentInstallState(context: Context) {
         writeState(root)
     }
 
-    fun recordCheat(pack: RemoteCheatPack, serial: String, crc: String?) = synchronized(lock) {
+    fun recordCheat(pack: RemoteCheatPack, serial: String, crc: String?) = synchronized(STATE_LOCK) {
         val root = readState()
         val cheats = root.optJSONObject("cheats") ?: JSONObject().also { root.put("cheats", it) }
         cheats.put(
@@ -95,7 +94,7 @@ class RemoteContentInstallState(context: Context) {
         writeState(root)
     }
 
-    fun removeTexturesForSerial(serial: String) = synchronized(lock) {
+    fun removeTexturesForSerial(serial: String) = synchronized(STATE_LOCK) {
         val root = readState()
         val textures = root.optJSONObject("textures") ?: return@synchronized
         textures.keys().asSequence().toList().forEach { id ->
@@ -119,5 +118,12 @@ class RemoteContentInstallState(context: Context) {
             temporary.copyTo(stateFile, overwrite = true)
             temporary.delete()
         }
+    }
+
+    private companion object {
+        // Every instance points at the same JSON file, so the lock must be shared
+        // across them: the worker, the texture screen and the cheat screen all
+        // create their own RemoteContentInstallState.
+        val STATE_LOCK = Any()
     }
 }

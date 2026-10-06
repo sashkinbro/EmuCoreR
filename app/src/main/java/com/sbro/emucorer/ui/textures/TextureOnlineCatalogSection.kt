@@ -112,38 +112,69 @@ internal fun TextureOnlineCatalogSection(
         "texture_online_catalog.download_tasks",
         emptyList<TextureDownloadTask>()
     )
+    // Bumped by the Retry button to restart the loader; also lets each automatic
+    // attempt force a network fetch instead of silently re-reading the cache.
+    var retryToken by rememberRetainedState("texture_online_catalog.retry_token", 0)
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { }
 
     LaunchedEffect(Unit) {
-        val loaded = withContext(Dispatchers.IO) {
-            val libraryGames = libraryRepository.loadGames()
-            val catalog = catalogRepository.loadTextureCatalog()
-            Triple(libraryGames, catalog, installState.installedTextures())
+        val libraryGames = withContext(Dispatchers.IO) {
+            runCatching { libraryRepository.loadGames() }.getOrDefault(emptyList())
         }
-        if (loaded.first.isNotEmpty() || games.isEmpty()) {
-            games = loaded.first
+        if (libraryGames.isNotEmpty() || games.isEmpty()) {
+            games = libraryGames
         }
-        // A failed refresh (offline, bad response) must not wipe a previously
-        // loaded catalog: only replace the packs when the new result is usable.
-        if (loaded.second.entries.isNotEmpty() || packs.isEmpty()) {
-            packs = loaded.second.entries
-            cached = loaded.second.fromCache
-            loadFailed = loaded.second.entries.isEmpty()
-        }
-        installed = loaded.third
         selectedPath = selectedPath ?: games.firstOrNull()?.path
-        loading = false
-        if (loaded.second.cacheHit) {
-            val refreshed = withContext(Dispatchers.IO) {
-                catalogRepository.loadTextureCatalog(forceRefresh = true)
+    }
+
+    LaunchedEffect(retryToken) {
+        // The first attempt uses the cache fast path; every automatic retry after
+        // a failure (and every manual retry) actually hits the network. This is
+        // what makes a catalog that failed once recover without restarting the
+        // app, e.g. when the very first request after install hasn't got a
+        // usable network yet.
+        var attempt = 0
+        var retryDelayMs = TEXTURE_CATALOG_RETRY_BASE_DELAY_MS
+        while (isActive) {
+            val forceRefresh = retryToken > 0 || attempt > 0
+            // Keep an already loaded catalog on screen while it is refreshed in
+            // the background; only an empty section shows the loading spinner.
+            if (attempt == 0 && packs.isEmpty()) loading = true
+            val catalog = withContext(Dispatchers.IO) {
+                runCatching { catalogRepository.loadTextureCatalog(forceRefresh = forceRefresh) }.getOrNull()
             }
-            if (refreshed.entries.isNotEmpty()) {
-                packs = refreshed.entries
-                cached = refreshed.fromCache
-                loadFailed = false
+            val loadedState = withContext(Dispatchers.IO) {
+                runCatching { installState.installedTextures() }.getOrNull()
             }
+            // A failed refresh (offline, bad response) must not wipe a previously
+            // loaded catalog: only replace the packs when the new result is usable.
+            if (catalog != null && (catalog.entries.isNotEmpty() || packs.isEmpty())) {
+                packs = catalog.entries
+                cached = catalog.fromCache
+                loadFailed = catalog.entries.isEmpty()
+            } else if (catalog == null && packs.isEmpty()) {
+                loadFailed = true
+            }
+            loadedState?.let { installed = it }
+            loading = false
+            if (!loadFailed) {
+                if (catalog?.cacheHit == true && !forceRefresh) {
+                    val refreshed = withContext(Dispatchers.IO) {
+                        runCatching { catalogRepository.loadTextureCatalog(forceRefresh = true) }.getOrNull()
+                    }
+                    if (refreshed != null && refreshed.entries.isNotEmpty()) {
+                        packs = refreshed.entries
+                        cached = refreshed.fromCache
+                        loadFailed = false
+                    }
+                }
+                break
+            }
+            attempt += 1
+            delay(retryDelayMs)
+            retryDelayMs = (retryDelayMs * 2).coerceAtMost(TEXTURE_CATALOG_RETRY_MAX_DELAY_MS)
         }
     }
 
@@ -274,11 +305,23 @@ internal fun TextureOnlineCatalogSection(
                             CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                             Text(stringResource(R.string.content_catalog_loading))
                         }
-                        TextureOnlinePhase.ERROR -> Text(
-                            text = stringResource(R.string.content_catalog_failed),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        TextureOnlinePhase.ERROR -> Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.content_catalog_failed),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            OutlinedButton(
+                                shape = neonButtonShape(),
+                                onClick = { retryToken += 1 }
+                            ) {
+                                Icon(Icons.Rounded.Refresh, contentDescription = null)
+                                Spacer(Modifier.width(7.dp))
+                                Text(stringResource(R.string.hub_retry))
+                            }
+                        }
                         TextureOnlinePhase.EMPTY -> TextureCatalogEmptyState()
                         TextureOnlinePhase.CONTENT -> {
                             if (state.compatiblePacks.isNotEmpty()) {
@@ -795,6 +838,9 @@ private enum class TextureOnlinePhase {
     EMPTY,
     CONTENT
 }
+
+private const val TEXTURE_CATALOG_RETRY_BASE_DELAY_MS = 2_000L
+private const val TEXTURE_CATALOG_RETRY_MAX_DELAY_MS = 30_000L
 
 private data class TextureOnlineContentState(
     val phase: TextureOnlinePhase,

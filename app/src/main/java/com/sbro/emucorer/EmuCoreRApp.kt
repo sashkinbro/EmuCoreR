@@ -7,7 +7,9 @@ import com.sbro.emucorer.core.AppIconManager
 import com.sbro.emucorer.core.BackupSessionGate
 import com.sbro.emucorer.core.CrashLogger
 import com.sbro.emucorer.core.EmulatorBridge
+import com.sbro.emucorer.core.FeatureGate
 import com.sbro.emucorer.data.AppPreferences
+import com.sbro.emucorer.data.RemoteContentCatalogRepository
 import com.sbro.emucorer.data.drive.DriveBackupArchive
 import com.sbro.emucorer.data.drive.DriveBackupException
 import com.sbro.emucorer.data.drive.DriveBackupWork
@@ -41,6 +43,22 @@ class EmuCoreRApp : Application() {
         AppIconManager.applyProIcon(this, AppPreferences(this).getProUnlockedSync())
         DriveBackupWork.resumePending(this)
         EmulatorBridge.initializeOnce(this)
+        // Warm the remote catalogs as early as possible so the cheat and texture
+        // screens open with a fresh cache instead of depending on the first
+        // network request made while the user is already looking at them.
+        if (FeatureGate.isEnabled(this)) {
+            applicationScope.launch {
+                try {
+                    val repository = RemoteContentCatalogRepository(this@EmuCoreRApp)
+                    repository.loadCheatCatalog()
+                    repository.loadTextureCatalog()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    android.util.Log.w("EmuCoreR", "Catalog prefetch failed", error)
+                }
+            }
+        }
         DiscordIntegration.initialize(this)
     }
 }
