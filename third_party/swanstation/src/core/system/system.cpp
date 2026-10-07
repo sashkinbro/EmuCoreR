@@ -2157,7 +2157,7 @@ bool LoadMemoryState(const MemorySaveState& mss)
 bool SaveMemoryState(MemorySaveState* mss)
 {
   if (!mss->state_stream)
-    mss->state_stream = std::make_unique<GrowableMemoryByteStream>(nullptr, MAX_SAVE_STATE_SIZE);
+    mss->state_stream = std::make_unique<GrowableMemoryByteStream>(nullptr, MAX_MEMORY_SAVE_STATE_SIZE);
   else
     mss->state_stream->SeekAbsolute(0);
 

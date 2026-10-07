@@ -26,6 +26,7 @@
 #include <climits>
 #include <cmath>
 #include <cstring>
+#include <limits>
 namespace PGXP {
 
 // GPU vertex coordinates are 11-bit signed, so a 2048x2048 window covers the
@@ -111,7 +112,7 @@ static PGXP_value* GetPtr(uint32_t addr);
 static PGXP_value* ReadMem(uint32_t addr);
 
 static const PGXP_value PGXP_value_invalid = {0.f, 0.f, 0.f, {0}, 0};
-static const PGXP_value PGXP_value_zero = {0.f, 0.f, 0.f, {VALID_01 | VALID_Z}, 0};
+static const PGXP_value PGXP_value_zero = {0.f, 0.f, 0.f, {VALID_01}, 0};
 
 static PGXP_value CPU_reg[34];
 static PGXP_value CP0_reg[32];
@@ -129,9 +130,15 @@ ALWAYS_INLINE_RELEASE void MakeValid(PGXP_value* pV, uint32_t psxV)
 {
   if (VALID_01 != (pV->flags & VALID_01))
   {
-    pV->x = static_cast<float>(static_cast<int16_t>(static_cast<uint16_t>(psxV)));
-    pV->y = static_cast<float>(static_cast<int16_t>(static_cast<uint16_t>(psxV >> 16)));
-    pV->z = 0.f;
+    if ((pV->flags & VALID_01) == 0)
+    {
+      pV->z = 0.f;
+      pV->flags &= ~(VALID_Z | TAINTED_Z);
+    }
+    if ((pV->flags & VALID_0) == 0)
+      pV->x = static_cast<float>(static_cast<int16_t>(static_cast<uint16_t>(psxV)));
+    if ((pV->flags & VALID_1) == 0)
+      pV->y = static_cast<float>(static_cast<int16_t>(static_cast<uint16_t>(psxV >> 16)));
     pV->flags |= VALID_01;
     pV->value = psxV;
   }
@@ -139,6 +146,13 @@ ALWAYS_INLINE_RELEASE void MakeValid(PGXP_value* pV, uint32_t psxV)
 
 ALWAYS_INLINE_RELEASE void Validate(PGXP_value* pV, uint32_t psxV)
 {
+  // CPU writes to r0 are discarded by hardware, including delayed loads.
+  // Restore its precision mirror before any instruction reads it.
+  if (pV == &CPU_reg[0])
+  {
+    *pV = PGXP_value_zero;
+    return;
+  }
   // assume pV is not NULL
   pV->flags &= (pV->value == psxV) ? ALL : INV_VALID_ALL;
 }
@@ -240,6 +254,8 @@ ALWAYS_INLINE_RELEASE double f16Overflow(double in)
 
 ALWAYS_INLINE_RELEASE PGXP_value* GetPtr(uint32_t addr)
 {
+  if (!Mem)
+    return nullptr;
   if ((addr & CPU::DCACHE_LOCATION_MASK) == CPU::DCACHE_LOCATION)
     return &Mem[s_mem_scratch_offset + ((addr & CPU::DCACHE_OFFSET_MASK) >> 2)];
 
@@ -466,7 +482,7 @@ bool DoState(StateWrapper& sw)
 
   // The vertex cache is a derived lookup table; let it rebuild instead of
   // serializing another cache-sized buffer into every state.
-  if (vertexCache)
+  if (sw.IsReading() && vertexCache)
     std::memset(vertexCache, 0, sizeof(PGXP_value) * VERTEX_CACHE_SIZE);
 
   return !sw.HasError();
@@ -503,7 +519,9 @@ void GTE_PushSXYZ2f(float x, float y, float z, uint32_t v)
   SXY2.y = y;
   SXY2.z = z;
   SXY2.value = v;
-  SXY2.flags = VALID_01 | VALID_Z;
+  SXY2.flags = (std::isfinite(x) && std::isfinite(y)) ? VALID_01 : 0;
+  if (std::isfinite(z) && z > 0.f)
+    SXY2.flags |= VALID_Z;
 
   // Register 15 (SXYP) is a mirror of SXY2 on hardware; keep the mirror in
   // sync so MFC2/SWC2 reads of reg 15 see the vertex that was just pushed.
@@ -533,27 +551,19 @@ int GTE_NCLIP_valid(uint32_t sxy0, uint32_t sxy1, uint32_t sxy2)
 
 float GTE_NCLIP()
 {
-  float nclip = ((SX0 * SY1) + (SX1 * SY2) + (SX2 * SY0) - (SX0 * SY2) - (SX1 * SY0) - (SX2 * SY1));
-
-  // ensure fractional values are not incorrectly rounded to 0
-  float nclipAbs = std::abs(nclip);
-  if ((0.1f < nclipAbs) && (nclipAbs < 1.f))
-    nclip += (nclip < 0.f ? -1 : 1);
-
-  // float AX = SX1 - SX0;
-  // float AY = SY1 - SY0;
-
-  // float BX = SX2 - SX0;
-  // float BY = SY2 - SY0;
-
-  //// normalise A and B
-  // float mA = sqrt((AX*AX) + (AY*AY));
-  // float mB = sqrt((BX*BX) + (BY*BY));
-
-  //// calculate AxB to get Z component of C
-  // float CZ = ((AX * BY) - (AY * BX)) * (1 << 12);
-
-  return nclip;
+  // Translate before taking the cross product to avoid cancellation near
+  // the screen edges. Preserve the sign of even a subpixel-sized triangle
+  // when the GTE converts the result to an integer for backface culling.
+  const double ax = double(SX1) - double(SX0);
+  const double ay = double(SY1) - double(SY0);
+  const double bx = double(SX2) - double(SX0);
+  const double by = double(SY2) - double(SY0);
+  const double area = ax * by - ay * bx;
+  if (area > 0.0 && area < 1.0)
+    return 1.f;
+  if (area < 0.0 && area > -1.0)
+    return -1.f;
+  return static_cast<float>(area);
 }
 
 static void PGXP_MTC2_int(PGXP_value value, uint32_t reg)
@@ -573,6 +583,8 @@ static void PGXP_MTC2_int(PGXP_value value, uint32_t reg)
   }
 
   GTE_data_reg[reg] = value;
+  if (reg == 14)
+    SXYP = SXY2;
 }
 
 ////////////////////////////////////
@@ -672,37 +684,46 @@ static ALWAYS_INLINE_RELEASE bool IsWithinTolerance(float precise_x, float preci
 
 bool GetPreciseVertex(uint32_t addr, uint32_t value, int x, int y, int xOffs, int yOffs, float* out_x, float* out_y, float* out_w)
 {
+  *out_x = static_cast<float>(x);
+  *out_y = static_cast<float>(y);
+  *out_w = 1.f;
+
+  auto use_vertex = [&](const PGXP_value* v, bool allow_depth) {
+    if (!v || (v->flags & VALID_01) != VALID_01 || v->value != value ||
+        !std::isfinite(v->x) || !std::isfinite(v->y) ||
+        double(v->x) < double(std::numeric_limits<int32_t>::min()) ||
+        double(v->x) > double(std::numeric_limits<int32_t>::max()) ||
+        double(v->y) < double(std::numeric_limits<int32_t>::min()) ||
+        double(v->y) > double(std::numeric_limits<int32_t>::max()))
+      return false;
+
+    const float px = TruncateVertexPosition(v->x) + static_cast<float>(xOffs);
+    const float py = TruncateVertexPosition(v->y) + static_cast<float>(yOffs);
+    if (!IsWithinTolerance(px, py, x, y))
+      return false;
+
+    *out_x = px;
+    *out_y = py;
+    if (allow_depth && (v->flags & VALID_Z) != 0 && std::isfinite(v->z) && v->z > 0.f)
+      *out_w = v->z / PGXP_MAX_Z;
+    return true;
+  };
+
   const PGXP_value* vert = ReadMem(addr);
-  if (vert && ((vert->flags & VALID_01) == VALID_01) && (vert->value == value))
-  {
-    // There is a value here with valid X and Y coordinates
-    *out_x = TruncateVertexPosition(vert->x) + static_cast<float>(xOffs);
-    *out_y = TruncateVertexPosition(vert->y) + static_cast<float>(yOffs);
-    *out_w = vert->z / PGXP_MAX_Z;
+  if (use_vertex(vert, true))
+    return (vert->flags & VALID_Z) != 0 && std::isfinite(vert->z) && vert->z > 0.f;
 
-    if (IsWithinTolerance(*out_x, *out_y, x, y))
-    {
-      // check validity of z component
-      return ((vert->flags & VALID_Z) == VALID_Z);
-    }
-  }
-
-  if (g_settings.gpu_pgxp_vertex_cache)
+  if (g_settings.gpu_pgxp_vertex_cache && vertexCache)
   {
     const short psx_x = (short)(value & 0xFFFFu);
     const short psx_y = (short)(value >> 16);
 
     // Look in cache for valid vertex
     vert = PGXP_GetCachedVertex(psx_x, psx_y);
-    if (vert && (vert->flags & VALID_01) == VALID_01)
-    {
-      *out_x = TruncateVertexPosition(vert->x) + static_cast<float>(xOffs);
-      *out_y = TruncateVertexPosition(vert->y) + static_cast<float>(yOffs);
-      *out_w = vert->z / PGXP_MAX_Z;
-
-      if (IsWithinTolerance(*out_x, *out_y, x, y))
-        return false;
-    }
+    // A coordinate-only cache cannot identify which of several vertices
+    // sharing an integer position supplied this polygon's depth.
+    if (use_vertex(vert, false))
+      return false;
   }
 
   // no valid value can be found anywhere, use the native PSX data
@@ -735,6 +756,17 @@ static void MergeLoad(uint32_t instr, uint32_t rtVal, uint32_t addr)
 
   PGXP_value ret = CPU_reg[rt(instr)];
   const PGXP_value* mem = GetPtr(addr & ~UINT32_C(3));
+  PGXP_value loaded = mem ? *mem : PGXP_value_invalid;
+  const uint32_t shift = (left ? 3u - off : off) * 8u;
+  const uint32_t memory_mask = left ? (UINT32_MAX >> shift) : (UINT32_MAX << shift);
+  const uint32_t memory_bits = left ? (rtVal >> shift) : (rtVal << shift);
+  // DMA and other non-CPU writers do not update the precision mirror. Check
+  // the actual bytes transferred by this load before reusing their metadata.
+  if ((loaded.value & memory_mask) != (memory_bits & memory_mask))
+    loaded.flags = 0;
+  const uint32_t register_mask = left ? (UINT32_MAX << shift) : (UINT32_MAX >> shift);
+  if ((ret.value & ~register_mask) != (rtVal & ~register_mask))
+    ret.flags = 0;
 
   for (uint32_t half = 0; half < 2; half++)
   {
@@ -748,14 +780,14 @@ static void MergeLoad(uint32_t instr, uint32_t rtVal, uint32_t addr)
       // trackable memory half only when that byte is the even one.
       const int32_t mem_byte = left ? (static_cast<int32_t>(b0) - static_cast<int32_t>(3u - off))
                                     : (static_cast<int32_t>(b0) + static_cast<int32_t>(off));
-      if (mem && (mem_byte & 1) == 0 && mem->compFlags[mem_byte >> 1] == VALID)
+      if ((mem_byte & 1) == 0 && loaded.compFlags[mem_byte >> 1] == VALID)
       {
-        const float value = (mem_byte >> 1) ? mem->y : mem->x;
+        const float value = (mem_byte >> 1) ? loaded.y : loaded.x;
         if (half == 0)
           ret.x = value;
         else
           ret.y = value;
-        ret.compFlags[half] = mem->compFlags[mem_byte >> 1];
+        ret.compFlags[half] = loaded.compFlags[mem_byte >> 1];
       }
       else
       {
@@ -768,10 +800,12 @@ static void MergeLoad(uint32_t instr, uint32_t rtVal, uint32_t addr)
     }
   }
 
-  if (first == 0u && last == 3u && mem)
-    CopyZState(ret, *mem);
+  if (first == 0u && last == 3u)
+    CopyZState(ret, loaded);
+  else if ((ret.flags & loaded.flags & VALID_Z) != 0 && ret.z != loaded.z)
+    ClearZ(ret);
   else
-    TaintZ(ret);
+    AdoptZ(ret, loaded);
 
   ret.value = rtVal;
   CPU_reg[rt(instr)] = ret;
@@ -789,7 +823,17 @@ static void MergeStore(uint32_t instr, uint32_t memVal, uint32_t addr)
   const uint32_t first = left ? 0u : off; // first memory byte from the register
   const uint32_t last = left ? off : 3u;  // last memory byte from the register
 
-  const PGXP_value& src = CPU_reg[rt(instr)];
+  PGXP_value src = CPU_reg[rt(instr)];
+  if (rt(instr) == 0)
+    src = PGXP_value_zero;
+  const uint32_t shift = (left ? 3u - off : off) * 8u;
+  const uint32_t source_mask = left ? (UINT32_MAX << shift) : (UINT32_MAX >> shift);
+  const uint32_t source_bits = left ? (memVal << shift) : (memVal >> shift);
+  if ((src.value & source_mask) != (source_bits & source_mask))
+    src.flags = 0;
+  const uint32_t memory_mask = left ? (UINT32_MAX >> shift) : (UINT32_MAX << shift);
+  if ((mem->value & ~memory_mask) != (memVal & ~memory_mask))
+    mem->flags = 0;
 
   for (uint32_t half = 0; half < 2; half++)
   {
@@ -824,8 +868,10 @@ static void MergeStore(uint32_t instr, uint32_t memVal, uint32_t addr)
 
   if (first == 0u && last == 3u)
     CopyZState(*mem, src);
+  else if ((mem->flags & src.flags & VALID_Z) != 0 && mem->z != src.z)
+    ClearZ(*mem);
   else
-    TaintZ(*mem);
+    AdoptZ(*mem, src);
 
   mem->value = memVal;
 }
@@ -899,7 +945,7 @@ void CPU_ADDI(uint32_t instr, uint32_t rsVal)
     // the tracked value of r0, which the CPU itself never writes.
     CPU_reg[rt(instr)] = PGXP_value_zero;
     CPU_reg[rt(instr)].x = static_cast<float>(imm_sext(instr));
-    CPU_reg[rt(instr)].y = 0.0f;
+    CPU_reg[rt(instr)].y = (imm_sext(instr) < 0) ? -1.f : 0.f;
     CPU_reg[rt(instr)].value = static_cast<uint32_t>(imm_sext(instr));
     CPU_reg[rt(instr)].flags = VALID_01;
     return;
@@ -919,13 +965,13 @@ void CPU_ADDI(uint32_t instr, uint32_t rsVal)
     ret.x += (float)tempImm.w.l;
 
     // carry on over/underflow
-    float of = (ret.x > USHRT_MAX) ? 1.f : (ret.x < 0) ? -1.f : 0.f;
+    const float of = static_cast<float>(((rsVal & 0xffffu) + tempImm.w.l) >> 16);
     ret.x = (float)f16Sign(ret.x);
     // ret.x -= of * (USHRT_MAX + 1);
     ret.y += tempImm.sw.h + of;
 
     // truncate on overflow/underflow
-    ret.y += (ret.y > SHRT_MAX) ? -(USHRT_MAX + 1) : (ret.y < SHRT_MIN) ? USHRT_MAX + 1 : 0.f;
+    ret.y = static_cast<float>(f16Sign(ret.y));
   }
 
   CPU_reg[rt(instr)] = ret;
@@ -1095,13 +1141,13 @@ void CPU_ADD(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
     ret.x += (float)f16Unsign(CPU_reg[rt(instr)].x);
 
     // carry on over/underflow
-    float of = (ret.x > USHRT_MAX) ? 1.f : (ret.x < 0) ? -1.f : 0.f;
+    const float of = static_cast<float>(((rsVal & 0xffffu) + (rtVal & 0xffffu)) >> 16);
     ret.x = (float)f16Sign(ret.x);
     // ret.x -= of * (USHRT_MAX + 1);
     ret.y += CPU_reg[rt(instr)].y + of;
 
     // truncate on overflow/underflow
-    ret.y += (ret.y > SHRT_MAX) ? -(USHRT_MAX + 1) : (ret.y < SHRT_MIN) ? USHRT_MAX + 1 : 0.f;
+    ret.y = static_cast<float>(f16Sign(ret.y));
 
     // Carry the tracked depth from the operands.
     CombineZ(ret, CPU_reg[rs(instr)], CPU_reg[rt(instr)]);
@@ -1147,13 +1193,13 @@ void CPU_SUB(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
   ret.x -= (float)f16Unsign(CPU_reg[rt(instr)].x);
 
   // carry on over/underflow
-  float of = (ret.x > USHRT_MAX) ? 1.f : (ret.x < 0) ? -1.f : 0.f;
+  const float of = (rsVal & 0xffffu) < (rtVal & 0xffffu) ? -1.f : 0.f;
   ret.x = (float)f16Sign(ret.x);
   // ret.x -= of * (USHRT_MAX + 1);
   ret.y -= CPU_reg[rt(instr)].y - of;
 
   // truncate on overflow/underflow
-  ret.y += (ret.y > SHRT_MAX) ? -(USHRT_MAX + 1) : (ret.y < SHRT_MIN) ? USHRT_MAX + 1 : 0.f;
+  ret.y = static_cast<float>(f16Sign(ret.y));
 
   // Carry the tracked depth from the operands.
   CombineZ(ret, CPU_reg[rs(instr)], CPU_reg[rt(instr)]);
@@ -1532,6 +1578,11 @@ void CPU_SLL(uint32_t instr, uint32_t rtVal)
   Validate(&CPU_reg[rt(instr)], rtVal);
 
   ret = CPU_reg[rt(instr)];
+  if (sh == 0)
+  {
+    CPU_reg[rd(instr)] = ret;
+    return;
+  }
   // A real shift changes the value the Z was attached to.
   TaintZ(ret);
 
@@ -1737,6 +1788,11 @@ void CPU_SLLV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
   Validate(&CPU_reg[rs(instr)], rsVal);
 
   ret = CPU_reg[rt(instr)];
+  if (sh == 0)
+  {
+    CPU_reg[rd(instr)] = ret;
+    return;
+  }
   // A real shift changes the value the Z was attached to.
   TaintZ(ret);
 

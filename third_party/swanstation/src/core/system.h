@@ -34,8 +34,10 @@ struct SystemBootParameters
 
 namespace System {
 
-// 5 megabytes is sufficient for now, at the moment they're around 4.3MB, or 10.3MB with 8MB RAM enabled.
-inline constexpr uint32_t MAX_SAVE_STATE_SIZE = 11 * 1024 * 1024;
+// Persistent states include up to 40 MiB of precision metadata for 8 MiB
+// RAM, in addition to RAM, VRAM and device state. Memory states omit it.
+inline constexpr uint32_t MAX_SAVE_STATE_SIZE = 64 * 1024 * 1024;
+inline constexpr uint32_t MAX_MEMORY_SAVE_STATE_SIZE = 11 * 1024 * 1024;
 
 inline constexpr TickCount MASTER_CLOCK = 44100 * 0x300; // 33868800Hz or 33.8688MHz, also used as CPU clock
 
