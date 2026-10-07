@@ -253,6 +253,35 @@ class TouchControlsLayoutPersistenceTest {
     }
 
     @Test
+    fun `factory reset writes built-in defaults and keeps custom controls`() {
+        val existing = PerGameSettings(
+            gameKey = "game.iso",
+            gameTitle = "Game",
+            renderer = 14,
+            touchControlsLayout = layout,
+            customTouchControls = CustomTouchControlLibrary(
+                controls = listOf(CustomTouchControl(id = "extra", name = "Extra"))
+            ),
+            providedKeys = setOf(
+                "renderer",
+                PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY,
+                PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY
+            )
+        )
+
+        val reset = existing.withTouchControlsLayout(
+            gameKey = existing.gameKey,
+            gameTitle = existing.gameTitle,
+            gameSerial = null,
+            layout = TouchControlsLayoutProfile()
+        )
+
+        assertEquals(TouchControlsLayoutProfile(), reset.touchControlsLayout)
+        assertEquals(14, reset.renderer)
+        assertEquals("extra", reset.customTouchControls?.controls?.single()?.id)
+    }
+
+    @Test
     fun `global snapshot converts without losing layout values`() {
         val snapshot = OverlayLayoutSnapshot(
             dpadOffset = 0.1f to 0.2f,

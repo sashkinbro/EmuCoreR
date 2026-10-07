@@ -87,19 +87,22 @@ class OverlayCanvasResponsiveLayoutTest {
         val rightActionEdge = layout.actionButtons.maxOf { it.x + it.width }
         assertTrue(left.x >= screen.leftInset)
         assertTrue(rightActionEdge <= screen.width - screen.rightInset)
+        val leftMargin = independentDpad.x.value
+        val rightMargin = (screen.width - rightActionEdge).value
         assertEquals(
-            "physical side margins must remain symmetric",
-            independentDpad.x.value,
-            (screen.width - rightActionEdge).value,
+            "both sides must keep the same edge padding",
+            leftMargin - screen.leftInset.value,
+            rightMargin - screen.rightInset.value,
             EPSILON
         )
+        assertTrue("the cutout side must keep the larger margin", leftMargin > rightMargin)
 
         val leftTopEdge = layout.leftShoulders.minOf { it.x }
         val rightShoulderEdge = layout.rightShoulders.maxOf { it.x + it.width }
         assertEquals(
-            "top control margins must remain symmetric",
-            leftTopEdge.value,
-            (screen.width - rightShoulderEdge).value,
+            "both shoulder rows must keep the same edge padding",
+            leftTopEdge.value - screen.leftInset.value,
+            (screen.width - rightShoulderEdge).value - screen.rightInset.value,
             EPSILON
         )
 
