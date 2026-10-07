@@ -1479,7 +1479,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: köşe önbelleği</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">Bellek üzerinden köşe izleme başarısız olduğunda ekran koordinatlarını yedek olarak kullanır. PGXP uyumluluğunu artırabilir.</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: CPU modu</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">Köşe işlemlerini CPU üzerinden izlemeye çalışır. Bazı oyunlar PGXP\'nin etkili olması için bu seçeneği gerektirir. Çok yavaştır ve recompiler ile uyumsuzdur.</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">CPU komutlarının yaptığı köşe değişikliklerini izler. Bazı oyunlarda kararlı geometri için gereklidir. Yeniden derleyiciyle çalışır ve CPU yükünü artırabilir.</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: projeksiyon hassasiyetini koru</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">PGXP için ek hassasiyet etkinleştirir. Bazı oyunlarda görüntüyü iyileştirebilir, ancak diğerlerini bozabilir.</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: geometri toleransı</string>

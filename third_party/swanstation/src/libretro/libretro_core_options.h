@@ -596,8 +596,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
   {"swanstation_GPU_PGXPCPU",
    "PGXP CPU Mode",
    NULL,
-   "Tries to track vertex manipulation through the CPU. Some games require this option for PGXP to be effective. "
-   "Very slow, and incompatible with the recompiler.",
+   "Tracks vertex changes made by CPU instructions. Some games need this for stable geometry. "
+   "Works with the recompiler and may increase CPU load.",
    NULL,
    "enhancement",
    {

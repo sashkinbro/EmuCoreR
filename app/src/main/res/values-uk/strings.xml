@@ -1485,7 +1485,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: кеш вершин</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">Використовує екранні координати як запасний варіант, коли відстеження вершин через пам\'ять не вдається. Може покращити сумісність PGXP.</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: режим CPU</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">Намагається відстежувати маніпуляції вершинами через CPU. Деякі ігри вимагають цієї опції для ефективної роботи PGXP. Дуже повільно й несумісно з рекомпілятором.</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">Відстежує зміни вершин, виконані інструкціями CPU. Деяким іграм це потрібно для стабільної геометрії. Працює з рекомпілятором і може збільшувати навантаження на CPU.</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: збереження точності проєкції</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">Вмикає додаткову точність для PGXP. Може покращити вигляд у деяких іграх, але зламати інші.</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: допуск геометрії</string>

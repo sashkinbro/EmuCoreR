@@ -1501,7 +1501,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: cache vrcholů</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">Používá souřadnice obrazovky jako záložní řešení, když sledování vrcholů přes paměť selže. Může zlepšit kompatibilitu PGXP.</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: režim CPU</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">Snaží se sledovat manipulaci s vrcholy přes CPU. Některé hry tuto volbu vyžadují, aby bylo PGXP účinné. Velmi pomalé a nekompatibilní s rekompilátorem.</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">Sleduje změny vrcholů provedené instrukcemi CPU. Některé hry to potřebují pro stabilní geometrii. Funguje s rekompilátorem a může zvýšit zatížení CPU.</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: zachovat přesnost projekce</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">Zapíná dodatečnou přesnost pro PGXP. Může zlepšit obraz v některých hrách, ale jiné rozbít.</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: tolerance geometrie</string>

@@ -510,7 +510,7 @@ object SwanStationCoreOptions {
         Option(
             key = "swanstation_GPU_PGXPCPU",
             label = "PGXP CPU Mode",
-            description = "Tries to track vertex manipulation through the CPU. Some games require this option for PGXP to be effective. Very slow, and incompatible with the recompiler.",
+            description = "Tracks vertex changes made by CPU instructions. Some games need this for stable geometry. Works with the recompiler and may increase CPU load.",
             category = "enhancement",
             choices = listOf(
                 Choice("true", "Enabled"),

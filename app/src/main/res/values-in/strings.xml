@@ -1493,7 +1493,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: cache verteks</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">Menggunakan koordinat layar sebagai cadangan saat pelacakan verteks melalui memori gagal. Dapat meningkatkan kompatibilitas PGXP.</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: mode CPU</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">Mencoba melacak manipulasi verteks melalui CPU. Sebagian game memerlukan opsi ini agar PGXP efektif. Sangat lambat dan tidak kompatibel dengan recompiler.</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">Melacak perubahan verteks oleh instruksi CPU. Beberapa game memerlukannya agar geometri stabil. Berfungsi dengan recompiler dan dapat meningkatkan beban CPU.</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: pertahankan presisi proyeksi</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">Mengaktifkan presisi tambahan untuk PGXP. Dapat memperbaiki tampilan di sebagian game tetapi merusak yang lain.</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: toleransi geometri</string>

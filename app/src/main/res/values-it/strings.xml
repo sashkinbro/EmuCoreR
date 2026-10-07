@@ -1479,7 +1479,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: cache dei vertici</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">Usa le coordinate schermo come ripiego quando il tracciamento dei vertici tramite memoria fallisce. Può migliorare la compatibilità di PGXP.</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: modalità CPU</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">Tenta di tracciare la manipolazione dei vertici attraverso la CPU. Alcuni giochi richiedono questa opzione perché PGXP sia efficace. Molto lento e incompatibile con il recompiler.</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">Traccia le modifiche ai vertici eseguite dalle istruzioni della CPU. Alcuni giochi ne hanno bisogno per una geometria stabile. Funziona con il ricompilatore e può aumentare il carico della CPU.</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: preserva precisione proiezione</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">Abilita precisione aggiuntiva per PGXP. Può migliorare la resa in alcuni giochi ma romperne altri.</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: tolleranza geometrica</string>
