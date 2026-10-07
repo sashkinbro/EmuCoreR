@@ -2836,7 +2836,7 @@ void GPU_HW_D3D12::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t hei
                            static_cast<LONG>((y + height) * m_resolution_scale)};
     cmdlist->ClearRenderTargetView(m_vram_texture.GetRTVOrDSVDescriptor(), uniforms.u_fill_color, 1, &rc);
     cmdlist->ClearDepthStencilView(m_vram_depth_texture.GetRTVOrDSVDescriptor(), D3D12_CLEAR_FLAG_DEPTH,
-                                   uniforms.u_fill_color[3], 0, 1, &rc);
+                                   m_pgxp_depth_buffer ? 1.f : uniforms.u_fill_color[3], 0, 1, &rc);
     return;
   }
 

@@ -2536,7 +2536,8 @@ void GPU_HW_OpenGL::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t he
     const auto [r, g, b, a] =
       RGBA8ToFloat(m_true_color ? color : VRAMRGBA5551ToRGBA8888(VRAMRGBA8888ToRGBA5551(color)));
     glClearColor(r, g, b, a);
-    IsGLES() ? glClearDepthf(a) : glClearDepth(a);
+    const float clear_depth = m_pgxp_depth_buffer ? 1.f : a;
+    IsGLES() ? glClearDepthf(clear_depth) : glClearDepth(clear_depth);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     SetScissorFromDrawingArea();
   }

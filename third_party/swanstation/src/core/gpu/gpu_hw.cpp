@@ -812,7 +812,7 @@ void GPU_HW::LoadVertices()
 
   const GPURenderCommand rc{m_render_command.bits};
   const uint32_t texpage = static_cast<uint32_t>(m_draw_mode.mode_reg.bits) | (static_cast<uint32_t>(m_draw_mode.palette_reg) << 16);
-  const float depth = GetCurrentNormalizedVertexDepth();
+  const float depth = m_pgxp_depth_buffer ? 1.f : GetCurrentNormalizedVertexDepth();
 
   switch (rc.primitive)
   {
@@ -827,7 +827,7 @@ void GPU_HW::LoadVertices()
       const uint32_t num_vertices = rc.quad_polygon ? 4 : 3;
       std::array<BatchVertex, 4> vertices;
       std::array<std::array<int32_t, 2>, 4> native_vertex_positions;
-      bool valid_w = g_settings.gpu_pgxp_texture_correction;
+      bool valid_geometry_depth = true;
       for (uint32_t i = 0; i < num_vertices; i++)
       {
         const uint32_t color = (shaded && i > 0) ? (FifoPop() & UINT32_C(0x00FFFFFF)) : first_color;
@@ -844,36 +844,37 @@ void GPU_HW::LoadVertices()
 
         if (pgxp)
         {
-          valid_w &=
+          const bool vertex_depth =
             PGXP::GetPreciseVertex(static_cast<uint32_t>(maddr_and_pos >> 32), vp.bits, native_x, native_y, m_drawing_offset.x,
                                    m_drawing_offset.y, &vertices[i].x, &vertices[i].y, &vertices[i].w);
+          valid_geometry_depth &= vertex_depth;
         }
       }
       if (pgxp)
       {
-        if (!valid_w)
+        const bool use_depth = m_pgxp_depth_buffer && valid_geometry_depth &&
+                               ((m_batch.transparency_mode == GPUTransparencyMode::Disabled) ||
+                                g_settings.gpu_pgxp_transparent_depth);
+        if (m_batch.use_depth_buffer != use_depth)
+          SetBatchDepthBuffer(use_depth);
+        if (use_depth)
+          CheckForDepthClear(vertices.data(), num_vertices);
+
+        for (uint32_t i = 0; i < num_vertices; i++)
         {
-          if (m_batch.use_depth_buffer)
-            SetBatchDepthBuffer(false);
-          for (size_t i = 0; i < vertices.size(); i++)
+          BatchVertex& v = vertices[i];
+          if (!valid_geometry_depth && g_settings.gpu_pgxp_disable_2d)
           {
-            BatchVertex& v = vertices[i];
-            if (g_settings.gpu_pgxp_disable_2d)
-            {
-              v.x = static_cast<float>(native_vertex_positions[i][0]);
-              v.y = static_cast<float>(native_vertex_positions[i][1]);
-            }
-            v.w = 1.0f;
+            v.x = static_cast<float>(native_vertex_positions[i][0]);
+            v.y = static_cast<float>(native_vertex_positions[i][1]);
           }
-        }
-        else if (g_settings.gpu_pgxp_depth_buffer)
-        {
-          const bool use_depth = (m_batch.transparency_mode == GPUTransparencyMode::Disabled) ||
-                                 g_settings.gpu_pgxp_transparent_depth;
-          if (m_batch.use_depth_buffer != use_depth)
-            SetBatchDepthBuffer(use_depth);
-          if (use_depth)
-            CheckForDepthClear(vertices.data(), num_vertices);
+
+          // Depth and interpolation are independent: an affine-textured
+          // polygon can still occlude another polygon using its tracked Z.
+          if (m_pgxp_depth_buffer)
+            v.z = valid_geometry_depth ? std::min(v.w, 1.f) : 1.f;
+          if (!valid_geometry_depth || !g_settings.gpu_pgxp_texture_correction)
+            v.w = 1.f;
         }
       }
 

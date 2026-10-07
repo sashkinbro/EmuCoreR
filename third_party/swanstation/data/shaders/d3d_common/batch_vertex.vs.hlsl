@@ -12,8 +12,7 @@
 // compile time is now routed through the 64-byte batch UBO and read as
 // a runtime cbuffer value:
 //   * RESOLUTION_SCALE -> u_resolution_scale (cbuffer-refactor 7b575a3)
-//   * PGXP_DEPTH       -> u_pgxp_depth (uniform-control-flow ternary;
-//                         was a compile-time #if PGXP_DEPTH gate)
+//   * PGXP_DEPTH       -> normalized per-vertex Z; W is independent
 //   * UV_LIMITS        -> the VS unconditionally declares + writes
 //                         a_uv_limits / v_uv_limits when textured; the
 //                         FS gates consumption on u_uv_limits at runtime
@@ -95,11 +94,8 @@ void main(
   float pos_x = ((a_pos.x + vertex_offset) / 512.0) - 1.0;
   float pos_y = ((a_pos.y + vertex_offset) / -256.0) + 1.0;
 
-  // PGXP-depth mode (u_pgxp_depth != 0) ignores mask Z and uses a_pos.w
-  // as the depth source; the legacy path reads a_pos.z. u_pgxp_depth is
-  // a cbuffer scalar so this is a uniform-control-flow select - the
-  // driver collapses it to a single conditional move.
-  float pos_z = (u_pgxp_depth != 0u) ? a_pos.w : a_pos.z;
+  // Z carries normalized depth independently of the perspective weight W.
+  float pos_z = a_pos.z;
   float pos_w = a_pos.w;
 
   v_pos = float4(pos_x * pos_w, pos_y * pos_w, pos_z * pos_w, pos_w);
