@@ -996,14 +996,15 @@ void CPU_ANDI(uint32_t instr, uint32_t rsVal)
   {
     case 0:
       // if 0 then x == 0
-      ret.x = 0.f;
+      ret = PGXP_value_zero;
       break;
     case 0xFFFF:
       // if saturated then x == x
       break;
     default:
       // otherwise x is low precision value
-      ret.x = vRt.sw.l;
+      if ((rtVal & 0xffffu) != (rsVal & 0xffffu) || ret.compFlags[0] != VALID)
+        ret.x = vRt.sw.l;
       ret.flags |= VALID_0;
   }
 
@@ -1032,7 +1033,8 @@ void CPU_ORI(uint32_t instr, uint32_t rsVal)
       break;
     default:
       // otherwise x is low precision value
-      ret.x = vRt.sw.l;
+      if (rtVal != rsVal || ret.compFlags[0] != VALID)
+        ret.x = vRt.sw.l;
       ret.flags |= VALID_0;
   }
 
@@ -1069,37 +1071,19 @@ void CPU_XORI(uint32_t instr, uint32_t rsVal)
 
 void CPU_SLTI(uint32_t instr, uint32_t rsVal)
 {
-  // Rt = Rs < Imm (signed)
-  psx_value tempImm;
-  PGXP_value ret;
-
   Validate(&CPU_reg[rs(instr)], rsVal);
-  ret = CPU_reg[rs(instr)];
-
-  tempImm.w.h = imm(instr);
-  ret.y = 0.f;
-  ret.x = (CPU_reg[rs(instr)].x < tempImm.sw.h) ? 1.f : 0.f;
-  ret.flags |= VALID_1;
+  PGXP_value ret = PGXP_value_zero;
   ret.value = static_cast<uint32_t>(static_cast<int32_t>(rsVal) < imm_sext(instr));
-
+  ret.x = static_cast<float>(ret.value);
   CPU_reg[rt(instr)] = ret;
 }
 
 void CPU_SLTIU(uint32_t instr, uint32_t rsVal)
 {
-  // Rt = Rs < Imm (Unsigned)
-  psx_value tempImm;
-  PGXP_value ret;
-
   Validate(&CPU_reg[rs(instr)], rsVal);
-  ret = CPU_reg[rs(instr)];
-
-  tempImm.w.h = imm(instr);
-  ret.y = 0.f;
-  ret.x = (f16Unsign(CPU_reg[rs(instr)].x) < tempImm.w.h) ? 1.f : 0.f;
-  ret.flags |= VALID_1;
-  ret.value = static_cast<uint32_t>(rsVal < imm(instr));
-
+  PGXP_value ret = PGXP_value_zero;
+  ret.value = static_cast<uint32_t>(rsVal < static_cast<uint32_t>(imm_sext(instr)));
+  ret.x = static_cast<float>(ret.value);
   CPU_reg[rt(instr)] = ret;
 }
 
@@ -1211,78 +1195,80 @@ void CPU_SUB(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
   CPU_reg[rd(instr)] = ret;
 }
 
-static void CPU_BITWISE(uint32_t instr, uint32_t rdVal, uint32_t rsVal, uint32_t rtVal)
-{
-  // Rd = Rs & Rt
-  psx_value vald, vals, valt;
-  PGXP_value ret;
+enum class BitwiseOperation { And, Or, Xor, Nor };
 
+static void CPU_BITWISE(uint32_t instr, uint32_t rdVal, uint32_t rsVal, uint32_t rtVal, BitwiseOperation operation)
+{
   Validate(&CPU_reg[rs(instr)], rsVal);
   Validate(&CPU_reg[rt(instr)], rtVal);
-
-  // iCB: Only require one valid input
-  if (((CPU_reg[rt(instr)].flags & VALID_01) != VALID_01) != ((CPU_reg[rs(instr)].flags & VALID_01) != VALID_01))
+  PGXP_value ret = PGXP_value_zero;
+  const PGXP_value* sources[2] = {};
+  for (uint32_t half = 0; half < 2; half++)
   {
-    MakeValid(&CPU_reg[rs(instr)], rsVal);
-    MakeValid(&CPU_reg[rt(instr)], rtVal);
+    const uint16_t a = static_cast<uint16_t>(rsVal >> (half * 16));
+    const uint16_t b = static_cast<uint16_t>(rtVal >> (half * 16));
+    const uint16_t result = static_cast<uint16_t>(rdVal >> (half * 16));
+    const PGXP_value* source = nullptr;
+    bool constant = false;
+    switch (operation)
+    {
+      case BitwiseOperation::And:
+        if (b == 0xffffu)
+          source = &CPU_reg[rs(instr)];
+        else if (a == 0xffffu)
+          source = &CPU_reg[rt(instr)];
+        else
+          constant = (a == 0 || b == 0);
+        break;
+      case BitwiseOperation::Or:
+        if (b == 0)
+          source = &CPU_reg[rs(instr)];
+        else if (a == 0)
+          source = &CPU_reg[rt(instr)];
+        else
+          constant = (a == 0xffffu || b == 0xffffu);
+        break;
+      case BitwiseOperation::Xor:
+        if (rs(instr) == rt(instr))
+          constant = true;
+        else if (b == 0)
+          source = &CPU_reg[rs(instr)];
+        else if (a == 0)
+          source = &CPU_reg[rt(instr)];
+        break;
+      case BitwiseOperation::Nor:
+        constant = true;
+        break;
+    }
+    if (!source && !constant && result != 0)
+    {
+      if (result == a)
+        source = &CPU_reg[rs(instr)];
+      else if (result == b)
+        source = &CPU_reg[rt(instr)];
+    }
+    const bool precise = source && source->compFlags[half] == VALID;
+    const float component = precise ? (half == 0 ? source->x : source->y) :
+                                     static_cast<float>(static_cast<int16_t>(result));
+    if (half == 0)
+      ret.x = component;
+    else
+      ret.y = component;
+    if (precise)
+      sources[half] = source;
   }
 
-  vald.d = rdVal;
-  vals.d = rsVal;
-  valt.d = rtVal;
-
-  //	CPU_reg[rd(instr)].valid = CPU_reg[rs(instr)].valid && CPU_reg[rt(instr)].valid;
-  ret.flags = VALID_01;
-
-  if (vald.w.l == 0)
+  // Depth follows the components actually retained by the mask. Combining
+  // coordinates from different depths does not establish a new perspective.
+  if (!(sources[0] && sources[1] && (sources[0]->flags & sources[1]->flags & VALID_Z) != 0 &&
+        sources[0]->z != sources[1]->z))
   {
-    ret.x = 0.f;
+    for (const PGXP_value* source : sources)
+    {
+      if (source)
+        AdoptZ(ret, *source);
+    }
   }
-  else if (vald.w.l == vals.w.l)
-  {
-    ret.x = CPU_reg[rs(instr)].x;
-    ret.compFlags[0] = CPU_reg[rs(instr)].compFlags[0];
-  }
-  else if (vald.w.l == valt.w.l)
-  {
-    ret.x = CPU_reg[rt(instr)].x;
-    ret.compFlags[0] = CPU_reg[rt(instr)].compFlags[0];
-  }
-  else
-  {
-    ret.x = (float)vald.sw.l;
-    ret.compFlags[0] = VALID;
-  }
-
-  if (vald.w.h == 0)
-  {
-    ret.y = 0.f;
-  }
-  else if (vald.w.h == vals.w.h)
-  {
-    ret.y = CPU_reg[rs(instr)].y;
-    ret.compFlags[1] &= CPU_reg[rs(instr)].compFlags[1];
-  }
-  else if (vald.w.h == valt.w.h)
-  {
-    ret.y = CPU_reg[rt(instr)].y;
-    ret.compFlags[1] &= CPU_reg[rt(instr)].compFlags[1];
-  }
-  else
-  {
-    ret.y = (float)vald.sw.h;
-    ret.compFlags[1] = VALID;
-  }
-
-  // iCB Hack: Force validity if even one half is valid
-  // if ((ret.hFlags & VALID_HALF) || (ret.lFlags & VALID_HALF))
-  //	ret.valid = 1;
-  // /iCB Hack
-
-  // Get a valid W
-  AdoptZ(ret, CPU_reg[rs(instr)]);
-  AdoptZ(ret, CPU_reg[rt(instr)]);
-
   ret.value = rdVal;
   CPU_reg[rd(instr)] = ret;
 }
@@ -1291,79 +1277,47 @@ void CPU_AND_(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 {
   // Rd = Rs & Rt
   const uint32_t rdVal = rsVal & rtVal;
-  CPU_BITWISE(instr, rdVal, rsVal, rtVal);
+  CPU_BITWISE(instr, rdVal, rsVal, rtVal, BitwiseOperation::And);
 }
 
 void CPU_OR_(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 {
   // Rd = Rs | Rt
   const uint32_t rdVal = rsVal | rtVal;
-  CPU_BITWISE(instr, rdVal, rsVal, rtVal);
+  CPU_BITWISE(instr, rdVal, rsVal, rtVal, BitwiseOperation::Or);
 }
 
 void CPU_XOR_(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 {
   // Rd = Rs ^ Rt
   const uint32_t rdVal = rsVal ^ rtVal;
-  CPU_BITWISE(instr, rdVal, rsVal, rtVal);
+  CPU_BITWISE(instr, rdVal, rsVal, rtVal, BitwiseOperation::Xor);
 }
 
 void CPU_NOR(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 {
   // Rd = Rs NOR Rt
   const uint32_t rdVal = ~(rsVal | rtVal);
-  CPU_BITWISE(instr, rdVal, rsVal, rtVal);
+  CPU_BITWISE(instr, rdVal, rsVal, rtVal, BitwiseOperation::Nor);
 }
 
 void CPU_SLT(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 {
-  // Rd = Rs < Rt (signed)
-  PGXP_value ret;
   Validate(&CPU_reg[rs(instr)], rsVal);
   Validate(&CPU_reg[rt(instr)], rtVal);
-
-  // iCB: Only require one valid input
-  if (((CPU_reg[rt(instr)].flags & VALID_01) != VALID_01) != ((CPU_reg[rs(instr)].flags & VALID_01) != VALID_01))
-  {
-    MakeValid(&CPU_reg[rs(instr)], rsVal);
-    MakeValid(&CPU_reg[rt(instr)], rtVal);
-  }
-
-  ret = CPU_reg[rs(instr)];
-  ret.y = 0.f;
-  ret.compFlags[1] = VALID;
-
-  ret.x = (CPU_reg[rs(instr)].y < CPU_reg[rt(instr)].y)                       ? 1.f :
-          (f16Unsign(CPU_reg[rs(instr)].x) < f16Unsign(CPU_reg[rt(instr)].x)) ? 1.f :
-                                                                                0.f;
-
+  PGXP_value ret = PGXP_value_zero;
   ret.value = static_cast<uint32_t>(static_cast<int32_t>(rsVal) < static_cast<int32_t>(rtVal));
+  ret.x = static_cast<float>(ret.value);
   CPU_reg[rd(instr)] = ret;
 }
 
 void CPU_SLTU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 {
-  // Rd = Rs < Rt (unsigned)
-  PGXP_value ret;
   Validate(&CPU_reg[rs(instr)], rsVal);
   Validate(&CPU_reg[rt(instr)], rtVal);
-
-  // iCB: Only require one valid input
-  if (((CPU_reg[rt(instr)].flags & VALID_01) != VALID_01) != ((CPU_reg[rs(instr)].flags & VALID_01) != VALID_01))
-  {
-    MakeValid(&CPU_reg[rs(instr)], rsVal);
-    MakeValid(&CPU_reg[rt(instr)], rtVal);
-  }
-
-  ret = CPU_reg[rs(instr)];
-  ret.y = 0.f;
-  ret.compFlags[1] = VALID;
-
-  ret.x = (f16Unsign(CPU_reg[rs(instr)].y) < f16Unsign(CPU_reg[rt(instr)].y)) ? 1.f :
-          (f16Unsign(CPU_reg[rs(instr)].x) < f16Unsign(CPU_reg[rt(instr)].x)) ? 1.f :
-                                                                                0.f;
-
+  PGXP_value ret = PGXP_value_zero;
   ret.value = static_cast<uint32_t>(rsVal < rtVal);
+  ret.x = static_cast<float>(ret.value);
   CPU_reg[rd(instr)] = ret;
 }
 

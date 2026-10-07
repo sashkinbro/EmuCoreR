@@ -99,6 +99,49 @@ int main()
   CPU_SW(I(0x2b, 0, 2), XY(-1, 20), 0x110);
   Check(Vertex(0x110, XY(-1, 20), -0.25f, 20.5f), "fractional register arithmetic cannot carry into packed Y early");
 
+  Seed(0x100, XY(0, 0), 0.25f, 0.5f);
+  CPU_LW(I(0x23, 0, 1), 0, 0x100);
+  CPU_OR_(R(1, 0, 2), 0, 0);
+  CPU_SW(I(0x2b, 0, 2), 0, 0x110);
+  Check(Vertex(0x110, 0, 0.25f, 0.5f), "OR with zero preserves fractions of a zero-valued vertex");
+  CPU_XOR_(R(1, 0, 2), 0, 0);
+  CPU_SW(I(0x2b, 0, 2), 0, 0x110);
+  Check(Vertex(0x110, 0, 0.25f, 0.5f), "XOR with zero preserves fractions of a zero-valued vertex");
+  CPU_AND_(R(1, 0, 2), 0, 0);
+  CPU_SW(I(0x2b, 0, 2), 0, 0x110);
+  Check(Vertex(0x110, 0, 0.f, 0.f, false), "AND with zero produces a constant without vertex depth");
+  CPU_ANDI(I(0x0c, 1, 2), 0);
+  CPU_SW(I(0x2b, 0, 2), 0, 0x110);
+  Check(Vertex(0x110, 0, 0.f, 0.f, false), "ANDI with zero does not manufacture a 3D vertex");
+
+  Seed(0x100);
+  CPU_LW(I(0x23, 0, 1), XY(10, 20), 0x100);
+  CPU_ORI(I(0x0d, 1, 2, 2), XY(10, 20));
+  CPU_SW(I(0x2b, 0, 2), XY(10, 20), 0x110);
+  Check(Vertex(0x110, XY(10, 20), 10.25f, 20.5f), "redundant ORI bits preserve subpixel geometry");
+  CPU_SLTI(I(0x0a, 1, 2, 100), XY(10, 20));
+  Check(CPU_reg[2].x == 0.f && CPU_reg[2].value == 0 && (CPU_reg[2].flags & VALID_Z) == 0,
+        "SLTI compares the full register and drops vertex depth");
+  CPU_SLTIU(I(0x0b, 1, 2, 0xffff), XY(10, 20));
+  Check(CPU_reg[2].x == 1.f && CPU_reg[2].value == 1 && (CPU_reg[2].flags & VALID_Z) == 0,
+        "SLTIU sign extends the immediate before unsigned comparison");
+  Seed(0x120, XY(20, 10), 20.25f, 10.5f);
+  CPU_LW(I(0x23, 0, 2), XY(20, 10), 0x120);
+  CPU_SLT(R(1, 2, 3), XY(10, 20), XY(20, 10));
+  Check(CPU_reg[3].x == 0.f && CPU_reg[3].value == 0 && (CPU_reg[3].flags & VALID_Z) == 0,
+        "SLT compares the full word without treating halves as coordinates");
+  CPU_SLTU(R(1, 2, 3), XY(10, 20), XY(20, 10));
+  Check(CPU_reg[3].x == 0.f && CPU_reg[3].value == 0 && (CPU_reg[3].flags & VALID_Z) == 0,
+        "SLTU produces a constant without borrowed vertex depth");
+
+  Seed(0x100, XY(10, 0), 10.25f, 0.f, 1000.f);
+  Seed(0x120, XY(0, 20), 0.f, 20.5f, 2000.f);
+  CPU_LW(I(0x23, 0, 1), XY(10, 0), 0x100);
+  CPU_LW(I(0x23, 0, 2), XY(0, 20), 0x120);
+  CPU_OR_(R(1, 2, 3), XY(10, 0), XY(0, 20));
+  CPU_SW(I(0x2b, 0, 3), XY(10, 20), 0x110);
+  Check(Vertex(0x110, XY(10, 20), 10.25f, 20.5f, false), "packing halves from different depths keeps geometry without inventing perspective");
+
   // Cover every byte offset and both directions. Raw CPU results are computed
   // from the ISA merge masks, separately from the tracker under test.
   for (uint32_t opcode : {0x22u, 0x26u})

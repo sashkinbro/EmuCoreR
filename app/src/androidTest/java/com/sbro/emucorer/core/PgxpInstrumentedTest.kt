@@ -88,6 +88,17 @@ class PgxpInstrumentedTest {
                                 assertEquals("LWR byte offset 2: $label", sy, before.getFloat(0x2004 / 4 * 20), 0.001f)
                                 assertEquals("SWL byte offset 1: $label", sy, before.getFloat(0x2008 / 4 * 20), 0.001f)
                                 assertEquals("SWR byte offset 2: $label", sx, before.getFloat(0x200c / 4 * 20 + 4), 0.001f)
+                                assertEquals("redundant ORI: $label", sx, before.getFloat(0x2010 / 4 * 20), 0.001f)
+                                for ((address, value) in listOf(0x2014 to 0f, 0x2018 to 1f, 0x201c to 0f, 0x2020 to 0f)) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("constant result at $address: $label", value, before.getFloat(entry), 0f)
+                                    assertEquals("constant borrowed a depth at $address: $label", 0, before.getInt(entry + 12) and 0x10000)
+                                }
+                                for (address in listOf(0x2028, 0x202c)) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("zero-valued vertex X at $address: $label", 0.25f, before.getFloat(entry), 0.001f)
+                                    assertEquals("zero-valued vertex Y at $address: $label", 0.5f, before.getFloat(entry + 4), 0.001f)
+                                }
                                 assertEquals("reload failed: $label", 0, bridge.loadState(session, state.absolutePath))
                                 assertEquals(0, bridge.saveState(session, state.absolutePath))
                                 assertArrayEquals("load lost precision: $label", before.array(), precisionMemory(state, ramSize).array())
@@ -231,6 +242,32 @@ class PgxpInstrumentedTest {
         emit(0)
         emit(imm(0x2a, 12, 8, 9)) // SWL: Y into low half
         emit(imm(0x2e, 12, 8, 14)) // SWR: X into high half
+        emit(imm(0x0d, 8, 14, 8)) // X already contains this bit.
+        emit(imm(0x2b, 12, 14, 0x10))
+        emit(imm(0x0a, 8, 14, 100))
+        emit(imm(0x2b, 12, 14, 0x14))
+        emit(imm(0x0b, 8, 14, 0xffff))
+        emit(imm(0x2b, 12, 14, 0x18))
+        constant(13, 65535)
+        emit((8 shl 21) or (13 shl 16) or (14 shl 11) or 0x2a) // slt
+        emit(imm(0x2b, 12, 14, 0x1c))
+        emit(imm(0x0c, 8, 14, 0))
+        emit(imm(0x2b, 12, 14, 0x20))
+        gte(24, 16384, true)
+        gte(25, 32768, true)
+        gte(0, 0, false)
+        gte(1, 1000, false)
+        emit(0x4a080001)
+        repeat(16) { emit(0) }
+        emit(0x48000000 or (8 shl 16) or (14 shl 11)) // mfc2
+        emit(0)
+        emit(imm(0x2b, 12, 0, 0x50))
+        emit(imm(0x23, 12, 13, 0x50)) // runtime zero operand
+        emit(0)
+        emit((8 shl 21) or (13 shl 16) or (14 shl 11) or 0x25) // or
+        emit(imm(0x2b, 12, 14, 0x28))
+        emit((8 shl 21) or (13 shl 16) or (15 shl 11) or 0x26) // xor
+        emit(imm(0x2b, 12, 15, 0x2c))
         write(11, 0x50, 0x800) // enable DMA channel 2
         write(11, 0, 0x1000)
         write(11, 4, if (textured) 14 else 8)
