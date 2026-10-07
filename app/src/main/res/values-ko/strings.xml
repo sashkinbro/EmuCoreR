@@ -1478,7 +1478,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: 정점 캐시</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">메모리를 통한 정점 추적이 실패할 때 화면 좌표를 대체 수단으로 사용합니다. PGXP 호환성이 개선될 수 있습니다.</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: CPU 모드</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">CPU를 통해 정점 조작을 추적하려고 시도합니다. 일부 게임은 PGXP가 효과를 보려면 이 옵션이 필요합니다. 매우 느리고 리컴파일러와 호환되지 않습니다.</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">CPU 명령으로 수행되는 정점 변경을 추적합니다. 일부 게임에서 안정적인 지오메트리를 위해 필요합니다. 리컴파일러와 함께 작동하며 CPU 부하가 늘어날 수 있습니다.</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: 투영 정밀도 유지</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">PGXP에 추가 정밀도를 활성화합니다. 일부 게임에서는 화면이 개선되지만 다른 게임은 깨질 수 있습니다.</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: 지오메트리 허용 오차</string>

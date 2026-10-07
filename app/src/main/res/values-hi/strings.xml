@@ -1479,7 +1479,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: वर्टेक्स कैश</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">मेमोरी के माध्यम से वर्टेक्स ट्रैकिंग विफल होने पर स्क्रीन निर्देशांकों को विकल्प के रूप में उपयोग करता है। PGXP संगतता सुधार सकता है।</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: CPU मोड</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">CPU के माध्यम से वर्टेक्स हेरफेर को ट्रैक करने की कोशिश करता है। कुछ गेम में PGXP के प्रभावी होने के लिए यह विकल्प आवश्यक है। बहुत धीमा और रीकम्पाइलर के साथ असंगत।</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">CPU निर्देशों से किए गए वर्टेक्स बदलावों को ट्रैक करता है। कुछ गेम में स्थिर ज्यामिति के लिए इसकी ज़रूरत होती है। रीकम्पाइलर के साथ काम करता है और CPU का लोड बढ़ा सकता है।</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: प्रोजेक्शन सटीकता बनाए रखें</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">PGXP के लिए अतिरिक्त सटीकता सक्षम करता है। कुछ गेम में दृश्य सुधार सकता है पर अन्य को बिगाड़ सकता है।</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: ज्यामिति सहनशीलता</string>

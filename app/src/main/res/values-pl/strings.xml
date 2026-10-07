@@ -1500,7 +1500,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: pamięć podręczna wierzchołków</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">Używa współrzędnych ekranu jako rozwiązania zastępczego, gdy śledzenie wierzchołków przez pamięć zawiedzie. Może poprawić kompatybilność PGXP.</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: tryb CPU</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">Próbuje śledzić manipulacje wierzchołkami przez CPU. Niektóre gry wymagają tej opcji, aby PGXP działał skutecznie. Bardzo wolne i niekompatybilne z rekompilatorem.</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">Śledzi zmiany wierzchołków wykonywane przez instrukcje CPU. Niektóre gry wymagają tego do stabilnej geometrii. Działa z rekompilatorem i może zwiększyć obciążenie CPU.</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: zachowaj precyzję rzutowania</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">Włącza dodatkową precyzję dla PGXP. Może poprawić obraz w niektórych grach, ale zepsuć inne.</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: tolerancja geometrii</string>

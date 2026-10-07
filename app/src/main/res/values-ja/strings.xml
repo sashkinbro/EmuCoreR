@@ -1478,7 +1478,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: 頂点キャッシュ</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">メモリを介した頂点追跡が失敗したときのフォールバックとして画面座標を使用します。PGXPの互換性が向上する場合があります。</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: CPUモード</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">CPUを介して頂点操作を追跡しようとします。一部のゲームではPGXPを効果的にするためにこのオプションが必要です。非常に遅く、リコンパイラと互換性がありません。</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">CPU命令による頂点の変更を追跡します。一部のゲームではジオメトリの安定化に必要です。リコンパイラに対応していますが、CPU負荷が増える場合があります。</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: 投影精度を保持</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">PGXPの精度を追加で有効にします。一部のゲームでは見た目が改善しますが、他のゲームは壊れます。</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: ジオメトリ許容値</string>

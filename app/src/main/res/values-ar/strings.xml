@@ -1487,7 +1487,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: ذاكرة الرؤوس المؤقتة</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">يستخدم إحداثيات الشاشة كخيار احتياطي عندما يفشل تتبع الرؤوس عبر الذاكرة. قد يحسّن توافق PGXP.</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: وضع CPU</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">يحاول تتبع التلاعب بالرؤوس عبر CPU. تتطلب بعض الألعاب هذا الخيار ليكون PGXP فعالًا. بطيء جدًا وغير متوافق مع مُعيد المترجم.</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">يتتبع تغييرات الرؤوس التي تنفذها تعليمات CPU. تحتاج بعض الألعاب إلى ذلك لتثبيت الهندسة. يعمل مع مُعيد الترجمة وقد يزيد الحمل على CPU.</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: الحفاظ على دقة الإسقاط</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">يفعّل دقة إضافية لـ PGXP. قد يحسّن الصورة في بعض الألعاب لكنه يعطّل أخرى.</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: تفاوت الهندسة</string>

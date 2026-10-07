@@ -1481,7 +1481,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: caché de vértices</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">Usa coordenadas de pantalla como alternativa cuando falla el rastreo de vértices a través de la memoria. Puede mejorar la compatibilidad de PGXP.</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: modo CPU</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">Intenta rastrear la manipulación de vértices a través de la CPU. Algunos juegos requieren esta opción para que PGXP sea eficaz. Muy lento e incompatible con el recompilador.</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">Sigue los cambios de vértices realizados por instrucciones de la CPU. Algunos juegos lo necesitan para estabilizar la geometría. Funciona con el recompilador y puede aumentar la carga de la CPU.</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: preservar precisión de proyección</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">Activa precisión adicional para PGXP. Puede mejorar la imagen en algunos juegos, pero romper otros.</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: tolerancia de geometría</string>

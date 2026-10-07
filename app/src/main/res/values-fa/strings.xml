@@ -1494,7 +1494,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP: کش رأس‌ها</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">وقتی ردیابی رأس‌ها از طریق حافظه شکست بخورد، از مختصات صفحه به‌عنوان جایگزین استفاده می‌کند. ممکن است سازگاری PGXP را بهبود دهد.</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP: حالت CPU</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">تلاش می‌کند دست‌کاری رأس‌ها را از طریق CPU ردیابی کند. برخی بازی‌ها برای مؤثر بودن PGXP به این گزینه نیاز دارند. بسیار کند و ناسازگار با بازکامپایلر.</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">تغییرات رأس‌ها توسط دستورهای CPU را ردیابی می‌کند. برخی بازی‌ها برای هندسهٔ پایدار به این گزینه نیاز دارند. با بازکامپایلر کار می‌کند و ممکن است بار CPU را افزایش دهد.</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP: حفظ دقت تصویر</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">دقت اضافی برای PGXP را فعال می‌کند. ممکن است تصویر برخی بازی‌ها را بهتر کند اما بازی‌های دیگر را خراب کند.</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP: تلورانس هندسه</string>

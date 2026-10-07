@@ -1480,7 +1480,7 @@
     <string name="ss_core_gpu_pgxpvertexcache">PGXP：顶点缓存</string>
     <string name="ss_core_gpu_pgxpvertexcache_desc">当通过内存跟踪顶点失败时，使用屏幕坐标作为后备方案。可改善 PGXP 兼容性。</string>
     <string name="ss_core_gpu_pgxpcpu">PGXP：CPU 模式</string>
-    <string name="ss_core_gpu_pgxpcpu_desc">尝试通过 CPU 跟踪顶点操作。部分游戏需要此选项才能让 PGXP 生效。非常慢，且与重编译器不兼容。</string>
+    <string name="ss_core_gpu_pgxpcpu_desc">跟踪 CPU 指令对顶点的修改。部分游戏需要此选项来保持几何稳定。支持重编译器，但可能增加 CPU 负载。</string>
     <string name="ss_core_gpu_pgxppreserveprojfp">PGXP：保留投影精度</string>
     <string name="ss_core_gpu_pgxppreserveprojfp_desc">为 PGXP 启用额外精度。可改善部分游戏的画面，但会破坏其他游戏。</string>
     <string name="ss_core_gpu_pgxptolerance">PGXP：几何容差</string>
