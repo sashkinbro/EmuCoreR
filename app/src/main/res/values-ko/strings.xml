@@ -81,6 +81,10 @@
     <string name="emulation_loaded">불러옴</string>
     <string name="emulation_load_failed">저장 상태를 불러오지 못했습니다.</string>
     <string name="emulation_bios_missing">먼저 BIOS 파일을 추가하세요.</string>
+    <string name="emulation_patches_title">패치 활성화됨</string>
+    <string name="emulation_patches_widescreen">와이드스크린 패치</string>
+    <string name="emulation_patches_cheats">치트</string>
+    <string name="emulation_patches_user_count">사용자 패치: %1$d</string>
     <string name="emulation_launch_failed">이 게임을 열 수 없습니다.</string>
     <string name="emulation_launch_path_error">이 파일을 열 수 없습니다.</string>
     <string name="emulation_session_restored_unavailable">이전 에뮬레이션 세션이 백그라운드에서 종료되었습니다. 라이브러리에서 게임을 다시 실행하세요.</string>
@@ -253,6 +257,13 @@
     <string name="settings_respect_display_cutout">카메라 컷아웃 고려</string>
     <string name="settings_respect_display_cutout_desc">게임 화면이 카메라 컷아웃 영역을 피하도록 합니다.</string>
     <string name="settings_help_respect_display_cutout">에뮬레이션 화면이 카메라 컷아웃(노치 또는 펀치홀) 아래에 그려지지 않도록 여백을 추가합니다. 컷아웃이 화면을 가리는 가로 모드에서 유용합니다. 에뮬레이션에만 적용되며 나머지 앱 화면은 이미 컷아웃을 고려합니다.</string>
+    <string name="settings_show_patch_messages">패치 메시지 표시</string>
+    <string name="settings_show_patch_messages_desc">게임 패치 적용 시 짧은 메시지 표시.</string>
+    <string name="controls_editor_reset_selected">선택한 요소 초기화</string>
+    <string name="controls_editor_show_grid">그리드 표시</string>
+    <string name="controls_editor_snap_grid">그리드에 맞추기</string>
+    <string name="controls_editor_group_scale_value">그룹 배율 %1$d%%</string>
+    <string name="settings_help_show_patch_messages">게임 시작 시 활성 패치 옵션과 찾은 사용자 패치 수를 짧게 알려줍니다.</string>
     <string name="settings_help_pad_vibration">지원되는 게임에서 컨트롤러 진동을 트리거할 수 있게 합니다. 레이싱, 전투, 타격감이 중요한 게임에서 유용한 피드백을 추가하지만 배터리가 더 빨리 닳을 수 있으며 일부 무선 패드는 약하게 진동하거나 약간의 지연이 있을 수 있습니다.</string>
     <string name="settings_help_pad_vibration_strength">Android로 전송되기 전에 게임 진동 크기를 조절합니다. 소음이 큰 핸드헬드 모터의 경우 낮추고, 컨트롤러 진동이 너무 약할 경우 올리세요.</string>
     <string name="settings_help_pad_vibration_test">연결된 컨트롤러에 직접 Android 진동 요청을 보낸 다음, 활성화된 경우 휴대전화 또는 핸드헬드 폴백(Fallback)으로 진동을 보냅니다.</string>
@@ -364,6 +375,7 @@
     <string name="settings_gamepad_action_select">Select</string>
     <string name="settings_gamepad_action_start">Start</string>
     <string name="settings_gamepad_action_left_input_toggle">왼쪽 입력 전환</string>
+    <string name="settings_stick_toggle_button">스틱 전환</string>
     <string name="settings_gamepad_action_dpad_up">D-Pad 위</string>
     <string name="settings_gamepad_action_dpad_down">D-Pad 아래</string>
     <string name="settings_gamepad_action_dpad_left">D-Pad 왼쪽</string>
@@ -808,6 +820,7 @@
     <string name="settings_fps_overlay_metrics">표시되는 통계</string>
     <string name="settings_help_fps_overlay_metrics">세부 통계 오버레이에 포함될 개별 값을 선택합니다. 이는 지표 수집이나 에뮬레이션 성능에 영향을 미치지 않습니다. CPU 및 GPU 모델과 부하는 지원되는 경우 기기에서 읽어옵니다.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">버전</string>
     <string name="settings_fps_metric_speed">속도</string>
     <string name="settings_fps_metric_renderer">렌더러</string>
     <string name="settings_fps_metric_audio">오디오</string>

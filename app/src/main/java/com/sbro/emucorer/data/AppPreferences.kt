@@ -190,7 +190,8 @@ internal val EMULATOR_CLOUD_KEYS = setOf(
     "displayCropTop", "displayCropRight", "displayCropBottom", "audioVolume",
     "audioMuted", "audioOutputLatencyMs",
     "audioMinimalOutputLatency", "padVibration",
-    "padVibrationStrength", "padVibrationFallback", "showFps", "fpsOverlayMode",
+    "padVibrationStrength", "padVibrationFallback", "showFps", "showPatchMessages",
+    "fpsOverlayMode",
     "fpsOverlayCorner", "fpsOverlayScale", "fpsOverlayMetrics", "confirmSaveLoadActions",
     "backButtonExitsGame", "compactControls", "keepScreenOn", "overlayScale",
     "overlayOpacity", "overlayShow", "racingMode", "stickyButtons", "touchscreenRightStick",
@@ -411,6 +412,7 @@ class AppPreferences(private val context: Context) {
         private val PAD_VIBRATION_STRENGTH = intPreferencesKey("pad_vibration_strength")
         private val PAD_VIBRATION_FALLBACK = booleanPreferencesKey("pad_vibration_fallback")
         private val SHOW_FPS = booleanPreferencesKey("show_fps")
+        private val SHOW_PATCH_MESSAGES = booleanPreferencesKey("show_patch_messages")
         private val FPS_OVERLAY_MODE = intPreferencesKey("fps_overlay_mode")
         private val FPS_OVERLAY_CORNER = intPreferencesKey("fps_overlay_corner")
         private val FPS_OVERLAY_SCALE = intPreferencesKey("fps_overlay_scale")
@@ -1532,6 +1534,14 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setShowFps(enabled: Boolean) {
         context.dataStore.edit { it[SHOW_FPS] = enabled }
+    }
+
+    val showPatchMessages: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SHOW_PATCH_MESSAGES] ?: false
+    }
+
+    suspend fun setShowPatchMessages(enabled: Boolean) {
+        context.dataStore.edit { it[SHOW_PATCH_MESSAGES] = enabled }
     }
 
     val fpsOverlayMode: Flow<Int> = context.dataStore.data.map { prefs ->
@@ -2686,6 +2696,7 @@ class AppPreferences(private val context: Context) {
             put("padVibrationStrength", (prefs[PAD_VIBRATION_STRENGTH] ?: DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150))
             put("padVibrationFallback", prefs[PAD_VIBRATION_FALLBACK] ?: true)
             put("showFps", prefs[SHOW_FPS] ?: false)
+            put("showPatchMessages", prefs[SHOW_PATCH_MESSAGES] ?: false)
             put("fpsOverlayMode", prefs[FPS_OVERLAY_MODE] ?: FPS_OVERLAY_MODE_DETAILED)
             put("fpsOverlayCorner", prefs[FPS_OVERLAY_CORNER] ?: FPS_OVERLAY_CORNER_TOP_RIGHT)
             put("fpsOverlayScale", (prefs[FPS_OVERLAY_SCALE] ?: DEFAULT_FPS_OVERLAY_SCALE).coerceIn(MIN_FPS_OVERLAY_SCALE, MAX_FPS_OVERLAY_SCALE))
@@ -2941,6 +2952,7 @@ class AppPreferences(private val context: Context) {
             prefs[PAD_VIBRATION_STRENGTH] = json.optInt("padVibrationStrength", DEFAULT_PAD_VIBRATION_STRENGTH).coerceIn(0, 150)
             prefs[PAD_VIBRATION_FALLBACK] = json.optBoolean("padVibrationFallback", true)
             prefs[SHOW_FPS] = json.optBoolean("showFps", false)
+            prefs[SHOW_PATCH_MESSAGES] = json.optBoolean("showPatchMessages", false)
             prefs[FPS_OVERLAY_MODE] = json.optInt("fpsOverlayMode", FPS_OVERLAY_MODE_DETAILED)
             prefs[FPS_OVERLAY_CORNER] = json.optInt("fpsOverlayCorner", FPS_OVERLAY_CORNER_TOP_RIGHT).coerceIn(
                 FPS_OVERLAY_CORNER_TOP_LEFT,

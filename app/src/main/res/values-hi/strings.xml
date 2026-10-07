@@ -73,6 +73,10 @@
     <string name="emulation_loaded">लोड हो गया</string>
     <string name="emulation_load_failed">सेव स्थिति लोड करने में विफल।</string>
     <string name="emulation_bios_missing">पहले एक BIOS फ़ाइल जोड़ें।</string>
+    <string name="emulation_patches_title">सक्रिय पैच</string>
+    <string name="emulation_patches_widescreen">वाइडस्क्रीन पैच</string>
+    <string name="emulation_patches_cheats">चीट</string>
+    <string name="emulation_patches_user_count">उपयोगकर्ता पैच: %1$d</string>
     <string name="emulation_launch_failed">इस गेम को खोलने में असमर्थ।</string>
     <string name="emulation_launch_path_error">इस फ़ाइल को खोलने में असमर्थ।</string>
     <string name="emulation_session_restored_unavailable">पिछला एमुलेशन सत्र पृष्ठभूमि में बंद कर दिया गया था। अपनी लाइब्रेरी से गेम को फिर से लॉन्च करें।</string>
@@ -216,6 +220,13 @@
     <string name="settings_respect_display_cutout">कैमरा कटआउट का ध्यान रखें</string>
     <string name="settings_respect_display_cutout_desc">गेम छवि को कैमरा कटआउट क्षेत्र से बाहर रखें।</string>
     <string name="settings_help_respect_display_cutout">एमुलेशन छवि के चारों ओर मार्जिन जोड़ता है ताकि यह कैमरा कटआउट (नॉच या पंच-होल) के नीचे न बने। लैंडस्केप में उपयोगी जब कटआउट छवि को ढकता है। यह केवल एमुलेशन पर लागू होता है; ऐप के बाकी हिस्से पहले से कटआउट का ध्यान रखते हैं।</string>
+    <string name="settings_show_patch_messages">पैच संदेश दिखाएँ</string>
+    <string name="settings_show_patch_messages_desc">गेम पैच लागू होने पर छोटा संदेश दिखाएँ।</string>
+    <string name="controls_editor_reset_selected">चयनित तत्व रीसेट करें</string>
+    <string name="controls_editor_show_grid">ग्रिड दिखाएँ</string>
+    <string name="controls_editor_snap_grid">ग्रिड पर स्नैप करें</string>
+    <string name="controls_editor_group_scale_value">समूह स्केल %1$d%%</string>
+    <string name="settings_help_show_patch_messages">गेम शुरू होने पर छोटा सूचना दिखाता है जिसमें सक्रिय पैच विकल्प और मिले उपयोगकर्ता पैच की संख्या होती है।</string>
     <string name="settings_help_pad_vibration">समर्थित गेम्स को नियंत्रक रंबल (rumble) ट्रिगर करने देता है। यह रेसिंग, कॉम्बैट और प्रभाव-भारी गेम्स में उपयोगी प्रतिक्रिया जोड़ता है, लेकिन यह बैटरी को तेज़ी से खत्म कर सकता है और कुछ वायरलेस पैड कमज़ोर या थोड़ी देरी के साथ कंपन कर सकते हैं।</string>
     <string name="settings_help_recent_games">आपके द्वारा पिछली बार खेले गए गेम्स के लिए एक त्वरित-पहुंच पंक्ति दिखाता है। यदि आप अक्सर कुछ ही शीर्षकों के बीच उछलते हैं तो अच्छा है; यदि आप क्लीनर होम स्क्रीन चाहते हैं तो इसे बंद कर दें।</string>
     <string name="settings_help_home_search">सीधे होम स्क्रीन पर लाइब्रेरी सर्च बार दिखाता है। बड़ी लाइब्रेरी के लिए इसे चालू छोड़ दें; यदि आप क्लीनर लेआउट पसंद करते हैं और शायद ही कभी नाम से खोजते हैं तो इसे बंद कर दें।</string>
@@ -324,6 +335,7 @@
     <string name="settings_gamepad_action_select">Select</string>
     <string name="settings_gamepad_action_start">Start</string>
     <string name="settings_gamepad_action_left_input_toggle">Left Input Toggle</string>
+    <string name="settings_stick_toggle_button">स्टिक बदलें</string>
     <string name="settings_gamepad_action_dpad_up">D-Pad Up</string>
     <string name="settings_gamepad_action_dpad_down">D-Pad Down</string>
     <string name="settings_gamepad_action_dpad_left">D-Pad Left</string>
@@ -809,6 +821,7 @@
     <string name="settings_fps_overlay_metrics">दिखाई देने वाले आँकड़े</string>
     <string name="settings_help_fps_overlay_metrics">विस्तृत आँकड़े ओवरले में शामिल व्यक्तिगत मानों को चुनें। यह मीट्रिक संग्रह या एमुलेशन प्रदर्शन को प्रभावित नहीं करता है। उपलब्ध होने पर CPU और GPU का मॉडल और लोड डिवाइस से पढ़ा जाता है।</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">संस्करण</string>
     <string name="settings_fps_metric_speed">गति</string>
     <string name="settings_fps_metric_renderer">रेंडरर</string>
     <string name="settings_fps_metric_audio">ऑडियो</string>

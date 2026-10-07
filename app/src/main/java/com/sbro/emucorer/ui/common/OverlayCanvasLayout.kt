@@ -46,7 +46,9 @@ data class OverlayCanvasDpadClusterSpec(
     val opacity: Int,
     val visible: Boolean,
     val directionOffsets: Map<OverlayDpadDirection, DpOffset> = emptyMap(),
-    val surface: OverlayDpadClusterSurface = OverlayDpadClusterSurface(DpOffset.Zero, size, size)
+    val surface: OverlayDpadClusterSurface = OverlayDpadClusterSurface(DpOffset.Zero, size, size),
+    // Set for the stick-toggle D-pad: it replaces this stick while active.
+    val replacesStickId: String? = null
 )
 
 data class OverlayCanvasLayout(
@@ -221,7 +223,9 @@ fun buildOverlayCanvasLayout(
     } else {
         leftStickSize
     }
-    val primaryExtent = maxOf(dpadClusterExtent, actionClusterExtent, leftStickSize)
+    // Use the base analog size for the row height so scaling one control never pushes
+    // its neighbours around the canvas. Each control still grows around its own slot.
+    val primaryExtent = maxOf(dpadClusterExtent, actionClusterExtent, analogSize)
     val centerBaseY = contentBottom - centerH + centerAdjustment.second
     val primaryTop = centerBaseY - sectionGap - primaryExtent
 
@@ -317,7 +321,9 @@ fun buildOverlayCanvasLayout(
     // The left stick keeps its slot next to the D-pad position even when the D-pad is
     // hidden, so toggling one control's visibility never makes another jump across
     // the canvas (and the editor preview stays stable while arranging controls).
-    val leftStickRowStart = edgePadStart + extraDpadSize + primaryControlGap
+    // The slot is based on the unscaled D-pad footprint: scaling the extra D-pad must
+    // not push the left stick sideways.
+    val leftStickRowStart = edgePadStart + dpadClusterExtent + primaryControlGap
     val leftStick = OverlayCanvasStickSpec(
         id = "left_stick",
         size = leftStickSize,
@@ -330,7 +336,11 @@ fun buildOverlayCanvasLayout(
         visible = leftStickLayout.visible
     )
 
-    val showDpad = !leftStickLayout.visible && !extraDpadLayout.visible
+    val toggleDpadLayout = layoutFor("dpad_toggle")
+    // The automatic D-pad only appears when no other left-side input is active. The
+    // stick-toggle D-pad already provides directional input, so showing both made the
+    // controls overlap into a jumble.
+    val showDpad = !leftStickLayout.visible && !extraDpadLayout.visible && !toggleDpadLayout.visible
     val dpadClusterLeft = edgePadStart + dpadAdjustment.first
     val dpadClusterTop = primaryTop + (primaryExtent - dpadClusterExtent) / 2f + dpadAdjustment.second
     val dpadButtons = listOf(
@@ -453,17 +463,35 @@ fun buildOverlayCanvasLayout(
     val toggleLayout = layoutFor("left_input_toggle")
     val startLayout = layoutFor("start")
     val r3Layout = layoutFor("r3")
-    val l3Width = centerW * (l3Layout.scale / 100f)
-    val r3Width = centerW * (r3Layout.scale / 100f)
-    val selectWidth = wideCenterW * (selectLayout.scale / 100f)
-    val toggleSize = centerH * (toggleLayout.scale / 100f)
-    val startWidth = wideCenterW * (startLayout.scale / 100f)
+    val l3BaseWidth = centerW
+    val r3BaseWidth = centerW
+    val selectBaseWidth = wideCenterW
+    val toggleBaseSize = centerH
+    val startBaseWidth = wideCenterW
+    val l3Width = l3BaseWidth * (l3Layout.scale / 100f)
+    val r3Width = r3BaseWidth * (r3Layout.scale / 100f)
+    val selectWidth = selectBaseWidth * (selectLayout.scale / 100f)
+    val toggleSize = toggleBaseSize * (toggleLayout.scale / 100f)
+    val startWidth = startBaseWidth * (startLayout.scale / 100f)
+    // Slots keep their base width so scaling one centre button never drags its
+    // neighbours along the row; each button expands around its own slot instead.
     val coreCenterItems = buildList {
-        if (selectLayout.visible) add("select" to selectWidth)
-        if (toggleLayout.visible) add("left_input_toggle" to toggleSize)
-        if (startLayout.visible) add("start" to startWidth)
+        if (selectLayout.visible) add("select" to selectBaseWidth)
+        if (toggleLayout.visible) add("left_input_toggle" to toggleBaseSize)
+        if (startLayout.visible) add("start" to startBaseWidth)
     }
     val coreCenterWidths = coreCenterItems.map { it.second }
+
+    fun centerBaseWidthFor(id: String): Dp = when (id) {
+        "l3" -> l3BaseWidth
+        "r3" -> r3BaseWidth
+        "select" -> selectBaseWidth
+        "left_input_toggle" -> toggleBaseSize
+        "start" -> startBaseWidth
+        else -> 0.dp
+    }
+
+    fun centerSlotShift(id: String, width: Dp): Dp = (centerBaseWidthFor(id) - width) / 2f
 
     fun centerNudgeX(id: String): Dp = when (id) {
         "select" -> OverlayCenterSelectOpticalNudgeX
@@ -491,11 +519,11 @@ fun buildOverlayCanvasLayout(
     }
     val coreCenterLeft = coreCenterBounds.minOfOrNull { it.first } ?: centerAnchorX
     val coreCenterRight = coreCenterBounds.maxOfOrNull { it.second } ?: centerAnchorX
-    val fallbackCoreWidths = listOf(selectWidth, toggleSize, startWidth)
+    val fallbackCoreWidths = listOf(selectBaseWidth, toggleBaseSize, startBaseWidth)
 
     fun fallbackCenterX(id: String): Dp {
         return when (id) {
-            "l3" -> coreCenterLeft - centerInlineGap - l3Width
+            "l3" -> coreCenterLeft - centerInlineGap - l3BaseWidth
             "select" -> centerAnchorX + overlayInlineGroupOffset(fallbackCoreWidths, centerInlineGap, 0) + OverlayCenterSelectOpticalNudgeX
             "left_input_toggle" -> centerAnchorX + overlayInlineGroupOffset(fallbackCoreWidths, centerInlineGap, 1)
             "start" -> centerAnchorX + overlayInlineGroupOffset(fallbackCoreWidths, centerInlineGap, 2) + OverlayCenterStartOpticalNudgeX
@@ -512,8 +540,8 @@ fun buildOverlayCanvasLayout(
         shape: Shape
     ): OverlayCanvasButtonSpec {
         val layout = layoutFor(id)
-        val baseX = coreCenterBaseX(id) ?: fallbackCenterX(id)
-        val baseY = centerBaseY + centerNudgeY(id)
+        val baseX = (coreCenterBaseX(id) ?: fallbackCenterX(id)) + centerSlotShift(id, width)
+        val baseY = centerBaseY + centerNudgeY(id) + (centerH - height) / 2f
         return OverlayCanvasButtonSpec(
             id = id,
             drawableRes = requireNotNull(overlayDrawableForControl(id)),
@@ -600,9 +628,10 @@ fun buildOverlayCanvasLayout(
         visible = rightStickLayout.visible
     )
 
-    // Dedicated toggle D-pad: it replaces whichever stick the on-screen toggle targets,
-    // so it always mirrors that stick's position and size.
-    val toggleDpadLayout = layoutFor("dpad_toggle")
+    // Dedicated toggle D-pad: it replaces whichever stick the on-screen toggle targets.
+    // It shares the stick's position and size, so switching between the stick and the
+    // D-pad in-game never teleports the control to its default slot. Moving the stick in
+    // the layout editor therefore moves both, and users only maintain one position.
     val toggleDpadTargetStick = if (
         AppPreferences.normalizeStickToggleTarget(stickToggleTarget) == AppPreferences.STICK_TOGGLE_LEFT
     ) {
@@ -613,12 +642,13 @@ fun buildOverlayCanvasLayout(
     val toggleDpad = OverlayCanvasDpadClusterSpec(
         id = "dpad_toggle",
         size = toggleDpadTargetStick.size,
-        baseX = toggleDpadTargetStick.baseX,
-        baseY = toggleDpadTargetStick.baseY,
-        x = toggleDpadTargetStick.baseX + pxToDp(toggleDpadLayout.offset.first),
-        y = toggleDpadTargetStick.baseY + pxToDp(toggleDpadLayout.offset.second),
+        baseX = toggleDpadTargetStick.x,
+        baseY = toggleDpadTargetStick.y,
+        x = toggleDpadTargetStick.x,
+        y = toggleDpadTargetStick.y,
         opacity = toggleDpadLayout.opacity,
-        visible = toggleDpadLayout.visible
+        visible = toggleDpadLayout.visible,
+        replacesStickId = toggleDpadTargetStick.id
     )
 
     return OverlayCanvasLayout(

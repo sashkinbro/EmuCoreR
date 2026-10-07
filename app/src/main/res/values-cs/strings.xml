@@ -89,6 +89,10 @@
     <string name="emulation_loaded">Načteno</string>
     <string name="emulation_load_failed">Nepodařilo se načíst uložený stav.</string>
     <string name="emulation_bios_missing">Nejprve přidejte soubor BIOS.</string>
+    <string name="emulation_patches_title">Aktivní patche</string>
+    <string name="emulation_patches_widescreen">Widescreen patche</string>
+    <string name="emulation_patches_cheats">Cheaty</string>
+    <string name="emulation_patches_user_count">Uživatelské patche: %1$d</string>
     <string name="emulation_launch_failed">Tuto hru nelze otevřít.</string>
     <string name="emulation_launch_path_error">Tento soubor nelze otevřít.</string>
     <string name="emulation_session_restored_unavailable">Předchozí relace emulace byla ukončena na pozadí. Spusťte hru znovu z knihovny.</string>
@@ -312,6 +316,13 @@
     <string name="settings_respect_display_cutout">Respektovat výřez fotoaparátu</string>
     <string name="settings_respect_display_cutout_desc">Udržet obraz hry mimo oblast výřezu.</string>
     <string name="settings_help_respect_display_cutout">Přidá okraj kolem obrazu emulace, aby se nevykresloval pod výřezem fotoaparátu (notch nebo otvor). Hodí se na šířku, když výřez zakrývá obraz. Ovlivňuje pouze emulaci – zbytek aplikace už výřezy respektuje.</string>
+    <string name="settings_show_patch_messages">Zobrazit zprávy o patchech</string>
+    <string name="settings_show_patch_messages_desc">Zobrazí krátkou zprávu při použití patchů hry.</string>
+    <string name="controls_editor_reset_selected">Obnovit vybraný prvek</string>
+    <string name="controls_editor_show_grid">Zobrazit mřížku</string>
+    <string name="controls_editor_snap_grid">Přichytit k mřížce</string>
+    <string name="controls_editor_group_scale_value">Měřítko skupiny %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Zobrazí při spuštění hry krátké oznámení se seznamem aktivních možností patchů a počtem nalezených uživatelských patchů.</string>
     <string name="settings_help_pad_vibration">Umožňuje podporovaným hrám spouštět vibrace ovladače. Přidává užitečnou zpětnou vazbu v závodních, bojových a akčních hrách, ale může rychleji vybíjet baterii a některé bezdrátové ovladače mohou vibrovat slabě nebo s mírným zpožděním.</string>
     <string name="settings_help_pad_vibration_strength">Upravuje sílu herních vibrací předtím, než jsou odeslány do Androidu. Snižte ji u hlučných motorků v handheldech, nebo zvyšte, pokud se vám vibrace ovladače zdají příliš slabé.</string>
     <string name="settings_help_pad_vibration_test">Nejprve odešle přímý požadavek Androidu na vibrace připojenému ovladači a poté na záložní vibrace telefonu nebo handheldu, pokud jsou povoleny.</string>
@@ -359,8 +370,9 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Změní velikost textu jednoduchého počítadla FPS i podrobných statistik. Větší hodnoty rovněž rozšíří detailní překrytí (overlay), aby se zamezilo zalamování řádků.</string>
     <string name="settings_fps_overlay_metrics">Viditelné statistiky</string>
-    <string name="settings_help_fps_overlay_metrics">Vyberte jednotlivé hodnoty, jež budou zahrnuty do detailního překrytí statistik. Verze aplikace, sestavení (build) a verze jádra jsou vždy na prvním místě. Model a zatížení CPU a GPU se načítají ze zařízení, pokud jsou k dispozici.</string>
+    <string name="settings_help_fps_overlay_metrics">Vyberte jednotlivé hodnoty, jež budou zahrnuty do detailního překrytí statistik. Model a zatížení CPU a GPU se načítají ze zařízení, pokud jsou k dispozici.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Verze</string>
     <string name="settings_fps_metric_speed">Rychlost</string>
     <string name="settings_fps_metric_renderer">Renderer</string>
     <string name="settings_fps_metric_audio">Zvuk</string>
@@ -497,6 +509,7 @@
     <string name="settings_gamepad_action_select">Select</string>
     <string name="settings_gamepad_action_start">Start</string>
     <string name="settings_gamepad_action_left_input_toggle">Přepínač levého vstupu (Left Input Toggle)</string>
+    <string name="settings_stick_toggle_button">Přepínání páčky</string>
     <string name="settings_gamepad_action_pressure">Modifikátor tlaku (Pressure Modifier)</string>
     <string name="settings_gamepad_action_dpad_up">D-Pad Nahoru</string>
     <string name="settings_gamepad_action_dpad_down">D-Pad Dolů</string>

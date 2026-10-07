@@ -73,6 +73,10 @@
     <string name="emulation_loaded">Caricato</string>
     <string name="emulation_load_failed">Impossibile caricare lo stato di salvataggio.</string>
     <string name="emulation_bios_missing">Aggiungi prima un file BIOS.</string>
+    <string name="emulation_patches_title">Patch attive</string>
+    <string name="emulation_patches_widescreen">Patch widescreen</string>
+    <string name="emulation_patches_cheats">Cheat</string>
+    <string name="emulation_patches_user_count">Patch utente: %1$d</string>
     <string name="emulation_launch_failed">Impossibile aprire questo gioco.</string>
     <string name="emulation_launch_path_error">Impossibile aprire questo file.</string>
     <string name="emulation_session_restored_unavailable">La precedente sessione di emulazione è stata chiusa in background. Avvia nuovamente il gioco dalla tua libreria.</string>
@@ -216,6 +220,13 @@
     <string name="settings_respect_display_cutout">Rispetta il notch della fotocamera</string>
     <string name="settings_respect_display_cutout_desc">Mantieni l\'immagine di gioco fuori dall\'area del notch.</string>
     <string name="settings_help_respect_display_cutout">Aggiunge un margine attorno all\'immagine emulata per non disegnarla sotto il notch della fotocamera (notch o foro). Utile in orizzontale quando il notch copre l\'immagine. Influisce solo sull\'emulazione; il resto dell\'app rispetta già i ritagli.</string>
+    <string name="settings_show_patch_messages">Mostra messaggi delle patch</string>
+    <string name="settings_show_patch_messages_desc">Mostra un breve messaggio quando le patch del gioco vengono applicate.</string>
+    <string name="controls_editor_reset_selected">Reimposta l\'elemento selezionato</string>
+    <string name="controls_editor_show_grid">Mostra griglia</string>
+    <string name="controls_editor_snap_grid">Aggancia alla griglia</string>
+    <string name="controls_editor_group_scale_value">Scala gruppo %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Mostra un breve avviso all\'avvio del gioco con le opzioni patch attive e quanti patch utente sono stati trovati.</string>
     <string name="settings_help_pad_vibration">Permette ai giochi supportati di attivare la vibrazione del controller. Aggiunge un feedback utile nei giochi di corse, di combattimento e con forti impatti, ma può consumare la batteria più velocemente e alcuni pad wireless potrebbero vibrare debolmente o con un leggero ritardo.</string>
     <string name="settings_help_recent_games">Mostra una riga ad accesso rapido per i giochi a cui hai giocato di recente. Ottimo se passi spesso tra pochi titoli; disattivalo se vuoi una schermata principale più pulita.</string>
     <string name="settings_help_home_search">Mostra la barra di ricerca della libreria direttamente nella schermata principale. Lascialo attivo per librerie grandi; disattivalo se preferisci un layout più pulito e raramente cerchi per nome.</string>
@@ -324,6 +335,7 @@
     <string name="settings_gamepad_action_select">Select</string>
     <string name="settings_gamepad_action_start">Start</string>
     <string name="settings_gamepad_action_left_input_toggle">Attiva/disattiva Input Sinistro</string>
+    <string name="settings_stick_toggle_button">Alterna stick</string>
     <string name="settings_gamepad_action_dpad_up">Croce direzionale Su</string>
     <string name="settings_gamepad_action_dpad_down">Croce direzionale Giù</string>
     <string name="settings_gamepad_action_dpad_left">Croce direzionale Sinistra</string>
@@ -809,6 +821,7 @@
     <string name="settings_fps_overlay_metrics">Statistiche visibili</string>
     <string name="settings_help_fps_overlay_metrics">Scegli i singoli valori inclusi nell\'overlay delle statistiche dettagliate. Questo non influisce sulla raccolta delle metriche o sulle prestazioni dell\'emulazione. Il modello e il carico di CPU e GPU vengono letti dal dispositivo quando disponibili.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Versione</string>
     <string name="settings_fps_metric_speed">Velocità</string>
     <string name="settings_fps_metric_renderer">Renderer</string>
     <string name="settings_fps_metric_audio">Audio</string>

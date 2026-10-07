@@ -27,6 +27,7 @@ import com.sbro.emucorer.core.RuntimeFailure
 import com.sbro.emucorer.core.SwanStationCoreOptions
 import com.sbro.emucorer.core.resolveAndroidGamePhase
 import com.sbro.emucorer.core.normalizeUpscale
+import com.sbro.emucorer.data.ActivePatchNotice
 import com.sbro.emucorer.data.AppPreferences
 import com.sbro.emucorer.data.SettingsSnapshot
 import com.sbro.emucorer.data.AppPreferences.Companion.FPS_OVERLAY_MODE_SIMPLE
@@ -71,6 +72,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -314,6 +316,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         private const val AUTO_SAVE_SLOT = 0
         private const val PLAY_TIME_LOCAL_CACHE_INTERVAL_MS = 60_000L
         private const val PLAY_TIME_CLOUD_SYNC_INTERVAL_MS = 10L * 60_000L
+        private const val ACTIVE_PATCH_NOTICE_DURATION_MS = 7_000L
         private val SAVE_STATE_FILE_REGEX = Regex("""^(.+?)\.(\d{2})\.rstate$""")
     }
 
@@ -338,6 +341,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         state, failure -> state.withRuntimeFailure(failure)
     }.stateIn(viewModelScope, SharingStarted.Eagerly,
         _uiState.value.withRuntimeFailure(EmulatorBridge.runtimeFailure.value))
+    // Kept outside EmulationUiState: that data class is near the JVM 255-argument limit.
+    private val _activePatchNotice = MutableStateFlow<ActivePatchNotice?>(null)
+    val activePatchNotice: StateFlow<ActivePatchNotice?> = _activePatchNotice.asStateFlow()
     private val lifecycleMutex = Mutex()
     private var pausedForBackground = false
     @Volatile
@@ -1326,6 +1332,9 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     NativeApp.applyCoreOption(coreKey, coreValue)
                 }
                 syncPadAnalogModeForLaunch()
+                if (!bootToBios && !bootSmokeProbe && !autotestMode) {
+                    maybeShowActivePatchNotice()
+                }
             }
             updateCrashContext(
                 launchState = if (started) "running" else "launch_failed",
@@ -2743,6 +2752,37 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     private fun syncPadAnalogModeForLaunch() {
         NativeApp.setPadAnalogMode(0, true)
         NativeApp.setPadAnalogMode(1, true)
+    }
+
+    /**
+     * Summarises the launch-time patch options in the app's own HUD. The core renders no
+     * OSD on Android, so nothing about patches would be visible otherwise.
+     */
+    private fun maybeShowActivePatchNotice() {
+        viewModelScope.launch {
+            val enabled = runCatching { preferences.showPatchMessages.first() }.getOrDefault(false)
+            if (!enabled) return@launch
+            val state = _uiState.value
+            val userPatchCount = withContext(Dispatchers.IO) {
+                runCatching {
+                    gamePatchRepository.countUserPatches(
+                        serial = currentGameSerial.takeIf { it.isNotBlank() },
+                        crc = currentGameCrc.takeIf { it.isNotBlank() }
+                    )
+                }.getOrDefault(0)
+            }
+            val notice = ActivePatchNotice(
+                widescreen = state.widescreenPatches,
+                cheats = state.enableCheats,
+                userPatchCount = userPatchCount
+            )
+            if (!notice.hasAnything) return@launch
+            _activePatchNotice.value = notice
+            delay(ACTIVE_PATCH_NOTICE_DURATION_MS.milliseconds)
+            if (_activePatchNotice.value == notice) {
+                _activePatchNotice.value = null
+            }
+        }
     }
 
     private fun syncCheatsForCurrentGame(gameKeyOverride: String? = null) {

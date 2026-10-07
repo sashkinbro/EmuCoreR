@@ -89,6 +89,10 @@
     <string name="emulation_loaded">Wczytano</string>
     <string name="emulation_load_failed">Nie udało się wczytać stanu zapisu.</string>
     <string name="emulation_bios_missing">Najpierw dodaj plik BIOS.</string>
+    <string name="emulation_patches_title">Aktywne patche</string>
+    <string name="emulation_patches_widescreen">Patche widescreen</string>
+    <string name="emulation_patches_cheats">Cheaty</string>
+    <string name="emulation_patches_user_count">Patche użytkownika: %1$d</string>
     <string name="emulation_launch_failed">Nie można otworzyć tej gry.</string>
     <string name="emulation_launch_path_error">Nie można otworzyć tego pliku.</string>
     <string name="emulation_session_restored_unavailable">Poprzednia sesja emulacji została zamknięta w tle. Uruchom grę ponownie ze swojej biblioteki.</string>
@@ -309,6 +313,13 @@
     <string name="settings_respect_display_cutout">Uwzględniaj wycięcie aparatu</string>
     <string name="settings_respect_display_cutout_desc">Trzymaj obraz gry poza obszarem wycięcia.</string>
     <string name="settings_help_respect_display_cutout">Dodaje margines wokół obrazu emulacji, aby nie był rysowany pod wycięciem aparatu (notch lub otwór). Przydatne w poziomie, gdy wycięcie zasłania obraz. Dotyczy tylko emulacji — reszta aplikacji już uwzględnia wycięcia.</string>
+    <string name="settings_show_patch_messages">Pokaż komunikaty o patchach</string>
+    <string name="settings_show_patch_messages_desc">Pokaż krótki komunikat o zastosowaniu patchy gry.</string>
+    <string name="controls_editor_reset_selected">Przywróć wybrany element</string>
+    <string name="controls_editor_show_grid">Pokaż siatkę</string>
+    <string name="controls_editor_snap_grid">Przyciągaj do siatki</string>
+    <string name="controls_editor_group_scale_value">Skala grupy %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Pokazuje krótkie powiadomienie przy starcie gry z aktywnymi opcjami patchy i liczbą znalezionych patchy użytkownika.</string>
     <string name="settings_help_pad_vibration">Pozwala obsługiwanym grom na wyzwalanie wibracji kontrolera (rumble). Dodaje to przydatne odczucia w wyścigach, walkach i grach opartych na uderzeniach, ale może szybciej rozładować baterię, a niektóre pady bezprzewodowe mogą wibrować słabo lub z lekkim opóźnieniem.</string>
     <string name="settings_help_pad_vibration_strength">Skaluje wibracje z gry przed ich wysłaniem do Androida. Zmniejsz tę wartość dla głośnych silniczków konsol przenośnych lub zwiększ, jeśli wibracje na kontrolerze są za słabe.</string>
     <string name="settings_help_pad_vibration_test">Wysyła bezpośrednie żądanie wibracji Androida najpierw do podłączonego kontrolera, a następnie do telefonu lub konsoli (jeśli wibracje zastępcze są włączone).</string>
@@ -356,8 +367,9 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Zmienia rozmiar tekstu zarówno dla prostego licznika FPS, jak i szczegółowych statystyk. Większe wartości poszerzają również szczegółową nakładkę, aby uniknąć zawijania tekstu.</string>
     <string name="settings_fps_overlay_metrics">Widoczne statystyki</string>
-    <string name="settings_help_fps_overlay_metrics">Wybierz poszczególne wartości, które znajdą się w szczegółowej nakładce statystyk. Wersje aplikacji, kompilacji i rdzenia są zawsze pokazywane na początku. Model i obciążenie CPU i GPU są odczytywane z urządzenia, gdy jest to możliwe.</string>
+    <string name="settings_help_fps_overlay_metrics">Wybierz poszczególne wartości, które znajdą się w szczegółowej nakładce statystyk. Model i obciążenie CPU i GPU są odczytywane z urządzenia, gdy jest to możliwe.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Wersja</string>
     <string name="settings_fps_metric_speed">Prędkość</string>
     <string name="settings_fps_metric_renderer">Silnik renderujący</string>
     <string name="settings_fps_metric_audio">Dźwięk</string>
@@ -494,6 +506,7 @@
     <string name="settings_gamepad_action_select">Select</string>
     <string name="settings_gamepad_action_start">Start</string>
     <string name="settings_gamepad_action_left_input_toggle">Przełącznik podwójnego sterowania (Left Toggle)</string>
+    <string name="settings_stick_toggle_button">Przełączanie drążka</string>
     <string name="settings_gamepad_action_pressure">Modyfikator stopnia wciśnięcia / nacisku w grach dla przycisków (Pressure Modifier)</string>
     <string name="settings_gamepad_action_dpad_up">Krzyżak Góra</string>
     <string name="settings_gamepad_action_dpad_down">Krzyżak Dół</string>
