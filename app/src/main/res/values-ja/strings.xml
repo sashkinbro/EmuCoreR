@@ -81,6 +81,10 @@
     <string name="emulation_loaded">ロードしました</string>
     <string name="emulation_load_failed">セーブ状態のロードに失敗しました。</string>
     <string name="emulation_bios_missing">まずBIOSファイルを追加してください。</string>
+    <string name="emulation_patches_title">パッチ有効</string>
+    <string name="emulation_patches_widescreen">ワイドスクリーンパッチ</string>
+    <string name="emulation_patches_cheats">チート</string>
+    <string name="emulation_patches_user_count">ユーザーパッチ: %1$d</string>
     <string name="emulation_launch_failed">このゲームを開くことができません。</string>
     <string name="emulation_launch_path_error">このファイルを開くことができません。</string>
     <string name="emulation_session_restored_unavailable">前のエミュレーションセッションはバックグラウンドで終了しました。ライブラリからもう一度ゲームを起動してください。</string>
@@ -253,6 +257,13 @@
     <string name="settings_respect_display_cutout">カメラの切り欠きを考慮</string>
     <string name="settings_respect_display_cutout_desc">ゲーム映像をカメラ切り欠き領域の外側に保ちます。</string>
     <string name="settings_help_respect_display_cutout">エミュレーション映像がカメラの切り欠き（ノッチやパンチホール）の下に描画されないよう余白を追加します。切り欠きが映像に重なる横向き時に便利です。影響するのはエミュレーションのみで、アプリの他の画面は既に切り欠きを考慮しています。</string>
+    <string name="settings_show_patch_messages">パッチメッセージを表示</string>
+    <string name="settings_show_patch_messages_desc">ゲームパッチ適用時に短いメッセージを表示します。</string>
+    <string name="controls_editor_reset_selected">選択した要素をリセット</string>
+    <string name="controls_editor_show_grid">グリッドを表示</string>
+    <string name="controls_editor_snap_grid">グリッドに吸着</string>
+    <string name="controls_editor_group_scale_value">グループ倍率 %1$d%%</string>
+    <string name="settings_help_show_patch_messages">ゲーム開始時に、有効なパッチ設定と見つかったユーザーパッチ数を短く通知します。</string>
     <string name="settings_help_pad_vibration">サポートされているゲームでコントローラーの振動をトリガーできるようにします。レーシング、戦闘、衝撃の強いゲームに役立つフィードバックを追加しますが、バッテリーの消耗が早くなる可能性があり、一部のワイヤレスパッドは弱く、またはわずかな遅延で振動する場合があります。</string>
     <string name="settings_help_pad_vibration_strength">Androidに送信される前にゲームの振動をスケーリングします。ノイズの多いハンドヘルドモーターの場合は下げ、コントローラーが弱すぎると感じる場合は上げます。</string>
     <string name="settings_help_pad_vibration_test">有効になっている場合、最初に接続されたコントローラーに直接Androidの振動リクエストを送信し、次に電話またはハンドヘルドのフォールバックに送信します。</string>
@@ -364,6 +375,7 @@
     <string name="settings_gamepad_action_select">Select</string>
     <string name="settings_gamepad_action_start">Start</string>
     <string name="settings_gamepad_action_left_input_toggle">左入力切り替え</string>
+    <string name="settings_stick_toggle_button">スティック切り替え</string>
     <string name="settings_gamepad_action_dpad_up">方向キー 上</string>
     <string name="settings_gamepad_action_dpad_down">方向キー 下</string>
     <string name="settings_gamepad_action_dpad_left">方向キー 左</string>
@@ -808,6 +820,7 @@
     <string name="settings_fps_overlay_metrics">表示される統計</string>
     <string name="settings_help_fps_overlay_metrics">詳細な統計オーバーレイに含まれる個別の値を選択します。これは、指標の収集やエミュレーションのパフォーマンスには影響しません。CPUとGPUのモデルと負荷は、利用可能な場合にデバイスから読み取られます。</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">バージョン</string>
     <string name="settings_fps_metric_speed">速度</string>
     <string name="settings_fps_metric_renderer">レンダラー</string>
     <string name="settings_fps_metric_audio">オーディオ</string>

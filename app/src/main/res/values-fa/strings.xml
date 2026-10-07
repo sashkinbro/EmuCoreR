@@ -89,6 +89,10 @@
     <string name="emulation_loaded">بارگذاری شد</string>
     <string name="emulation_load_failed">بارگذاری وضعیت ذخیره شده با شکست مواجه شد.</string>
     <string name="emulation_bios_missing">ابتدا یک فایل BIOS اضافه کنید.</string>
+    <string name="emulation_patches_title">وصله‌های فعال</string>
+    <string name="emulation_patches_widescreen">وصله‌های صفحه‌عریض</string>
+    <string name="emulation_patches_cheats">تقلب‌ها</string>
+    <string name="emulation_patches_user_count">وصله‌های کاربر: %1$d</string>
     <string name="emulation_launch_failed">باز کردن این بازی امکان‌پذیر نیست.</string>
     <string name="emulation_launch_path_error">باز کردن این فایل امکان‌پذیر نیست.</string>
     <string name="emulation_session_restored_unavailable">جلسه قبلی شبیه‌سازی در پس‌زمینه بسته شد. بازی را دوباره از کتابخانه خود اجرا کنید.</string>
@@ -303,6 +307,13 @@
     <string name="settings_respect_display_cutout">در نظر گرفتن بریدگی دوربین</string>
     <string name="settings_respect_display_cutout_desc">تصویر بازی را خارج از ناحیه بریدگی دوربین نگه دارید.</string>
     <string name="settings_help_respect_display_cutout">حاشیه‌ای вокруг تصویر شبیه‌سازی اضافه می‌کند تا زیر بریدگی دوربین (notch یا حفره) رسم نشود. در حالت افقی که بریدگی روی تصویر می‌افتد مفید است. فقط روی شبیه‌سازی اثر دارد؛ بقیه برنامه از قبل بریدگی‌ها را در نظر می‌گیرد.</string>
+    <string name="settings_show_patch_messages">نمایش پیام‌های وصله</string>
+    <string name="settings_show_patch_messages_desc">نمایش پیام کوتاه هنگام اعمال وصله‌های بازی.</string>
+    <string name="controls_editor_reset_selected">بازنشانی عنصر انتخاب‌شده</string>
+    <string name="controls_editor_show_grid">نمایش شبکه</string>
+    <string name="controls_editor_snap_grid">چسبیدن به شبکه</string>
+    <string name="controls_editor_group_scale_value">مقیاس گروه %1$d%%</string>
+    <string name="settings_help_show_patch_messages">هنگام شروع بازی یک اعلان کوتاه با گزینه‌های وصله فعال و تعداد وصله‌های کاربر پیدا‌شده نشان می‌دهد.</string>
     <string name="settings_help_pad_vibration">به بازی‌های پشتیبانی شده اجازه می‌دهد لرزش کنترلر را ایجاد کنند.</string>
     <string name="settings_help_pad_vibration_strength">لرزش بازی را قبل از ارسال به اندروید مقیاس می‌کند.</string>
     <string name="settings_help_pad_vibration_test">یک درخواست لرزش مستقیم اندروید را ابتدا به کنترلر متصل ارسال می‌کند.</string>
@@ -476,6 +487,7 @@
     <string name="settings_gamepad_action_select">Select</string>
     <string name="settings_gamepad_action_start">Start</string>
     <string name="settings_gamepad_action_left_input_toggle">تغییر ورودی چپ</string>
+    <string name="settings_stick_toggle_button">تغییر استیک</string>
     <string name="settings_gamepad_action_dpad_up">D-Pad بالا</string>
     <string name="settings_gamepad_action_dpad_down">D-Pad پایین</string>
     <string name="settings_gamepad_action_dpad_left">D-Pad چپ</string>
@@ -824,6 +836,7 @@
     <string name="settings_fps_overlay_metrics">آمار قابل مشاهده</string>
     <string name="settings_help_fps_overlay_metrics">مقادیر نمایش‌داده‌شده در روکش آمار دقیق را انتخاب کنید. این تنظیم بر جمع‌آوری معیارها یا عملکرد شبیه‌سازی تأثیری ندارد. مدل و بار CPU و GPU در صورت پشتیبانی از دستگاه خوانده می‌شود.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">نسخه</string>
     <string name="settings_fps_metric_speed">سرعت</string>
     <string name="settings_fps_metric_renderer">رندرکننده</string>
     <string name="settings_fps_metric_audio">صدا</string>

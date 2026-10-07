@@ -10,6 +10,19 @@ enum class GamePatchKind {
     GENERAL
 }
 
+/**
+ * Patch activity that the Android UI can report on its own. The core renders no OSD for
+ * patches on Android, so the frontend summarises the launch-time patch options instead.
+ */
+data class ActivePatchNotice(
+    val widescreen: Boolean,
+    val cheats: Boolean,
+    val userPatchCount: Int
+) {
+    val hasAnything: Boolean
+        get() = widescreen || cheats || userPatchCount > 0
+}
+
 data class GamePatchEntry(
     val file: File,
     val kind: GamePatchKind,
@@ -28,6 +41,9 @@ class GamePatchRepository(context: Context) {
 
     fun patchesDirectory(): File =
         EmulatorStorage.patchesDir(appContext, preferences.getEmulatorDataPathSync())
+
+    /** Counts user patch files in the patches folder that belong to the running game. */
+    fun countUserPatches(serial: String?, crc: String?): Int = findPatchFiles(serial, crc).size
 
     fun findPatchFiles(serial: String?, crc: String?): List<GamePatchEntry> {
         val serialKey = serial?.let(::compactKey)?.takeIf { it.length >= 8 }

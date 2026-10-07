@@ -59,6 +59,10 @@
     <string name="emulation_loaded">Carregado</string>
     <string name="emulation_load_failed">Não foi possível carregar o save state.</string>
     <string name="emulation_bios_missing">Adicione um arquivo da BIOS primeiro.</string>
+    <string name="emulation_patches_title">Patches ativos</string>
+    <string name="emulation_patches_widescreen">Patches widescreen</string>
+    <string name="emulation_patches_cheats">Cheats</string>
+    <string name="emulation_patches_user_count">Patches do usuário: %1$d</string>
     <string name="emulation_launch_failed">Não foi possível abrir este jogo.</string>
     <string name="emulation_launch_path_error">Não foi possível abrir este arquivo.</string>
     <string name="emulation_show_controls">Mostrar controles</string>
@@ -350,6 +354,13 @@
     <string name="settings_respect_display_cutout">Respeitar o recorte da câmara</string>
     <string name="settings_respect_display_cutout_desc">Manter a imagem do jogo fora da área do recorte.</string>
     <string name="settings_help_respect_display_cutout">Adiciona margem ao redor da imagem emulada para que não seja desenhada sob o recorte da câmara (notch ou orifício). Útil na horizontal quando o recorte tapa a imagem. Afeta apenas a emulação; o resto da app já respeita os recortes.</string>
+    <string name="settings_show_patch_messages">Mostrar mensagens de patches</string>
+    <string name="settings_show_patch_messages_desc">Mostra uma mensagem breve quando patches do jogo são aplicados.</string>
+    <string name="controls_editor_reset_selected">Repor o elemento selecionado</string>
+    <string name="controls_editor_show_grid">Mostrar grelha</string>
+    <string name="controls_editor_snap_grid">Ajustar à grelha</string>
+    <string name="controls_editor_group_scale_value">Escala do grupo %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Mostra um aviso breve ao iniciar o jogo com as opções de patches ativas e quantos patches do usuário foram encontrados.</string>
     <string name="settings_help_pad_vibration">Permite que jogos compatíveis acionem a vibração (rumble) do controle. Adiciona feedback útil em jogos de corrida, combate e de grande impacto, mas pode descarregar a bateria mais rápido e alguns controles sem fio podem vibrar fracamente ou com um leve atraso.</string>
     <string name="settings_help_recent_games">Mostra uma linha de acesso rápido para os jogos que você jogou por último. Útil se você costuma alternar entre alguns títulos frequentemente; desligue se quiser uma tela inicial mais limpa.</string>
     <string name="settings_help_home_search">Mostra a barra de pesquisa da biblioteca diretamente na tela inicial. Deixe ativado para grandes bibliotecas; desligue se preferir um layout mais limpo e raramente pesquisar por nome.</string>
@@ -394,6 +405,7 @@
     <string name="settings_help_prefer_english_game_titles">Usa títulos em inglês do índice de títulos de PS1 incluído no EmuCoreR para jogos que vêm com nomes japoneses ou de outras regiões. Isso ajuda principalmente as versões importadas a serem lidas mais claramente na biblioteca, enquanto os jogos sem um título em inglês no índice mantêm seu nome normal.</string>
     <string name="emulation_session_restored_unavailable">A sessão de emulação anterior foi fechada em segundo plano. Inicie o jogo novamente a partir da sua biblioteca.</string>
     <string name="settings_gamepad_action_left_input_toggle">Alternar entrada esquerda</string>
+    <string name="settings_stick_toggle_button">Alternar analógico</string>
     <string name="controls_editor_done">Concluído</string>
     <string name="memory_card_manager_title">Gerenciador de cartões de memória</string>
     <string name="memory_card_slot_empty">Não atribuído</string>
@@ -811,6 +823,7 @@
     <string name="settings_fps_overlay_metrics">Estatísticas visíveis</string>
     <string name="settings_help_fps_overlay_metrics">Escolha os valores individuais incluídos na sobreposição de estatísticas detalhadas. Isso não afeta a coleta de métricas ou o desempenho da emulação. O modelo e a carga da CPU e GPU são lidos do dispositivo quando disponíveis.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Versão</string>
     <string name="settings_fps_metric_speed">Velocidade</string>
     <string name="settings_fps_metric_renderer">Renderizador</string>
     <string name="settings_fps_metric_audio">Áudio</string>

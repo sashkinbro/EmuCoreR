@@ -84,6 +84,10 @@
     <string name="emulation_loaded">Loaded</string>
     <string name="emulation_load_failed">Failed to load save state.</string>
     <string name="emulation_bios_missing">Add a BIOS file first.</string>
+    <string name="emulation_patches_title">Patches active</string>
+    <string name="emulation_patches_widescreen">Widescreen patches</string>
+    <string name="emulation_patches_cheats">Cheats</string>
+    <string name="emulation_patches_user_count">User patches: %1$d</string>
     <string name="emulation_launch_failed">Unable to open this game.</string>
     <string name="emulation_launch_path_error">Unable to open this file.</string>
     <string name="emulation_session_restored_unavailable">The previous emulation session was closed in the background. Launch the game again from your library.</string>
@@ -310,6 +314,13 @@
     <string name="settings_respect_display_cutout">Respect camera cutout</string>
     <string name="settings_respect_display_cutout_desc">Keep the game image clear of the camera cutout area.</string>
     <string name="settings_help_respect_display_cutout">Insets the emulated image so it does not render under the camera cutout (notch or punch-hole). Useful in landscape when the cutout overlaps the picture. Only affects emulation; the rest of the app already respects display insets.</string>
+    <string name="settings_show_patch_messages">Show patch messages</string>
+    <string name="settings_show_patch_messages_desc">Show a short message when game patches are applied.</string>
+    <string name="controls_editor_reset_selected">Reset selected element</string>
+    <string name="controls_editor_show_grid">Show grid</string>
+    <string name="controls_editor_snap_grid">Snap to grid</string>
+    <string name="controls_editor_group_scale_value">Group scale %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Show a short notice when the game starts, listing the patch options that are active and how many user patches were found for this game.</string>
     <string name="settings_help_pad_vibration">Lets supported games trigger controller rumble. It adds useful feedback in racing, combat, and impact-heavy games, but it can drain battery faster and some wireless pads may vibrate weakly or with slight delay.</string>
     <string name="settings_help_pad_vibration_strength">Scales game rumble before it is sent to Android. Lower it for noisy handheld motors, or raise it when a controller feels too weak.</string>
     <string name="settings_help_pad_vibration_test">Sends a direct Android vibration request to the connected controller first, then to the phone or handheld fallback when enabled.</string>
@@ -357,8 +368,9 @@
     <string name="settings_fps_overlay_scale_value">%1$d%%</string>
     <string name="settings_help_fps_overlay_scale">Changes the text size of both the simple FPS counter and detailed statistics. Larger values also widen the detailed overlay to reduce wrapping.</string>
     <string name="settings_fps_overlay_metrics">Visible statistics</string>
-    <string name="settings_help_fps_overlay_metrics">Choose the individual values included in the detailed statistics overlay. App, build, and core versions are always shown first. CPU and GPU names with their load are read from the device when available.</string>
+    <string name="settings_help_fps_overlay_metrics">Choose the individual values included in the detailed statistics overlay. CPU and GPU names with their load are read from the device when available.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Version</string>
     <string name="settings_fps_metric_speed">Speed</string>
     <string name="settings_fps_metric_renderer">Renderer</string>
     <string name="settings_fps_metric_audio">Audio</string>
@@ -501,6 +513,7 @@
     <string name="settings_gamepad_action_select">Select</string>
     <string name="settings_gamepad_action_start">Start</string>
     <string name="settings_gamepad_action_left_input_toggle">Left Input Toggle</string>
+    <string name="settings_stick_toggle_button">Stick toggle</string>
     <string name="settings_gamepad_action_pressure">Pressure Modifier</string>
     <string name="settings_gamepad_action_dpad_up">D-Pad Up</string>
     <string name="settings_gamepad_action_dpad_down">D-Pad Down</string>

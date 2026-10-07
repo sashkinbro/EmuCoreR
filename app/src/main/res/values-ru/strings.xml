@@ -59,6 +59,10 @@
     <string name="emulation_loaded">Загружено</string>
     <string name="emulation_load_failed">Не удалось загрузить сохранение.</string>
     <string name="emulation_bios_missing">Сначала добавьте файл BIOS.</string>
+    <string name="emulation_patches_title">Патчи активны</string>
+    <string name="emulation_patches_widescreen">Патчи широкоэкранного режима</string>
+    <string name="emulation_patches_cheats">Читы</string>
+    <string name="emulation_patches_user_count">Пользовательские патчи: %1$d</string>
     <string name="emulation_launch_failed">Невозможно открыть эту игру.</string>
     <string name="emulation_launch_path_error">Невозможно открыть этот файл.</string>
     <string name="emulation_show_controls">Показать управление</string>
@@ -352,6 +356,13 @@
     <string name="settings_respect_display_cutout">Учитывать вырез под камеру</string>
     <string name="settings_respect_display_cutout_desc">Держать игровое изображение вне зоны выреза камеры.</string>
     <string name="settings_help_respect_display_cutout">Добавляет отступ вокруг изображения эмуляции, чтобы оно не заходило под вырез камеры (notch или отверстие). Удобно в альбомной ориентации, когда вырез перекрывает картинку. Влияет только на эмуляцию — остальное приложение уже учитывает вырезы.</string>
+    <string name="settings_show_patch_messages">Показывать сообщения о патчах</string>
+    <string name="settings_show_patch_messages_desc">Показывать короткое сообщение при применении патчей игры.</string>
+    <string name="controls_editor_reset_selected">Сбросить выбранный элемент</string>
+    <string name="controls_editor_show_grid">Показать сетку</string>
+    <string name="controls_editor_snap_grid">Привязать к сетке</string>
+    <string name="controls_editor_group_scale_value">Масштаб группы %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Показывает короткое уведомление при запуске игры со списком активных параметров патчей и числом найденных пользовательских патчей.</string>
     <string name="settings_help_pad_vibration">Позволяет поддерживаемым играм вызывать вибрацию контроллера. Это добавляет полезную обратную связь в гонках, боях и играх с сильными ударами, но может быстрее разряжать батарею, а некоторые беспроводные геймпады могут вибрировать слабо или с небольшой задержкой.</string>
     <string name="settings_help_recent_games">Показывает строку быстрого доступа к играм, в которые вы играли в последний раз. Удобно, если вы часто переключаетесь между несколькими играми; отключите, если хотите, чтобы главный экран был более чистым.</string>
     <string name="settings_help_home_search">Показывает панель поиска по библиотеке прямо на главном экране. Оставьте включенной для больших библиотек; отключите, если предпочитаете более чистый макет и редко ищете по названию.</string>
@@ -401,6 +412,7 @@
     <string name="settings_help_prefer_english_game_titles">Использует английские названия из встроенного указателя названий PS1 EmuCoreR для игр, которые поставляются с японскими или другими региональными названиями. Это в первую очередь помогает сделать импортированные релизы более понятными в библиотеке, в то время как игры без английского названия в указателе сохраняют свое обычное имя.</string>
     <string name="emulation_session_restored_unavailable">Предыдущий сеанс эмуляции был закрыт в фоновом режиме. Запустите игру снова из вашей библиотеки.</string>
     <string name="settings_gamepad_action_left_input_toggle">Переключение левого ввода</string>
+    <string name="settings_stick_toggle_button">Переключение стика</string>
     <string name="controls_editor_done">Готово</string>
     <string name="memory_card_manager_title">Менеджер карт памяти</string>
     <string name="memory_card_slot_empty">Не назначено</string>
@@ -813,6 +825,7 @@
     <string name="settings_fps_overlay_metrics">Видимая статистика</string>
     <string name="settings_help_fps_overlay_metrics">Выберите отдельные значения, которые будут включены в подробный оверлей статистики. Это не влияет на сбор метрик или производительность эмуляции. Модель и загрузка CPU и GPU считываются с устройства, когда это возможно.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Версия</string>
     <string name="settings_fps_metric_speed">Скорость</string>
     <string name="settings_fps_metric_renderer">Рендерер</string>
     <string name="settings_fps_metric_audio">Аудио</string>

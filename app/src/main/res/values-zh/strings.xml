@@ -59,6 +59,10 @@
     <string name="emulation_loaded">已載入</string>
     <string name="emulation_load_failed">無法載入即時存檔。</string>
     <string name="emulation_bios_missing">請先新增 BIOS 檔案。</string>
+    <string name="emulation_patches_title">补丁已启用</string>
+    <string name="emulation_patches_widescreen">宽屏补丁</string>
+    <string name="emulation_patches_cheats">金手指</string>
+    <string name="emulation_patches_user_count">用户补丁：%1$d</string>
     <string name="emulation_launch_failed">無法開啟此遊戲。</string>
     <string name="emulation_launch_path_error">無法開啟此檔案。</string>
     <string name="emulation_show_controls">顯示控制</string>
@@ -350,6 +354,13 @@
     <string name="settings_respect_display_cutout">避开摄像头挖孔</string>
     <string name="settings_respect_display_cutout_desc">让游戏画面避开摄像头挖孔区域。</string>
     <string name="settings_help_respect_display_cutout">在模拟画面上添加边距，避免其绘制到摄像头挖孔（刘海或打孔）下方。横向时挖孔遮挡画面会很有用。仅影响模拟画面，应用其他界面已适配挖孔。</string>
+    <string name="settings_show_patch_messages">显示补丁消息</string>
+    <string name="settings_show_patch_messages_desc">应用游戏补丁时显示简短消息。</string>
+    <string name="controls_editor_reset_selected">重置所选元素</string>
+    <string name="controls_editor_show_grid">显示网格</string>
+    <string name="controls_editor_snap_grid">对齐网格</string>
+    <string name="controls_editor_group_scale_value">组缩放 %1$d%%</string>
+    <string name="settings_help_show_patch_messages">游戏启动时显示简短提示，列出已启用的补丁选项和找到的用户补丁数量。</string>
     <string name="settings_help_pad_vibration">允许支持的游戏触发控制器震动。它在赛车、格斗和高冲击力的游戏中增加了有用的反馈，但它会更快地耗尽电池，并且一些无线手柄可能会出现震动微弱或轻微延迟的情况。</string>
     <string name="settings_help_recent_games">为您最后玩过的游戏显示一个快速访问行。如果您经常在几个游戏之间切换，这很好；如果您想要一个更干净的主屏幕，请将其关闭。</string>
     <string name="settings_help_home_search">直接在主屏幕上显示库搜索栏。对于大型游戏库，请保持开启；如果您喜欢更干净的布局并且很少按名称搜索，请将其关闭。</string>
@@ -394,6 +405,7 @@
     <string name="settings_help_prefer_english_game_titles">对于使用日语或其他地区名称发布的游戏，使用来自 EmuCoreR 内置 PS1 标题索引的英文名称。这主要是为了让导入的游戏在游戏库中显示得更清晰，而在索引中没有英文名称的游戏则保留其原始名称。</string>
     <string name="emulation_session_restored_unavailable">先前的模拟会话已在后台关闭。请从您的游戏库中再次启动该游戏。</string>
     <string name="settings_gamepad_action_left_input_toggle">左侧输入切换</string>
+    <string name="settings_stick_toggle_button">切换摇杆</string>
     <string name="controls_editor_done">完成</string>
     <string name="memory_card_manager_title">记忆卡管理器</string>
     <string name="memory_card_slot_empty">未分配</string>
@@ -810,6 +822,7 @@
     <string name="settings_fps_overlay_metrics">可见统计数据</string>
     <string name="settings_help_fps_overlay_metrics">选择详细统计数据覆盖层中包含的各项数值。这不会影响指标收集或模拟器性能。在设备支持时，会读取 CPU 和 GPU 的型号与负载。</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">版本</string>
     <string name="settings_fps_metric_speed">速度</string>
     <string name="settings_fps_metric_renderer">渲染器</string>
     <string name="settings_fps_metric_audio">音频</string>

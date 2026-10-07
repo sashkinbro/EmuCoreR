@@ -1255,6 +1255,7 @@ private fun SettingsContent(
     val overlayDefaults = remember { OverlayLayoutSnapshot() }
     val searchEntries = rememberSettingsSearchEntries()
     val floatingQuickActionsEnabled by viewModel.floatingQuickActionsEnabled.collectAsState()
+    val showPatchMessages by viewModel.showPatchMessages.collectAsState()
     val orientationLock by viewModel.orientationLock.collectAsState()
     val emulationAllowsBothOrientations by viewModel.emulationAllowsBothOrientations.collectAsState()
     val notSetLabel = stringResource(R.string.settings_not_set)
@@ -1388,6 +1389,15 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setRespectDisplayCutout,
                             helpText = stringResource(R.string.settings_help_respect_display_cutout),
                             onResetToDefault = { viewModel.setRespectDisplayCutout(defaults.respectDisplayCutout) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Info,
+                            title = stringResource(R.string.settings_show_patch_messages),
+                            subtitle = stringResource(R.string.settings_show_patch_messages_desc),
+                            checked = showPatchMessages,
+                            onCheckedChange = viewModel::setShowPatchMessages,
+                            helpText = stringResource(R.string.settings_help_show_patch_messages),
+                            onResetToDefault = { viewModel.setShowPatchMessages(false) }
                         )
                         ToggleItem(
                             icon = Icons.AutoMirrored.Rounded.ExitToApp,
@@ -6032,6 +6042,7 @@ private fun fpsOverlayCornerOptions(): List<Pair<Int, String>> = listOf(
 
 @Composable
 private fun fpsOverlayMetricOptions(): List<Pair<Int, String>> = listOf(
+    PerformanceOverlayMetrics.VERSION to stringResource(R.string.settings_fps_metric_version),
     PerformanceOverlayMetrics.FPS to stringResource(R.string.settings_fps_metric_fps),
     PerformanceOverlayMetrics.SPEED to stringResource(R.string.settings_fps_metric_speed),
     PerformanceOverlayMetrics.RENDERER to stringResource(R.string.settings_fps_metric_renderer),

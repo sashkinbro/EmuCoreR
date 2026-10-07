@@ -59,6 +59,10 @@
     <string name="emulation_loaded">Geladen</string>
     <string name="emulation_load_failed">Speicherstand konnte nicht geladen werden.</string>
     <string name="emulation_bios_missing">Füge zuerst eine BIOS-Datei hinzu.</string>
+    <string name="emulation_patches_title">Aktive Patches</string>
+    <string name="emulation_patches_widescreen">Widescreen-Patches</string>
+    <string name="emulation_patches_cheats">Cheats</string>
+    <string name="emulation_patches_user_count">Benutzer-Patches: %1$d</string>
     <string name="emulation_launch_failed">Dieses Spiel konnte nicht geöffnet werden.</string>
     <string name="emulation_launch_path_error">Diese Datei konnte nicht geöffnet werden.</string>
     <string name="emulation_show_controls">Steuerung anzeigen</string>
@@ -350,6 +354,13 @@
     <string name="settings_respect_display_cutout">Kameraussparung berücksichtigen</string>
     <string name="settings_respect_display_cutout_desc">Spielbild außerhalb der Kameraussparung halten.</string>
     <string name="settings_help_respect_display_cutout">Fügt einen Rand um das Emulationsbild hinzu, damit es nicht unter der Kameraussparung (Notch oder Loch) gerendert wird. Nützlich im Querformat, wenn die Aussparung das Bild überdeckt. Betrifft nur die Emulation – der Rest der App berücksichtigt Aussparungen bereits.</string>
+    <string name="settings_show_patch_messages">Patch-Meldungen anzeigen</string>
+    <string name="settings_show_patch_messages_desc">Kurze Meldung anzeigen, wenn Spielpatches angewendet werden.</string>
+    <string name="controls_editor_reset_selected">Ausgewähltes Element zurücksetzen</string>
+    <string name="controls_editor_show_grid">Raster anzeigen</string>
+    <string name="controls_editor_snap_grid">Am Raster ausrichten</string>
+    <string name="controls_editor_group_scale_value">Gruppengröße %1$d%%</string>
+    <string name="settings_help_show_patch_messages">Zeigt beim Spielstart einen kurzen Hinweis mit den aktiven Patch-Optionen und der Anzahl gefundener Benutzer-Patches.</string>
     <string name="settings_help_pad_vibration">Lässt unterstützte Spiele Controller-Vibrationen (Rumble) auslösen. Es fügt in Renn-, Kampf- und actionreichen Spielen nützliches Feedback hinzu, kann aber den Akku schneller entladen und einige kabellose Gamepads vibrieren möglicherweise schwach oder mit leichter Verzögerung.</string>
     <string name="settings_help_recent_games">Zeigt eine Schnellzugriffsleiste für die Spiele, die du zuletzt gespielt hast. Gut, wenn du oft zwischen ein paar Titeln hin und her wechselst; schalte es aus, wenn du einen aufgeräumteren Startbildschirm möchtest.</string>
     <string name="settings_help_home_search">Zeigt die Suchleiste für die Bibliothek direkt auf dem Startbildschirm. Lass es für große Bibliotheken eingeschaltet; schalte es aus, wenn du ein saubereres Layout bevorzugst und selten nach Namen suchst.</string>
@@ -394,6 +405,7 @@
     <string name="settings_help_prefer_english_game_titles">Verwendet englische Titel aus dem mitgelieferten PS1-Titelindex von EmuCoreR für Spiele, die mit japanischen oder anderen regionalen Namen ausgeliefert werden. Dies hilft hauptsächlich dabei, importierte Versionen in der Bibliothek besser lesbar zu machen, während Spiele ohne englischen Titel im Index ihren normalen Namen behalten.</string>
     <string name="emulation_session_restored_unavailable">Die vorherige Emulationssitzung wurde im Hintergrund geschlossen. Starte das Spiel erneut aus deiner Bibliothek.</string>
     <string name="settings_gamepad_action_left_input_toggle">Linke Eingabe umschalten</string>
+    <string name="settings_stick_toggle_button">Stick umschalten</string>
     <string name="controls_editor_done">Fertig</string>
     <string name="memory_card_manager_title">Memory Card Manager</string>
     <string name="memory_card_slot_empty">Nicht zugewiesen</string>
@@ -811,6 +823,7 @@
     <string name="settings_fps_overlay_metrics">Sichtbare Statistiken</string>
     <string name="settings_help_fps_overlay_metrics">Wähle die einzelnen Werte aus, die im detaillierten Statistik-Overlay angezeigt werden sollen. Dies wirkt sich weder auf die Erfassung der Messwerte noch auf die Emulationsleistung aus. CPU- und GPU-Modell und Auslastung werden vom Gerät gelesen, sofern verfügbar.</string>
     <string name="settings_fps_metric_fps">FPS</string>
+    <string name="settings_fps_metric_version">Version</string>
     <string name="settings_fps_metric_speed">Geschwindigkeit</string>
     <string name="settings_fps_metric_renderer">Renderer</string>
     <string name="settings_fps_metric_audio">Audio</string>

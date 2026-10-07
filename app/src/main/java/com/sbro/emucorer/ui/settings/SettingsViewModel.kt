@@ -238,6 +238,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val proPurchaseManager = ProPurchaseManager.getInstance(application)
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+    val showPatchMessages: StateFlow<Boolean> = preferences.showPatchMessages
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val floatingQuickActionsEnabled: StateFlow<Boolean> = preferences.floatingQuickActionsEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val orientationLock: StateFlow<Int> = preferences.orientationLock
@@ -939,6 +941,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setShowFps(enabled: Boolean) { viewModelScope.launch { preferences.setShowFps(enabled) } }
+
+    fun setShowPatchMessages(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setShowPatchMessages(enabled)
+        }
+    }
+
     fun setAudioVolume(value: Int) {
         viewModelScope.launch {
             val normalized = AudioDefaults.coerceVolume(value)

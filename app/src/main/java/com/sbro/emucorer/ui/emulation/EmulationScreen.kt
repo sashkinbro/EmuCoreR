@@ -319,6 +319,7 @@ private fun fpsOverlayCornerLiveOptions(): List<LiveSelectionOption> = listOf(
 
 @Composable
 private fun fpsOverlayMetricLiveOptions(): List<Pair<Int, String>> = listOf(
+    PerformanceOverlayMetrics.VERSION to stringResource(R.string.settings_fps_metric_version),
     PerformanceOverlayMetrics.FPS to stringResource(R.string.settings_fps_metric_fps),
     PerformanceOverlayMetrics.SPEED to stringResource(R.string.settings_fps_metric_speed),
     PerformanceOverlayMetrics.RENDERER to stringResource(R.string.settings_fps_metric_renderer),
@@ -364,6 +365,7 @@ fun EmulationScreen(
     viewModel: EmulationViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val activePatchNotice by viewModel.activePatchNotice.collectAsState()
     val presentationSurfaceGeneration by EmulatorBridge.presentationSurfaceGeneration.collectAsState()
     val context = LocalContext.current
     val activity = context as? android.app.Activity
@@ -439,20 +441,20 @@ fun EmulationScreen(
     }
     val rootNavPadding = WindowInsets.navigationBars.asPaddingValues()
     val overlayLeftSafeInset = maxOf(
-        rootCutoutPadding.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
+        gameCutoutPadding.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
         rootNavPadding.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
     )
     val overlayRightSafeInset = maxOf(
-        rootCutoutPadding.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
+        gameCutoutPadding.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
         rootNavPadding.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
     )
     val overlayHorizontalSafeInset = maxOf(overlayLeftSafeInset, overlayRightSafeInset)
     val overlayTopSafeInset = maxOf(
-        rootCutoutPadding.calculateTopPadding(),
+        gameCutoutPadding.calculateTopPadding(),
         rootNavPadding.calculateTopPadding()
     )
     val overlayBottomSafeInset = maxOf(
-        rootCutoutPadding.calculateBottomPadding(),
+        gameCutoutPadding.calculateBottomPadding(),
         rootNavPadding.calculateBottomPadding()
     )
 
@@ -1327,6 +1329,65 @@ fun EmulationScreen(
             }
         }
 
+        // Patch summary for the current launch. The core's own OSD is not rendered on
+        // Android, so the frontend reports the active patch options itself.
+        val patchNotice = activePatchNotice
+        AnimatedVisibility(
+            visible = patchNotice != null && !uiState.showMenu && !showControlsEditor,
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(180)),
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(
+                    start = overlayLeftSafeInset + 12.dp,
+                    bottom = overlayBottomSafeInset + 12.dp
+                )
+                .zIndex(39f)
+        ) {
+            patchNotice?.let { notice ->
+                Surface(
+                    color = Color.Black.copy(alpha = 0.74f),
+                    shape = neonShape(14.dp),
+                    border = BorderStroke(1.dp, Color(0xFF6688FF).copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.emulation_patches_title),
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF7CC8FF)
+                        )
+                        if (notice.widescreen) {
+                            Text(
+                                text = stringResource(R.string.emulation_patches_widescreen),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White
+                            )
+                        }
+                        if (notice.cheats) {
+                            Text(
+                                text = stringResource(R.string.emulation_patches_cheats),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White
+                            )
+                        }
+                        if (notice.userPatchCount > 0) {
+                            Text(
+                                text = stringResource(
+                                    R.string.emulation_patches_user_count,
+                                    notice.userPatchCount
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // On-screen controls
         if (shouldShowOverlay && !uiState.showMenu && !showControlsEditor) {
             val scaleFactor = uiState.overlayScale / 100f
@@ -1373,6 +1434,18 @@ fun EmulationScreen(
                     onToggleLeftInputMode = viewModel::toggleLeftInputMode,
                     onPadInput = { keyCode, range, pressed ->
                         viewModel.onPadInput(overlayPadIndex, keyCode, range, pressed)
+                    },
+                    // The controls must move with the same safe area the editor uses:
+                    // when the cutout option is off they may be dragged to the screen edge.
+                    safeInsets = if (globalDefaults.respectDisplayCutout) {
+                        PaddingValues(
+                            start = overlayLeftSafeInset,
+                            top = overlayTopSafeInset,
+                            end = overlayRightSafeInset,
+                            bottom = overlayBottomSafeInset
+                        )
+                    } else {
+                        PaddingValues(0.dp)
                     }
                     )
                 } else {
@@ -2045,10 +2118,11 @@ private fun OnScreenControls(
     stickToggleTarget: Int = AppPreferences.DEFAULT_STICK_TOGGLE_TARGET,
     onToggleLeftInputMode: () -> Unit,
     onPadInput: (Int, Int, Boolean) -> Unit,
-    respectSystemInsets: Boolean = true
+    respectSystemInsets: Boolean = true,
+    safeInsets: PaddingValues? = null
 ) {
     val density = LocalDensity.current
-    val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
+    val safeDrawingPadding = safeInsets ?: WindowInsets.safeDrawing.asPaddingValues()
     val safeLeft = if (respectSystemInsets) {
         safeDrawingPadding.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
     } else 0.dp
@@ -5310,28 +5384,27 @@ private fun LiveSliderRow(
     }
 
     val displayValue = sliderValue.roundToInt()
+    // Long-pressing the row or the slider itself restores the default value, so the
+    // reset gesture also works on the controls users actually drag.
+    val resetModifier = if (enabled && onResetToDefault != null) {
+        Modifier.combinedClickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = {},
+            onLongClick = {
+                onResetToDefault.invoke()
+                Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
+            }
+        )
+    } else {
+        Modifier
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(
-                    if (enabled) {
-                        Modifier.combinedClickable(
-                            interactionSource = interactionSource,
-                            indication = null,
-                            onClick = {},
-                            onLongClick = onResetToDefault?.let {
-                                {
-                                    it()
-                                    Toast.makeText(context, resetToast, Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        )
-                    } else {
-                        Modifier
-                    }
-                ),
+                .then(resetModifier),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -5366,22 +5439,24 @@ private fun LiveSliderRow(
                 }
             )
         }
-        Slider(
-            value = sliderValue,
-            onValueChange = { sliderValue = it },
-            onValueChangeFinished = {
-                if (enabled) {
-                    onValueChange(sliderValue)
-                }
-            },
-            valueRange = range,
-            steps = steps,
-            enabled = enabled,
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary
+        Box(modifier = Modifier.then(resetModifier)) {
+            Slider(
+                value = sliderValue,
+                onValueChange = { sliderValue = it },
+                onValueChangeFinished = {
+                    if (enabled) {
+                        onValueChange(sliderValue)
+                    }
+                },
+                valueRange = range,
+                steps = steps,
+                enabled = enabled,
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary
+                )
             )
-        )
+        }
     }
 }
 
