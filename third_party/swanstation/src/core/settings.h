@@ -68,7 +68,7 @@ struct Settings
   bool gpu_24bit_chroma_smoothing = false;
   bool display_show_osd_messages = true;
   float gpu_pgxp_tolerance = -1.0f;
-  float gpu_pgxp_depth_clear_threshold = 300.0f / 4096.0f;
+  float gpu_pgxp_depth_clear_threshold = DEFAULT_GPU_PGXP_DEPTH_THRESHOLD / 65535.0f;
 
   uint8_t cdrom_readahead_sectors = DEFAULT_CDROM_READAHEAD_SECTORS;
   bool cdrom_region_check = false;
@@ -140,7 +140,7 @@ struct Settings
   }
   // The user-facing threshold is expressed in the same units as the raw GTE Z
   // range; normalize it for comparison against the tracked depth.
-  ALWAYS_INLINE void SetPGXPDepthClearThreshold(float value) { gpu_pgxp_depth_clear_threshold = value / 8192.0f; }
+  ALWAYS_INLINE void SetPGXPDepthClearThreshold(float value) { gpu_pgxp_depth_clear_threshold = value / 65535.0f; }
 
   ALWAYS_INLINE bool IsUsingFastmem() const
   {

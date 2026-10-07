@@ -1578,6 +1578,18 @@ bool CodeGenerator::Compile_LoadLeftRight(const CodeBlockInstruction& cbi)
   if (address_spec)
     address_spec = *address_spec + cbi.instruction.i.imm_sext32();
 
+  // Precision tracking needs the byte offset as well as the aligned word.
+  Value pgxp_address;
+  if (g_settings.gpu_pgxp_enable)
+  {
+    if (address.IsConstant())
+      pgxp_address = address;
+    else
+    {
+      pgxp_address = m_register_cache.AllocateScratch(RegSize_32);
+      EmitCopyValue(pgxp_address.GetHostRegister(), address);
+    }
+  }
   Value shift = ShlValues(AndValues(address, Value::FromConstantU32(3)), Value::FromConstantU32(3)); // * 8
   address = AndValues(address, Value::FromConstantU32(~uint32_t(3)));
 
@@ -1631,7 +1643,7 @@ bool CodeGenerator::Compile_LoadLeftRight(const CodeBlockInstruction& cbi)
   shift.ReleaseAndClear();
 
   if (g_settings.gpu_pgxp_enable)
-    EmitFunctionCall(nullptr, PGXP::CPU_LW, Value::FromConstantU32(cbi.instruction.bits), mem, address);
+    EmitFunctionCall(nullptr, PGXP::CPU_LW, Value::FromConstantU32(cbi.instruction.bits), mem, pgxp_address);
 
   m_register_cache.WriteGuestRegisterDelayed(cbi.instruction.i.rt, std::move(mem));
 
@@ -1659,6 +1671,17 @@ bool CodeGenerator::Compile_StoreLeftRight(const CodeBlockInstruction& cbi)
     SpeculativeWriteMemory(*address_spec & ~3u, std::nullopt);
   }
 
+  Value pgxp_address;
+  if (g_settings.gpu_pgxp_enable)
+  {
+    if (address.IsConstant())
+      pgxp_address = address;
+    else
+    {
+      pgxp_address = m_register_cache.AllocateScratch(RegSize_32);
+      EmitCopyValue(pgxp_address.GetHostRegister(), address);
+    }
+  }
   Value shift = ShlValues(AndValues(address, Value::FromConstantU32(3)), Value::FromConstantU32(3)); // * 8
   address = AndValues(address, Value::FromConstantU32(~uint32_t(3)));
 
@@ -1694,7 +1717,7 @@ bool CodeGenerator::Compile_StoreLeftRight(const CodeBlockInstruction& cbi)
 
   EmitStoreGuestMemory(cbi, address, address_spec, RegSize_32, mem);
   if (g_settings.gpu_pgxp_enable)
-    EmitFunctionCall(nullptr, PGXP::CPU_SW, Value::FromConstantU32(cbi.instruction.bits), mem, address);
+    EmitFunctionCall(nullptr, PGXP::CPU_SW, Value::FromConstantU32(cbi.instruction.bits), mem, pgxp_address);
 
   InstructionEpilogue(cbi);
   return true;

@@ -703,19 +703,12 @@ static void RTPS(const int16_t V[3], uint8_t shift, bool lm, bool last)
 
     if (g_settings.gpu_pgxp_preserve_proj_fp)
     {
-      precise_sz3 = float(z) / 4096.0f;
+      precise_sz3 = std::clamp(float(z) / 4096.0f, 0.f, 65535.f);
       precise_ir1 = float(x) / (static_cast<float>(1 << shift));
       precise_ir2 = float(y) / (static_cast<float>(1 << shift));
-      if (lm)
-      {
-        precise_ir1 = std::clamp(precise_ir1, float(IR123_MIN_VALUE), float(IR123_MAX_VALUE));
-        precise_ir2 = std::clamp(precise_ir2, float(IR123_MIN_VALUE), float(IR123_MAX_VALUE));
-      }
-      else
-      {
-        precise_ir1 = std::min(precise_ir1, float(IR123_MAX_VALUE));
-        precise_ir2 = std::min(precise_ir2, float(IR123_MAX_VALUE));
-      }
+      const float ir_min = lm ? 0.f : float(IR123_MIN_VALUE);
+      precise_ir1 = std::clamp(precise_ir1, ir_min, float(IR123_MAX_VALUE));
+      precise_ir2 = std::clamp(precise_ir2, ir_min, float(IR123_MAX_VALUE));
     }
     else
     {
@@ -726,7 +719,7 @@ static void RTPS(const int16_t V[3], uint8_t shift, bool lm, bool last)
 
     // this can potentially use increased precision on Z
     const float precise_z = std::max<float>(float(REGS.H) / 2.0f, precise_sz3);
-    const float precise_h_div_sz = float(REGS.H) / precise_z;
+    const float precise_h_div_sz = (precise_z > 0.f) ? float(REGS.H) / precise_z : float(result) / 65536.f;
     const float fofx = float(REGS.OFX) / float(1 << 16);
     const float fofy = float(REGS.OFY) / float(1 << 16);
     float precise_x = precise_ir1 * precise_h_div_sz;
