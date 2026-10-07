@@ -220,14 +220,9 @@ std::string GPU_HW_ShaderGen::GenerateBatchVertexShader(bool textured)
   pos_y += POS_EPSILON;
 #endif
 
-  // PGXP-depth mode (u_pgxp_depth != 0) ignores mask Z and uses
-  // a_pos.w as the depth source; the legacy path reads a_pos.z.
-  // u_pgxp_depth is a cbuffer scalar so this is a uniform-control-
-  // flow select - the driver collapses it to a single conditional
-  // move at compile time. Was a compile-time #if PGXP_DEPTH /
-  // #else / #endif gate (m_pgxp_depth captured at shadergen ctor);
-  // now a runtime branch on the cbuffer field.
-  float pos_z = (u_pgxp_depth != 0u) ? a_pos.w : a_pos.z;
+  // The CPU supplies normalized depth in Z and the perspective weight in W.
+  // Keeping them separate permits depth testing with affine interpolation.
+  float pos_z = a_pos.z;
   float pos_w = a_pos.w;
 
 #if API_OPENGL || API_OPENGL_ES

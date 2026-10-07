@@ -266,6 +266,7 @@ def main():
     ap.add_argument("--glslang", help="path to glslangValidator binary")
     ap.add_argument("--glslc", help="path to glslc binary (shaderc)")
     ap.add_argument("--out-dir", help="override output directory (for test runs)")
+    ap.add_argument("--shader", help="regenerate only this source filename")
     args = ap.parse_args()
     compiler_kind, compiler = find_glslang(args.glslang, args.glslc)
     out_dir = Path(args.out_dir).resolve() if args.out_dir else INC_DIR
@@ -273,6 +274,10 @@ def main():
     print(f"using {compiler_kind}: {compiler}")
 
     glsl_files = sorted(GLSL_DIR.glob("*.glsl"))
+    if args.shader:
+        glsl_files = [p for p in glsl_files if p.name == args.shader]
+        if not glsl_files:
+            ap.error(f"unknown shader: {args.shader}")
     if not glsl_files:
         sys.stderr.write(f"warning: no .glsl files under {GLSL_DIR}\n")
         return
