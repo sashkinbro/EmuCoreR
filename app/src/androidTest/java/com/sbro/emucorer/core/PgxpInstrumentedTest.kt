@@ -286,7 +286,7 @@ class PgxpInstrumentedTest {
         val bytes = file.readBytes()
         val header = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         assertEquals(0x43435544, header.getInt(0))
-        assertEquals(57, header.getInt(4))
+        assertEquals(58, header.getInt(4))
         val size = header.getInt(208)
         assertTrue("persistent precision exceeds the old state bound", size > 11 * 1024 * 1024)
         val offset = header.getInt(212)
@@ -327,7 +327,7 @@ class PgxpInstrumentedTest {
             val mask = state.getLong(snapshots)
             snapshots += 8 + java.lang.Long.bitCount(mask) * 24
         }
-        assertEquals("unexpected GPU snapshot boundary", dma, snapshots)
+        assertEquals("unexpected precision pipeline boundary", dma, snapshots + 2 * 24)
         return ByteBuffer.wrap(payload.copyOfRange(memory, memory + metadataSize)).order(ByteOrder.LITTLE_ENDIAN)
     }
 

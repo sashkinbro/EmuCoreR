@@ -121,6 +121,46 @@ static const PGXP_value PGXP_value_zero = {0.f, 0.f, 0.f, {VALID_01}, 0};
 
 static PGXP_value CPU_reg[34];
 static PGXP_value CP0_reg[32];
+static constexpr uint32_t NO_LOAD_DELAY = static_cast<uint32_t>(CPU::Reg::count);
+struct DelayedLoad
+{
+  uint32_t reg = NO_LOAD_DELAY;
+  PGXP_value value = PGXP_value_invalid;
+};
+static DelayedLoad s_load_delay, s_next_load_delay;
+
+static void ResetLoadDelay()
+{
+  s_load_delay = {};
+  s_next_load_delay = {};
+}
+
+static bool DoLoadDelay(StateWrapper& sw)
+{
+  if (sw.GetVersion() < 58)
+  {
+    if (sw.IsReading())
+    {
+      ResetLoadDelay();
+      // Older states wrote precision at issue time. Neither the old visible
+      // value nor the pending geometry can be recovered reliably.
+      for (CPU::Reg reg : {CPU::g_state.load_delay_reg, CPU::g_state.next_load_delay_reg})
+      {
+        if (static_cast<uint32_t>(reg) < 32)
+          CPU_reg[static_cast<uint32_t>(reg)].flags = 0;
+      }
+    }
+    return !sw.HasError();
+  }
+  for (DelayedLoad* load : {&s_load_delay, &s_next_load_delay})
+  {
+    sw.Do(&load->reg);
+    sw.DoBytes(&load->value, sizeof(load->value));
+    if (sw.HasError() || (load->reg != NO_LOAD_DELAY && (load->reg == 0 || load->reg >= 32)))
+      return false;
+  }
+  return true;
+}
 #define CPU_Hi CPU_reg[32]
 #define CPU_Lo CPU_reg[33]
 
@@ -473,6 +513,7 @@ static void EnsureMemory()
 
 void Initialize()
 {
+  ResetLoadDelay();
   ResetGPUVertices();
   std::memset(CPU_reg, 0, sizeof(CPU_reg));
   std::memset(CP0_reg, 0, sizeof(CP0_reg));
@@ -495,6 +536,7 @@ void Initialize()
 
 void Reset()
 {
+  ResetLoadDelay();
   ResetGPUVertices();
   std::memset(CPU_reg, 0, sizeof(CPU_reg));
   std::memset(CP0_reg, 0, sizeof(CP0_reg));
@@ -511,6 +553,7 @@ void Reset()
 
 void Shutdown()
 {
+  ResetLoadDelay();
   ResetGPUVertices();
   if (vertexCache)
   {
@@ -557,7 +600,7 @@ bool DoState(StateWrapper& sw)
   if (sw.IsReading() && vertexCache)
     std::memset(vertexCache, 0, sizeof(PGXP_value) * VERTEX_CACHE_SIZE);
 
-  return DoGPUVertices(sw);
+  return DoGPUVertices(sw) && DoLoadDelay(sw);
 }
 
 bool DoMemoryState(StateWrapper& sw)
@@ -621,7 +664,7 @@ bool DoMemoryState(StateWrapper& sw)
       }
     }
   }
-  return DoGPUVertices(sw);
+  return DoGPUVertices(sw) && DoLoadDelay(sw);
 }
 
 // Instruction register decoding
@@ -1151,6 +1194,71 @@ void CPU_LHx(uint32_t instr, uint32_t rtVal, uint32_t addr)
 {
   // Rt = Mem[Rs + Im] (sign/zero extended)
   ValidateAndCopyMem16(&CPU_reg[rt(instr)], addr, rtVal);
+}
+
+void CPU_LoadDelay(uint32_t instr, uint32_t value, uint32_t addr)
+{
+  const uint32_t target = rt(instr);
+  if (target == 0)
+    return;
+  const PGXP_value visible = CPU_reg[target];
+  const uint32_t opcode = op(instr);
+  // Merged loads forward a previous pending load, while ordinary readers
+  // still see the old register until the following instruction finishes.
+  if ((opcode == 0x22 || opcode == 0x26) && s_load_delay.reg == target)
+    CPU_reg[target] = s_load_delay.value;
+  switch (opcode)
+  {
+    case 0x20: case 0x24: CPU_LBx(instr, value, addr); break;
+    case 0x21: case 0x25: CPU_LHx(instr, value, addr); break;
+    case 0x22: case 0x23: case 0x26: CPU_LW(instr, value, addr); break;
+    case 0x10:
+      if (g_settings.UsingPGXPCPUMode())
+        CPU_MFC0(instr, value);
+      else
+        CPU_reg[target] = PGXP_value_invalid;
+      break;
+    case 0x12:
+      if (rs(instr) == 2)
+        CPU_CFC2(instr, value, value);
+      else
+        CPU_MFC2(instr, value, value);
+      break;
+    default: CPU_reg[target] = PGXP_value_invalid; break;
+  }
+  s_next_load_delay = {target, CPU_reg[target]};
+  CPU_reg[target] = visible;
+}
+
+void CPU_CommitLoadDelay()
+{
+  if (s_load_delay.reg < 32)
+    CPU_reg[s_load_delay.reg] = s_load_delay.value;
+  s_load_delay = {};
+}
+
+void CPU_UpdateLoadDelay()
+{
+  CPU_CommitLoadDelay();
+  s_load_delay = s_next_load_delay;
+  s_next_load_delay = {};
+}
+
+void CPU_FlushLoadDelay()
+{
+  CPU_CommitLoadDelay();
+  s_next_load_delay = {};
+}
+
+void CPU_CancelLoadDelay(uint32_t reg)
+{
+  if (s_load_delay.reg == reg)
+    s_load_delay.reg = NO_LOAD_DELAY;
+}
+
+uint32_t* CPU_GetLoadDelayRegister()
+{
+  return &s_load_delay.reg;
 }
 
 void CPU_SB(uint32_t instr, uint8_t rtVal, uint32_t addr)

@@ -70,6 +70,7 @@ public:
   void EmitFlushInterpreterLoadDelay();
   void EmitMoveNextInterpreterLoadDelay();
   void EmitCancelInterpreterLoadDelayForReg(Reg reg);
+  void EmitPGXPLoadDelayCancellation(Reg reg);
   void EmitICacheCheckAndUpdate();
   void EmitStallUntilGTEComplete();
   void EmitLoadCPUStructField(HostReg host_reg, RegSize size, uint32_t offset);

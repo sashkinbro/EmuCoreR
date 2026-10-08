@@ -59,7 +59,48 @@ class PgxpPerspectiveInstrumentedTest {
     }
 
     @Test
-    fun delayedControlReadsPreserveOldVertexCopies() = runProbe(false, submission = "SWDelayedMfc0")
+    fun delayedControlReadsPreserveOldVertexCopies() {
+        runProbe(false, submission = "SWDelayedMfc0")
+        runProbe(false, submission = "SWDelayedMfc0", cpuTracking = true)
+    }
+
+    @Test
+    fun delayedGteReadsPreserveOldVertexDepth() {
+        runProbe(false, submission = "SWDelayedMfc2")
+        runProbe(false, submission = "SWDelayedMfc2", cpuTracking = true)
+    }
+
+    @Test
+    fun delayedMemoryReadsPreserveOldVertexDepth() {
+        runProbe(false, submission = "SWDelayedLw")
+        runProbe(false, submission = "SWDelayedLw", cpuTracking = true)
+    }
+
+    @Test
+    fun immediateWritesCancelPendingVertexDepth() {
+        runProbe(false, submission = "SWDelayedCancel")
+        runProbe(false, submission = "SWDelayedCancel", cpuTracking = true)
+    }
+
+    @Test
+    fun blockBoundariesPreserveLoadSlotsAndCancellation() {
+        for (submission in listOf("SWDelayedBlock", "SWDelayedBlockCancel")) {
+            runProbe(false, submission = submission)
+            runProbe(false, submission = submission, cpuTracking = true)
+        }
+    }
+
+    @Test
+    fun exceptionsCommitPendingVertexDepth() {
+        runProbe(false, submission = "SWDelayedException")
+        runProbe(false, submission = "SWDelayedException", cpuTracking = true)
+    }
+
+    @Test
+    fun softwarePreservesNativeLoadSlots() {
+        runProbe(false, software = true, submission = "SWDelayedLw")
+        runProbe(false, software = true, submission = "SWDelayedLw", cpuTracking = true)
+    }
 
     @Test
     fun queuedDmaVerticesSurviveRamChangesAndStateReload() = runProbe(false, submission = "DMAQueued")
@@ -276,6 +317,11 @@ class PgxpPerspectiveInstrumentedTest {
         constant(9, 0xa0001000.toInt())
         constant(10, 0x1f801810)
         constant(11, 0x1f8010a0)
+        if (submission == "SWDelayedException") {
+            // Resume after SYSCALL using a small handler in writable RAM.
+            for ((index, instruction) in listOf(0x401a7000, 0, imm(9, 26, 26, 4),
+                (26 shl 21) or 8, 0x42000010).withIndex()) write(9, -0xf80 + index * 4, instruction)
+        }
         for (command in listOf(0, 0x08000001, 0x05000000, 0x06c60260, 0x07042018, 0x03000000, 0x04000002))
             write(10, 4, command)
         for (command in listOf(0xe3000000.toInt(), 0xe407ffff.toInt(), 0xe5000000.toInt(), 0xe1000000.toInt(),
@@ -301,7 +347,8 @@ class PgxpPerspectiveInstrumentedTest {
             val stride = if (gouraud && textured) 12 else 8
             when (submission) {
                 "SWC2" -> emit(imm(0x3a, 10, 14, 0))
-                "SW", "SWConstant", "SWOr", "SWCopyChain", "SWDelayedMfc0" -> {
+                "SW", "SWConstant", "SWOr", "SWCopyChain", "SWDelayedMfc0", "SWDelayedMfc2", "SWDelayedLw",
+                "SWDelayedCancel", "SWDelayedBlock", "SWDelayedBlockCancel", "SWDelayedException" -> {
                     emit(0x48087000)
                     repeat(2) { emit(0) }
                     if (submission == "SWConstant") {
@@ -312,6 +359,35 @@ class PgxpPerspectiveInstrumentedTest {
                     if (submission == "SWDelayedMfc0") {
                         emit(0x40086000)
                         emit((8 shl 21) or (13 shl 11) or 0x21)
+                    }
+                    if (submission in listOf("SWDelayedMfc2", "SWDelayedLw", "SWDelayedCancel", "SWDelayedBlock",
+                        "SWDelayedBlockCancel", "SWDelayedException")) {
+                        // Only the first vertex changes depth, keeping its native
+                        // XY bits identical. A load-slot copy still uses old Z.
+                        emit((8 shl 21) or (13 shl 11) or 0x21)
+                        if (submission == "SWDelayedException") emit(imm(0x3a, 9, 14, 0x104))
+                        val factor = if (index == 0) 4 else 1
+                        gte(0, (((xyz.second * factor) and 65535) shl 16) or ((xyz.first * factor) and 65535), false)
+                        gte(1, xyz.third * factor, false)
+                        emit(0x4a080001)
+                        repeat(16) { emit(0) }
+                        emit((13 shl 21) or (8 shl 11) or 0x21)
+                        if (submission == "SWDelayedLw") emit(imm(0x3a, 9, 14, 0x100))
+                        if (submission.startsWith("SWDelayedBlock")) emit(imm(4, 0, 0, 1))
+                        emit(if (submission == "SWDelayedLw") imm(0x23, 9, 8, 0x100) else 0x48087000)
+                        when (submission) {
+                            "SWDelayedCancel", "SWDelayedBlockCancel" -> {
+                                emit((8 shl 21) or (8 shl 11) or 0x21)
+                                emit((8 shl 21) or (13 shl 11) or 0x21)
+                            }
+                            "SWDelayedException" -> {
+                                emit(0)
+                                emit(imm(0x23, 9, 8, 0x104))
+                                emit(0xc)
+                                emit((8 shl 21) or (13 shl 11) or 0x21)
+                            }
+                            else -> emit((8 shl 21) or (13 shl 11) or 0x21)
+                        }
                     }
                     if (submission == "SWCopyChain") {
                         fun reg(funct: Int, rs: Int, rt: Int, rd: Int, shift: Int = 0) =
@@ -333,7 +409,11 @@ class PgxpPerspectiveInstrumentedTest {
                         reg(0x24, 27, 27, 27)
                         reg(0x25, 27, 27, 27)
                     }
-                    emit(imm(0x2b, 10, when (submission) { "SWOr", "SWDelayedMfc0" -> 13; "SWCopyChain" -> 27; else -> 8 }, 0))
+                    emit(imm(0x2b, 10, when {
+                        submission == "SWOr" || submission.startsWith("SWDelayed") -> 13
+                        submission == "SWCopyChain" -> 27
+                        else -> 8
+                    }, 0))
                 }
                 else -> emit(imm(0x3a, 9, 14, 4 + index * stride))
             }

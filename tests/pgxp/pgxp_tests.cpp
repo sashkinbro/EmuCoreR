@@ -952,6 +952,156 @@ static void CheckGPUVertexSnapshots()
   Reset();
 }
 
+static void CheckLoadDelays()
+{
+  using namespace PGXP;
+  const uint32_t raw = XY(10, 20);
+  auto setup = [&]() {
+    Reset();
+    Seed(0x100, raw, 10.25f, 20.5f, 1000.f);
+    CPU_LW(I(0x23, 0, 1), raw, 0x100);
+    Seed(0x200, raw, 10.75f, 20.875f, 4000.f);
+    CPU_LW(I(0x23, 0, 2), raw, 0x200);
+    CPU_MTC0(R(0, 2, 12), raw, raw);
+    CPU_CTC2(R(0, 2, 0), raw, raw);
+  };
+  auto issue = [&](uint32_t inst, uint32_t value, uint32_t address) {
+    CPU_LoadDelay(inst, value, address);
+    CPU_CancelLoadDelay((inst >> 16) & 31);
+    CPU_UpdateLoadDelay();
+  };
+  for (bool full_cpu : {false, true})
+  {
+    g_settings.gpu_pgxp_cpu = full_cpu;
+    for (uint32_t opcode : {0x20u, 0x24u, 0x21u, 0x25u, 0x22u, 0x23u, 0x26u, 0x10u, 0x12u})
+    {
+      for (bool control : {false, true})
+      {
+        if (control && opcode != 0x12)
+          continue;
+        setup();
+        const uint32_t inst = opcode == 0x10 ? I(opcode, 0, 1, 12 << 11) :
+          opcode == 0x12 ? I(opcode, control ? 2 : 0, 1, (control ? 0 : 14) << 11) : I(opcode, 0, 1);
+        const uint32_t loaded = opcode == 0x20 || opcode == 0x24 || opcode == 0x21 || opcode == 0x25 ? 10 : raw;
+        issue(inst, loaded, opcode == 0x22 ? 0x203 : 0x200);
+        CPU_MOVE((3 << 8) | 1, raw);
+        CPU_CancelLoadDelay(3);
+        CPU_SW(I(0x2b, 0, 3), raw, 0x300);
+        Check(Vertex(0x300, raw, 10.25f, 20.5f) && CPU_reg[3].z == 1000.f,
+              "load slot copies the old geometry even when incoming native bits match");
+        CPU_UpdateLoadDelay();
+        const bool invalid = opcode == 0x20 || opcode == 0x24 || (opcode == 0x10 && !full_cpu);
+        Check(invalid ? CPU_reg[1].flags == 0 :
+              CPU_reg[1].x == 10.75f && CPU_reg[1].z == 4000.f && (CPU_reg[1].flags & VALID_0),
+              "load precision becomes visible with the native delayed result");
+        CPU_UpdateLoadDelay();
+        Check(CPU_reg[3].z == 1000.f, "committing a load cannot change an earlier register copy");
+      }
+    }
+  }
+  g_settings.gpu_pgxp_cpu = false;
+  setup();
+  issue(I(0x23, 0, 1), raw, 0x200);
+  CPU_MOVE((1 << 8) | 1, raw);
+  CPU_CancelLoadDelay(1);
+  CPU_UpdateLoadDelay();
+  Check(CPU_reg[1].z == 1000.f && CPU_reg[1].x == 10.25f,
+        "same-bits write in the load slot cancels incoming precision");
+
+  setup();
+  issue(I(0x23, 0, 1), raw, 0x200);
+  issue(I(0x23, 0, 1), raw, 0x100);
+  Check(CPU_reg[1].z == 1000.f, "consecutive loads to one register suppress the first result");
+  CPU_UpdateLoadDelay();
+  Check(CPU_reg[1].z == 1000.f, "second delayed result commits after its own slot");
+
+  setup();
+  issue(I(0x22, 0, 1), raw, 0x203);
+  // LWR at offset two transfers a low half from the high memory half.
+  // The retained high half must come from the pending LWL, not visible r1.
+  const uint32_t merged = XY(20, 20);
+  CPU_LoadDelay(I(0x26, 0, 1), merged, 0x202);
+  CPU_CancelLoadDelay(1);
+  CPU_UpdateLoadDelay();
+  Check(CPU_reg[1].x == 10.25f && CPU_reg[1].z == 1000.f,
+        "consecutive merged loads preserve the old visible value in both slots");
+  CPU_UpdateLoadDelay();
+  Check(CPU_reg[1].x == 20.875f && CPU_reg[1].y == 20.875f && CPU_reg[1].z == 4000.f,
+        "merged loads forward pending component precision and matching depth");
+
+  setup();
+  issue(I(0x23, 0, 1), raw, 0x200);
+  CPU_LoadDelay(I(0x23, 0, 2), raw, 0x100);
+  CPU_CancelLoadDelay(2);
+  CPU_FlushLoadDelay();
+  CPU_UpdateLoadDelay();
+  Check(CPU_reg[1].z == 4000.f && CPU_reg[2].z == 4000.f,
+        "pipeline flush commits the older load and discards the next one");
+
+  setup();
+  CPU_LoadDelay(I(0x23, 0, 0), raw, 0x200);
+  CPU_UpdateLoadDelay();
+  CPU_UpdateLoadDelay();
+  Check(CPU_reg[0].flags == 0, "delayed loads to architectural zero cannot publish geometry");
+
+  for (bool memory_state : {false, true})
+  {
+    setup();
+    issue(I(0x23, 0, 1), raw, 0x200);
+    CPU_LoadDelay(I(0x23, 0, 2), raw, 0x100);
+    auto stream = ByteStream_CreateGrowableMemoryStream();
+    StateWrapper writer(stream.get(), StateWrapper::Mode::Write, 58);
+    Check(memory_state ? DoMemoryState(writer) : DoState(writer), "save visible and pending precision separately");
+    Reset();
+    stream->SeekAbsolute(0);
+    StateWrapper reader(stream.get(), StateWrapper::Mode::Read, 58);
+    Check((memory_state ? DoMemoryState(reader) : DoState(reader)) && CPU_reg[1].z == 1000.f && CPU_reg[2].z == 4000.f,
+          "reload restores the old register values before pending loads commit");
+    CPU_UpdateLoadDelay();
+    Check(CPU_reg[1].z == 4000.f && CPU_reg[2].z == 4000.f,
+          "restored current load commits without publishing the next result early");
+    CPU_UpdateLoadDelay();
+    Check(CPU_reg[2].z == 1000.f, "restored next load retains its own delay slot");
+    stream->Resize(static_cast<uint32_t>(stream->GetSize() - 1));
+    stream->SeekAbsolute(0);
+    StateWrapper truncated(stream.get(), StateWrapper::Mode::Read, 58);
+    Check(!(memory_state ? DoMemoryState(truncated) : DoState(truncated)), "truncated pending precision fails cleanly");
+  }
+  setup();
+  issue(I(0x23, 0, 1), raw, 0x200);
+  Reset();
+  CPU_UpdateLoadDelay();
+  Check(CPU_reg[1].flags == 0, "reset discards precision from the previous CPU pipeline");
+
+  setup();
+  auto legacy = ByteStream_CreateGrowableMemoryStream();
+  StateWrapper legacy_writer(legacy.get(), StateWrapper::Mode::Write, 57);
+  Check(DoState(legacy_writer), "write a legacy precision state without delayed slots");
+  CPU::g_state.load_delay_reg = CPU::Reg::at;
+  CPU::g_state.next_load_delay_reg = CPU::Reg::count;
+  legacy->SeekAbsolute(0);
+  StateWrapper legacy_reader(legacy.get(), StateWrapper::Mode::Read, 57);
+  Check(DoState(legacy_reader) && CPU_reg[1].flags == 0 && CPU_reg[2].z == 4000.f,
+        "legacy pending loads fall back safely without discarding other precision");
+  CPU::g_state.load_delay_reg = CPU::Reg::count;
+  for (uint32_t invalid_reg : {0u, 32u, UINT32_MAX})
+  {
+    auto malformed = ByteStream_CreateGrowableMemoryStream();
+    const PGXP_value value = {10.75f, 20.875f, 4000.f, {VALID_012}, raw};
+    malformed->Write2(&invalid_reg, sizeof(invalid_reg), nullptr);
+    malformed->Write2(&value, sizeof(value), nullptr);
+    malformed->SeekAbsolute(0);
+    StateWrapper malformed_reader(malformed.get(), StateWrapper::Mode::Read, 58);
+    Check(!DoLoadDelay(malformed_reader), "pending precision rejects a non-loadable register in saved data");
+  }
+  setup();
+  issue(I(0x23, 0, 1), raw, 0x200);
+  *CPU_GetLoadDelayRegister() = static_cast<uint32_t>(CPU::Reg::count);
+  CPU_UpdateLoadDelay();
+  Check(CPU_reg[1].z == 1000.f, "generated cancellation discards the pending write without replacing visible depth");
+  Reset();
+}
+
 int main()
 {
   using namespace PGXP;
@@ -965,6 +1115,7 @@ int main()
   CheckGTECommandWrites();
   CheckPreciseCullingBounds();
   CheckMemoryALU();
+  CheckLoadDelays();
   CheckShifts();
   Reset();
   Seed(0x100);

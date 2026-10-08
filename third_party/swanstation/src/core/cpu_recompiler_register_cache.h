@@ -284,6 +284,7 @@ public:
 
   /// Stores the specified value to the guest register after the next instruction (load delay).
   void WriteGuestRegisterDelayed(Reg guest_reg, Value&& value);
+  void CancelLoadDelay(Reg guest_reg);
 
   /// Returns the current target for a load delay, or Reg::count.
   Reg GetLoadDelayRegister() const { return m_state.load_delay_register; }
