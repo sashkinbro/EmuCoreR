@@ -548,6 +548,101 @@ static void CheckGTERegisterTransfers()
         "GTE status flags cannot inherit fractional coordinates or depth");
 }
 
+static void CheckGTECommandWrites()
+{
+  using namespace PGXP;
+  constexpr uint32_t arithmetic = (7u << 9) | (7u << 25);
+  constexpr uint32_t color = arithmetic | (1u << 22);
+  constexpr uint32_t triple_color = color | (3u << 20);
+  constexpr uint32_t project = arithmetic | (1u << 8) | (1u << 24) | (1u << 19) | (1u << 14);
+  struct Command { uint32_t opcode, outputs; };
+  const Command commands[] = {
+    {0x01, project}, {0x06, 1u << 24}, {0x0c, arithmetic}, {0x10, color},
+    {0x11, color}, {0x12, arithmetic}, {0x13, color}, {0x14, color},
+    {0x16, triple_color}, {0x1b, color}, {0x1c, color}, {0x1e, color},
+    {0x20, triple_color}, {0x28, arithmetic}, {0x29, color}, {0x2a, triple_color},
+    {0x2d, (1u << 7) | (1u << 24)}, {0x2e, (1u << 7) | (1u << 24)},
+    {0x30, project | (3u << 12) | (3u << 17)},
+    {0x3d, color}, {0x3e, color}, {0x3f, triple_color}
+  };
+  for (bool direct_impl : {false, true})
+  {
+    for (bool culling : {false, true})
+    {
+      g_settings.gpu_pgxp_culling = culling;
+      for (const auto& command : commands)
+      {
+        Reset();
+        GTE::Reset();
+        // Zero operands make every native result zero. Seed matching raw
+        // bits with fractional geometry so value validation alone cannot
+        // hide a missing register-write notification.
+        Seed(0x100, 0, 0.25f, 0.5f);
+        CPU_LW(I(0x23, 0, 1), 0, 0x100);
+        for (uint32_t reg = 0; reg < 32; reg++)
+        {
+          if (reg == 15 || reg == 28 || reg == 29 || reg == 31) continue;
+          CPU_MTC2(R(0, 1, reg), 0, 0);
+        }
+        std::array<PGXP_value, 32> before;
+        std::copy_n(GTE_data_reg, 32, before.begin());
+        const uint32_t instruction = 0x80000u | command.opcode;
+        if (direct_impl)
+        {
+          TickCount ticks = 0;
+          const auto impl = GTE::GetInstructionImpl(instruction, &ticks);
+          impl(GTE::Instruction{instruction});
+        }
+        else GTE::ExecuteInstruction(instruction);
+        for (uint32_t reg = 0; reg < 32; reg++)
+        {
+          if (reg == 15 || reg == 28 || reg == 29 || reg == 31) continue;
+          CPU_MFC2(R(0, 2, reg), GTE::ReadRegister(reg), GTE::ReadRegister(reg));
+          const bool overwritten = (command.outputs & (1u << reg)) != 0;
+          const auto& expected = before[reg];
+          char name[120];
+          std::snprintf(name, sizeof(name), "GTE command %02x register %u %s via %s culling %u",
+                        command.opcode, reg, overwritten ? "replaces stale geometry" : "preserves live geometry",
+                        direct_impl ? "compiled dispatch" : "interpreter dispatch", unsigned(culling));
+          Check(overwritten ?
+            (CPU_reg[2].value == 0 && CPU_reg[2].x == 0.f && CPU_reg[2].y == 0.f && CPU_reg[2].flags == VALID_01) :
+            (CPU_reg[2].value == expected.value && CPU_reg[2].x == expected.x && CPU_reg[2].y == expected.y &&
+             CPU_reg[2].z == expected.z && CPU_reg[2].flags == expected.flags), name);
+        }
+      }
+    }
+  }
+  g_settings.gpu_pgxp_culling = false;
+
+  for (bool depth_fifo : {false, true})
+  {
+    Reset();
+    GTE::Reset();
+    const uint32_t first = depth_fifo ? 16 : 20;
+    const uint32_t count = depth_fifo ? 4 : 3;
+    for (uint32_t i = 0; i < count; i++)
+    {
+      Seed(0x100, 0, 0.25f * float(i + 1), 0.5f);
+      CPU_LW(I(0x23, 0, 1), 0, 0x100);
+      CPU_MTC2(R(0, 1, first + i), 0, 0);
+    }
+    GTE::ExecuteInstruction(0x80000u | (depth_fifo ? 0x01u : 0x3du));
+    for (uint32_t i = 0; i < count; i++)
+    {
+      CPU_SWC2(I(0x3a, 0, first + i), 0, 0x200 + i * 4);
+      Check(Vertex(0x200 + i * 4, 0, i + 1 == count ? 0.f : 0.25f * float(i + 2),
+                   depth_fifo || i + 1 == count ? 0.f : 0.5f, i + 1 < count),
+            depth_fifo ? "SZ FIFO moves the surviving precision and replaces its tail" :
+                         "RGB FIFO moves the surviving precision and replaces its tail");
+    }
+    GTE::WriteRegister(first + 1, 1);
+    GTE::ExecuteInstruction(0x80000u | (depth_fifo ? 0x01u : 0x3du));
+    CPU_SWC2(I(0x3a, 0, first), 1, 0x200);
+    Check(Vertex(0x200, 1, 1.f, 0.f, false),
+          "native FIFO movement rejects precision whose source bits changed");
+  }
+}
+
 int main()
 {
   using namespace PGXP;
@@ -558,6 +653,7 @@ int main()
   CheckMultiplication();
   CheckPartialTransfers();
   CheckGTERegisterTransfers();
+  CheckGTECommandWrites();
   CheckShifts();
   Reset();
   Seed(0x100);

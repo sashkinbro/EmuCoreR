@@ -30,6 +30,13 @@ static float s_custom_aspect_ratio_f;
 
 #define REGS CPU::g_state.gte_regs
 
+ALWAYS_INLINE static void SetDataRegister(uint32_t index, uint32_t value)
+{
+  REGS.dr32[index] = value;
+  if (g_settings.gpu_pgxp_enable)
+    PGXP::GTE_SetDataRegister(index, value);
+}
+
 ALWAYS_INLINE static uint32_t CountLeadingBits(uint32_t value)
 {
   // if top-most bit is set, we want to count ones not zeros
@@ -87,7 +94,7 @@ ALWAYS_INLINE static void TruncateAndSetMAC(int64_t value, uint8_t shift)
   // shift should be done before storing to avoid losing precision
   value >>= shift;
 
-  REGS.dr32[24 + index] = static_cast<uint32_t>(static_cast<uint64_t>(value));
+  SetDataRegister(24 + index, static_cast<uint32_t>(static_cast<uint64_t>(value)));
 }
 
 template<uint32_t index>
@@ -122,7 +129,7 @@ ALWAYS_INLINE static void TruncateAndSetIR(int32_t value, bool lm)
   }
 
   // store sign-extended 16-bit value as 32-bit
-  REGS.dr32[8 + index] = value;
+  SetDataRegister(8 + index, value);
 }
 
 template<uint32_t index>
@@ -135,7 +142,7 @@ ALWAYS_INLINE static void TruncateAndSetMACAndIR(int64_t value, uint8_t shift, b
 
   // set MAC
   const int32_t value32 = static_cast<int32_t>(value);
-  REGS.dr32[24 + index] = value32;
+  SetDataRegister(24 + index, value32);
 
   // set IR
   TruncateAndSetIR<index>(value32, lm);
@@ -347,7 +354,7 @@ ALWAYS_INLINE static void SetOTZ(int32_t value)
     value = 0xFFFF;
   }
 
-  REGS.dr32[7] = static_cast<uint32_t>(value);
+  SetDataRegister(7, static_cast<uint32_t>(value));
 }
 
 ALWAYS_INLINE static void PushSXY(int32_t x, int32_t y)
@@ -392,6 +399,8 @@ ALWAYS_INLINE static void PushSZ(int32_t value)
     value = 0xFFFF;
   }
 
+  if (g_settings.gpu_pgxp_enable)
+    PGXP::GTE_PushDataFIFO(16, 4, static_cast<uint32_t>(value));
   REGS.dr32[16] = REGS.dr32[17];           // SZ0 <- SZ1
   REGS.dr32[17] = REGS.dr32[18];           // SZ1 <- SZ2
   REGS.dr32[18] = REGS.dr32[19];           // SZ2 <- SZ3
@@ -406,9 +415,12 @@ static void PushRGBFromMAC()
   const uint32_t b = TruncateRGB<2>(static_cast<uint32_t>(REGS.MAC3 >> 4));
   const uint32_t c = static_cast<uint32_t>(REGS.RGBC[3]);
 
+  const uint32_t color = r | (g << 8) | (b << 16) | (c << 24);
+  if (g_settings.gpu_pgxp_enable)
+    PGXP::GTE_PushDataFIFO(20, 3, color);
   REGS.dr32[20] = REGS.dr32[21];                        // RGB0 <- RGB1
   REGS.dr32[21] = REGS.dr32[22];                        // RGB1 <- RGB2
-  REGS.dr32[22] = r | (g << 8) | (b << 16) | (c << 24); // RGB2 <- Value
+  REGS.dr32[22] = color;                               // RGB2 <- Value
 }
 
 ALWAYS_INLINE static uint32_t UNRDivide(uint32_t lhs, uint32_t rhs)
@@ -594,9 +606,9 @@ static void Execute_SQR(Instruction inst)
 
   // 32-bit multiply for speed - 16x16 isn't >32bit, and we know it won't overflow/underflow.
   const uint8_t shift = inst.GetShift();
-  REGS.MAC1 = (int32_t(REGS.IR1) * int32_t(REGS.IR1)) >> shift;
-  REGS.MAC2 = (int32_t(REGS.IR2) * int32_t(REGS.IR2)) >> shift;
-  REGS.MAC3 = (int32_t(REGS.IR3) * int32_t(REGS.IR3)) >> shift;
+  SetDataRegister(25, (int32_t(REGS.IR1) * int32_t(REGS.IR1)) >> shift);
+  SetDataRegister(26, (int32_t(REGS.IR2) * int32_t(REGS.IR2)) >> shift);
+  SetDataRegister(27, (int32_t(REGS.IR3) * int32_t(REGS.IR3)) >> shift);
 
   const bool lm = inst.lm;
   TruncateAndSetIR<1>(REGS.MAC1, lm);
@@ -652,7 +664,7 @@ static void RTPS(const int16_t V[3], uint8_t shift, bool lm, bool last)
   // IR3 saturation flag (FLAG.22) gets set <only> if "MAC3 SAR 12" exceeds -8000h..+7FFFh (although IR3 is saturated
   // when "MAC3" exceeds -8000h..+7FFFh).
   TruncateAndSetIR<3>(int32_t(z >> 12), false);
-  REGS.dr32[11] = std::clamp(REGS.MAC3, lm ? 0 : IR123_MIN_VALUE, IR123_MAX_VALUE);
+  SetDataRegister(11, std::clamp(REGS.MAC3, lm ? 0 : IR123_MIN_VALUE, IR123_MAX_VALUE));
 #undef dot3
 
   // SZ3 = MAC3 SAR ((1-sf)*12)                           ;ScreenZ FIFO 0..+FFFFh
@@ -807,7 +819,7 @@ static void Execute_NCLIP_PGXP(Instruction inst)
   if (PGXP::GTE_NCLIP_valid(REGS.dr32[12], REGS.dr32[13], REGS.dr32[14]))
   {
     REGS.FLAG.Clear();
-    REGS.MAC0 = static_cast<int32_t>(PGXP::GTE_NCLIP());
+    SetDataRegister(24, static_cast<int32_t>(PGXP::GTE_NCLIP()));
   }
   else
   {
