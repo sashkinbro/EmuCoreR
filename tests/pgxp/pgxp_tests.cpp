@@ -249,12 +249,113 @@ static void CheckHiLoTransfers()
         "writing r0 to HI/LO produces exact constants without depth");
 }
 
+static void CheckDivisions()
+{
+  using namespace PGXP;
+  auto constant = [](uint32_t value) {
+    return PGXP_value{float(int16_t(value)), float(int16_t(value >> 16)), 0.f, {VALID_01}, value};
+  };
+  auto exact = [](const PGXP_value& value, uint32_t raw) {
+    return value.value == raw && value.x == float(int16_t(raw)) && value.y == float(int16_t(raw >> 16)) &&
+           value.flags == VALID_01;
+  };
+  const uint32_t inputs[] = {0u, 1u, 2u, 3u, 0xffffu, 0x10000u, 0x12345678u,
+                             0x7fffffffu, 0x80000000u, 0xfffffffdu, 0xffffffffu};
+  for (bool sign : {false, true})
+  {
+    bool correct = true;
+    for (uint32_t numerator : inputs)
+    {
+      for (uint32_t denominator : inputs)
+      {
+        CPU_reg[1] = constant(numerator);
+        CPU_reg[2] = constant(denominator);
+        if (sign) CPU_DIV(R(1, 2, 0), numerator, denominator);
+        else CPU_DIVU(R(1, 2, 0), numerator, denominator);
+        uint32_t quotient, remainder;
+        if (denominator == 0)
+        {
+          quotient = sign && int32_t(numerator) < 0 ? 1u : 0xffffffffu;
+          remainder = numerator;
+        }
+        else if (sign && numerator == 0x80000000u && denominator == 0xffffffffu)
+        {
+          quotient = numerator;
+          remainder = 0;
+        }
+        else if (sign)
+        {
+          quotient = uint32_t(int32_t(numerator) / int32_t(denominator));
+          remainder = uint32_t(int32_t(numerator) % int32_t(denominator));
+        }
+        else
+        {
+          quotient = numerator / denominator;
+          remainder = numerator % denominator;
+        }
+        correct &= exact(CPU_Lo, quotient) && exact(CPU_Hi, remainder);
+      }
+    }
+    Check(correct, sign ? "signed constant division obeys all integer and exceptional results" :
+                          "unsigned constant division obeys all integer and exceptional results");
+    Reset();
+    Seed(0x100);
+    CPU_LW(I(0x23, 0, 1), XY(10, 20), 0x100);
+    const PGXP_value original = CPU_reg[1];
+    CPU_reg[2] = constant(1);
+    if (sign) CPU_DIV(R(1, 2, 0), XY(10, 20), 1);
+    else CPU_DIVU(R(1, 2, 0), XY(10, 20), 1);
+    Check(std::memcmp(&CPU_Lo, &original, sizeof(original)) == 0 && exact(CPU_Hi, 0),
+          "division by one preserves geometry exactly and produces a constant remainder");
+    CPU_reg[2] = constant(0);
+    if (sign) CPU_DIV(R(1, 2, 0), XY(10, 20), 0);
+    else CPU_DIVU(R(1, 2, 0), XY(10, 20), 0);
+    Check(exact(CPU_Lo, 0xffffffffu) && std::memcmp(&CPU_Hi, &original, sizeof(original)) == 0,
+          "division by zero preserves the dividend in HI and has a finite constant quotient");
+    CPU_reg[2] = constant(1);
+    CPU_reg[2].x = 1e-30f;
+    if (sign) CPU_DIV(R(1, 2, 0), XY(10, 20), 1);
+    else CPU_DIVU(R(1, 2, 0), XY(10, 20), 1);
+    Check(exact(CPU_Lo, XY(10, 20)) && exact(CPU_Hi, 0),
+          "unbounded precision quotient falls back without floating point narrowing");
+    CPU_reg[2] = constant(2);
+    CPU_reg[2].x = 0.f;
+    if (sign) CPU_DIV(R(1, 2, 0), XY(10, 20), 2);
+    else CPU_DIVU(R(1, 2, 0), XY(10, 20), 2);
+    Check(exact(CPU_Lo, XY(5, 10)) && exact(CPU_Hi, 0),
+          "zero precision denominator falls back to the actual CPU result");
+    CPU_reg[1] = original;
+    CPU_reg[1].x = std::numeric_limits<float>::quiet_NaN();
+    CPU_reg[2] = constant(2);
+    if (sign) CPU_DIV(R(1, 2, 0), XY(10, 20), 2);
+    else CPU_DIVU(R(1, 2, 0), XY(10, 20), 2);
+    Check(exact(CPU_Lo, XY(5, 10)) && exact(CPU_Hi, 0),
+          "nonfinite precision cannot enter division or retain borrowed depth");
+    if (sign)
+    {
+      CPU_reg[1] = original;
+      CPU_reg[2] = constant(0xffffffffu);
+      CPU_DIV(R(1, 2, 0), XY(10, 20), 0xffffffffu);
+      Check(CPU_Lo.value == uint32_t(-int32_t(XY(10, 20))) && CPU_Lo.x == -10.25f && CPU_Lo.y == -21.5f &&
+            (CPU_Lo.flags & VALID_Z) != 0 && exact(CPU_Hi, 0),
+            "division by minus one negates packed geometry using native borrow");
+      CPU_reg[1] = constant(0x80000000u);
+      CPU_reg[1].flags |= VALID_Z;
+      CPU_reg[1].z = 1000.f;
+      CPU_DIV(R(1, 2, 0), 0x80000000u, 0xffffffffu);
+      Check(exact(CPU_Lo, 0x80000000u) && exact(CPU_Hi, 0),
+            "signed division overflow produces defined constants without borrowed geometry");
+    }
+  }
+}
+
 int main()
 {
   using namespace PGXP;
   g_settings.gpu_pgxp_enable = true;
   Initialize();
   CheckHiLoTransfers();
+  CheckDivisions();
   CheckShifts();
   Reset();
   Seed(0x100);

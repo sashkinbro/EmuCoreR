@@ -3,7 +3,8 @@ param(
     [ValidateSet('CPH2747', 'RG556')]
     [string]$DeviceModel = 'CPH2747',
     [string]$Sdk = "$env:LOCALAPPDATA/Android/Sdk",
-    [string]$CommonLibrary
+    [string]$CommonLibrary,
+    [switch]$Sanitize
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,7 +26,8 @@ Push-Location $repoRoot
 try {
     New-Item -ItemType Directory -Force build/pgxp-tests | Out-Null
     $executable = 'build/pgxp-tests/pgxp-tests'
-    & $clang --target=aarch64-none-linux-android26 -std=c++17 -O2 -ffunction-sections -fdata-sections '-Wl,--gc-sections' -static-libstdc++ -Ithird_party/swanstation/src/core -Ithird_party/swanstation/src -Ithird_party/swanstation/dep/libretro-common/include tests/pgxp/pgxp_tests.cpp third_party/swanstation/src/core/cpu/gte.cpp $common -llog -o $executable
+    $sanitizerFlags = if ($Sanitize) { @('-fsanitize=undefined,float-cast-overflow', '-fno-sanitize-recover=all', '-static-libsan') } else { @() }
+    & $clang --target=aarch64-none-linux-android26 -std=c++17 -O2 -ffunction-sections -fdata-sections '-Wl,--gc-sections' -static-libstdc++ @sanitizerFlags -Ithird_party/swanstation/src/core -Ithird_party/swanstation/src -Ithird_party/swanstation/dep/libretro-common/include tests/pgxp/pgxp_tests.cpp third_party/swanstation/src/core/cpu/gte.cpp $common -llog -o $executable
     if ($LASTEXITCODE -ne 0) { throw 'PGXP test compilation failed.' }
     & $adb -s $Serial push $executable /data/local/tmp/emucorer-pgxp-tests
     if ($LASTEXITCODE -ne 0) { throw 'PGXP test upload failed.' }

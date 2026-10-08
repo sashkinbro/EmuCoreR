@@ -244,10 +244,9 @@ ALWAYS_INLINE_RELEASE double f16Unsign(double in)
 }
 ALWAYS_INLINE_RELEASE double f16Overflow(double in)
 {
-  double out = 0;
-  int64_t v = ((int64_t)in) >> 16;
-  out = (double)v;
-  return out;
+  if (!std::isfinite(in))
+    return 0.0;
+  return std::floor(std::trunc(in) / 65536.0);
 }
 
 ALWAYS_INLINE_RELEASE PGXP_value* GetPtr(uint32_t addr)
@@ -1487,99 +1486,109 @@ void CPU_MULTU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
   CPU_Lo.value = static_cast<uint32_t>(result);
 }
 
-void CPU_DIV(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
+static PGXP_value IntegerValue(uint32_t raw)
 {
-  // Lo = Rs / Rt (signed)
-  // Hi = Rs % Rt (signed)
-  Validate(&CPU_reg[rs(instr)], rsVal);
-  Validate(&CPU_reg[rt(instr)], rtVal);
+  return {static_cast<float>(static_cast<int16_t>(raw)),
+          static_cast<float>(static_cast<int16_t>(raw >> 16)), 0.f, {VALID_01}, raw};
+}
 
-  //// iCB: Only require one valid input
-  if (((CPU_reg[rt(instr)].flags & VALID_01) != VALID_01) != ((CPU_reg[rs(instr)].flags & VALID_01) != VALID_01))
+static bool IsIntegerValue(const PGXP_value& value)
+{
+  return (value.flags & (VALID_01 | VALID_Z)) == VALID_01 &&
+         value.x == static_cast<float>(static_cast<int16_t>(value.value)) &&
+         value.y == static_cast<float>(static_cast<int16_t>(value.value >> 16));
+}
+
+static void CPU_DIVIDE(uint32_t instr, uint32_t numerator, uint32_t denominator, bool sign)
+{
+  Validate(&CPU_reg[rs(instr)], numerator);
+  Validate(&CPU_reg[rt(instr)], denominator);
+  PGXP_value num = CPU_reg[rs(instr)];
+  PGXP_value denom = CPU_reg[rt(instr)];
+  MakeValid(&num, numerator);
+  MakeValid(&denom, denominator);
+
+  const bool overflow = sign && numerator == 0x80000000u && denominator == 0xffffffffu;
+  uint32_t quotient, remainder;
+  if (denominator == 0)
   {
-    MakeValid(&CPU_reg[rs(instr)], rsVal);
-    MakeValid(&CPU_reg[rt(instr)], rtVal);
+    quotient = sign && static_cast<int32_t>(numerator) < 0 ? 1u : 0xffffffffu;
+    remainder = numerator;
   }
-
-  CPU_Lo = CPU_Hi = CPU_reg[rs(instr)];
-  TaintZ(CPU_Lo);
-  TaintZ(CPU_Hi);
-
-  CPU_Lo.halfFlags[0] = CPU_Hi.halfFlags[0] = (CPU_reg[rs(instr)].halfFlags[0] & CPU_reg[rt(instr)].halfFlags[0]);
-
-  double vs = f16Unsign(CPU_reg[rs(instr)].x) + (CPU_reg[rs(instr)].y) * (double)(1 << 16);
-  double vt = f16Unsign(CPU_reg[rt(instr)].x) + (CPU_reg[rt(instr)].y) * (double)(1 << 16);
-
-  double lo = vs / vt;
-  CPU_Lo.y = (float)f16Sign(f16Overflow(lo));
-  CPU_Lo.x = (float)f16Sign(lo);
-
-  double hi = fmod(vs, vt);
-  CPU_Hi.y = (float)f16Sign(f16Overflow(hi));
-  CPU_Hi.x = (float)f16Sign(hi);
-
-  // compute PSX value
-  if (static_cast<int32_t>(rtVal) == 0)
+  else if (overflow)
   {
-    // divide by zero
-    CPU_Lo.value = (static_cast<int32_t>(rsVal) >= 0) ? UINT32_C(0xFFFFFFFF) : UINT32_C(1);
-    CPU_Hi.value = static_cast<uint32_t>(static_cast<int32_t>(rsVal));
+    quotient = numerator;
+    remainder = 0;
   }
-  else if (rsVal == UINT32_C(0x80000000) && static_cast<int32_t>(rtVal) == -1)
+  else if (sign)
   {
-    // unrepresentable
-    CPU_Lo.value = UINT32_C(0x80000000);
-    CPU_Hi.value = 0;
+    quotient = static_cast<uint32_t>(static_cast<int32_t>(numerator) / static_cast<int32_t>(denominator));
+    remainder = static_cast<uint32_t>(static_cast<int32_t>(numerator) % static_cast<int32_t>(denominator));
   }
   else
   {
-    CPU_Lo.value = static_cast<uint32_t>(static_cast<int32_t>(rsVal) / static_cast<int32_t>(rtVal));
-    CPU_Hi.value = static_cast<uint32_t>(static_cast<int32_t>(rsVal) % static_cast<int32_t>(rtVal));
+    quotient = numerator / denominator;
+    remainder = numerator % denominator;
   }
+  CPU_Lo = IntegerValue(quotient);
+  CPU_Hi = IntegerValue(remainder);
+
+  if (overflow || !std::isfinite(num.x) || !std::isfinite(num.y) ||
+      !std::isfinite(denom.x) || !std::isfinite(denom.y) || (IsIntegerValue(num) && IsIntegerValue(denom)))
+    return;
+  // Exceptional results are defined by the integer hardware. HI retains the
+  // unchanged dividend on division by zero; LO does not inherit its depth.
+  if (denominator == 0)
+  {
+    CPU_Hi = num;
+    return;
+  }
+  if (denominator == 1 && IsIntegerValue(denom))
+  {
+    CPU_Lo = num;
+    return;
+  }
+  if (sign && denominator == 0xffffffffu && IsIntegerValue(denom))
+  {
+    CPU_Lo.x = static_cast<float>(f16Sign(-double(num.x)));
+    CPU_Lo.y = static_cast<float>(f16Sign(-double(num.y) - ((numerator & 0xffffu) != 0 ? 1.0 : 0.0)));
+    CopyZState(CPU_Lo, num);
+    TaintZ(CPU_Lo);
+    return;
+  }
+
+  // Unsigned conversion follows the native sign bits, including fractional
+  // components that cross zero without changing their associated integer.
+  const double n = double(num.x) + ((numerator & 0x8000u) ? 65536.0 : 0.0) +
+    (double(num.y) + (!sign && (numerator & 0x80000000u) ? 65536.0 : 0.0)) * 65536.0;
+  const double d = double(denom.x) + ((denominator & 0x8000u) ? 65536.0 : 0.0) +
+    (double(denom.y) + (!sign && (denominator & 0x80000000u) ? 65536.0 : 0.0)) * 65536.0;
+  if (d == 0.0 || !std::isfinite(n) || !std::isfinite(d))
+    return;
+  const double lo = n / d;
+  const double hi = std::fmod(n, d);
+  // A precision divisor near zero can produce an unbounded quotient while
+  // the real CPU result remains a finite 32-bit value. Keep that real result.
+  if (!std::isfinite(lo) || !std::isfinite(hi) || std::abs(lo) >= 4294967296.0)
+    return;
+  CPU_Lo.x = static_cast<float>(f16Sign(lo));
+  CPU_Lo.y = static_cast<float>(f16Sign(f16Overflow(lo)));
+  CPU_Hi.x = static_cast<float>(f16Sign(hi));
+  CPU_Hi.y = static_cast<float>(f16Sign(f16Overflow(hi)));
+  CopyZState(CPU_Lo, num);
+  CopyZState(CPU_Hi, num);
+  TaintZ(CPU_Lo);
+  TaintZ(CPU_Hi);
+}
+
+void CPU_DIV(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
+{
+  CPU_DIVIDE(instr, rsVal, rtVal, true);
 }
 
 void CPU_DIVU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 {
-  // Lo = Rs / Rt (unsigned)
-  // Hi = Rs % Rt (unsigned)
-  Validate(&CPU_reg[rs(instr)], rsVal);
-  Validate(&CPU_reg[rt(instr)], rtVal);
-
-  //// iCB: Only require one valid input
-  if (((CPU_reg[rt(instr)].flags & VALID_01) != VALID_01) != ((CPU_reg[rs(instr)].flags & VALID_01) != VALID_01))
-  {
-    MakeValid(&CPU_reg[rs(instr)], rsVal);
-    MakeValid(&CPU_reg[rt(instr)], rtVal);
-  }
-
-  CPU_Lo = CPU_Hi = CPU_reg[rs(instr)];
-  TaintZ(CPU_Lo);
-  TaintZ(CPU_Hi);
-
-  CPU_Lo.halfFlags[0] = CPU_Hi.halfFlags[0] = (CPU_reg[rs(instr)].halfFlags[0] & CPU_reg[rt(instr)].halfFlags[0]);
-
-  double vs = f16Unsign(CPU_reg[rs(instr)].x) + f16Unsign(CPU_reg[rs(instr)].y) * (double)(1 << 16);
-  double vt = f16Unsign(CPU_reg[rt(instr)].x) + f16Unsign(CPU_reg[rt(instr)].y) * (double)(1 << 16);
-
-  double lo = vs / vt;
-  CPU_Lo.y = (float)f16Sign(f16Overflow(lo));
-  CPU_Lo.x = (float)f16Sign(lo);
-
-  double hi = fmod(vs, vt);
-  CPU_Hi.y = (float)f16Sign(f16Overflow(hi));
-  CPU_Hi.x = (float)f16Sign(hi);
-
-  if (rtVal == 0)
-  {
-    // divide by zero
-    CPU_Lo.value = UINT32_C(0xFFFFFFFF);
-    CPU_Hi.value = rsVal;
-  }
-  else
-  {
-    CPU_Lo.value = rsVal / rtVal;
-    CPU_Hi.value = rsVal % rtVal;
-  }
+  CPU_DIVIDE(instr, rsVal, rtVal, false);
 }
 
 ////////////////////////////////////
