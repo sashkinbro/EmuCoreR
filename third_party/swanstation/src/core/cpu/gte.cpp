@@ -10,6 +10,7 @@
 #include "timing_event.h"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <numeric>
 namespace GTE {
@@ -819,7 +820,21 @@ static void Execute_NCLIP_PGXP(Instruction inst)
   if (PGXP::GTE_NCLIP_valid(REGS.dr32[12], REGS.dr32[13], REGS.dr32[14]))
   {
     REGS.FLAG.Clear();
-    SetDataRegister(24, static_cast<int32_t>(PGXP::GTE_NCLIP()));
+    const double area = std::trunc(PGXP::GTE_NCLIP());
+    if (area >= double(MAC0_MIN_VALUE) && area <= double(MAC0_MAX_VALUE))
+    {
+      SetDataRegister(24, static_cast<int32_t>(area));
+    }
+    else
+    {
+      REGS.FLAG.mac0_underflow = area < double(MAC0_MIN_VALUE);
+      REGS.FLAG.mac0_overflow = area > double(MAC0_MAX_VALUE);
+      // Wrap only after recording overflow. The remainder fits int64 even
+      // when finite tracked coordinates produce an area outside its range.
+      const int64_t wrapped = static_cast<int64_t>(std::fmod(area, 4294967296.0));
+      SetDataRegister(24, static_cast<uint32_t>(wrapped));
+      REGS.FLAG.UpdateError();
+    }
   }
   else
   {

@@ -43,7 +43,7 @@ void GTE_PushSXYZ2f(float x, float y, float z, uint32_t v);
 void GTE_SetDataRegister(uint32_t index, uint32_t value);
 void GTE_PushDataFIFO(uint32_t first, uint32_t count, uint32_t value);
 int GTE_NCLIP_valid(uint32_t sxy0, uint32_t sxy1, uint32_t sxy2);
-float GTE_NCLIP();
+double GTE_NCLIP();
 
 // Data transfer tracking
 void CPU_MFC2(uint32_t instr, uint32_t rtVal, uint32_t rdVal); // copy GTE data reg to GPR reg (MFC2)

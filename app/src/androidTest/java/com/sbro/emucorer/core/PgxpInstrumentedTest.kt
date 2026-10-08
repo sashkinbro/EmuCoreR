@@ -27,7 +27,10 @@ class PgxpInstrumentedTest {
     @Test
     fun runaheadPreservesPrecisionAcrossInputChanges() = runProbe(false, true)
 
-    private fun runProbe(textured: Boolean, runahead: Boolean = false) {
+    @Test
+    fun memoryTrackingRendersWithStandardProjection() = runProbe(false, cpuTracking = false, preserveProjection = false)
+
+    private fun runProbe(textured: Boolean, runahead: Boolean = false, cpuTracking: Boolean = true, preserveProjection: Boolean = true) {
         val deviceModel = InstrumentationRegistry.getArguments().getString("pgxpDeviceModel", "CPH2747")
         assertTrue("unsupported PGXP test device", deviceModel in listOf("CPH2747", "RG556"))
         assertEquals(deviceModel, Build.MODEL)
@@ -47,8 +50,8 @@ class PgxpInstrumentedTest {
                         val options = mapOf(
                             "GPU_Renderer" to if (renderer == RendererDefaults.CORE_VULKAN) "Vulkan" else "OpenGL",
                             "CPU_ExecutionMode" to cpu,
-                            "GPU_PGXPEnable" to "true", "GPU_PGXPCPU" to "true",
-                            "GPU_PGXPPreserveProjFP" to "true", "GPU_PGXPVertexCache" to "false",
+                            "GPU_PGXPEnable" to "true", "GPU_PGXPCPU" to cpuTracking.toString(),
+                            "GPU_PGXPPreserveProjFP" to preserveProjection.toString(), "GPU_PGXPVertexCache" to "false",
                             "GPU_PGXPCulling" to "true", "GPU_PGXPTextureCorrection" to textured.toString(),
                             "GPU_PGXPColorCorrection" to "false", "GPU_PGXPDepthBuffer" to depth.toString(),
                             "GPU_PGXPDisableOn2DPolygons" to "true", "GPU_PGXPTransparentDepthTest" to "false",
@@ -75,7 +78,7 @@ class PgxpInstrumentedTest {
                                     bridge.runFrame(session)
                                     pixel = centerPixel(reader) ?: pixel
                                 }
-                                val label = "$cpu/${RendererDefaults.coreRendererName(renderer)}/depth=$depth/textured=$textured/runahead=$runahead"
+                                val label = "$cpu/${RendererDefaults.coreRendererName(renderer)}/depth=$depth/textured=$textured/runahead=$runahead/cpuTracking=$cpuTracking/projection=$preserveProjection"
                                 Log.i("PGXPProbe", "$label display=${bridge.getDisplayRect(session)?.toList()} diagnostics=${bridge.getDiagnostics()}")
                                 assertNotNull("no rendered image: $label", pixel)
                                 val rgb = pixel!!
@@ -90,119 +93,134 @@ class PgxpInstrumentedTest {
                                 var before = precisionMemory(state, ramSize)
                                 val sx = 160.25f - 12000f / 301f
                                 val sy = 120.25f - 10000f / 301f
-                                assertEquals("LWL full word X: $label", sx, before.getFloat(0x2000 / 4 * 20), 0.001f)
-                                assertEquals("LWL full word Y: $label", sy, before.getFloat(0x2000 / 4 * 20 + 4), 0.001f)
-                                assertEquals("LWR byte offset 2: $label", sy, before.getFloat(0x2004 / 4 * 20), 0.001f)
-                                assertEquals("SWL byte offset 1: $label", sy, before.getFloat(0x2008 / 4 * 20), 0.001f)
-                                assertEquals("SWR byte offset 2: $label", sx, before.getFloat(0x200c / 4 * 20 + 4), 0.001f)
-                                assertEquals("redundant ORI: $label", sx, before.getFloat(0x2010 / 4 * 20), 0.001f)
-                                for ((address, value) in listOf(0x2014 to 0f, 0x2018 to 1f, 0x201c to 0f, 0x2020 to 0f)) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("constant result at $address: $label", value, before.getFloat(entry), 0f)
-                                    assertEquals("constant borrowed a depth at $address: $label", 0, before.getInt(entry + 12) and 0x10000)
-                                }
-                                for (address in listOf(0x2028, 0x202c)) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("zero-valued vertex X at $address: $label", 0.25f, before.getFloat(entry), 0.001f)
-                                    assertEquals("zero-valued vertex Y at $address: $label", 0.5f, before.getFloat(entry + 4), 0.001f)
+                                val projected = 0x1004 / 4 * 20
+                                assertEquals("direct projection X: $label", sx, before.getFloat(projected), 0.001f)
+                                assertEquals("direct projection Y: $label", sy, before.getFloat(projected + 4), 0.001f)
+                                assertEquals("direct projection lost depth: $label", 0x10101, before.getInt(projected + 12))
+                                if (cpuTracking) {
+                                    assertEquals("LWL full word X: $label", sx, before.getFloat(0x2000 / 4 * 20), 0.001f)
+                                    assertEquals("LWL full word Y: $label", sy, before.getFloat(0x2000 / 4 * 20 + 4), 0.001f)
+                                    assertEquals("LWR byte offset 2: $label", sy, before.getFloat(0x2004 / 4 * 20), 0.001f)
+                                    assertEquals("SWL byte offset 1: $label", sy, before.getFloat(0x2008 / 4 * 20), 0.001f)
+                                    assertEquals("SWR byte offset 2: $label", sx, before.getFloat(0x200c / 4 * 20 + 4), 0.001f)
+                                    assertEquals("redundant ORI: $label", sx, before.getFloat(0x2010 / 4 * 20), 0.001f)
+                                    for ((address, value) in listOf(0x2014 to 0f, 0x2018 to 1f, 0x201c to 0f, 0x2020 to 0f)) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("constant result at $address: $label", value, before.getFloat(entry), 0f)
+                                        assertEquals("constant borrowed a depth at $address: $label", 0, before.getInt(entry + 12) and 0x10000)
+                                    }
+                                    for (address in listOf(0x2028, 0x202c)) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("zero-valued vertex X at $address: $label", 0.25f, before.getFloat(entry), 0.001f)
+                                        assertEquals("zero-valued vertex Y at $address: $label", 0.5f, before.getFloat(entry + 4), 0.001f)
+                                    }
+                                    for ((address, expected) in listOf(
+                                        0x2030 to (0.5f to 1f), 0x2034 to (0.125f to 0.25f),
+                                        0x2038 to (0.5f to 0f), 0x203c to (0f to 0.25f),
+                                        0x2040 to (0.5f to 1f), 0x2044 to (0.125f to 0.25f),
+                                        0x2048 to (0.125f to 0.25f)
+                                    )) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("shift X at $address: $label", expected.first, before.getFloat(entry), 0.001f)
+                                        assertEquals("shift Y at $address: $label", expected.second, before.getFloat(entry + 4), 0.001f)
+                                        assertEquals("shift lost component validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                    }
+                                    val shiftedX = sx / 2f + ((sy.toInt() and 1) shl 15)
+                                    val wrappedX = if (shiftedX >= 32768f) shiftedX - 65536f else shiftedX
+                                    assertEquals("right shift used fractional carry: $label", wrappedX, before.getFloat(0x2060 / 4 * 20), 0.001f)
+                                    assertEquals("right shift Y: $label", sy / 2f, before.getFloat(0x2060 / 4 * 20 + 4), 0.001f)
+                                    val original = 0x2064 / 4 * 20
+                                    for (address in listOf(0x2074, 0x2078)) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("HI/LO transfer X at $address: $label", sx, before.getFloat(entry), 0.001f)
+                                        assertEquals("HI/LO transfer Y at $address: $label", sy, before.getFloat(entry + 4), 0.001f)
+                                        assertEquals("HI/LO transfer lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                    }
+                                    for ((address, y) in listOf(0x2080 to 32758f, 0x2084 to -10f)) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("division quotient X at $address: $label", 5.125f, before.getFloat(entry), 0.001f)
+                                        assertEquals("division quotient Y at $address: $label", y, before.getFloat(entry + 4), 0.001f)
+                                        assertEquals("division lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                    }
+                                    for (address in listOf(0x2088, 0x208c)) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("division identity X at $address: $label", sx, before.getFloat(entry), 0.001f)
+                                        assertEquals("division identity Y at $address: $label", sy, before.getFloat(entry + 4), 0.001f)
+                                        assertEquals("division identity lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                    }
+                                    for (address in listOf(0x20c0, 0x20c4, 0x20c8, 0x20cc, 0x20d0, 0x20d4)) {
+                                        val entry = address / 4 * 20
+                                        val scale = if (address < 0x20d0) 2f else 1f
+                                        assertEquals("multiplication X at $address: $label", sx * scale, before.getFloat(entry), 0.001f)
+                                        assertEquals("multiplication Y at $address: $label", sy * scale, before.getFloat(entry + 4), 0.001f)
+                                        assertEquals("multiplication lost depth at $address: $label", 0x10000, before.getInt(entry + 12) and 0x10000)
+                                    }
+                                    for ((address, expected) in listOf(
+                                        0x2090 to (0f to 0f), 0x2094 to (0f to 0f),
+                                        0x2098 to (1f to 0f), 0x209c to (-1f to -1f),
+                                        0x20a8 to (0f to -32768f), 0x20ac to (0f to 0f),
+                                        0x20b0 to (1f to 0f), 0x20b4 to (1f to 0f),
+                                        0x20d8 to (0f to 0f), 0x20dc to (0f to 0f),
+                                        0x20e0 to (0f to 0f), 0x20e4 to (0f to 0f),
+                                        0x20e8 to (0f to 0f), 0x20ec to (0f to 0f)
+                                    )) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("integer division X at $address: $label", expected.first, before.getFloat(entry), 0f)
+                                        assertEquals("integer division Y at $address: $label", expected.second, before.getFloat(entry + 4), 0f)
+                                        assertEquals("integer division borrowed depth at $address: $label", 0, before.getInt(entry + 12) and 0x10000)
+                                    }
+                                    for (address in listOf(0x20a0, 0x20a4)) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("zero divisor remainder X: $label", 10.25f, before.getFloat(entry), 0f)
+                                        assertEquals("zero divisor remainder Y: $label", -20f, before.getFloat(entry + 4), 0f)
+                                        assertEquals("zero divisor lost the dividend: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                    }
+                                    for ((address, expected) in listOf(
+                                        0x2100 to (-20f to 0f), 0x2104 to (-20f to -1f),
+                                        0x2108 to (0f to sy), 0x2110 to (sx to sy), 0x2118 to (sy to 0f)
+                                    )) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("partial transfer X at $address: $label", expected.first, before.getFloat(entry), 0.001f)
+                                        assertEquals("partial transfer Y at $address: $label", expected.second, before.getFloat(entry + 4), 0.001f)
+                                        assertEquals("partial transfer lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                    }
+                                    assertEquals("overwritten halves retained precision: $label", 0, before.getInt(0x2114 / 4 * 20 + 12) and 0x01010101)
+                                    for (address in listOf(0x2120, 0x2124, 0x2128, 0x212c, 0x2130)) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("typed GTE transfer X at $address: $label", sx, before.getFloat(entry), 0.001f)
+                                        assertEquals("typed GTE extension at $address: $label", 0f, before.getFloat(entry + 4), 0f)
+                                        assertEquals("typed GTE transfer lost precision at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                    }
+                                    for (address in listOf(0x2140, 0x2144)) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("GTE arithmetic retained stale X at $address: $label", 14400f, before.getFloat(entry), 0f)
+                                        assertEquals("GTE arithmetic retained stale Y at $address: $label", 0f, before.getFloat(entry + 4), 0f)
+                                        assertEquals("GTE arithmetic borrowed vertex depth at $address: $label", 0x101, before.getInt(entry + 12))
+                                    }
+                                    assertEquals("variable shift invalidated its source: $label", 0x101, before.getInt(original + 12) and 0x101)
+                                    assertEquals("variable shift changed source X: $label", sx, before.getFloat(original), 0.001f)
+                                    assertEquals("variable shift changed source Y: $label", sy, before.getFloat(original + 4), 0.001f)
+                                    val shift = sx.toInt() and 31
+                                    assertTrue("probe expects a shift beyond one halfword", shift > 16)
+                                    for ((address, expected) in listOf(
+                                        0x2068 to (0f to sx * (1 shl (shift - 16))),
+                                        0x206c to (sy / (1 shl (shift - 16)) to 0f),
+                                        0x2070 to (sy / (1 shl (shift - 16)) to 0f)
+                                    )) {
+                                        val entry = address / 4 * 20
+                                        assertEquals("aliased variable shift X at $address: $label", expected.first, before.getFloat(entry), 0.001f)
+                                        assertEquals("aliased variable shift Y at $address: $label", expected.second, before.getFloat(entry + 4), 0.001f)
+                                        assertEquals("aliased variable shift lost precision at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                    }
                                 }
                                 for ((address, expected) in listOf(
-                                    0x2030 to (0.5f to 1f), 0x2034 to (0.125f to 0.25f),
-                                    0x2038 to (0.5f to 0f), 0x203c to (0f to 0.25f),
-                                    0x2040 to (0.5f to 1f), 0x2044 to (0.125f to 0.25f),
-                                    0x2048 to (0.125f to 0.25f)
+                                    0x2150 to (1f to -2f), 0x2154 to (0f to -32767f),
+                                    0x2158 to (-1f to 1f), 0x215c to (-32768f to -32768f)
                                 )) {
                                     val entry = address / 4 * 20
-                                    assertEquals("shift X at $address: $label", expected.first, before.getFloat(entry), 0.001f)
-                                    assertEquals("shift Y at $address: $label", expected.second, before.getFloat(entry + 4), 0.001f)
-                                    assertEquals("shift lost component validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
-                                }
-                                val shiftedX = sx / 2f + ((sy.toInt() and 1) shl 15)
-                                val wrappedX = if (shiftedX >= 32768f) shiftedX - 65536f else shiftedX
-                                assertEquals("right shift used fractional carry: $label", wrappedX, before.getFloat(0x2060 / 4 * 20), 0.001f)
-                                assertEquals("right shift Y: $label", sy / 2f, before.getFloat(0x2060 / 4 * 20 + 4), 0.001f)
-                                val original = 0x2064 / 4 * 20
-                                for (address in listOf(0x2074, 0x2078)) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("HI/LO transfer X at $address: $label", sx, before.getFloat(entry), 0.001f)
-                                    assertEquals("HI/LO transfer Y at $address: $label", sy, before.getFloat(entry + 4), 0.001f)
-                                    assertEquals("HI/LO transfer lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
-                                }
-                                for ((address, y) in listOf(0x2080 to 32758f, 0x2084 to -10f)) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("division quotient X at $address: $label", 5.125f, before.getFloat(entry), 0.001f)
-                                    assertEquals("division quotient Y at $address: $label", y, before.getFloat(entry + 4), 0.001f)
-                                    assertEquals("division lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
-                                }
-                                for (address in listOf(0x2088, 0x208c)) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("division identity X at $address: $label", sx, before.getFloat(entry), 0.001f)
-                                    assertEquals("division identity Y at $address: $label", sy, before.getFloat(entry + 4), 0.001f)
-                                    assertEquals("division identity lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
-                                }
-                                for (address in listOf(0x20c0, 0x20c4, 0x20c8, 0x20cc, 0x20d0, 0x20d4)) {
-                                    val entry = address / 4 * 20
-                                    val scale = if (address < 0x20d0) 2f else 1f
-                                    assertEquals("multiplication X at $address: $label", sx * scale, before.getFloat(entry), 0.001f)
-                                    assertEquals("multiplication Y at $address: $label", sy * scale, before.getFloat(entry + 4), 0.001f)
-                                    assertEquals("multiplication lost depth at $address: $label", 0x10000, before.getInt(entry + 12) and 0x10000)
-                                }
-                                for ((address, expected) in listOf(
-                                    0x2090 to (0f to 0f), 0x2094 to (0f to 0f),
-                                    0x2098 to (1f to 0f), 0x209c to (-1f to -1f),
-                                    0x20a8 to (0f to -32768f), 0x20ac to (0f to 0f),
-                                    0x20b0 to (1f to 0f), 0x20b4 to (1f to 0f),
-                                    0x20d8 to (0f to 0f), 0x20dc to (0f to 0f),
-                                    0x20e0 to (0f to 0f), 0x20e4 to (0f to 0f),
-                                    0x20e8 to (0f to 0f), 0x20ec to (0f to 0f)
-                                )) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("integer division X at $address: $label", expected.first, before.getFloat(entry), 0f)
-                                    assertEquals("integer division Y at $address: $label", expected.second, before.getFloat(entry + 4), 0f)
-                                    assertEquals("integer division borrowed depth at $address: $label", 0, before.getInt(entry + 12) and 0x10000)
-                                }
-                                for (address in listOf(0x20a0, 0x20a4)) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("zero divisor remainder X: $label", 10.25f, before.getFloat(entry), 0f)
-                                    assertEquals("zero divisor remainder Y: $label", -20f, before.getFloat(entry + 4), 0f)
-                                    assertEquals("zero divisor lost the dividend: $label", 0x101, before.getInt(entry + 12) and 0x101)
-                                }
-                                for ((address, expected) in listOf(
-                                    0x2100 to (-20f to 0f), 0x2104 to (-20f to -1f),
-                                    0x2108 to (0f to sy), 0x2110 to (sx to sy), 0x2118 to (sy to 0f)
-                                )) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("partial transfer X at $address: $label", expected.first, before.getFloat(entry), 0.001f)
-                                    assertEquals("partial transfer Y at $address: $label", expected.second, before.getFloat(entry + 4), 0.001f)
-                                    assertEquals("partial transfer lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
-                                }
-                                assertEquals("overwritten halves retained precision: $label", 0, before.getInt(0x2114 / 4 * 20 + 12) and 0x01010101)
-                                for (address in listOf(0x2120, 0x2124, 0x2128, 0x212c, 0x2130)) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("typed GTE transfer X at $address: $label", sx, before.getFloat(entry), 0.001f)
-                                    assertEquals("typed GTE extension at $address: $label", 0f, before.getFloat(entry + 4), 0f)
-                                    assertEquals("typed GTE transfer lost precision at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
-                                }
-                                for (address in listOf(0x2140, 0x2144)) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("GTE arithmetic retained stale X at $address: $label", 14400f, before.getFloat(entry), 0f)
-                                    assertEquals("GTE arithmetic retained stale Y at $address: $label", 0f, before.getFloat(entry + 4), 0f)
-                                    assertEquals("GTE arithmetic borrowed vertex depth at $address: $label", 0x101, before.getInt(entry + 12))
-                                }
-                                assertEquals("variable shift invalidated its source: $label", 0x101, before.getInt(original + 12) and 0x101)
-                                assertEquals("variable shift changed source X: $label", sx, before.getFloat(original), 0.001f)
-                                assertEquals("variable shift changed source Y: $label", sy, before.getFloat(original + 4), 0.001f)
-                                val shift = sx.toInt() and 31
-                                assertTrue("probe expects a shift beyond one halfword", shift > 16)
-                                for ((address, expected) in listOf(
-                                    0x2068 to (0f to sx * (1 shl (shift - 16))),
-                                    0x206c to (sy / (1 shl (shift - 16)) to 0f),
-                                    0x2070 to (sy / (1 shl (shift - 16)) to 0f)
-                                )) {
-                                    val entry = address / 4 * 20
-                                    assertEquals("aliased variable shift X at $address: $label", expected.first, before.getFloat(entry), 0.001f)
-                                    assertEquals("aliased variable shift Y at $address: $label", expected.second, before.getFloat(entry + 4), 0.001f)
-                                    assertEquals("aliased variable shift lost precision at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                    assertEquals("culling result X at $address: $label", expected.first, before.getFloat(entry), 0f)
+                                    assertEquals("culling result Y at $address: $label", expected.second, before.getFloat(entry + 4), 0f)
+                                    assertEquals("culling result borrowed geometry at $address: $label", 0x101, before.getInt(entry + 12))
                                 }
                                 if (runahead) {
                                     normalizeInvalidPrecision(before)
@@ -554,6 +572,30 @@ class PgxpInstrumentedTest {
         emit(0x4a000028) // sqr, sf=0: MAC1 becomes the new integer 120*120
         emit(imm(0x3a, 12, 25, 0x140))
         emit(imm(0x3a, 12, 9, 0x144))
+        gte(24, 0, true)
+        gte(25, 0, true)
+        gte(0, 0, false)
+        gte(1, 301, false)
+        emit(0x4a080001) // generate a precise zero with valid depth
+        emit(0x48000000 or (8 shl 16) or (14 shl 11))
+        emit(0)
+        for (negative in listOf(false, true)) {
+            val points = listOf(-32768 to -32768, 32767 to -32768, -32768 to 32767)
+            val order = if (negative) listOf(0, 2, 1) else listOf(0, 1, 2)
+            for ((register, index) in order.withIndex()) {
+                val point = points[index]
+                constant(13, ((point.second and 65535) shl 16) or (point.first and 65535))
+                emit((8 shl 21) or (13 shl 16) or (14 shl 11) or 0x21) // addu r14, r8, r13
+                emit(0x48800000 or (14 shl 16) or ((12 + register) shl 11))
+            }
+            repeat(2) { emit(0) }
+            emit(0x4a000006) // nclip: full signed-halfword range overflows MAC0
+            val address = if (negative) 0x158 else 0x150
+            emit(imm(0x3a, 12, 24, address))
+            emit(0x48400000 or (14 shl 16) or (31 shl 11))
+            emit(0)
+            emit(imm(0x2b, 12, 14, address + 4))
+        }
         write(11, 0x50, 0x800) // enable DMA channel 2
         write(11, 0, 0x1000)
         write(11, 4, if (textured) 14 else 8)
