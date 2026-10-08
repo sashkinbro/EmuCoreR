@@ -3,6 +3,7 @@ package com.sbro.emucorer.core
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import com.sbro.emucorer.BuildConfig
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
@@ -31,7 +32,7 @@ object CrashLogger {
     fun init(context: Context) {
         logFile = resolveLogFile(context)
         installUncaughtExceptionHandler()
-        writeStartupLine(context)
+        if (BuildConfig.DEBUG) writeStartupLine(context)
     }
 
     fun logError(tag: String, message: String, throwable: Throwable? = null) {
@@ -46,10 +47,12 @@ object CrashLogger {
     }
 
     fun logInfo(tag: String, message: String) {
+        if (!BuildConfig.DEBUG) return
         writeEntry("INFO", "[$tag] $message")
     }
 
     fun logContext(key: String, value: Any?) {
+        if (!BuildConfig.DEBUG) return
         writeEntry("CTX", "$key = $value")
     }
 

@@ -10,6 +10,17 @@
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
+# Remove routine diagnostics and their unused message construction in release.
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}
+-assumenosideeffects class com.sbro.emucorer.core.CrashLogger {
+    public final void logInfo(...);
+    public final void logContext(...);
+}
+
 # Signatures/annotations are read at runtime by Room and the Discord SDK.
 -keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod
 

@@ -20,7 +20,11 @@
 #include <vector>
 
 #define VK_LOG_TAG "EmuCoreR-Vk"
+#ifndef NDEBUG
 #define VK_LOGI(...) __android_log_print(ANDROID_LOG_INFO, VK_LOG_TAG, __VA_ARGS__)
+#else
+#define VK_LOGI(...) ((void)0)
+#endif
 #define VK_LOGW(...) __android_log_print(ANDROID_LOG_WARN, VK_LOG_TAG, __VA_ARGS__)
 #define VK_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, VK_LOG_TAG, __VA_ARGS__)
 

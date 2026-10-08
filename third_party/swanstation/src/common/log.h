@@ -45,5 +45,10 @@ void Writev(const char* channelName, const char* functionName, LogLevel level, c
 #define Log_ErrorPrintf(...) Log::Writef(___LogChannel___, __func__, LogLevel::Error, __VA_ARGS__)
 #define Log_WarningPrint(msg) Log::Write(___LogChannel___, __func__, LogLevel::Warning, msg)
 #define Log_WarningPrintf(...) Log::Writef(___LogChannel___, __func__, LogLevel::Warning, __VA_ARGS__)
+#if defined(__ANDROID__) && defined(NDEBUG)
+#define Log_InfoPrint(msg) ((void)0)
+#define Log_InfoPrintf(...) ((void)0)
+#else
 #define Log_InfoPrint(msg) Log::Write(___LogChannel___, __func__, LogLevel::Info, msg)
 #define Log_InfoPrintf(...) Log::Writef(___LogChannel___, __func__, LogLevel::Info, __VA_ARGS__)
+#endif

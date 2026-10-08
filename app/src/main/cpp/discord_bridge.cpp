@@ -13,7 +13,11 @@
 #include <string>
 
 #define DTAG "EmuCoreRDiscord"
+#ifndef NDEBUG
 #define DLOGI(...) __android_log_print(ANDROID_LOG_INFO, DTAG, __VA_ARGS__)
+#else
+#define DLOGI(...) ((void)0)
+#endif
 #define DLOGW(...) __android_log_print(ANDROID_LOG_WARN, DTAG, __VA_ARGS__)
 
 namespace
