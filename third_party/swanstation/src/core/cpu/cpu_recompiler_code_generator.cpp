@@ -1324,7 +1324,7 @@ bool CodeGenerator::Compile_Shift(const CodeBlockInstruction& cbi)
 
       result = ShlValues(rt, shamt, false);
       if (rt_spec && shamt_spec)
-        result_spec = *rt_spec << *shamt_spec;
+        result_spec = *rt_spec << (*shamt_spec & 31u);
     }
     break;
 
@@ -1341,7 +1341,7 @@ bool CodeGenerator::Compile_Shift(const CodeBlockInstruction& cbi)
 
       result = ShrValues(rt, shamt, false);
       if (rt_spec && shamt_spec)
-        result_spec = *rt_spec >> *shamt_spec;
+        result_spec = *rt_spec >> (*shamt_spec & 31u);
     }
     break;
 
@@ -1358,7 +1358,7 @@ bool CodeGenerator::Compile_Shift(const CodeBlockInstruction& cbi)
 
       result = SarValues(rt, shamt, false);
       if (rt_spec && shamt_spec)
-        result_spec = static_cast<uint32_t>(static_cast<int32_t>(*rt_spec) >> *shamt_spec);
+        result_spec = static_cast<uint32_t>(static_cast<int32_t>(*rt_spec) >> (*shamt_spec & 31u));
     }
     break;
 
