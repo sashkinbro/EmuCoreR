@@ -7,6 +7,7 @@
 #include "host_display.h"
 #include "host_interface.h"
 #include "interrupt_controller.h"
+#include "pgxp.h"
 #include "settings.h"
 #include "system.h"
 #include "texture_replacements.h"
@@ -14,6 +15,7 @@
 #include <cmath>
 #include <cstring>
 std::unique_ptr<GPU> g_gpu;
+static_assert(GPU::MAX_FIFO_SIZE <= PGXP::GPU_VERTEX_SNAPSHOT_COUNT);
 
 const GPU::GP0CommandHandlerTable GPU::s_GP0_command_handler_table = GPU::GenerateGP0CommandHandlerTable();
 
@@ -370,7 +372,8 @@ void GPU::WriteRegister(uint32_t offset, uint32_t value)
   switch (offset)
   {
     case 0x00:
-      m_fifo.Push(value);
+      m_fifo.Push((static_cast<uint64_t>(g_settings.gpu_pgxp_enable ? PGXP::ConsumeGPUWrite(value) :
+                                                                 PGXP::INVALID_GPU_VERTEX_TOKEN) << 32) | value);
       ExecuteCommands();
       UpdateCommandTickEvent();
       return;
@@ -414,7 +417,7 @@ void GPU::DMAWrite(const uint32_t* words, uint32_t address, uint32_t increment, 
     for (uint32_t i = 0; i < contiguous; i++)
     {
       *(fifo_ptr++) = words[i];
-      *(fifo_ptr++) = address;
+      *(fifo_ptr++) = g_settings.gpu_pgxp_enable ? PGXP::CaptureGPUVertex(address, words[i]) : address;
       address = (address + increment) & mask;
     }
 
@@ -424,7 +427,8 @@ void GPU::DMAWrite(const uint32_t* words, uint32_t address, uint32_t increment, 
   // Whatever wrapped past the end of the FIFO storage goes the slow way.
   for (uint32_t i = contiguous; i < word_count; i++)
   {
-    m_fifo.Push((static_cast<uint64_t>(address) << 32) | words[i]);
+    const uint32_t source = g_settings.gpu_pgxp_enable ? PGXP::CaptureGPUVertex(address, words[i]) : address;
+    m_fifo.Push((static_cast<uint64_t>(source) << 32) | words[i]);
     address = (address + increment) & mask;
   }
 }

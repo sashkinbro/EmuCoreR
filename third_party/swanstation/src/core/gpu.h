@@ -73,8 +73,8 @@ public:
 
   ALWAYS_INLINE bool BeginDMAWrite() const { return (m_GPUSTAT.dma_direction == DMADirection::CPUtoGP0); }
 
-  // Queues a linear block of GP0 words together with their source RAM
-  // addresses. Callers must stage wrapping transfers through a bounce buffer
+  // Queues GP0 words with their source addresses or captured PGXP tokens.
+  // Callers must stage wrapping transfers through a bounce buffer
   // so the data is contiguous.
   void DMAWrite(const uint32_t* words, uint32_t address, uint32_t increment, uint32_t word_count);
   void EndDMAWrite();

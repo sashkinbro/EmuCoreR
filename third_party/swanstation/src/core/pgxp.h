@@ -36,6 +36,12 @@ bool DoState(StateWrapper& sw);
 /// Compact precision snapshots for same-process runahead states.
 bool DoMemoryState(StateWrapper& sw);
 
+// GPU FIFO words retain their precision independently of later RAM writes.
+inline constexpr uint32_t GPU_VERTEX_SNAPSHOT_COUNT = 4096;
+inline constexpr uint32_t INVALID_GPU_VERTEX_TOKEN = 0xffffffffu;
+uint32_t CaptureGPUVertex(uint32_t address, uint32_t value);
+uint32_t ConsumeGPUWrite(uint32_t value);
+
 // -- GTE functions
 // Transforms
 void GTE_PushSXYZ2f(float x, float y, float z, uint32_t v);

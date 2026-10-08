@@ -1715,9 +1715,9 @@ bool CodeGenerator::Compile_StoreLeftRight(const CodeBlockInstruction& cbi)
 
   shift.ReleaseAndClear();
 
-  EmitStoreGuestMemory(cbi, address, address_spec, RegSize_32, mem);
   if (g_settings.gpu_pgxp_enable)
     EmitFunctionCall(nullptr, PGXP::CPU_SW, Value::FromConstantU32(cbi.instruction.bits), mem, pgxp_address);
+  EmitStoreGuestMemory(cbi, address, address_spec, RegSize_32, mem);
 
   InstructionEpilogue(cbi);
   return true;
@@ -2908,10 +2908,9 @@ bool CodeGenerator::Compile_cop2(const CodeBlockInstruction& cbi)
     else
     {
       Value value = DoGTERegisterRead(reg);
-      EmitStoreGuestMemory(cbi, address, spec_address, RegSize_32, value);
-
       if (g_settings.gpu_pgxp_enable)
         EmitFunctionCall(nullptr, PGXP::CPU_SWC2, Value::FromConstantU32(cbi.instruction.bits), value, address);
+      EmitStoreGuestMemory(cbi, address, spec_address, RegSize_32, value);
 
       if (spec_address)
         SpeculativeWriteMemory(*spec_address, std::nullopt);
