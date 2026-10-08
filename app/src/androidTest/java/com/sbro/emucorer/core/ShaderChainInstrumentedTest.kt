@@ -18,6 +18,37 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ShaderChainInstrumentedTest {
     @Test
+    fun shadersSampleCurrentSource() {
+        val shader = counterShader.replace("OriginalHistory1", "Source")
+            .replace("float(params.FrameCount) / 255.0", "texture(Source, vUV).g")
+        for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
+            withScene(renderer, shader) { bridge, session, reader, _ ->
+                awaitPixel(bridge, session, reader, intArrayOf(0, 255, 255), "source renderer=$renderer")
+            }
+        }
+    }
+
+    @Test
+    fun resetAndStateLoadsRestartTemporalShaders() {
+        for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
+            withScene(renderer, counterShader) { bridge, session, reader, root ->
+                fun frame(count: Int, stage: String, history: Int = 255) = awaitPixel(bridge, session, reader,
+                    intArrayOf(0, count, history), "$stage renderer=$renderer", frames = 1)
+                for (i in 0..6) frame(i, "initial timeline", if (i >= 6) 255 else -1)
+                val state = File(root, "temporal.sav")
+                assertEquals(0, bridge.saveState(session, state.absolutePath))
+                for (i in 7..12) frame(i, "future timeline")
+                assertEquals(0, bridge.loadState(session, state.absolutePath))
+                frame(0, "restored timeline", 0)
+                for (i in 1..4) frame(i, "after state load")
+                assertEquals(0, bridge.reset(session))
+                frame(0, "reset timeline", 0)
+                frame(1, "after reset")
+            }
+        }
+    }
+
+    @Test
     fun shadersReceiveSourceTimingAndAspect() {
         for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
             withScene(renderer, uniformsShader) { bridge, session, reader, _ ->
@@ -91,7 +122,7 @@ class ShaderChainInstrumentedTest {
                 }
                 break
             }
-            if (expected.indices.all { kotlin.math.abs(actual[it] - expected[it]) <= 3 }) return
+            if (expected.indices.all { expected[it] < 0 || kotlin.math.abs(actual[it] - expected[it]) <= 3 }) return
         }
         fail("$stage expected=${expected.toList()} actual=${actual.toList()}")
     }
@@ -140,6 +171,24 @@ class ShaderChainInstrumentedTest {
             #if !defined(_HAS_ORIGINALASPECT_UNIFORMS) || !defined(_HAS_FRAMETIME_UNIFORMS)
             FragColor = vec4(1.0, 0.0, 1.0, 1.0);
             #endif
+        }
+    """.trimIndent()
+
+    private val counterShader = """
+        #version 450
+        layout(set = 0, binding = 0, std140) uniform UBO { mat4 MVP; uint FrameCount; } params;
+        #pragma stage vertex
+        layout(location = 0) in vec4 Position;
+        layout(location = 1) in vec2 TexCoord;
+        layout(location = 0) out vec2 vUV;
+        void main() { gl_Position = params.MVP * Position; vUV = TexCoord; }
+        #pragma stage fragment
+        layout(location = 0) in vec2 vUV;
+        layout(location = 0) out vec4 FragColor;
+        layout(set = 0, binding = 1) uniform sampler2D OriginalHistory1;
+        void main() {
+            FragColor = vec4((vUV.x + vUV.y) * 0.001, float(params.FrameCount) / 255.0,
+                             texture(OriginalHistory1, vUV).r, 1.0);
         }
     """.trimIndent()
 }

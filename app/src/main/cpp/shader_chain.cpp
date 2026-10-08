@@ -22,6 +22,11 @@ void SetPreset(std::string path, bool enabled) {
     ++g_generation;
 }
 
+void ResetHistory() {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    ++g_generation;
+}
+
 bool IsEnabled() {
     std::lock_guard<std::mutex> lock(g_mutex);
     return g_enabled;
