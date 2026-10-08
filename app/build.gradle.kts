@@ -284,7 +284,7 @@ val stageEmucorer16k by tasks.registering(Copy::class) {
     into(generated16kJniDirectory)
 }
 
-tasks.matching { it.name == "mergeReleaseJniLibFolders" }.configureEach {
+tasks.matching { it.name == "mergeReleaseJniLibFolders" || it.name == "mergeDebugJniLibFolders" }.configureEach {
     dependsOn(stageEmucorer16k)
 }
 

@@ -9,6 +9,7 @@ import android.os.ParcelFileDescriptor
 import android.system.Os
 import android.util.Log
 import android.view.Surface
+import com.sbro.emucorer.BuildConfig
 import com.sbro.emucorer.data.RetroArchShaderEffects
 import java.io.File
 import java.util.Locale
@@ -892,10 +893,10 @@ internal object CoreRuntime {
     }
 
     private fun runLoop(output: NativeAudioOutput) {
-        var metricsStartNanos = System.nanoTime()
+        var metricsStartNanos = 0L
         var metricsFrames = 0
         var metricsFrameTotalNanos = 0L
-        var metricsStartCpuMs = android.os.Process.getElapsedCpuTime()
+        var metricsStartCpuMs = 0L
         var frameDeadlineNanos = 0L
         try {
             while (running) {
@@ -947,9 +948,14 @@ internal object CoreRuntime {
                 } else {
                     frameDeadlineNanos = 0L
                 }
-                val t0 = System.nanoTime()
+                val measureFrame = performanceMetricsEnabled
+                val t0 = if (measureFrame) System.nanoTime() else 0L
+                if (measureFrame && metricsStartNanos == 0L) {
+                    metricsStartNanos = t0
+                    metricsStartCpuMs = android.os.Process.getElapsedCpuTime()
+                }
                 var skippedPausedFrame = false
-                val coreNanos = sessionLock.withLock {
+                sessionLock.withLock {
                     if (!running || session == 0L) null else if (paused) {
                         skippedPausedFrame = true
                         null
@@ -967,9 +973,8 @@ internal object CoreRuntime {
                                 (analog ushr 24) and 0xFF
                             )
                         }
-                        val coreStartNanos = System.nanoTime()
+                        val coreStartNanos = if (BuildConfig.DEBUG && !renderedFirstFrame) System.nanoTime() else 0L
                         bridge.runFrame(session)
-                        val elapsed = System.nanoTime() - coreStartNanos
                         bridge.getDisplayRect(session)
                             ?.takeIf { it.size == 4 && it[2] > 0 && it[3] > 0 }
                             ?.let {
@@ -979,27 +984,26 @@ internal object CoreRuntime {
                         if (!renderedFirstFrame) {
                             renderedFirstFrame = true
                             val startedAt = sessionStartedAtNanos
-                            if (startedAt != 0L) {
+                            if (BuildConfig.DEBUG && startedAt != 0L) {
                                 Log.i(TAG, String.format(Locale.US,
                                     "First emulated frame after %.1f ms (core %.1f ms)",
                                     (System.nanoTime() - startedAt) / 1_000_000.0,
-                                    elapsed / 1_000_000.0))
+                                    (System.nanoTime() - coreStartNanos) / 1_000_000.0))
                             }
                         }
-                        elapsed
+                        true
                     }
                 } ?: if (skippedPausedFrame) continue else break
-                val frameNanos = System.nanoTime() - t0
-
-                metricsFrames++
-                metricsFrameTotalNanos += frameNanos
-                val now = System.nanoTime()
-                if (!performanceMetricsEnabled) {
-                    metricsStartNanos = now
+                if (!measureFrame || !performanceMetricsEnabled) {
+                    metricsStartNanos = 0L
                     metricsFrames = 0
                     metricsFrameTotalNanos = 0L
-                    metricsStartCpuMs = android.os.Process.getElapsedCpuTime()
-                } else if (now - metricsStartNanos >= 1_000_000_000L) {
+                    continue
+                }
+                val now = System.nanoTime()
+                metricsFrames++
+                metricsFrameTotalNanos += now - t0
+                if (now - metricsStartNanos >= 1_000_000_000L) {
                     val elapsed = now - metricsStartNanos
                     val fps = metricsFrames * 1_000_000_000.0 / elapsed
                     val cpuNowMs = android.os.Process.getElapsedCpuTime()

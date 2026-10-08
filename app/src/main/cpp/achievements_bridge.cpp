@@ -31,7 +31,11 @@
 #include "rc_libretro.h"
 
 #define RA_TAG "EmuCoreR-RA"
+#ifndef NDEBUG
 #define RALOGI(...) __android_log_print(ANDROID_LOG_INFO, RA_TAG, __VA_ARGS__)
+#else
+#define RALOGI(...) ((void)0)
+#endif
 #define RALOGW(...) __android_log_print(ANDROID_LOG_WARN, RA_TAG, __VA_ARGS__)
 #define RALOGE(...) __android_log_print(ANDROID_LOG_ERROR, RA_TAG, __VA_ARGS__)
 

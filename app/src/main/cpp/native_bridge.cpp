@@ -50,7 +50,11 @@ extern "C" void EmuCoreR_ResetGLProgramCache();
 namespace vulkan = emucorer::vulkan;
 
 #define LOG_TAG "EmuCoreR"
+#ifndef NDEBUG
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#else
+#define LOGI(...) ((void)0)
+#endif
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
@@ -1060,6 +1064,9 @@ void DestroyHardwareRendererContext() {
 // Logging bridge.
 // ---------------------------------------------------------------------------
 void RetroLogCallback(enum retro_log_level level, const char* fmt, ...) {
+#ifdef NDEBUG
+    if (level < RETRO_LOG_WARN) return;
+#endif
     va_list args;
     va_start(args, fmt);
     int priority = ANDROID_LOG_DEBUG;

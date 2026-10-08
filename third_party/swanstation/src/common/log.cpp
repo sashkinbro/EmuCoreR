@@ -14,7 +14,11 @@ struct RegisteredCallback
 std::vector<RegisteredCallback> s_callbacks;
 static std::mutex s_callback_mutex;
 
+#if defined(__ANDROID__) && defined(NDEBUG)
+static LogLevel s_filter_level = LogLevel::Warning;
+#else
 static LogLevel s_filter_level = LogLevel::Trace;
+#endif
 
 void RegisterCallback(CallbackFunctionType callbackFunction, void* pUserParam)
 {
@@ -49,6 +53,10 @@ static void ExecuteCallbacks(const char* channelName, const char* functionName, 
 
 void SetFilterLevel(LogLevel level)
 {
+#if defined(__ANDROID__) && defined(NDEBUG)
+  if (level > LogLevel::Warning)
+    level = LogLevel::Warning;
+#endif
   s_filter_level = level;
 }
 

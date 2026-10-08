@@ -9,6 +9,7 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import android.view.PixelCopy
 import android.view.Surface
+import com.sbro.emucorer.BuildConfig
 import com.sbro.emucorer.data.AppPreferences
 import com.sbro.emucorer.network.NetPlaySession
 import com.sbro.emucorer.network.RemotePlaySession
@@ -279,8 +280,10 @@ object EmulatorBridge {
 
         try {
             NativeApp.initializeOnce(context.applicationContext)
-            val jitSmokeOk = runCatching { NativeApp.runJitExecutableMemorySmokeTest() }.getOrDefault(false)
-            Log.i(TAG, "JIT executable-memory smoke result=$jitSmokeOk")
+            if (BuildConfig.DEBUG) {
+                val jitSmokeOk = runCatching { NativeApp.runJitExecutableMemorySmokeTest() }.getOrDefault(false)
+                Log.i(TAG, "JIT executable-memory smoke result=$jitSmokeOk")
+            }
             val (preferEnglishTitles, emulatorDataPath) = runBlocking {
                 val preferences = AppPreferences(context.applicationContext)
                 preferences.preferEnglishGameTitles.first() to preferences.getEmulatorDataPathSync()
