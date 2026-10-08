@@ -222,7 +222,6 @@ bool GPU::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool upda
     m_draw_mode.texture_page_changed = true;
     m_draw_mode.texture_window_changed = true;
     m_drawing_area_changed = true;
-    UpdateDMARequest();
   }
 
   if (!host_texture)
@@ -235,6 +234,8 @@ bool GPU::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool upda
       // Still need a temporary here.
       HeapArray<uint16_t, VRAM_WIDTH * VRAM_HEIGHT> temp;
       sw.DoBytes(temp.data(), VRAM_WIDTH * VRAM_HEIGHT * sizeof(uint16_t));
+      if (sw.HasError())
+        return false;
       UpdateVRAM(0, 0, VRAM_WIDTH, VRAM_HEIGHT, temp.data(), false, false);
     }
     else
@@ -252,6 +253,8 @@ bool GPU::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool upda
 
     UpdateCRTCTickEvent();
     UpdateCommandTickEvent();
+    // Restore the request line without executing a transfer during state loading.
+    UpdateDMARequest(false);
   }
 
   return !sw.HasError();
@@ -261,7 +264,7 @@ void GPU::ResetGraphicsAPIState() {}
 
 void GPU::RestoreGraphicsAPIState() {}
 
-void GPU::UpdateDMARequest()
+void GPU::UpdateDMARequest(bool trigger_dma)
 {
   switch (m_blitter_state)
   {
@@ -314,7 +317,7 @@ void GPU::UpdateDMARequest()
       break;
   }
   m_GPUSTAT.dma_data_request = dma_request;
-  g_dma.SetRequest(DMA::Channel::GPU, dma_request);
+  g_dma.SetRequest(DMA::Channel::GPU, dma_request, trigger_dma);
 }
 
 void GPU::UpdateGPUIdle()
@@ -372,11 +375,23 @@ void GPU::WriteRegister(uint32_t offset, uint32_t value)
   switch (offset)
   {
     case 0x00:
-      m_fifo.Push((static_cast<uint64_t>(g_settings.gpu_pgxp_enable ? PGXP::ConsumeGPUWrite(value) :
-                                                                 PGXP::INVALID_GPU_VERTEX_TOKEN) << 32) | value);
+    {
+      if (m_fifo.IsFull())
+      {
+        m_command_tick_event->InvokeEarly();
+        if (m_fifo.IsFull())
+        {
+          PGXP::DiscardGPUWrite();
+          return;
+        }
+      }
+      const uint32_t source = g_settings.gpu_pgxp_enable ? PGXP::ConsumeGPUWrite(value) :
+                                                         PGXP::INVALID_GPU_VERTEX_TOKEN;
+      m_fifo.Push((static_cast<uint64_t>(source) << 32) | value);
       ExecuteCommands();
       UpdateCommandTickEvent();
       return;
+    }
 
     case 0x04:
       WriteGP1(value);
@@ -404,6 +419,7 @@ void GPU::DMAWrite(const uint32_t* words, uint32_t address, uint32_t increment, 
   if (m_GPUSTAT.dma_direction != DMADirection::CPUtoGP0)
     return;
 
+  word_count = std::min(word_count, m_fifo.GetSpace());
   const uint32_t mask = Bus::g_ram_mask & UINT32_C(0xFFFFFFFC);
 
   // Bulk-write the address/value pairs straight into the contiguous part of

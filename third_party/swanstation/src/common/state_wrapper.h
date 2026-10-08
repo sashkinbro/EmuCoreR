@@ -147,13 +147,21 @@ public:
   {
     uint32_t size = data->GetSize();
     Do(&size);
+    if (m_error || size > CAPACITY)
+    {
+      m_error = true;
+      return;
+    }
 
     if (m_mode == Mode::Read)
     {
       T* temp = new T[size];
       DoArray(temp, size);
-      data->Clear();
-      data->PushRange(temp, size);
+      if (!m_error)
+      {
+        data->Clear();
+        data->PushRange(temp, size);
+      }
       delete[] temp;
     }
     else

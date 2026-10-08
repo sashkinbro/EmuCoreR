@@ -36,7 +36,7 @@ public:
   uint32_t ReadRegister(uint32_t offset);
   void WriteRegister(uint32_t offset, uint32_t value);
 
-  void SetRequest(Channel channel, bool request);
+  void SetRequest(Channel channel, bool request, bool trigger_transfer = true);
 
   // changing interfaces
   void SetMaxSliceTicks(TickCount ticks) { m_max_slice_ticks = ticks; }
@@ -65,6 +65,7 @@ private:
   TickCount GetTransferSliceTicks(Channel channel) const;
   TickCount GetTransferHaltTicks() const;
   bool TransferChannel(Channel channel);
+  bool TransferGPUToDevice();
   void HaltTransfer(TickCount duration);
   void UnhaltTransfer(TickCount ticks);
 
@@ -81,6 +82,9 @@ private:
   std::vector<uint32_t> m_transfer_buffer;
   std::unique_ptr<TimingEvent> m_unhalt_event;
   TickCount m_halt_ticks_remaining = 0;
+  uint32_t m_gpu_words_remaining = 0;
+  uint32_t m_gpu_next_address = 0;
+  bool m_gpu_transfer_active = false;
 
   struct ChannelState
   {

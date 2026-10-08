@@ -72,6 +72,7 @@ public:
   void DMARead(uint32_t* words, uint32_t word_count);
 
   ALWAYS_INLINE bool BeginDMAWrite() const { return (m_GPUSTAT.dma_direction == DMADirection::CPUtoGP0); }
+  ALWAYS_INLINE uint32_t GetDMAWriteSpace() const { return m_fifo.GetSpace(); }
 
   // Queues GP0 words with their source addresses or captured PGXP tokens.
   // Callers must stage wrapping transfers through a bounce buffer
@@ -186,7 +187,7 @@ protected:
   void UpdateCommandTickEvent();
 
   // Updates dynamic bits in GPUSTAT (ready to send VRAM/ready to receive DMA)
-  void UpdateDMARequest();
+  void UpdateDMARequest(bool trigger_dma = true);
   void UpdateGPUIdle();
 
   // Ticks for hblank/vblank.

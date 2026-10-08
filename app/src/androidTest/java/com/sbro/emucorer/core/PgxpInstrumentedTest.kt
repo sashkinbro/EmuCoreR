@@ -286,7 +286,7 @@ class PgxpInstrumentedTest {
         val bytes = file.readBytes()
         val header = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         assertEquals(0x43435544, header.getInt(0))
-        assertEquals(58, header.getInt(4))
+        assertEquals(59, header.getInt(4))
         val size = header.getInt(208)
         assertTrue("persistent precision exceeds the old state bound", size > 11 * 1024 * 1024)
         val offset = header.getInt(212)
