@@ -170,7 +170,7 @@ internal object CoreRuntime {
         val normalized = RendererDefaults.normalizeAndroidRenderer(renderer)
         val previousRenderer = requestedRenderer
         val gamePath = currentGamePath
-        if (!isRunning() || gamePath.isNullOrBlank()) {
+        if (!isRunning() || gamePath == null) {
             requestedRenderer = normalized
             return@lock true
         }
@@ -188,12 +188,12 @@ internal object CoreRuntime {
             " stateSaved=$stateSaved")
         shutdownSession()
         requestedRenderer = normalized
-        var started = startSession(gamePath, biosOnly)
+        var started = startSession(gamePath, biosOnly, startPaused = true)
         if (!started && normalized != previousRenderer) {
             Log.w(TAG, "Renderer restart failed; reverting to " +
                 RendererDefaults.coreRendererName(RendererDefaults.toCoreRenderer(previousRenderer)))
             requestedRenderer = previousRenderer
-            started = startSession(gamePath, biosOnly)
+            started = startSession(gamePath, biosOnly, startPaused = true)
         }
         try {
             if (statePath != null && started && stateSaved) {
@@ -207,11 +207,11 @@ internal object CoreRuntime {
         } finally {
             stateFile?.delete()
         }
-        if (started && wasPaused) pause()
+        if (started && !wasPaused) resume()
         started
     }
 
-    private fun startSession(gamePath: String, biosOnly: Boolean): Boolean {
+    private fun startSession(gamePath: String, biosOnly: Boolean, startPaused: Boolean = false): Boolean {
         val startupStartedAtNanos = System.nanoTime()
         if (!biosOnly && !isSupportedDiscPath(gamePath)) {
             Log.e(TAG, "Unsupported PS1 image: $gamePath")
@@ -252,14 +252,14 @@ internal object CoreRuntime {
         currentGamePath = gamePath
         currentBiosOnly = biosOnly
         running = true
-        paused = false
+        paused = startPaused
         renderedFirstFrame = false
         sessionStartedAtNanos = startupStartedAtNanos
         var started = false
         try {
             val output = NativeAudioOutput()
             audioOutput = output
-            output.play()
+            if (!startPaused) output.play()
             worker = thread(name = "EmuCoreR-Frame", isDaemon = true, start = true) {
                 // The frame loop shares the CPU with the UI, background work
                 // and the audio output. A display-level priority keeps the
