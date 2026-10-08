@@ -1,14 +1,19 @@
 param(
     [string]$Serial,
+    [ValidateSet('CPH2747', 'RG556')]
+    [string]$DeviceModel = 'CPH2747',
     [string]$Sdk = "$env:LOCALAPPDATA/Android/Sdk",
     [string]$CommonLibrary
 )
 
 $ErrorActionPreference = 'Stop'
-if ([string]::IsNullOrWhiteSpace($Serial)) { throw 'Pass the OnePlus ADB serial explicitly.' }
+if ([string]::IsNullOrWhiteSpace($Serial)) { throw 'Pass the authorized ADB serial explicitly.' }
 $adb = Join-Path $Sdk 'platform-tools/adb.exe'
 $manufacturer = & $adb -s $Serial shell getprop ro.product.manufacturer
-if ($LASTEXITCODE -ne 0 -or $manufacturer.Trim() -ine 'OnePlus') { throw 'PGXP tests require the authorized OnePlus.' }
+$expectedManufacturer = if ($DeviceModel -eq 'RG556') { 'Anbernic' } else { 'OnePlus' }
+if ($LASTEXITCODE -ne 0 -or $manufacturer.Trim() -ine $expectedManufacturer) { throw 'PGXP test device manufacturer does not match.' }
+$actualModel = & $adb -s $Serial shell getprop ro.product.model
+if ($LASTEXITCODE -ne 0 -or $actualModel.Trim() -ine $DeviceModel) { throw 'PGXP test device model does not match.' }
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $clang = Join-Path $Sdk 'ndk/29.0.14206865/toolchains/llvm/prebuilt/windows-x86_64/bin/clang++.exe'
 if ([string]::IsNullOrWhiteSpace($CommonLibrary)) {

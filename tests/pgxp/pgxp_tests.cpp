@@ -55,11 +55,109 @@ static bool Vertex(uint32_t address, uint32_t raw, float expected_x, float expec
          std::isfinite(w) && w > 0.f;
 }
 
+static void CheckShifts()
+{
+  using namespace PGXP;
+  // Independent expectations follow raw carry bits and the component that
+  // survives the shift. The discarded half must not supply fractional carry.
+  for (uint32_t operation = 0; operation < 6; operation++)
+  {
+    const bool left = operation % 3 == 0;
+    const bool arithmetic = operation % 3 == 2;
+    for (uint32_t shift = 0; shift < 32; shift++)
+    {
+      Reset();
+      Seed(0x100, XY(-2, -20), -1.25f, -19.5f);
+      CPU_LW(I(0x23, 0, 1), XY(-2, -20), 0x100);
+      CPU_ADDI(I(9, 0, 3, shift + 32), 0);
+      const uint32_t instruction = R(3, 1, 2, shift);
+      const uint32_t raw = XY(-2, -20);
+      switch (operation)
+      {
+        case 0: CPU_SLL(instruction, raw); break;
+        case 1: CPU_SRL(instruction, raw); break;
+        case 2: CPU_SRA(instruction, raw); break;
+        case 3: CPU_SLLV(instruction, raw, shift + 32); break;
+        case 4: CPU_SRLV(instruction, raw, shift + 32); break;
+        case 5: CPU_SRAV(instruction, raw, shift + 32); break;
+      }
+      const uint32_t expected_raw = left ? raw << shift : arithmetic ?
+        static_cast<uint32_t>(static_cast<int32_t>(raw) >> shift) : raw >> shift;
+      auto wrap = [](double value) {
+        value = std::fmod(value, 65536.0);
+        if (value >= 32768.0) value -= 65536.0;
+        if (value < -32768.0) value += 65536.0;
+        return static_cast<float>(value);
+      };
+      float x = -1.25f, y = -19.5f;
+      if (shift > 0 && left)
+      {
+        if (shift < 16)
+        {
+          x = wrap(65534.75 * double(uint32_t(1) << shift));
+          y = wrap(-19.5 * double(uint32_t(1) << shift) + ((raw & 65535u) >> (16 - shift)));
+        }
+        else
+        {
+          x = 0.f;
+          y = wrap(-1.25 * double(uint32_t(1) << (shift - 16)));
+        }
+      }
+      else if (shift > 0)
+      {
+        if (shift < 16)
+        {
+          x = wrap(65534.75 / double(uint32_t(1) << shift) +
+            double((raw >> 16) & ((uint32_t(1) << shift) - 1)) * double(uint32_t(1) << (16 - shift)));
+          y = wrap((arithmetic ? -19.5 : 65516.5) / double(uint32_t(1) << shift));
+        }
+        else
+        {
+          x = shift == 16 ? -19.5f : wrap((arithmetic ? -19.5 : 65516.5) / double(uint32_t(1) << (shift - 16)));
+          y = arithmetic ? -1.f : 0.f;
+        }
+      }
+      char name[100];
+      std::snprintf(name, sizeof(name), "shift operation %u amount %u preserves components and raw carry", operation, shift);
+      Check(CPU_reg[2].value == expected_raw && (CPU_reg[2].flags & VALID_01) == VALID_01 &&
+            std::abs(CPU_reg[2].x - x) < 0.0001f && std::abs(CPU_reg[2].y - y) < 0.0001f, name);
+    }
+  }
+
+  Reset();
+  Seed(0x100, 0, 0.25f, 0.5f);
+  CPU_LW(I(0x23, 0, 1), 0, 0x100);
+  CPU_SRL(R(0, 1, 2, 1), 0);
+  Check(CPU_reg[2].x == 0.125f && CPU_reg[2].y == 0.25f,
+        "right shift retains zero-valued fractional geometry");
+  CPU_SRA(R(0, 1, 2, 16), 0);
+  Check(CPU_reg[2].x == 0.5f && CPU_reg[2].y == 0.f,
+        "arithmetic half extraction retains a fractional zero");
+  CPU_reg[1].flags = VALID_0 | VALID_Z;
+  CPU_SLL(R(0, 1, 2, 16), 0);
+  Check((CPU_reg[2].flags & VALID_01) == VALID_01 && CPU_reg[2].x == 0.f && CPU_reg[2].y == 0.25f,
+        "left half packing transfers low precision validity to the high half");
+  CPU_reg[1].flags = VALID_1 | VALID_Z;
+  CPU_SRL(R(0, 1, 2, 16), 0);
+  Check((CPU_reg[2].flags & VALID_01) == VALID_01 && CPU_reg[2].x == 0.5f && CPU_reg[2].y == 0.f,
+        "right half extraction transfers high precision validity to the low half");
+  CPU_SLL(R(0, 1, 2, 16), 0);
+  Check((CPU_reg[2].flags & VALID_1) == 0 && (CPU_reg[2].flags & VALID_Z) == 0,
+        "discarding the only precise half cannot invent geometry or depth");
+  Seed(0x100, XY(0, 20), -0.25f, 20.5f);
+  CPU_LW(I(0x23, 0, 1), XY(0, 20), 0x100);
+  CPU_SRL(R(0, 1, 2, 1), XY(0, 20));
+  Check(CPU_reg[2].x == -0.125f && CPU_reg[2].y == 10.25f,
+        "fractional sign crossing cannot create a spurious unsigned carry");
+}
+
 int main()
 {
   using namespace PGXP;
   g_settings.gpu_pgxp_enable = true;
   Initialize();
+  CheckShifts();
+  Reset();
   Seed(0x100);
   Check(Vertex(0x100, XY(10, 20), 10.25f, 20.5f), "GTE to RAM preserves subpixel coordinates and depth");
   Check(Vertex(0x80000100, XY(10, 20), 10.25f, 20.5f), "cached RAM alias shares precision");
