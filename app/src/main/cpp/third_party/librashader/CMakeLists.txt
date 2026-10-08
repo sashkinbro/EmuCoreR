@@ -131,11 +131,35 @@ FetchContent_MakeAvailable(librashader_src)
 # the two GL runtime files with the patched copies in ./patched that bind a
 # non-mipmapped sampler for level-less textures. Keep them in sync with the pin.
 set(_lrs_gl_src "${librashader_src_SOURCE_DIR}/librashader-runtime-gl/src")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/patched/samplers.rs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/patched/gl3_texture_bind.rs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/patched/gl3_framebuffer_copy.rs")
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${CMAKE_CURRENT_SOURCE_DIR}/patched/samplers.rs" "${_lrs_gl_src}/samplers.rs")
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${CMAKE_CURRENT_SOURCE_DIR}/patched/gl3_texture_bind.rs"
     "${_lrs_gl_src}/gl/gl3/texture_bind.rs")
+execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_SOURCE_DIR}/patched/gl3_framebuffer_copy.rs"
+    "${_lrs_gl_src}/gl/gl3/framebuffer_copy.rs")
+# Replace only the history-copy method in the pinned runtime. Preserve its
+# allocation and framebuffer lifetime code, and keep repeated configure safe.
+set(_lrs_framebuffer "${_lrs_gl_src}/gl/gl3/framebuffer.rs")
+file(READ "${_lrs_framebuffer}" _lrs_framebuffer_source)
+string(FIND "${_lrs_framebuffer_source}" "    fn copy_from(" _lrs_copy_begin)
+string(FIND "${_lrs_framebuffer_source}" "    fn init(" _lrs_copy_end)
+if(_lrs_copy_begin LESS 0 OR _lrs_copy_end LESS _lrs_copy_begin)
+    message(FATAL_ERROR "librashader: history-copy patch does not match the pinned runtime")
+endif()
+string(SUBSTRING "${_lrs_framebuffer_source}" 0 ${_lrs_copy_begin} _lrs_framebuffer_prefix)
+string(SUBSTRING "${_lrs_framebuffer_source}" ${_lrs_copy_end} -1 _lrs_framebuffer_suffix)
+set(_lrs_framebuffer_source "${_lrs_framebuffer_prefix}    fn copy_from(fb: &mut GLFramebuffer, image: &GLImage) -> Result<()> {\n        copy_history_framebuffer(fb, image)\n    }\n${_lrs_framebuffer_suffix}")
+string(FIND "${_lrs_framebuffer_source}" "include!(\"framebuffer_copy.rs\");" _lrs_copy_include)
+if(_lrs_copy_include LESS 0)
+    string(APPEND _lrs_framebuffer_source "\ninclude!(\"framebuffer_copy.rs\");\n")
+endif()
+file(WRITE "${_lrs_framebuffer}" "${_lrs_framebuffer_source}")
 set(_lrs_out_dir "${CMAKE_CURRENT_BINARY_DIR}/cargo")
 set(_lrs_lib "${_lrs_out_dir}/${_lrs_rust_target}/release/liblibrashader_capi.so")
 
@@ -158,8 +182,10 @@ add_custom_command(
     WORKING_DIRECTORY "${librashader_src_SOURCE_DIR}"
     COMMENT "librashader: cargo build (${_lrs_rust_target}, vulkan+opengl)"
     DEPENDS
+        "${CMAKE_CURRENT_LIST_FILE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/patched/samplers.rs"
         "${CMAKE_CURRENT_SOURCE_DIR}/patched/gl3_texture_bind.rs"
+        "${CMAKE_CURRENT_SOURCE_DIR}/patched/gl3_framebuffer_copy.rs"
     VERBATIM
 )
 add_custom_target(librashader_cargo DEPENDS "${_lrs_lib}")

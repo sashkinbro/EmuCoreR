@@ -16,8 +16,10 @@ use crate::error::FilterChainError;
 use glow::HasContext;
 use librashader_common::map::FastHashMap;
 use librashader_common::{FilterMode, WrapMode};
+use std::sync::Arc;
 
 pub struct SamplerSet {
+    context: Arc<glow::Context>,
     // todo: may need to deal with differences in mip filter.
     samplers: FastHashMap<(WrapMode, FilterMode, FilterMode), glow::Sampler>,
     // Samplers without mipmap minification, used for textures that only have a
@@ -82,8 +84,12 @@ impl SamplerSet {
         }
     }
 
-    pub fn new(context: &glow::Context) -> error::Result<SamplerSet> {
-        let mut samplers = FastHashMap::default();
+    pub fn new(context: &Arc<glow::Context>) -> error::Result<SamplerSet> {
+        let mut result = SamplerSet {
+            context: Arc::clone(context),
+            samplers: FastHashMap::default(),
+            no_mipmap_samplers: FastHashMap::default(),
+        };
         let wrap_modes = &[
             WrapMode::ClampToBorder,
             WrapMode::ClampToEdge,
@@ -112,13 +118,12 @@ impl SamplerSet {
                             *mip_filter,
                         );
 
-                        samplers.insert((*wrap_mode, *filter_mode, *mip_filter), sampler);
+                        result.samplers.insert((*wrap_mode, *filter_mode, *mip_filter), sampler);
                     }
                 }
             }
         }
 
-        let mut no_mipmap_samplers = FastHashMap::default();
         for wrap_mode in wrap_modes {
             for filter_mode in &[FilterMode::Linear, FilterMode::Nearest] {
                 unsafe {
@@ -138,17 +143,24 @@ impl SamplerSet {
                         *filter_mode,
                     );
 
-                    no_mipmap_samplers.insert((*wrap_mode, *filter_mode), sampler);
+                    result.no_mipmap_samplers.insert((*wrap_mode, *filter_mode), sampler);
                 }
             }
         }
 
         // assert all samplers were created.
-        assert_eq!(samplers.len(), wrap_modes.len() * 2 * 2);
-        assert_eq!(no_mipmap_samplers.len(), wrap_modes.len() * 2);
-        Ok(SamplerSet {
-            samplers,
-            no_mipmap_samplers,
-        })
+        assert_eq!(result.samplers.len(), wrap_modes.len() * 2 * 2);
+        assert_eq!(result.no_mipmap_samplers.len(), wrap_modes.len() * 2);
+        Ok(result)
+    }
+}
+
+impl Drop for SamplerSet {
+    fn drop(&mut self) {
+        unsafe {
+            for sampler in self.samplers.values().chain(self.no_mipmap_samplers.values()) {
+                self.context.delete_sampler(*sampler);
+            }
+        }
     }
 }

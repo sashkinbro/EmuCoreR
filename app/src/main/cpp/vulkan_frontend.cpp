@@ -804,13 +804,13 @@ bool EnsureShaderChain() {
     if (path.empty()) return false;
 
     const uint64_t generation = shader_chain::Generation();
-    if (g_vk.shader_chain != nullptr && g_vk.shader_chain_preset == path &&
-        g_vk.shader_chain_generation == generation) {
-        return true;
-    }
     if (g_vk.shader_chain_failed && g_vk.shader_chain_preset == path &&
         g_vk.shader_chain_generation == generation) {
         return false;
+    }
+    if (g_vk.shader_chain != nullptr && g_vk.shader_chain_preset == path &&
+        g_vk.shader_chain_generation == generation) {
+        return true;
     }
 
     DestroyShaderChain();

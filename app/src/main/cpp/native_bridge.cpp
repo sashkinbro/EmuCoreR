@@ -414,11 +414,11 @@ bool EnsureGlShaderChain() {
     if (path.empty()) return false;
 
     const uint64_t generation = emucorer::shader_chain::Generation();
-    if (g_gl_chain.chain != nullptr && g_gl_chain.preset == path && g_gl_chain.generation == generation) {
-        return true;
-    }
     if (g_gl_chain.failed && g_gl_chain.preset == path && g_gl_chain.generation == generation) {
         return false;
+    }
+    if (g_gl_chain.chain != nullptr && g_gl_chain.preset == path && g_gl_chain.generation == generation) {
+        return true;
     }
 
     DestroyGlShaderChain();
@@ -1966,6 +1966,7 @@ JNIEXPORT jint JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_reset(JNIEnv*, jobject, jlong handle) {
     if (handle == 0) return -1;
     retro_reset();
+    emucorer::shader_chain::ResetHistory();
     return 0;
 }
 
@@ -2109,6 +2110,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_loadState(JNIEnv* env, jobject, jlo
                 std::vector<uint8_t> buffer(static_cast<size_t>(length));
                 const size_t read = fread(buffer.data(), 1, buffer.size(), file);
                 if (read == buffer.size() && retro_unserialize(buffer.data(), buffer.size())) {
+                    emucorer::shader_chain::ResetHistory();
                     result = 0;
                 } else {
                     result = -3;
