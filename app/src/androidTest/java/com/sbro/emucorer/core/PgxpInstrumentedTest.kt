@@ -183,6 +183,12 @@ class PgxpInstrumentedTest {
                                     assertEquals("typed GTE extension at $address: $label", 0f, before.getFloat(entry + 4), 0f)
                                     assertEquals("typed GTE transfer lost precision at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
                                 }
+                                for (address in listOf(0x2140, 0x2144)) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("GTE arithmetic retained stale X at $address: $label", 14400f, before.getFloat(entry), 0f)
+                                    assertEquals("GTE arithmetic retained stale Y at $address: $label", 0f, before.getFloat(entry + 4), 0f)
+                                    assertEquals("GTE arithmetic borrowed vertex depth at $address: $label", 0x101, before.getInt(entry + 12))
+                                }
                                 assertEquals("variable shift invalidated its source: $label", 0x101, before.getInt(original + 12) and 0x101)
                                 assertEquals("variable shift changed source X: $label", sx, before.getFloat(original), 0.001f)
                                 assertEquals("variable shift changed source Y: $label", sy, before.getFloat(original + 4), 0.001f)
@@ -537,6 +543,17 @@ class PgxpInstrumentedTest {
             repeat(2) { emit(0) }
             emit(imm(0x3a, 12, register, address))
         }
+        emit((8 shl 16) or (14 shl 11) or (16 shl 6)) // sll r14, r8, 16
+        emit((14 shl 16) or (14 shl 11) or (16 shl 6) or 3) // sra r14, r14, 16
+        emit(0x48800000 or (14 shl 16) or (9 shl 11)) // IR1 receives the precise X
+        emit((14 shl 21) or (14 shl 16) or 0x18) // mult r14, r14
+        repeat(16) { emit(0) }
+        emit((8 shl 11) or 0x12) // mflo r8
+        emit(0x48800000 or (8 shl 16) or (25 shl 11)) // MAC1 has matching raw bits with old fractions
+        repeat(2) { emit(0) }
+        emit(0x4a000028) // sqr, sf=0: MAC1 becomes the new integer 120*120
+        emit(imm(0x3a, 12, 25, 0x140))
+        emit(imm(0x3a, 12, 9, 0x144))
         write(11, 0x50, 0x800) // enable DMA channel 2
         write(11, 0, 0x1000)
         write(11, 4, if (textured) 14 else 8)

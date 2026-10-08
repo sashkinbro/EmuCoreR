@@ -551,6 +551,24 @@ bool DoMemoryState(StateWrapper& sw)
 #define SXY2 (GTE_data_reg[14])
 #define SXYP (GTE_data_reg[15])
 
+void GTE_SetDataRegister(uint32_t index, uint32_t value)
+{
+  GTE_data_reg[index] = IntegerValue(value);
+}
+
+void GTE_PushDataFIFO(uint32_t first, uint32_t count, uint32_t value)
+{
+  // Called before the native FIFO moves, so each source can be validated
+  // against its current bits before its precision follows it to the left.
+  for (uint32_t offset = 1; offset < count; offset++)
+  {
+    const uint32_t source = first + offset;
+    Validate(&GTE_data_reg[source], CPU::g_state.gte_regs.dr32[source]);
+    GTE_data_reg[source - 1] = GTE_data_reg[source];
+  }
+  GTE_SetDataRegister(first + count - 1, value);
+}
+
 void GTE_PushSXYZ2f(float x, float y, float z, uint32_t v)
 {
   // push values down FIFO
