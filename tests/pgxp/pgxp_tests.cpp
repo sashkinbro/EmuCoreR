@@ -421,6 +421,74 @@ static void CheckMultiplication()
   }
 }
 
+static void CheckPartialTransfers()
+{
+  using namespace PGXP;
+  Reset();
+  Seed(0x100, XY(-10, -20), -9.75f, -19.5f);
+  CPU_LHx(I(0x25, 0, 1), uint16_t(-20), 0x102);
+  Check(CPU_reg[1].x == -19.5f && CPU_reg[1].y == 0.f && CPU_reg[1].value == uint16_t(-20),
+        "LHU uses the real zero extended upper half for a negative coordinate");
+  CPU_LHx(I(0x21, 0, 1), uint32_t(-20), 0x102);
+  Check(CPU_reg[1].x == -19.5f && CPU_reg[1].y == -1.f && CPU_reg[1].value == uint32_t(-20),
+        "LH keeps signed extension while preserving the selected coordinate");
+  Seed(0x100, XY(0, 20), -0.25f, 20.5f);
+  CPU_LHx(I(0x21, 0, 1), 0, 0x100);
+  Check(CPU_reg[1].x == -0.25f && CPU_reg[1].y == 0.f,
+        "fractional sign crossing cannot alter the native halfword sign extension");
+  Seed(0x100);
+  CPU_LHx(I(0x21, 0, 1), 30, 0x100);
+  Check(CPU_reg[1].x == 30.f && CPU_reg[1].y == 0.f && (CPU_reg[1].flags & VALID_Z) == 0,
+        "halfword loads reject stale DMA precision without borrowing the other half depth");
+  Seed(0x100);
+  CPU_SB(I(0x28, 0, 1), 10, 0x100);
+  Check(Vertex(0x100, XY(10, 20), 10.25f, 20.5f), "redundant byte stores preserve the complete vertex");
+  CPU_SB(I(0x28, 0, 1), 30, 0x100);
+  CPU_LHx(I(0x25, 0, 1), 20, 0x102);
+  Check(CPU_reg[1].x == 20.5f && CPU_reg[1].y == 0.f && (CPU_reg[1].flags & VALID_Z) != 0,
+        "byte stores preserve the untouched coordinate for subsequent halfword loads");
+  CPU_SB(I(0x28, 0, 1), 40, 0x102);
+  Check((GetPtr(0x100)->flags & VALID_ALL) == 0,
+        "overwriting both coordinate halves clears unrelated vertex depth");
+  Seed(0x100);
+  CPU_LW(I(0x23, 0, 0), XY(10, 20), 0x100);
+  Seed(0x200, XY(30, 40), 30.25f, 40.5f);
+  CPU_SH(I(0x29, 0, 0), 0, 0x200);
+  Check(Vertex(0x200, XY(0, 40), 0.f, 40.5f), "SH from r0 stores an exact zero despite discarded precision writes");
+  Seed(0x100);
+  CPU_LW(I(0x23, 0, 1), XY(10, 20), 0x100);
+  CPU_SH(I(0x29, 0, 1), 30, 0x200);
+  Check(GetPtr(0x200)->value == XY(30, 40) && GetPtr(0x200)->x == 30.f,
+        "SH fingerprints the transferred half rather than a stale register value");
+  Seed(0x100);
+  CPU_LW(I(0x23, 0, 1), XY(10, 20), 0x100);
+  Seed(0x200, XY(30, 40), 30.25f, 40.5f, 2000.f);
+  CPU_SH(I(0x29, 0, 1), 10, 0x200);
+  Check(Vertex(0x200, XY(10, 40), 10.25f, 40.5f, false),
+        "halfword packing from different depths retains geometry with affine fallback");
+  for (uint32_t offset = 0; offset < 4; offset++)
+  {
+    Seed(0x100);
+    const uint8_t byte = static_cast<uint8_t>(XY(10, 20) >> (offset * 8));
+    CPU_SB(I(0x28, 0, 1), byte, 0x100 + offset);
+    Check(Vertex(0x100, XY(10, 20), 10.25f, 20.5f), "all byte offsets preserve precision for redundant writes");
+    CPU_SB(I(0x28, 0, 1), byte ^ 1u, 0x100 + offset);
+    const bool low = offset < 2;
+    CPU_LHx(I(0x25, 0, 1), low ? 20 : 10, low ? 0x102 : 0x100);
+    Check(CPU_reg[1].x == (low ? 20.5f : 10.25f) && CPU_reg[1].y == 0.f,
+          "all byte offsets preserve the untouched halfword precision");
+  }
+  for (uint32_t offset : {0u, 2u})
+  {
+    Seed(0x100);
+    CPU_LW(I(0x23, 0, 1), XY(10, 20), 0x100);
+    Seed(0x200, XY(30, 40), 30.25f, 40.5f);
+    CPU_SH(I(0x29, 0, 1), 10, 0x200 + offset);
+    Check(Vertex(0x200, offset ? XY(30, 10) : XY(10, 40), offset ? 30.25f : 10.25f,
+                 offset ? 10.25f : 40.5f), "SH preserves the unaffected coordinate when packing equal-depth halves");
+  }
+}
+
 int main()
 {
   using namespace PGXP;
@@ -429,6 +497,7 @@ int main()
   CheckHiLoTransfers();
   CheckDivisions();
   CheckMultiplication();
+  CheckPartialTransfers();
   CheckShifts();
   Reset();
   Seed(0x100);
