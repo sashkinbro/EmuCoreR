@@ -4087,9 +4087,12 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
 {
   if (!CreateTextureReplacementStreamBuffer())
     return false;
-  const VkPipeline replacement_pipeline = (m_multisamples > 1) ? GetVRAMReplacementPipeline() : VK_NULL_HANDLE;
-  if (m_multisamples > 1 && replacement_pipeline == VK_NULL_HANDLE)
-    return false;
+  const uint32_t vram_width = m_vram_texture.GetWidth();
+  const uint32_t vram_height = m_vram_texture.GetHeight();
+  dst_x %= vram_width;
+  dst_y %= vram_height;
+  const uint32_t columns = 1 + (dst_x + width > vram_width);
+  const uint32_t rows = 1 + (dst_y + height > vram_height);
 
   if (m_vram_write_replacement_texture.GetWidth() < tex->GetWidth() ||
       m_vram_write_replacement_texture.GetHeight() < tex->GetHeight())
@@ -4106,7 +4109,14 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
       return false;
   }
 
-  if (m_multisamples > 1 && m_vram_replacement_descriptor_set == VK_NULL_HANDLE)
+  const bool use_shader = (m_multisamples > 1 || columns > 1 || rows > 1 ||
+    tex->GetWidth() < m_vram_write_replacement_texture.GetWidth() ||
+    tex->GetHeight() < m_vram_write_replacement_texture.GetHeight());
+  const VkPipeline replacement_pipeline = use_shader ? GetVRAMReplacementPipeline() : VK_NULL_HANDLE;
+  if (use_shader && replacement_pipeline == VK_NULL_HANDLE)
+    return false;
+
+  if (use_shader && m_vram_replacement_descriptor_set == VK_NULL_HANDLE)
   {
     m_vram_replacement_descriptor_set = g_vulkan_context->AllocateGlobalDescriptorSet(m_single_sampler_descriptor_set_layout);
     if (m_vram_replacement_descriptor_set == VK_NULL_HANDLE)
@@ -4139,7 +4149,7 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
                                                     m_texture_replacment_stream_buffer.GetBuffer(), buffer_offset,
 						    tex->GetWidth());
 
-  if (m_multisamples > 1)
+  if (use_shader)
   {
     m_vram_write_replacement_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -4151,31 +4161,53 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
     vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_single_sampler_pipeline_layout, 0, 1,
                             &m_vram_replacement_descriptor_set, 0, nullptr);
     vkCmdPushConstants(cmdbuf, m_single_sampler_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uniforms), uniforms);
-    Vulkan::Util::SetViewportAndScissor(cmdbuf, dst_x, dst_y, width, height);
-    vkCmdDraw(cmdbuf, 3, 1, 0, 0);
-    RestoreGraphicsAPIState();
   }
   else
   {
-    const VkImageBlit blit = {
-      {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},
-      {{0, 0, 0}, {static_cast<int32_t>(tex->GetWidth()), static_cast<int32_t>(tex->GetHeight()), 1}},
-      {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},
-      {{static_cast<int32_t>(dst_x), static_cast<int32_t>(dst_y), 0},
-       {static_cast<int32_t>(dst_x + width), static_cast<int32_t>(dst_y + height), 1}},
-    };
     m_vram_write_replacement_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    vkCmdBlitImage(cmdbuf, m_vram_write_replacement_texture.GetImage(), m_vram_write_replacement_texture.GetLayout(),
-                   m_vram_texture.GetImage(), m_vram_texture.GetLayout(), 1, &blit, VK_FILTER_LINEAR);
-    m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   }
-  // The CPU shadow contains the original upload. Sampling its decoded page
-  // would hide the replacement, so use GPU VRAM until this region is rewritten.
-  const Common::Rectangle<uint32_t> native_bounds = Common::Rectangle<uint32_t>::FromExtents(
-    dst_x / m_resolution_scale, dst_y / m_resolution_scale, width / m_resolution_scale, height / m_resolution_scale);
-  OnVRAMDrawnRectangle(native_bounds.left, native_bounds.right, native_bounds.top, native_bounds.bottom);
-  IncludeVRAMDirtyRectangle(native_bounds);
+
+  for (uint32_t row = 0; row < rows; row++)
+  {
+    for (uint32_t column = 0; column < columns; column++)
+    {
+      // Keep the source mapping continuous across VRAM edges, including PNG
+      // sizes that are not integer multiples of the native upload dimensions.
+      const int32_t viewport_x = static_cast<int32_t>(dst_x) - static_cast<int32_t>(column * vram_width);
+      const int32_t viewport_y = static_cast<int32_t>(dst_y) - static_cast<int32_t>(row * vram_height);
+      const uint32_t left = std::max(viewport_x, 0);
+      const uint32_t top = std::max(viewport_y, 0);
+      const uint32_t right = std::min(viewport_x + static_cast<int32_t>(width), static_cast<int32_t>(vram_width));
+      const uint32_t bottom = std::min(viewport_y + static_cast<int32_t>(height), static_cast<int32_t>(vram_height));
+      if (use_shader)
+      {
+        Vulkan::Util::SetViewport(cmdbuf, viewport_x, viewport_y, width, height);
+        Vulkan::Util::SetScissor(cmdbuf, left, top, right - left, bottom - top);
+        vkCmdDraw(cmdbuf, 3, 1, 0, 0);
+      }
+      else
+      {
+        const VkImageBlit blit = {
+          {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},
+          {{0, 0, 0}, {static_cast<int32_t>(tex->GetWidth()), static_cast<int32_t>(tex->GetHeight()), 1}},
+          {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},
+          {{static_cast<int32_t>(dst_x), static_cast<int32_t>(dst_y), 0},
+           {static_cast<int32_t>(dst_x + width), static_cast<int32_t>(dst_y + height), 1}},
+        };
+        vkCmdBlitImage(cmdbuf, m_vram_write_replacement_texture.GetImage(), m_vram_write_replacement_texture.GetLayout(),
+                       m_vram_texture.GetImage(), m_vram_texture.GetLayout(), 1, &blit, VK_FILTER_LINEAR);
+      }
+      const Common::Rectangle<uint32_t> native_bounds(left / m_resolution_scale, top / m_resolution_scale,
+        right / m_resolution_scale, bottom / m_resolution_scale);
+      OnVRAMDrawnRectangle(native_bounds.left, native_bounds.right, native_bounds.top, native_bounds.bottom);
+      IncludeVRAMDirtyRectangle(native_bounds);
+    }
+  }
+  if (use_shader)
+    RestoreGraphicsAPIState();
+  else
+    m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   return true;
 }
 

@@ -20,6 +20,15 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TextureReplacementInstrumentedTest {
     @Test
+    fun replacementsWrapAcrossVramEdges() {
+        for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
+            for (samples in listOf("1", "2", "4", "4-ssaa")) for (preload in listOf(false, true)) {
+                for (wrap in 1..3) runReloadProbe(renderer, preload, multisamples = samples, wrappedUpload = wrap)
+            }
+        }
+    }
+
+    @Test
     fun runaheadRetainsPendingTextureReplacements() {
         for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
             runPendingWriteProbe(renderer, 7, runaheadFrames = 2, slowDecode = true)
@@ -63,7 +72,7 @@ class TextureReplacementInstrumentedTest {
     }
 
     private fun runReloadProbe(renderer: Int, preload: Boolean, sampleTexture: Boolean = false, multisamples: String = "1",
-                               splitReplacement: Boolean = false) {
+                               splitReplacement: Boolean = false, wrappedUpload: Int = 0) {
         assertEquals("CPH2747", Build.MODEL)
         assertEquals("OnePlus", Build.MANUFACTURER)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -76,17 +85,26 @@ class TextureReplacementInstrumentedTest {
         val image = File(textures, "vram-write-5bf538dc6e289176a1e739cd1e037dd4.png")
         fun writeImage(color: Int) {
             val size = if (splitReplacement && color == Color.BLUE) 16 else 32
-            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val imageWidth = if (wrappedUpload != 0) if (color == Color.GREEN) 37 else 25 else size
+            val imageHeight = if (wrappedUpload != 0) if (color == Color.GREEN) 29 else 19 else size
+            val bitmap = Bitmap.createBitmap(imageWidth, imageHeight, Bitmap.Config.ARGB_8888)
             try {
                 bitmap.eraseColor(color)
                 if (splitReplacement) for (y in size / 2 until size) for (x in 0 until size) {
                     bitmap.setPixel(x, y, if (color == Color.GREEN) Color.BLUE else Color.GREEN)
                 }
+                if (wrappedUpload != 0) for (y in 0 until imageHeight) for (x in 0 until imageWidth) {
+                    bitmap.setPixel(x, y, when {
+                        y >= imageHeight / 2 -> if (x < imageWidth / 2) Color.YELLOW else Color.MAGENTA
+                        x >= imageWidth / 2 -> if (color == Color.GREEN) Color.BLUE else Color.GREEN
+                        else -> color
+                    })
+                }
                 image.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
             } finally { bitmap.recycle() }
         }
         writeImage(Color.GREEN)
-        val bios = File(system, "texture.bin").apply { writeBytes(makeBios(sampleTexture)) }
+        val bios = File(system, "texture.bin").apply { writeBytes(makeBios(sampleTexture, wrappedUpload = wrappedUpload)) }
         val bridge = NativeCoreBridge()
         try {
             bridge.nativeInit(system.absolutePath, save.absolutePath, assets.absolutePath)
@@ -95,7 +113,7 @@ class TextureReplacementInstrumentedTest {
             bridge.setTextureReplacementsPathOverride(textures.absolutePath)
             mapOf(
                 "CPU_ExecutionMode" to "Recompiler", "GPU_Renderer" to RendererDefaults.coreRendererName(renderer),
-                "GPU_PGXPEnable" to "false", "GPU_ResolutionScale" to "2", "GPU_UseThread" to "false",
+                "GPU_PGXPEnable" to (wrappedUpload != 0).toString(), "GPU_ResolutionScale" to "2", "GPU_UseThread" to "false",
                 "GPU_TextureFilter" to "Nearest", "GPU_MSAA" to multisamples, "GPU_WidescreenHack" to "false",
                 "GPU_DitheringMode" to "Unscaled", "Display_AspectRatio" to "4:3", "Display_CropMode" to "Borders",
                 "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
@@ -113,8 +131,9 @@ class TextureReplacementInstrumentedTest {
                     assertEquals(0, bridge.loadBiosOnly(session))
                     fun awaitColor(channel: Int, stage: String) {
                         var count = 0
-                        val counts = IntArray(3)
-                        val rowSums = IntArray(3)
+                        val counts = IntArray(5)
+                        val rowSums = IntArray(5)
+                        val columnSums = IntArray(5)
                         repeat(30) {
                             bridge.runFrame(session)
                             val deadline = System.nanoTime() + 100_000_000
@@ -125,25 +144,45 @@ class TextureReplacementInstrumentedTest {
                                     count = 0
                                     counts.fill(0)
                                     rowSums.fill(0)
-                                    for (y in 0 until it.height) for (x in 0 until it.width) {
+                                    columnSums.fill(0)
+                                    // Wrapped source texels may also be visible at the
+                                    // display origin; inspect only the copied destination.
+                                    val pixelRows = if (wrappedUpload != 0) 64 until 112 else 0 until it.height
+                                    val pixelColumns = if (wrappedUpload != 0) 64 until 112 else 0 until it.width
+                                    for (y in pixelRows) for (x in pixelColumns) {
                                         val offset = y * plane.rowStride + x * plane.pixelStride
                                         val r = plane.buffer.get(offset).toInt() and 255
                                         val g = plane.buffer.get(offset + 1).toInt() and 255
                                         val b = plane.buffer.get(offset + 2).toInt() and 255
-                                        if (r > 220 && g < 20 && b < 20) { counts[0]++; rowSums[0] += y }
-                                        if (g > 220 && r < 20 && b < 20) { counts[1]++; rowSums[1] += y }
-                                        if (b > 220 && r < 20 && g < 20) { counts[2]++; rowSums[2] += y }
+                                        val color = when {
+                                            r > 220 && g < 20 && b < 20 -> 0
+                                            g > 220 && r < 20 && b < 20 -> 1
+                                            b > 220 && r < 20 && g < 20 -> 2
+                                            r > 220 && g > 220 && b < 20 -> 3
+                                            r > 220 && b > 220 && g < 20 -> 4
+                                            else -> -1
+                                        }
+                                        if (color >= 0) { counts[color]++; rowSums[color] += y; columnSums[color] += x }
                                     }
                                     count = counts[channel]
                                 }
                                 break
                             }
                             val other = if (channel == 1) 2 else 1
+                            if (wrappedUpload != 0) {
+                                fun before(sums: IntArray, a: Int, b: Int) =
+                                    sums[a].toLong() * counts[b] < sums[b].toLong() * counts[a]
+                                if (channel == 0 && count >= 192) return
+                                if (channel != 0 && counts[0] == 0 && (1..4).all { counts[it] >= 36 } &&
+                                    before(columnSums, channel, other) && before(columnSums, 3, 4) &&
+                                    before(rowSums, channel, 3) && before(rowSums, other, 4)) return
+                                return@repeat
+                            }
                             val oriented = !splitReplacement || channel == 0 || (counts[other] >= 64 &&
                                 rowSums[channel].toLong() * counts[other] < rowSums[other].toLong() * counts[channel])
                             if (count >= 64 && oriented) return
                         }
-                        fail("$stage: ${RendererDefaults.coreRendererName(renderer)} preload=$preload MSAA=$multisamples expected channel=$channel, RGB counts=${counts.toList()}")
+                        fail("$stage: ${RendererDefaults.coreRendererName(renderer)} preload=$preload MSAA=$multisamples wrap=$wrappedUpload expected channel=$channel, RGB counts=${counts.toList()}")
                     }
                     awaitColor(0, "native texture")
                     bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements", "true")
@@ -252,7 +291,7 @@ class TextureReplacementInstrumentedTest {
         }
     }
 
-    private fun makeBios(sampleTexture: Boolean, mutation: Int = -1): ByteArray {
+    private fun makeBios(sampleTexture: Boolean, mutation: Int = -1, wrappedUpload: Int = 0): ByteArray {
         val out = ByteBuffer.allocate(512 * 1024).order(ByteOrder.LITTLE_ENDIAN)
         fun emit(value: Int) { out.putInt(value) }
         fun imm(op: Int, source: Int, target: Int, value: Int) =
@@ -274,12 +313,18 @@ class TextureReplacementInstrumentedTest {
         val loop = out.position()
         val wrapped = mutation in listOf(6, 8, 9)
         val uploadPosition = when {
+            wrappedUpload != 0 -> ((if (wrappedUpload and 2 != 0) 508 else 300) shl 16) or
+                if (wrappedUpload and 1 != 0) 1020 else 512
             corner -> 0
             sampleTexture || sampledPending -> 512
             else -> (80 shl 16) or if (wrapped) 0 else 80
         }
         for (command in listOf(0xa0000000.toInt(), uploadPosition, (16 shl 16) or 16)) write(0, command)
         repeat(128) { write(0, 0x001f001f) }
+        if (wrappedUpload != 0) {
+            for (command in listOf(0x80000000.toInt(), uploadPosition, (80 shl 16) or 80, (16 shl 16) or 16))
+                write(0, command)
+        }
         if (mutation >= 0) {
             if (mutation == 4 || mutation == 5) write(0, 0xe6000002.toInt())
             when (mutation) {
