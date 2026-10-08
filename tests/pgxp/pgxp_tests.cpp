@@ -349,6 +349,78 @@ static void CheckDivisions()
   }
 }
 
+static void CheckMultiplication()
+{
+  using namespace PGXP;
+  auto constant = [](uint32_t raw) {
+    return PGXP_value{float(int16_t(raw)), float(int16_t(raw >> 16)), 0.f, {VALID_01}, raw};
+  };
+  auto exact = [](const PGXP_value& value, uint32_t raw) {
+    return value.value == raw && value.x == float(int16_t(raw)) && value.y == float(int16_t(raw >> 16)) &&
+           value.flags == VALID_01;
+  };
+  for (bool sign : {false, true})
+  {
+    bool correct = true;
+    for (uint32_t a : {0u, 1u, 2u, 3u, 65535u, 65536u, 0x7fffffffu, 0x80000000u, 0xffffffffu})
+    {
+      for (uint32_t b : {0u, 1u, 2u, 3u, 65535u, 65536u, 0x7fffffffu, 0x80000000u, 0xffffffffu})
+      {
+        CPU_reg[1] = constant(a);
+        CPU_reg[2] = constant(b);
+        const uint64_t product = sign ? uint64_t(int64_t(int32_t(a)) * int64_t(int32_t(b))) : uint64_t(a) * b;
+        if (sign) CPU_MULT(R(1, 2, 0), a, b);
+        else CPU_MULTU(R(1, 2, 0), a, b);
+        correct &= exact(CPU_Lo, uint32_t(product)) && exact(CPU_Hi, uint32_t(product >> 32));
+      }
+    }
+    Check(correct, "constant multiplication agrees with the exact 64-bit integer result");
+    for (bool reverse : {false, true})
+    {
+      Reset();
+      Seed(0x100);
+      CPU_LW(I(0x23, 0, 1), XY(10, 20), 0x100);
+      CPU_reg[2] = constant(2);
+      const uint32_t instruction = reverse ? R(2, 1, 0) : R(1, 2, 0);
+      const uint32_t a = reverse ? 2 : XY(10, 20), b = reverse ? XY(10, 20) : 2;
+      if (sign) CPU_MULT(instruction, a, b);
+      else CPU_MULTU(instruction, a, b);
+      Check(CPU_Lo.value == XY(20, 40) && CPU_Lo.x == 20.5f && CPU_Lo.y == 41.f &&
+            (CPU_Lo.flags & VALID_Z) != 0 && CPU_Lo.z == 1000.f,
+            "vertex multiplication retains coordinates and depth in either operand order");
+    }
+    CPU_reg[2] = constant(1);
+    const auto original = CPU_reg[1];
+    if (sign) CPU_MULT(R(1, 2, 0), XY(10, 20), 1);
+    else CPU_MULTU(R(1, 2, 0), XY(10, 20), 1);
+    Check(std::memcmp(&CPU_Lo, &original, sizeof(original)) == 0 && exact(CPU_Hi, 0),
+          "multiplication by one is an exact geometry copy with constant HI");
+    CPU_reg[2] = constant(0);
+    if (sign) CPU_MULT(R(1, 2, 0), XY(10, 20), 0);
+    else CPU_MULTU(R(1, 2, 0), XY(10, 20), 0);
+    Check(exact(CPU_Lo, 0) && exact(CPU_Hi, 0), "multiplication by zero cannot retain vertex depth");
+    Seed(0x100, XY(0, 20), -0.25f, 20.5f);
+    CPU_LW(I(0x23, 0, 1), XY(0, 20), 0x100);
+    CPU_reg[2] = constant(2);
+    if (sign) CPU_MULT(R(1, 2, 0), XY(0, 20), 2);
+    else CPU_MULTU(R(1, 2, 0), XY(0, 20), 2);
+    Check(CPU_Lo.value == XY(0, 40) && CPU_Lo.x == -0.5f && CPU_Lo.y == 41.f,
+          "fractional sign crossing cannot carry into Y during multiplication");
+    Seed(0x120, XY(5, 10), 5.25f, 10.5f, 2000.f);
+    CPU_LW(I(0x23, 0, 2), XY(5, 10), 0x120);
+    if (sign) CPU_MULT(R(1, 2, 0), XY(0, 20), XY(5, 10));
+    else CPU_MULTU(R(1, 2, 0), XY(0, 20), XY(5, 10));
+    Check((CPU_Lo.flags & VALID_Z) == 0 && (CPU_Hi.flags & VALID_Z) == 0,
+          "multiplying different vertices cannot invent a shared perspective depth");
+    CPU_reg[1].x = std::numeric_limits<float>::quiet_NaN();
+    CPU_reg[2] = constant(2);
+    if (sign) CPU_MULT(R(1, 2, 0), XY(0, 20), 2);
+    else CPU_MULTU(R(1, 2, 0), XY(0, 20), 2);
+    Check(exact(CPU_Lo, XY(0, 40)) && exact(CPU_Hi, 0),
+          "nonfinite multiplication metadata falls back to the actual integer result");
+  }
+}
+
 int main()
 {
   using namespace PGXP;
@@ -356,6 +428,7 @@ int main()
   Initialize();
   CheckHiLoTransfers();
   CheckDivisions();
+  CheckMultiplication();
   CheckShifts();
   Reset();
   Seed(0x100);

@@ -140,11 +140,21 @@ class PgxpInstrumentedTest {
                                     assertEquals("division identity Y at $address: $label", sy, before.getFloat(entry + 4), 0.001f)
                                     assertEquals("division identity lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
                                 }
+                                for (address in listOf(0x20c0, 0x20c4, 0x20c8, 0x20cc, 0x20d0, 0x20d4)) {
+                                    val entry = address / 4 * 20
+                                    val scale = if (address < 0x20d0) 2f else 1f
+                                    assertEquals("multiplication X at $address: $label", sx * scale, before.getFloat(entry), 0.001f)
+                                    assertEquals("multiplication Y at $address: $label", sy * scale, before.getFloat(entry + 4), 0.001f)
+                                    assertEquals("multiplication lost depth at $address: $label", 0x10000, before.getInt(entry + 12) and 0x10000)
+                                }
                                 for ((address, expected) in listOf(
                                     0x2090 to (0f to 0f), 0x2094 to (0f to 0f),
                                     0x2098 to (1f to 0f), 0x209c to (-1f to -1f),
                                     0x20a8 to (0f to -32768f), 0x20ac to (0f to 0f),
-                                    0x20b0 to (1f to 0f), 0x20b4 to (1f to 0f)
+                                    0x20b0 to (1f to 0f), 0x20b4 to (1f to 0f),
+                                    0x20d8 to (0f to 0f), 0x20dc to (0f to 0f),
+                                    0x20e0 to (0f to 0f), 0x20e4 to (0f to 0f),
+                                    0x20e8 to (0f to 0f), 0x20ec to (0f to 0f)
                                 )) {
                                     val entry = address / 4 * 20
                                     assertEquals("integer division X at $address: $label", expected.first, before.getFloat(entry), 0f)
@@ -346,6 +356,32 @@ class PgxpInstrumentedTest {
             emit(imm(0x2b, 12, 14, quotient))
             emit((14 shl 11) or 0x10)
             emit(imm(0x2b, 12, 14, remainder))
+        }
+        constant(13, 2)
+        for ((function, reverse, address) in listOf(
+            Triple(0x18, false, 0xc0), Triple(0x18, true, 0xc4),
+            Triple(0x19, false, 0xc8), Triple(0x19, true, 0xcc)
+        )) {
+            val source = if (reverse) 13 else 8
+            val target = if (reverse) 8 else 13
+            emit((source shl 21) or (target shl 16) or function)
+            repeat(16) { emit(0) }
+            emit((14 shl 11) or 0x12)
+            emit(imm(0x2b, 12, 14, address))
+        }
+        for ((scale, quotient, high) in listOf(
+            Triple(1, 0xd0, 0xd8), Triple(0, 0xe0, 0xe8)
+        )) {
+            constant(13, scale)
+            for (function in listOf(0x18, 0x19)) {
+                val offset = if (function == 0x19) 4 else 0
+                emit((8 shl 21) or (13 shl 16) or function)
+                repeat(16) { emit(0) }
+                emit((14 shl 11) or 0x12)
+                emit(imm(0x2b, 12, 14, quotient + offset))
+                emit((14 shl 11) or 0x10)
+                emit(imm(0x2b, 12, 14, high + offset))
+            }
         }
         emit(imm(0x2a, 12, 8, 9)) // SWL: Y into low half
         emit(imm(0x2e, 12, 8, 14)) // SWR: X into high half
