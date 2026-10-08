@@ -225,11 +225,36 @@ static void CheckMemorySnapshots()
         "loading a snapshot without PGXP cannot retain stale precision");
 }
 
+static void CheckHiLoTransfers()
+{
+  using namespace PGXP;
+  for (uint32_t source : {1u, 7u, 31u})
+  {
+    Reset();
+    Seed(0x100);
+    CPU_LW(I(0x23, 0, source), XY(10, 20), 0x100);
+    CPU_MTHI(R(source, 0, 0), XY(10, 20));
+    CPU_MFHI(R(0, 0, 2), XY(10, 20));
+    CPU_SW(I(0x2b, 0, 2), XY(10, 20), 0x200);
+    Check(Vertex(0x200, XY(10, 20), 10.25f, 20.5f), "MTHI/MFHI preserve geometry from the encoded source register");
+    CPU_MTLO(R(source, 0, 0), XY(10, 20));
+    CPU_MFLO(R(0, 0, 2), XY(10, 20));
+    CPU_SW(I(0x2b, 0, 2), XY(10, 20), 0x200);
+    Check(Vertex(0x200, XY(10, 20), 10.25f, 20.5f), "MTLO/MFLO preserve geometry from the encoded source register");
+  }
+  Reset();
+  CPU_MTHI(R(0, 0, 0), 0);
+  CPU_MTLO(R(0, 0, 0), 0);
+  Check(CPU_Hi.value == 0 && CPU_Lo.value == 0 && CPU_Hi.flags == VALID_01 && CPU_Lo.flags == VALID_01,
+        "writing r0 to HI/LO produces exact constants without depth");
+}
+
 int main()
 {
   using namespace PGXP;
   g_settings.gpu_pgxp_enable = true;
   Initialize();
+  CheckHiLoTransfers();
   CheckShifts();
   Reset();
   Seed(0x100);
