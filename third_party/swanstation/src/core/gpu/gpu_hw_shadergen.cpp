@@ -90,11 +90,15 @@ void GPU_HW_ShaderGen::WriteBatchUniformBuffer(std::stringstream& ss)
     "uint u_pgxp_depth",          "uint u_uv_limits",           "uint u_render_mode"};
 
   // The texture replacement flag occupies the same byte offset in the batch
-  // UBO as the pre-baked shaders' u_replacement_enabled field. Only emitted on
-  // backends which sample a composited page from the second sampler; the
-  // others leave the field unread.
-  if (m_use_texture_replacements)
+  // UBO as the pre-baked shaders' u_replacement_enabled field. Backends
+  // without replacements leave it unread but retain the following offsets.
+  const bool attribute_weights = m_render_api == HostDisplay::RenderAPI::Vulkan ||
+                                 m_render_api == HostDisplay::RenderAPI::OpenGL ||
+                                 m_render_api == HostDisplay::RenderAPI::OpenGLES;
+  if (m_use_texture_replacements || attribute_weights)
     members.push_back("uint u_replacement_enabled");
+  if (attribute_weights)
+    members.push_back("uint u_pgxp_interpolation");
 
   DeclareUniformBuffer(ss, members, false);
 
@@ -237,10 +241,20 @@ std::string GPU_HW_ShaderGen::GenerateBatchVertexShader(bool textured)
 
   v_pos = float4(pos_x * pos_w, pos_y * pos_w, pos_z * pos_w, pos_w);
 
+#if API_OPENGL || API_OPENGL_ES || API_VULKAN
+  // Smooth interpolation divides attributes by clip W. Preweight affine
+  // attributes by W and divide by the matching interpolated W in the FS.
+  // The unused color alpha carries W with the same sample/centroid qualifier.
+  v_col0 = float4(a_col0.rgb * (((u_pgxp_interpolation & 2u) != 0u) ? 1.0 : pos_w), pos_w);
+#else
   v_col0 = a_col0;
+#endif
   #if TEXTURED
     v_tex0 = float2(float((a_texcoord & 0xFFFFu) * RESOLUTION_SCALE),
                     float((a_texcoord >> 16) * RESOLUTION_SCALE));
+    #if API_OPENGL || API_OPENGL_ES || API_VULKAN
+      v_tex0 *= ((u_pgxp_interpolation & 1u) != 0u) ? 1.0 : pos_w;
+    #endif
 
     // base_x,base_y,palette_x,palette_y
     v_texpage.x = (a_texpage & 15u) * 64u * RESOLUTION_SCALE;
@@ -1061,7 +1075,13 @@ float4 SampleFromVRAM(uint4 texpage, float2 coords)
 
   ss << R"(
 {
+#if API_OPENGL || API_OPENGL_ES || API_VULKAN
+  float affine_scale = 1.0 / v_col0.a;
+  float color_scale = ((u_pgxp_interpolation & 2u) != 0u) ? 1.0 : affine_scale;
+  uint3 vertcol = uint3((v_col0.rgb * color_scale) * float3(255.0, 255.0, 255.0));
+#else
   uint3 vertcol = uint3(v_col0.rgb * float3(255.0, 255.0, 255.0));
+#endif
 
   bool semitransparent;
   uint3 icolor;
@@ -1087,6 +1107,9 @@ float4 SampleFromVRAM(uint4 texpage, float2 coords)
     // We can't currently use upscaled coordinate for palettes because of how they're packed.
     // Not that it would be any benefit anyway, render-to-texture effects don't use palettes.
     float2 coords = v_tex0;
+    #if API_OPENGL || API_OPENGL_ES || API_VULKAN
+      coords *= ((u_pgxp_interpolation & 1u) != 0u) ? 1.0 : affine_scale;
+    #endif
     #if PALETTE
       coords /= float2(RESOLUTION_SCALE, RESOLUTION_SCALE);
     #endif
