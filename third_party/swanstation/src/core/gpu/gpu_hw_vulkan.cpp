@@ -3861,6 +3861,7 @@ void GPU_HW_Vulkan::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t he
 
 void GPU_HW_Vulkan::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, const void* data, bool set_mask, bool check_mask)
 {
+  g_texture_replacements.InvalidatePendingVRAMWriteReplacements(x, y, width, height);
   if (IsUsingSoftwareRendererForReadbacks())
     UpdateSoftwareRendererVRAM(x, y, width, height, data, set_mask, check_mask);
 
@@ -3921,6 +3922,7 @@ void GPU_HW_Vulkan::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t 
 
 void GPU_HW_Vulkan::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uint32_t dst_y, uint32_t width, uint32_t height)
 {
+  g_texture_replacements.InvalidatePendingVRAMWriteReplacements(dst_x, dst_y, width, height);
   VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
   if (IsUsingSoftwareRendererForReadbacks())
     CopySoftwareRendererVRAM(src_x, src_y, dst_x, dst_y, width, height);

@@ -94,6 +94,10 @@ public:
   };
   void CollectReadyVRAMWriteReplacements(std::vector<VRAMWriteReplacementResult>* out);
 
+  // A later write invalidates an upload match even when it only touches part
+  // of that upload. Coordinates and extents may wrap around VRAM.
+  void InvalidatePendingVRAMWriteReplacements(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+
   // Texture page replacement lookup. `mode` may carry GPUTextureMode::RawTextureBit
   // (the ST* variants); page/palette coordinates are in VRAM words.
   // Returns a pointer owned by the internal cache, valid until the next lookup.
@@ -344,7 +348,6 @@ private:
 
   void QueuePendingVRAMWriteReplacement(const TextureReplacementHash& hash, uint32_t x, uint32_t y, uint32_t width,
                                         uint32_t height);
-  void RemovePendingVRAMWriteReplacement(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 
   static constexpr size_t MAX_PENDING_VRAM_WRITE_REPLACEMENTS = 256;
   std::vector<PendingVRAMWriteReplacement> m_pending_vram_write_replacements;
