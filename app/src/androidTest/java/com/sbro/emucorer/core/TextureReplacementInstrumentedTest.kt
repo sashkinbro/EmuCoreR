@@ -28,7 +28,16 @@ class TextureReplacementInstrumentedTest {
         }
     }
 
-    private fun runReloadProbe(renderer: Int, preload: Boolean) {
+    @Test
+    fun texturedDrawsPreserveVramReplacements() {
+        for (preload in listOf(false, true)) {
+            for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
+                runReloadProbe(renderer, preload, sampleTexture = true)
+            }
+        }
+    }
+
+    private fun runReloadProbe(renderer: Int, preload: Boolean, sampleTexture: Boolean = false) {
         assertEquals("CPH2747", Build.MODEL)
         assertEquals("OnePlus", Build.MANUFACTURER)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -47,7 +56,7 @@ class TextureReplacementInstrumentedTest {
             } finally { bitmap.recycle() }
         }
         writeImage(Color.GREEN)
-        val bios = File(system, "texture.bin").apply { writeBytes(makeBios()) }
+        val bios = File(system, "texture.bin").apply { writeBytes(makeBios(sampleTexture)) }
         val bridge = NativeCoreBridge()
         try {
             bridge.nativeInit(system.absolutePath, save.absolutePath, assets.absolutePath)
@@ -107,7 +116,9 @@ class TextureReplacementInstrumentedTest {
                     writeImage(Color.BLUE)
                     bridge.nativeSetOption("swanstation_TextureReplacements_PreloadTextures", (!preload).toString())
                     awaitColor(2, "updated replacement")
-                    Log.i("TextureReplacementProbe", "PASS ${RendererDefaults.coreRendererName(renderer)} preload=$preload reload")
+                    bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements", "false")
+                    awaitColor(0, "replacement disabled")
+                    Log.i("TextureReplacementProbe", "PASS ${RendererDefaults.coreRendererName(renderer)} preload=$preload sampled=$sampleTexture reload")
                 }
             } finally { bridge.destroySession(session) }
         } finally {
@@ -116,7 +127,7 @@ class TextureReplacementInstrumentedTest {
         }
     }
 
-    private fun makeBios(): ByteArray {
+    private fun makeBios(sampleTexture: Boolean): ByteArray {
         val out = ByteBuffer.allocate(512 * 1024).order(ByteOrder.LITTLE_ENDIAN)
         fun emit(value: Int) { out.putInt(value) }
         fun imm(op: Int, source: Int, target: Int, value: Int) =
@@ -134,8 +145,12 @@ class TextureReplacementInstrumentedTest {
         for (command in listOf(0xe3000000.toInt(), 0xe407ffff.toInt(), 0xe5000000.toInt(),
             0xe1000108.toInt(), 0x02000000, 0, (240 shl 16) or 320)) write(0, command)
         val loop = out.position()
-        for (command in listOf(0xa0000000.toInt(), (80 shl 16) or 80, (16 shl 16) or 16)) write(0, command)
+        val uploadPosition = if (sampleTexture) 512 else (80 shl 16) or 80
+        for (command in listOf(0xa0000000.toInt(), uploadPosition, (16 shl 16) or 16)) write(0, command)
         repeat(128) { write(0, 0x001f001f) }
+        if (sampleTexture) {
+            for (command in listOf(0x01000000, 0x65808080, (80 shl 16) or 80, 0, (16 shl 16) or 16)) write(0, command)
+        }
         emit(0x08000000 or (((0xbfc00000.toInt() + loop) ushr 2) and 0x03ffffff))
         emit(0)
         return out.array()

@@ -1957,12 +1957,18 @@ bool GPU_HW_OpenGL::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
   glDisable(GL_SCISSOR_TEST);
   m_vram_write_replacement_texture.BindFramebuffer(GL_READ_FRAMEBUFFER);
 
+  const Common::Rectangle<uint32_t> native_bounds = Common::Rectangle<uint32_t>::FromExtents(
+    dst_x / m_resolution_scale, dst_y / m_resolution_scale, width / m_resolution_scale, height / m_resolution_scale);
   dst_y = m_vram_texture.GetHeight() - dst_y - height;
   glBlitFramebuffer(0, tex->GetHeight(), tex->GetWidth(), 0, dst_x, dst_y, dst_x + width, dst_y + height,
                     GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
   m_vram_read_texture.Bind();
   glEnable(GL_SCISSOR_TEST);
+  // The CPU shadow contains the original upload. Sampling its decoded page
+  // would hide the replacement, so use GPU VRAM until this region is rewritten.
+  OnVRAMDrawnRectangle(native_bounds.left, native_bounds.right, native_bounds.top, native_bounds.bottom);
+  IncludeVRAMDirtyRectangle(native_bounds);
   return true;
 }
 
