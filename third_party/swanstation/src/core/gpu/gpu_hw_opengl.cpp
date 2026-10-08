@@ -1974,38 +1974,66 @@ bool GPU_HW_OpenGL::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
                                              tex->GetPixels());
   }
 
+  const uint32_t vram_width = m_vram_texture.GetWidth();
+  const uint32_t vram_height = m_vram_texture.GetHeight();
+  dst_x %= vram_width;
+  dst_y %= vram_height;
+  const uint32_t columns = 1 + (dst_x + width > vram_width);
+  const uint32_t rows = 1 + (dst_y + height > vram_height);
+  const bool use_shader = (m_multisamples > 1 || columns > 1 || rows > 1);
+
   glDisable(GL_SCISSOR_TEST);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_vram_fbo_id);
   m_vram_write_replacement_texture.BindFramebuffer(GL_READ_FRAMEBUFFER);
 
-  const Common::Rectangle<uint32_t> native_bounds = Common::Rectangle<uint32_t>::FromExtents(
-    dst_x / m_resolution_scale, dst_y / m_resolution_scale, width / m_resolution_scale, height / m_resolution_scale);
-  dst_y = m_vram_texture.GetHeight() - dst_y - height;
-  if (m_multisamples > 1)
+  if (use_shader)
   {
     const float uniforms[4] = {0.0f, 1.0f, 1.0f, -1.0f};
     UploadUniformBuffer(uniforms, sizeof(uniforms));
-    glViewport(dst_x, dst_y, width, height);
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     glBindVertexArray(m_attributeless_vao_id);
     m_vram_write_replacement_texture.Bind();
     m_vram_replacement_program.Bind();
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    RestoreGraphicsAPIState();
+    glEnable(GL_SCISSOR_TEST);
   }
-  else
+
+  for (uint32_t row = 0; row < rows; row++)
   {
-    glBlitFramebuffer(0, tex->GetHeight(), tex->GetWidth(), 0, dst_x, dst_y, dst_x + width, dst_y + height,
-                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    for (uint32_t column = 0; column < columns; column++)
+    {
+      // Translate the complete image, clipping each wrapped piece without
+      // rounding the corresponding PNG coordinates to integer texels.
+      const int32_t viewport_x = static_cast<int32_t>(dst_x) - static_cast<int32_t>(column * vram_width);
+      const int32_t viewport_y = static_cast<int32_t>(dst_y) - static_cast<int32_t>(row * vram_height);
+      const uint32_t left = std::max(viewport_x, 0);
+      const uint32_t top = std::max(viewport_y, 0);
+      const uint32_t right = std::min(viewport_x + static_cast<int32_t>(width), static_cast<int32_t>(vram_width));
+      const uint32_t bottom = std::min(viewport_y + static_cast<int32_t>(height), static_cast<int32_t>(vram_height));
+      if (use_shader)
+      {
+        glViewport(viewport_x, static_cast<int32_t>(vram_height) - viewport_y - static_cast<int32_t>(height), width, height);
+        glScissor(left, vram_height - bottom, right - left, bottom - top);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+      }
+      else
+      {
+        glBlitFramebuffer(0, tex->GetHeight(), tex->GetWidth(), 0, left, vram_height - bottom, right, vram_height - top,
+                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+      }
+      // Decoded CPU pages contain the original upload, so sample GPU VRAM
+      // for every destination piece until the native content is rewritten.
+      const Common::Rectangle<uint32_t> native_bounds(left / m_resolution_scale, top / m_resolution_scale,
+        right / m_resolution_scale, bottom / m_resolution_scale);
+      OnVRAMDrawnRectangle(native_bounds.left, native_bounds.right, native_bounds.top, native_bounds.bottom);
+      IncludeVRAMDirtyRectangle(native_bounds);
+    }
   }
+  if (use_shader)
+    RestoreGraphicsAPIState();
 
   m_vram_read_texture.Bind();
   glEnable(GL_SCISSOR_TEST);
-  // The CPU shadow contains the original upload. Sampling its decoded page
-  // would hide the replacement, so use GPU VRAM until this region is rewritten.
-  OnVRAMDrawnRectangle(native_bounds.left, native_bounds.right, native_bounds.top, native_bounds.bottom);
-  IncludeVRAMDirtyRectangle(native_bounds);
   return true;
 }
 
