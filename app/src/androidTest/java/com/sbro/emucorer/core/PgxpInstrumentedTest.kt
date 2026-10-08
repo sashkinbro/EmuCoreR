@@ -177,6 +177,12 @@ class PgxpInstrumentedTest {
                                     assertEquals("partial transfer lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
                                 }
                                 assertEquals("overwritten halves retained precision: $label", 0, before.getInt(0x2114 / 4 * 20 + 12) and 0x01010101)
+                                for (address in listOf(0x2120, 0x2124, 0x2128, 0x212c, 0x2130)) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("typed GTE transfer X at $address: $label", sx, before.getFloat(entry), 0.001f)
+                                    assertEquals("typed GTE extension at $address: $label", 0f, before.getFloat(entry + 4), 0f)
+                                    assertEquals("typed GTE transfer lost precision at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                }
                                 assertEquals("variable shift invalidated its source: $label", 0x101, before.getInt(original + 12) and 0x101)
                                 assertEquals("variable shift changed source X: $label", sx, before.getFloat(original), 0.001f)
                                 assertEquals("variable shift changed source Y: $label", sy, before.getFloat(original + 4), 0.001f)
@@ -512,6 +518,25 @@ class PgxpInstrumentedTest {
         emit(0)
         emit(imm(0x2b, 12, 14, 0x118))
         emit(imm(0x28, 12, 0, 0x116)) // both original components are now gone
+        emit(imm(0x23, 9, 8, 4))
+        emit(0)
+        for ((register, address) in listOf(9 to 0x120, 16 to 0x124)) {
+            emit(0x48800000 or (8 shl 16) or (register shl 11))
+            repeat(2) { emit(0) }
+            emit(0x48000000 or (14 shl 16) or (register shl 11))
+            emit(0)
+            emit(imm(0x2b, 12, 14, address))
+        }
+        emit(0x48c00000 or (8 shl 16) or (27 shl 11)) // ctc2 DQA
+        repeat(2) { emit(0) }
+        emit(0x48400000 or (14 shl 16) or (27 shl 11))
+        emit(0)
+        emit(imm(0x2b, 12, 14, 0x128))
+        for ((register, address) in listOf(1 to 0x12c, 7 to 0x130)) {
+            emit(imm(0x32, 9, register, 4))
+            repeat(2) { emit(0) }
+            emit(imm(0x3a, 12, register, address))
+        }
         write(11, 0x50, 0x800) // enable DMA channel 2
         write(11, 0, 0x1000)
         write(11, 4, if (textured) 14 else 8)

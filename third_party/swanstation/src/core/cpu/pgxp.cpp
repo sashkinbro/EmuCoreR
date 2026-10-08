@@ -21,6 +21,7 @@
 #include "pgxp.h"
 #include "bus.h"
 #include "cpu_core.h"
+#include "gte_types.h"
 #include "settings.h"
 #include "common/state_wrapper.h"
 #include <algorithm>
@@ -112,6 +113,7 @@ static double f16Overflow(double in);
 
 static PGXP_value* GetPtr(uint32_t addr);
 static PGXP_value* ReadMem(uint32_t addr);
+static PGXP_value IntegerValue(uint32_t raw);
 
 static const PGXP_value PGXP_value_invalid = {0.f, 0.f, 0.f, {0}, 0};
 static const PGXP_value PGXP_value_zero = {0.f, 0.f, 0.f, {VALID_01}, 0};
@@ -606,18 +608,48 @@ float GTE_NCLIP()
   return static_cast<float>(area);
 }
 
+static PGXP_value NormalizeHalfRegister(PGXP_value value, bool sign)
+{
+  const uint16_t half = static_cast<uint16_t>(value.value);
+  const bool precise = (value.flags & VALID_0) != 0 && std::isfinite(value.x);
+  value.value = sign ? static_cast<uint32_t>(static_cast<int16_t>(half)) : uint32_t(half);
+  if (!precise)
+    value.x = static_cast<float>(static_cast<int16_t>(half));
+  value.y = static_cast<float>(static_cast<int16_t>(value.value >> 16));
+  value.flags |= VALID_01;
+  if (precise)
+    TaintZ(value);
+  else
+    ClearZ(value);
+  return value;
+}
+
 static void PGXP_MTC2_int(PGXP_value value, uint32_t reg)
 {
   switch (reg)
   {
+    case 1: case 3: case 5: case 8: case 9: case 10: case 11:
+      value = NormalizeHalfRegister(value, true);
+      break;
+    case 7: case 16: case 17: case 18: case 19:
+      value = NormalizeHalfRegister(value, false);
+      break;
     case 15:
       // push FIFO
       SXY0 = SXY1;
       SXY1 = SXY2;
       SXY2 = value;
       SXYP = SXY2;
-      break;
+      return;
 
+    case 28:
+      // Packed color writes expand into three integer IR channels. They do
+      // not preserve geometry formerly stored in those arithmetic registers.
+      for (uint32_t channel = 0; channel < 3; channel++)
+        GTE_data_reg[9 + channel] = IntegerValue(((value.value >> (channel * 5)) & 31u) << 7);
+      GTE_data_reg[28] = IntegerValue(value.value & 0x7fffu);
+      return;
+    case 29:
     case 31:
       return;
   }
@@ -634,6 +666,11 @@ static void PGXP_MTC2_int(PGXP_value value, uint32_t reg)
 void CPU_MFC2(uint32_t instr, uint32_t rtVal, uint32_t rdVal)
 {
   // CPU[Rt] = GTE_D[Rd]
+  if (rd(instr) == 28 || rd(instr) == 29 || rd(instr) == 31)
+  {
+    CPU_reg[rt(instr)] = IntegerValue(rtVal);
+    return;
+  }
   Validate(&GTE_data_reg[rd(instr)], rdVal);
   CPU_reg[rt(instr)] = GTE_data_reg[rd(instr)];
   CPU_reg[rt(instr)].value = rtVal;
@@ -643,13 +680,19 @@ void CPU_MTC2(uint32_t instr, uint32_t rdVal, uint32_t rtVal)
 {
   // GTE_D[Rd] = CPU[Rt]
   Validate(&CPU_reg[rt(instr)], rtVal);
-  PGXP_MTC2_int(CPU_reg[rt(instr)], rd(instr));
-  GTE_data_reg[rd(instr)].value = rdVal;
+  PGXP_value value = CPU_reg[rt(instr)];
+  value.value = rtVal;
+  PGXP_MTC2_int(value, rd(instr));
 }
 
 void CPU_CFC2(uint32_t instr, uint32_t rtVal, uint32_t rdVal)
 {
   // CPU[Rt] = GTE_C[Rd]
+  if (rd(instr) == 31)
+  {
+    CPU_reg[rt(instr)] = IntegerValue(rtVal);
+    return;
+  }
   Validate(&GTE_ctrl_reg[rd(instr)], rdVal);
   CPU_reg[rt(instr)] = GTE_ctrl_reg[rd(instr)];
   CPU_reg[rt(instr)].value = rtVal;
@@ -659,8 +702,22 @@ void CPU_CTC2(uint32_t instr, uint32_t rdVal, uint32_t rtVal)
 {
   // GTE_C[Rd] = CPU[Rt]
   Validate(&CPU_reg[rt(instr)], rtVal);
-  GTE_ctrl_reg[rd(instr)] = CPU_reg[rt(instr)];
-  GTE_ctrl_reg[rd(instr)].value = rdVal;
+  PGXP_value value = CPU_reg[rt(instr)];
+  value.value = rtVal;
+  switch (rd(instr))
+  {
+    case 4: case 12: case 20: case 26: case 27: case 29: case 30:
+      value = NormalizeHalfRegister(value, true);
+      break;
+    case 31:
+    {
+      GTE::FLAGS flags{rtVal & 0x7ffff000u};
+      flags.UpdateError();
+      value = IntegerValue(flags.bits);
+    }
+    break;
+  }
+  GTE_ctrl_reg[rd(instr)] = value;
 }
 
 ////////////////////////////////////
@@ -671,12 +728,19 @@ void CPU_LWC2(uint32_t instr, uint32_t rtVal, uint32_t addr)
   // GTE_D[Rt] = Mem[addr]
   PGXP_value val;
   ValidateAndCopyMem(&val, addr, rtVal);
+  val.value = rtVal;
   PGXP_MTC2_int(val, rt(instr));
 }
 
 void CPU_SWC2(uint32_t instr, uint32_t rtVal, uint32_t addr)
 {
   //  Mem[addr] = GTE_D[Rt]
+  if (rt(instr) == 28 || rt(instr) == 29 || rt(instr) == 31)
+  {
+    const PGXP_value value = IntegerValue(rtVal);
+    WriteMem(&value, addr);
+    return;
+  }
   Validate(&GTE_data_reg[rt(instr)], rtVal);
   WriteMem(&GTE_data_reg[rt(instr)], addr);
 }
