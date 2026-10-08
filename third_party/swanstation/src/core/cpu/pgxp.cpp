@@ -26,6 +26,7 @@
 #include "common/state_wrapper.h"
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <climits>
 #include <cmath>
 #include <cstring>
@@ -1210,6 +1211,100 @@ void CPU_MOVE(uint32_t rd_and_rs, uint32_t rsVal)
   const uint32_t Rs = (rd_and_rs & 0xFFu);
   Validate(&CPU_reg[Rs], rsVal);
   CPU_reg[(rd_and_rs >> 8)] = CPU_reg[Rs];
+}
+
+uint32_t* CPU_GetRegisterFlags(uint32_t reg)
+{
+  assert(reg < 32);
+  return &CPU_reg[reg].flags;
+}
+
+void CPU_InvalidateRegister(uint32_t reg)
+{
+  *CPU_GetRegisterFlags(reg) = 0;
+}
+
+void CPU_MemoryALU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
+{
+  uint32_t dest;
+  uint32_t source = 32;
+  uint32_t source_value = 0;
+  auto copy_rs = [&]() { source = rs(instr); source_value = rsVal; };
+  auto copy_rt = [&]() { source = rt(instr); source_value = rtVal; };
+  auto integer_operand = [&](uint32_t reg, uint32_t raw, uint32_t expected) {
+    if (raw != expected)
+      return false;
+    Validate(&CPU_reg[reg], raw);
+    const auto& value = CPU_reg[reg];
+    return (value.flags & VALID_Z) == 0 &&
+           ((value.flags & VALID_0) == 0 || value.x == float(int16_t(raw))) &&
+           ((value.flags & VALID_1) == 0 || value.y == float(int16_t(raw >> 16)));
+  };
+  switch (op(instr))
+  {
+    case 0:
+      dest = rd(instr);
+      switch (instr & 63u)
+      {
+        case 0: case 2: case 3:
+          if (((instr >> 6) & 31u) == 0)
+            copy_rt();
+          break;
+        case 4: case 6: case 7:
+          if ((rsVal & 31u) == 0)
+            copy_rt();
+          break;
+        case 0x20: case 0x21: case 0x25: case 0x26:
+          if ((instr & 63u) == 0x25 && rs(instr) == rt(instr))
+            copy_rs();
+          else if (rs(instr) == 0)
+            copy_rt();
+          else if (rt(instr) == 0 || integer_operand(rt(instr), rtVal, 0))
+            copy_rs();
+          else if (integer_operand(rs(instr), rsVal, 0))
+            copy_rt();
+          break;
+        case 0x22: case 0x23:
+          if (rt(instr) == 0 || integer_operand(rt(instr), rtVal, 0))
+            copy_rs();
+          break;
+        case 0x24:
+          if (rs(instr) == rt(instr) || integer_operand(rt(instr), rtVal, 0xffffffffu))
+            copy_rs();
+          else if (integer_operand(rs(instr), rsVal, 0xffffffffu))
+            copy_rt();
+          break;
+        case 9: case 0x10: case 0x12: case 0x27: case 0x2a: case 0x2b:
+          break;
+        default:
+          return;
+      }
+      break;
+    case 8: case 9: case 0xd: case 0xe:
+      dest = rt(instr);
+      if (imm(instr) == 0)
+        copy_rs();
+      break;
+    case 0xa: case 0xb: case 0xc: case 0xf:
+      dest = rt(instr);
+      break;
+    case 3:
+      dest = 31;
+      break;
+    case 1:
+      if ((rt(instr) & 0x1eu) != 0x10u)
+        return;
+      dest = 31;
+      break;
+    default:
+      return;
+  }
+  if (dest == 0)
+    return;
+  if (source < 32)
+    CPU_MOVE((dest << 8) | source, source_value);
+  else
+    CPU_InvalidateRegister(dest);
 }
 
 void CPU_ADDI(uint32_t instr, uint32_t rsVal)
