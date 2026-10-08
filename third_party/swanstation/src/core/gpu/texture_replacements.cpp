@@ -2,6 +2,7 @@
 #include "common/file_system.h"
 #include "common/log.h"
 #include "common/platform.h"
+#include "common/state_wrapper.h"
 #include "common/string_util.h"
 #include "common/timer.h"
 #include "core/host_interface.h"
@@ -138,7 +139,7 @@ void TextureReplacements::QueuePendingVRAMWriteReplacement(const TextureReplacem
   if (m_pending_vram_write_replacements.size() >= MAX_PENDING_VRAM_WRITE_REPLACEMENTS)
     m_pending_vram_write_replacements.erase(m_pending_vram_write_replacements.begin());
 
-  m_pending_vram_write_replacements.push_back({hash, x, y, width, height});
+  m_pending_vram_write_replacements.push_back({hash, x % VRAM_WIDTH, y % VRAM_HEIGHT, width, height});
 }
 
 void TextureReplacements::InvalidatePendingVRAMWriteReplacements(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
@@ -162,6 +163,38 @@ void TextureReplacements::InvalidatePendingVRAMWriteReplacements(uint32_t x, uin
                             overlaps_axis(y, height, pending.y, pending.height, VRAM_HEIGHT);
                    }),
     m_pending_vram_write_replacements.end());
+}
+
+bool TextureReplacements::DoMemoryState(StateWrapper& sw)
+{
+  uint32_t count = static_cast<uint32_t>(m_pending_vram_write_replacements.size());
+  sw.Do(&count);
+  if (count > MAX_PENDING_VRAM_WRITE_REPLACEMENTS)
+    return false;
+  if (sw.HasError())
+    return false;
+
+  std::vector<PendingVRAMWriteReplacement> restored;
+  if (sw.IsReading())
+    restored.resize(count);
+  auto& pending = sw.IsReading() ? restored : m_pending_vram_write_replacements;
+  for (PendingVRAMWriteReplacement& entry : pending)
+  {
+    sw.Do(&entry.hash.low);
+    sw.Do(&entry.hash.high);
+    sw.Do(&entry.x);
+    sw.Do(&entry.y);
+    sw.Do(&entry.width);
+    sw.Do(&entry.height);
+    if (sw.IsReading() && (entry.x >= VRAM_WIDTH || entry.y >= VRAM_HEIGHT || entry.width == 0 ||
+                           entry.width > VRAM_WIDTH || entry.height == 0 || entry.height > VRAM_HEIGHT))
+      return false;
+  }
+  if (sw.HasError())
+    return false;
+  if (sw.IsReading())
+    m_pending_vram_write_replacements.swap(restored);
+  return true;
 }
 
 void TextureReplacements::CollectReadyVRAMWriteReplacements(std::vector<VRAMWriteReplacementResult>* out)

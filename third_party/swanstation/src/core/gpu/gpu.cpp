@@ -135,6 +135,9 @@ bool GPU::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool upda
   if (sw.IsReading())
   {
     // perform a reset to discard all pending draws/fb state
+    // An unfinished upload belongs to the discarded timeline. Completing it
+    // during reset would write over a restored host framebuffer.
+    m_blitter_state = BlitterState::Idle;
     Reset(host_texture == nullptr);
   }
 

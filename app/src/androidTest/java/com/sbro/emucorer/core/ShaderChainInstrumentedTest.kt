@@ -19,6 +19,37 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ShaderChainInstrumentedTest {
     @Test
+    fun runaheadDoesNotCommitDiscardedPartialUploads() {
+        for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL,
+                                RendererDefaults.CORE_SOFTWARE)) {
+            withScene(renderer, sourceShader, partialUpload = true, runaheadFrames = 2) { bridge, session, reader, _ ->
+                repeat(9) { index ->
+                    bridge.setPadButtons(session, 0, if (index < 3 || index % 2 == 0) 0xffff else 0xbfff)
+                    bridge.runFrame(session)
+                    var blue = -1
+                    val deadline = System.nanoTime() + 100_000_000
+                    while (System.nanoTime() < deadline) {
+                        val frame = reader.acquireLatestImage() ?: continue
+                        frame.use {
+                            blue = 0
+                            val plane = it.planes[0]
+                            for (y in 0 until it.height) for (x in 0 until it.width) {
+                                val offset = y * plane.rowStride + x * plane.pixelStride
+                                val r = plane.buffer.get(offset).toInt() and 255
+                                val g = plane.buffer.get(offset + 1).toInt() and 255
+                                val b = plane.buffer.get(offset + 2).toInt() and 255
+                                if (b > 220 && r < 20 && g < 20) blue++
+                            }
+                        }
+                        break
+                    }
+                    assertEquals("incomplete upload must remain buffered renderer=$renderer frame=$index", 0, blue)
+                }
+            }
+        }
+    }
+
+    @Test
     fun loadingGpuStateDoesNotDispatchDmaBeforeRestoration() {
         withScene(RendererDefaults.CORE_VULKAN, sourceShader, dmaMode = 0) { bridge, session, reader, root ->
             bridge.runFrame(session)
@@ -257,6 +288,7 @@ class ShaderChainInstrumentedTest {
 
     private fun withScene(renderer: Int, shader: String, repeatFill: Boolean = false, dmaMode: Int = -1,
                           cropPattern: Boolean = false, resolutionScale: Int = 2,
+                          partialUpload: Boolean = false, runaheadFrames: Int = 0,
                           block: (NativeCoreBridge, Long, ImageReader, File) -> Unit) {
         assertEquals("CPH2747", Build.MODEL)
         assertEquals("OnePlus", Build.MANUFACTURER)
@@ -269,7 +301,7 @@ class ShaderChainInstrumentedTest {
         val preset = File(root, "probe.slangp").apply {
             writeText("shaders = 1\nshader0 = probe.slang\nfilter_linear0 = false\n")
         }
-        val bios = File(system, "shader.bin").apply { writeBytes(makeBios(repeatFill, dmaMode, cropPattern)) }
+        val bios = File(system, "shader.bin").apply { writeBytes(makeBios(repeatFill, dmaMode, cropPattern, partialUpload)) }
         val bridge = NativeCoreBridge()
         try {
             bridge.nativeInit(system.absolutePath, save.absolutePath, assets.absolutePath)
@@ -278,11 +310,11 @@ class ShaderChainInstrumentedTest {
             bridge.nativeSetShaderPreset(preset.absolutePath, true)
             mapOf(
                 "CPU_ExecutionMode" to "Recompiler", "GPU_Renderer" to RendererDefaults.coreRendererName(renderer),
-                "GPU_PGXPEnable" to "false", "GPU_ResolutionScale" to resolutionScale.toString(), "GPU_UseThread" to "false",
+                "GPU_PGXPEnable" to partialUpload.toString(), "GPU_ResolutionScale" to resolutionScale.toString(), "GPU_UseThread" to "false",
                 "GPU_TextureFilter" to "Nearest", "GPU_MSAA" to "1", "GPU_WidescreenHack" to "false",
                 "Display_AspectRatio" to "16:9", "Display_CropMode" to "Borders",
                 "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
-                "Main_RunaheadFrameCount" to "0", "Main_ApplyGameSettings" to "false",
+                "Main_RunaheadFrameCount" to runaheadFrames.toString(), "Main_ApplyGameSettings" to "false",
                 "BIOS_PatchFastBoot" to "false", "Console_Region" to "NTSC-U",
                 "TextureReplacements_EnableVRAMWriteReplacements" to "false"
             ).forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
@@ -323,7 +355,8 @@ class ShaderChainInstrumentedTest {
         fail("$stage expected=${expected.toList()} actual=${actual.toList()}")
     }
 
-    private fun makeBios(repeatFill: Boolean = false, dmaMode: Int = -1, cropPattern: Boolean = false): ByteArray {
+    private fun makeBios(repeatFill: Boolean = false, dmaMode: Int = -1, cropPattern: Boolean = false,
+                         partialUpload: Boolean = false): ByteArray {
         val out = ByteBuffer.allocate(512 * 1024).order(ByteOrder.LITTLE_ENDIAN)
         fun emit(value: Int) { out.putInt(value) }
         fun constant(register: Int, value: Int) {
@@ -341,6 +374,10 @@ class ShaderChainInstrumentedTest {
         for (command in listOf(0x02ffffff, 0, (240 shl 16) or 320)) write(0, command)
         if (cropPattern) {
             for (command in listOf(0x0200ffff, (136 shl 16) or 176, (104 shl 16) or 144)) write(0, command)
+        }
+        if (partialUpload) {
+            for (command in listOf(0xa0000000.toInt(), (56 shl 16) or 96, (128 shl 16) or 128)) write(0, command)
+            repeat(64) { write(0, 0x7c007c00) }
         }
         if (dmaMode >= 0) {
             constant(12, 0x80010000.toInt())

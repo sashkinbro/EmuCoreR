@@ -730,6 +730,8 @@ bool GPU_HW_Vulkan::DoState(StateWrapper& sw, HostDisplayTexture** host_texture,
 {
   if (host_texture)
   {
+    if (sw.IsWriting())
+      FlushRender();
     EndRenderPass();
 
     const VkImageCopy ic{{VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},
