@@ -489,6 +489,65 @@ static void CheckPartialTransfers()
   }
 }
 
+static void CheckGTERegisterTransfers()
+{
+  using namespace PGXP;
+  for (uint32_t reg : {1u, 3u, 5u, 8u, 9u, 10u, 11u, 7u, 16u, 17u, 18u, 19u,
+                      36u, 44u, 52u, 58u, 59u, 61u, 62u})
+  {
+    for (bool memory_load : {false, true})
+    {
+      if (memory_load && reg >= 32) continue;
+      Reset();
+      GTE::Reset();
+      const uint32_t input = XY(-10, 20);
+      Seed(0x100, input, -9.75f, 20.5f);
+      CPU_LW(I(0x23, 0, 1), input, 0x100);
+      GTE::WriteRegister(reg, input);
+      if (reg >= 32) CPU_CTC2(R(0, 1, reg - 32), input, input);
+      else if (memory_load) CPU_LWC2(I(0x32, 0, reg), input, 0x100);
+      else CPU_MTC2(R(0, 1, reg), input, input);
+      const uint32_t actual = GTE::ReadRegister(reg);
+      if (reg >= 32) CPU_CFC2(R(0, 2, reg - 32), actual, actual);
+      else CPU_MFC2(R(0, 2, reg), actual, actual);
+      Check(CPU_reg[2].value == actual && CPU_reg[2].x == -9.75f &&
+            CPU_reg[2].y == float(int16_t(actual >> 16)) && (CPU_reg[2].flags & VALID_012) == VALID_012,
+            "typed GTE transfers preserve the low coordinate and the actual native extension");
+    }
+  }
+  Reset();
+  GTE::Reset();
+  GTE::WriteRegister(9, 10 * 128);
+  Seed(0x100, 10, 10.25f, 0.5f);
+  CPU_LW(I(0x23, 0, 1), 10, 0x100);
+  GTE::WriteRegister(29, 10);
+  CPU_MTC2(R(0, 1, 29), 10, 10);
+  CPU_MFC2(R(0, 2, 29), 10, 10);
+  Check(CPU_reg[2].x == 10.f && CPU_reg[2].y == 0.f && CPU_reg[2].flags == VALID_01,
+        "read-only packed color registers cannot receive geometry from ignored writes");
+  CPU_SWC2(I(0x3a, 0, 29), 10, 0x200);
+  Check(Vertex(0x200, 10, 10.f, 0.f, false), "SWC2 reads a derived color as a constant without vertex depth");
+  Reset();
+  GTE::Reset();
+  Seed(0x100, 1280, 1280.25f, 0.5f);
+  CPU_LW(I(0x23, 0, 1), 1280, 0x100);
+  GTE::WriteRegister(9, 1280);
+  CPU_MTC2(R(0, 1, 9), 1280, 1280);
+  GTE::WriteRegister(28, 10);
+  CPU_reg[1] = {10.f, 0.f, 0.f, {VALID_01}, 10};
+  CPU_MTC2(R(0, 1, 28), 10, 10);
+  CPU_MFC2(R(0, 2, 9), 1280, 1280);
+  Check(CPU_reg[2].x == 1280.f && CPU_reg[2].y == 0.f && CPU_reg[2].flags == VALID_01,
+        "IRGB conversion replaces stale IR precision even when the integer IR value is unchanged");
+  Seed(0x100, 0, 0.25f, 0.5f);
+  CPU_LW(I(0x23, 0, 1), 0, 0x100);
+  GTE::WriteRegister(63, 0);
+  CPU_CTC2(R(0, 1, 31), 0, 0);
+  CPU_CFC2(R(0, 2, 31), 0, 0);
+  Check(CPU_reg[2].x == 0.f && CPU_reg[2].y == 0.f && CPU_reg[2].flags == VALID_01,
+        "GTE status flags cannot inherit fractional coordinates or depth");
+}
+
 int main()
 {
   using namespace PGXP;
@@ -498,6 +557,7 @@ int main()
   CheckDivisions();
   CheckMultiplication();
   CheckPartialTransfers();
+  CheckGTERegisterTransfers();
   CheckShifts();
   Reset();
   Seed(0x100);
