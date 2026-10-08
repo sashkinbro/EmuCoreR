@@ -604,12 +604,18 @@ int GTE_NCLIP_valid(uint32_t sxy0, uint32_t sxy1, uint32_t sxy2)
   // Screen-space coordinates pushed by the game itself have no Z, and
   // feeding them through the precise path makes culling drift from the
   // hardware result.
-  if (((SXY0.flags & SXY1.flags & SXY2.flags & VALID_012) == VALID_012))
-    return 1;
-  return 0;
+  if ((SXY0.flags & SXY1.flags & SXY2.flags & VALID_012) != VALID_012)
+    return 0;
+  for (const PGXP_value* vertex : {&SXY0, &SXY1, &SXY2})
+  {
+    if (!std::isfinite(vertex->x) || !std::isfinite(vertex->y) ||
+        !std::isfinite(vertex->z) || vertex->z <= 0.f)
+      return 0;
+  }
+  return 1;
 }
 
-float GTE_NCLIP()
+double GTE_NCLIP()
 {
   // Translate before taking the cross product to avoid cancellation near
   // the screen edges. Preserve the sign of even a subpixel-sized triangle
@@ -620,10 +626,10 @@ float GTE_NCLIP()
   const double by = double(SY2) - double(SY0);
   const double area = ax * by - ay * bx;
   if (area > 0.0 && area < 1.0)
-    return 1.f;
+    return 1.0;
   if (area < 0.0 && area > -1.0)
-    return -1.f;
-  return static_cast<float>(area);
+    return -1.0;
+  return area;
 }
 
 static PGXP_value NormalizeHalfRegister(PGXP_value value, bool sign)

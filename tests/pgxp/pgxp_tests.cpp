@@ -643,6 +643,92 @@ static void CheckGTECommandWrites()
   }
 }
 
+static void CheckPreciseCullingBounds()
+{
+  using namespace PGXP;
+  g_settings.gpu_pgxp_culling = true;
+  struct Triangle {
+    float xy[6];
+    uint32_t result, flags;
+  };
+  const Triangle triangles[] = {
+    {{-32768.f, -32768.f, 32767.f, -32768.f, -32768.f, 0.5f}, 0x7fffffffu, 0},
+    {{-32768.f, -32768.f, -32768.f, 0.5f, 32767.f, -32768.f}, 0x80000001u, 0},
+    {{-32768.f, -32768.f, 32767.f, -32768.f, -32768.f, 32767.f}, 0xfffe0001u, 0x80010000u},
+    {{-32768.f, -32768.f, -32768.f, 32767.f, 32767.f, -32768.f}, 0x0001ffffu, 0x80008000u},
+    {{1000.f, 1000.f, 1000.25f, 1000.f, 1000.f, 1000.25f}, 1, 0},
+    {{1000.f, 1000.f, 1000.f, 1000.25f, 1000.25f, 1000.f}, 0xffffffffu, 0},
+    {{1000.f, 1000.f, 1000.25f, 1000.25f, 1000.5f, 1000.5f}, 0, 0}
+  };
+  for (bool direct_impl : {false, true})
+  {
+    for (const auto& triangle : triangles)
+    {
+      Reset();
+      GTE::Reset();
+      for (uint32_t i = 0; i < 3; i++)
+      {
+        const float x = triangle.xy[i * 2], y = triangle.xy[i * 2 + 1];
+        const uint32_t raw = XY(static_cast<int16_t>(x), static_cast<int16_t>(y));
+        GTE::WriteRegister(12 + i, raw);
+        GTE_PushSXYZ2f(x, y, 1000.f, raw);
+      }
+      if (direct_impl)
+      {
+        TickCount ticks;
+        GTE::GetInstructionImpl(6, &ticks)(GTE::Instruction{6});
+      }
+      else GTE::ExecuteInstruction(6);
+      Check(GTE::ReadRegister(24) == triangle.result && GTE::ReadRegister(63) == triangle.flags,
+            "precise culling retains integer range, overflow flags and subpixel orientation");
+      CPU_SWC2(I(0x3a, 0, 24), triangle.result, 0x200);
+      const auto& stored = *GetPtr(0x200);
+      Check(stored.value == triangle.result && stored.x == float(int16_t(triangle.result)) &&
+            stored.y == float(int16_t(triangle.result >> 16)) && stored.flags == VALID_01,
+            "precise culling stores its new MAC0 without borrowed geometry");
+    }
+  }
+  for (bool negative : {false, true})
+  {
+    Reset();
+    GTE::Reset();
+    const float large = std::numeric_limits<float>::max();
+    GTE_PushSXYZ2f(0.f, 0.f, 1000.f, 0);
+    GTE_PushSXYZ2f(large, 0.f, 1000.f, 0);
+    GTE_PushSXYZ2f(0.f, negative ? -large : large, 1000.f, 0);
+    GTE::ExecuteInstruction(6);
+    Check(GTE::ReadRegister(24) == 0 && GTE::ReadRegister(63) == (negative ? 0x80008000u : 0x80010000u),
+          "finite culling areas larger than int64 wrap safely and retain overflow flags");
+  }
+  for (uint32_t reg : {12u, 13u, 14u})
+  {
+    for (float invalid : {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()})
+    {
+      for (uint32_t component : {0u, 1u, 2u})
+      {
+        Reset();
+        GTE::Reset();
+        for (uint32_t i = 0; i < 3; i++) GTE_PushSXYZ2f(0.f, 0.f, 1000.f, 0);
+        auto& vertex = GTE_data_reg[reg];
+        if (component == 0) vertex.x = invalid;
+        else if (component == 1) vertex.y = invalid;
+        else vertex.z = invalid;
+        // A loaded snapshot or arithmetic result may retain validity bits;
+        // culling must inspect its numbers before converting the area.
+        Check(!GTE_NCLIP_valid(0, 0, 0), "culling rejects nonfinite metadata despite matching raw bits");
+      }
+    }
+    for (float z : {0.f, -1.f})
+    {
+      Reset();
+      for (uint32_t i = 0; i < 3; i++) GTE_PushSXYZ2f(0.f, 0.f, 1000.f, 0);
+      GTE_data_reg[reg].z = z;
+      Check(!GTE_NCLIP_valid(0, 0, 0), "culling rejects nonpositive depth despite retained validity bits");
+    }
+  }
+  g_settings.gpu_pgxp_culling = false;
+}
+
 int main()
 {
   using namespace PGXP;
@@ -654,6 +740,7 @@ int main()
   CheckPartialTransfers();
   CheckGTERegisterTransfers();
   CheckGTECommandWrites();
+  CheckPreciseCullingBounds();
   CheckShifts();
   Reset();
   Seed(0x100);
