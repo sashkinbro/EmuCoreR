@@ -4046,7 +4046,6 @@ bool GPU_HW_Vulkan::CreateTextureReplacementStreamBuffer()
 bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* tex, uint32_t dst_x, uint32_t dst_y, uint32_t width,
                                                uint32_t height)
 {
-  VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
   if (!CreateTextureReplacementStreamBuffer())
     return false;
 
@@ -4055,7 +4054,7 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
   {
     if (!m_vram_write_replacement_texture.Create(tex->GetWidth(), tex->GetHeight(), 1, 1, VK_FORMAT_R8G8B8A8_UNORM,
                                                  VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_TILING_OPTIMAL,
-                                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT))
+                                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT))
       return false;
   }
 
@@ -4072,6 +4071,9 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
   const uint32_t buffer_offset = m_texture_replacment_stream_buffer.GetCurrentOffset();
   std::memcpy(m_texture_replacment_stream_buffer.GetCurrentHostPointer(), tex->GetPixels(), required_size);
   m_texture_replacment_stream_buffer.CommitMemory(required_size);
+
+  EndRenderPass();
+  VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
 
   // buffer -> texture
   m_vram_write_replacement_texture.UpdateFromBuffer(cmdbuf, 0, 0, 0, 0, tex->GetWidth(), tex->GetHeight(),
@@ -4094,6 +4096,12 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
   vkCmdBlitImage(cmdbuf, m_vram_write_replacement_texture.GetImage(), m_vram_write_replacement_texture.GetLayout(),
                  m_vram_texture.GetImage(), m_vram_texture.GetLayout(), 1, &blit, VK_FILTER_LINEAR);
   m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+  // The CPU shadow contains the original upload. Sampling its decoded page
+  // would hide the replacement, so use GPU VRAM until this region is rewritten.
+  const Common::Rectangle<uint32_t> native_bounds = Common::Rectangle<uint32_t>::FromExtents(
+    dst_x / m_resolution_scale, dst_y / m_resolution_scale, width / m_resolution_scale, height / m_resolution_scale);
+  OnVRAMDrawnRectangle(native_bounds.left, native_bounds.right, native_bounds.top, native_bounds.bottom);
+  IncludeVRAMDirtyRectangle(native_bounds);
   return true;
 }
 
