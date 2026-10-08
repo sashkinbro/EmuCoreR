@@ -122,6 +122,18 @@ class PgxpInstrumentedTest {
                                 assertEquals("right shift used fractional carry: $label", wrappedX, before.getFloat(0x2060 / 4 * 20), 0.001f)
                                 assertEquals("right shift Y: $label", sy / 2f, before.getFloat(0x2060 / 4 * 20 + 4), 0.001f)
                                 val original = 0x2064 / 4 * 20
+                                for (address in listOf(0x2074, 0x2078)) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("HI/LO transfer X at $address: $label", sx, before.getFloat(entry), 0.001f)
+                                    assertEquals("HI/LO transfer Y at $address: $label", sy, before.getFloat(entry + 4), 0.001f)
+                                    assertEquals("HI/LO transfer lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                }
+                                for ((address, y) in listOf(0x2080 to 32758f, 0x2084 to -10f)) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("division quotient X at $address: $label", 5.125f, before.getFloat(entry), 0.001f)
+                                    assertEquals("division quotient Y at $address: $label", y, before.getFloat(entry + 4), 0.001f)
+                                    assertEquals("division lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                }
                                 assertEquals("variable shift invalidated its source: $label", 0x101, before.getInt(original + 12) and 0x101)
                                 assertEquals("variable shift changed source X: $label", sx, before.getFloat(original), 0.001f)
                                 assertEquals("variable shift changed source Y: $label", sy, before.getFloat(original + 4), 0.001f)
@@ -297,6 +309,12 @@ class PgxpInstrumentedTest {
             emit(imm(0x2b, 12, 14, address))
         }
         emit(imm(0x2b, 12, 8, 0x64))
+        emit((8 shl 21) or 0x11) // mthi
+        emit((14 shl 11) or 0x10) // mfhi
+        emit(imm(0x2b, 12, 14, 0x74))
+        emit((8 shl 21) or 0x13) // mtlo
+        emit((14 shl 11) or 0x12) // mflo
+        emit(imm(0x2b, 12, 14, 0x78))
         emit(imm(0x2a, 12, 8, 9)) // SWL: Y into low half
         emit(imm(0x2e, 12, 8, 14)) // SWR: X into high half
         emit(imm(0x0d, 8, 14, 8)) // X already contains this bit.
@@ -338,6 +356,21 @@ class PgxpInstrumentedTest {
         emit(0)
         for ((function, address) in listOf(0x04 to 0x40, 0x06 to 0x44, 0x07 to 0x48)) {
             emit((13 shl 21) or (8 shl 16) or (14 shl 11) or function)
+            emit(imm(0x2b, 12, 14, address))
+        }
+        gte(24, (10 shl 16) + 16384, true)
+        gte(25, -20 shl 16, true)
+        gte(0, 0, false)
+        gte(1, 1000, false)
+        emit(0x4a080001)
+        repeat(16) { emit(0) }
+        emit(0x48000000 or (8 shl 16) or (14 shl 11))
+        emit(0)
+        constant(13, 2)
+        for ((function, address) in listOf(0x1b to 0x80, 0x1a to 0x84)) {
+            emit((8 shl 21) or (13 shl 16) or function)
+            repeat(16) { emit(0) }
+            emit((14 shl 11) or 0x12)
             emit(imm(0x2b, 12, 14, address))
         }
         write(11, 0x50, 0x800) // enable DMA channel 2

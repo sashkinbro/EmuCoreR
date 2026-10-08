@@ -1956,7 +1956,7 @@ bool CodeGenerator::Compile_Divide(const CodeBlockInstruction& cbi)
   Value denom = m_register_cache.ReadGuestRegister(cbi.instruction.r.rt);
 
   if (g_settings.UsingPGXPCPUMode())
-    EmitFunctionCall(nullptr, &PGXP::CPU_DIV, Value::FromConstantU32(cbi.instruction.bits), num, denom);
+    EmitFunctionCall(nullptr, &PGXP::CPU_DIVU, Value::FromConstantU32(cbi.instruction.bits), num, denom);
 
   if (num.IsConstant() && denom.IsConstant())
   {

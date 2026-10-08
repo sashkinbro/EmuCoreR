@@ -1708,12 +1708,11 @@ void CPU_MFHI(uint32_t instr, uint32_t hiVal)
   CPU_reg[rd(instr)] = CPU_Hi;
 }
 
-void CPU_MTHI(uint32_t instr, uint32_t rdVal)
+void CPU_MTHI(uint32_t instr, uint32_t rsVal)
 {
-  // Hi = Rd
-  Validate(&CPU_reg[rd(instr)], rdVal);
+  Validate(&CPU_reg[rs(instr)], rsVal);
 
-  CPU_Hi = CPU_reg[rd(instr)];
+  CPU_Hi = CPU_reg[rs(instr)];
 }
 
 void CPU_MFLO(uint32_t instr, uint32_t loVal)
@@ -1724,12 +1723,11 @@ void CPU_MFLO(uint32_t instr, uint32_t loVal)
   CPU_reg[rd(instr)] = CPU_Lo;
 }
 
-void CPU_MTLO(uint32_t instr, uint32_t rdVal)
+void CPU_MTLO(uint32_t instr, uint32_t rsVal)
 {
-  // Lo = Rd
-  Validate(&CPU_reg[rd(instr)], rdVal);
+  Validate(&CPU_reg[rs(instr)], rsVal);
 
-  CPU_Lo = CPU_reg[rd(instr)];
+  CPU_Lo = CPU_reg[rs(instr)];
 }
 
 void CPU_MFC0(uint32_t instr, uint32_t rdVal)
