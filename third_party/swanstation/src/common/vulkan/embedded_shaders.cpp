@@ -14,6 +14,8 @@ Log_SetChannel(Vulkan::EmbeddedShaders);
 // names resolve to the header's extern declarations.
 namespace Vulkan::EmbeddedShaders {
 
+#include "embedded_spirv/vram_replacement_fs.inc"
+
 #include "embedded_spirv/adaptive_downsample_blur_fs.inc"
 #include "embedded_spirv/adaptive_downsample_composite_fs.inc"
 #include "embedded_spirv/adaptive_downsample_mip_fs.inc"

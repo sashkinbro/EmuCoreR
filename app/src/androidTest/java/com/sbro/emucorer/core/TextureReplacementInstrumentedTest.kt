@@ -20,6 +20,17 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TextureReplacementInstrumentedTest {
     @Test
+    fun multisampledTexturesKeepVramReplacements() {
+        for (renderer in listOf(RendererDefaults.CORE_OPENGL, RendererDefaults.CORE_VULKAN)) {
+            for (samples in listOf("2", "4", "4-ssaa")) {
+                for (preload in listOf(false, true)) for (sampleTexture in listOf(false, true)) {
+                    runReloadProbe(renderer, preload, sampleTexture, multisamples = samples, splitReplacement = true)
+                }
+            }
+        }
+    }
+
+    @Test
     fun reloadingAnUpdatedPackReplacesCachedImages() {
         for (preload in listOf(false, true)) {
             for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
@@ -37,7 +48,8 @@ class TextureReplacementInstrumentedTest {
         }
     }
 
-    private fun runReloadProbe(renderer: Int, preload: Boolean, sampleTexture: Boolean = false) {
+    private fun runReloadProbe(renderer: Int, preload: Boolean, sampleTexture: Boolean = false, multisamples: String = "1",
+                               splitReplacement: Boolean = false) {
         assertEquals("CPH2747", Build.MODEL)
         assertEquals("OnePlus", Build.MANUFACTURER)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -49,9 +61,13 @@ class TextureReplacementInstrumentedTest {
         // XXH3-128 of a 16x16 native BGR555 red upload (512 bytes).
         val image = File(textures, "vram-write-5bf538dc6e289176a1e739cd1e037dd4.png")
         fun writeImage(color: Int) {
-            val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+            val size = if (splitReplacement && color == Color.BLUE) 16 else 32
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             try {
                 bitmap.eraseColor(color)
+                if (splitReplacement) for (y in size / 2 until size) for (x in 0 until size) {
+                    bitmap.setPixel(x, y, if (color == Color.GREEN) Color.BLUE else Color.GREEN)
+                }
                 image.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
             } finally { bitmap.recycle() }
         }
@@ -66,7 +82,7 @@ class TextureReplacementInstrumentedTest {
             mapOf(
                 "CPU_ExecutionMode" to "Recompiler", "GPU_Renderer" to RendererDefaults.coreRendererName(renderer),
                 "GPU_PGXPEnable" to "false", "GPU_ResolutionScale" to "2", "GPU_UseThread" to "false",
-                "GPU_TextureFilter" to "Nearest", "GPU_MSAA" to "1", "GPU_WidescreenHack" to "false",
+                "GPU_TextureFilter" to "Nearest", "GPU_MSAA" to multisamples, "GPU_WidescreenHack" to "false",
                 "GPU_DitheringMode" to "Unscaled", "Display_AspectRatio" to "4:3", "Display_CropMode" to "Borders",
                 "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
                 "Main_RunaheadFrameCount" to "0", "Main_ApplyGameSettings" to "false",
@@ -84,6 +100,7 @@ class TextureReplacementInstrumentedTest {
                     fun awaitColor(channel: Int, stage: String) {
                         var count = 0
                         val counts = IntArray(3)
+                        val rowSums = IntArray(3)
                         repeat(30) {
                             bridge.runFrame(session)
                             val deadline = System.nanoTime() + 100_000_000
@@ -93,22 +110,26 @@ class TextureReplacementInstrumentedTest {
                                     val plane = it.planes[0]
                                     count = 0
                                     counts.fill(0)
+                                    rowSums.fill(0)
                                     for (y in 0 until it.height) for (x in 0 until it.width) {
                                         val offset = y * plane.rowStride + x * plane.pixelStride
                                         val r = plane.buffer.get(offset).toInt() and 255
                                         val g = plane.buffer.get(offset + 1).toInt() and 255
                                         val b = plane.buffer.get(offset + 2).toInt() and 255
-                                        if (r > 220 && g < 20 && b < 20) counts[0]++
-                                        if (g > 220 && r < 20 && b < 20) counts[1]++
-                                        if (b > 220 && r < 20 && g < 20) counts[2]++
+                                        if (r > 220 && g < 20 && b < 20) { counts[0]++; rowSums[0] += y }
+                                        if (g > 220 && r < 20 && b < 20) { counts[1]++; rowSums[1] += y }
+                                        if (b > 220 && r < 20 && g < 20) { counts[2]++; rowSums[2] += y }
                                     }
                                     count = counts[channel]
                                 }
                                 break
                             }
-                            if (count >= 64) return
+                            val other = if (channel == 1) 2 else 1
+                            val oriented = !splitReplacement || channel == 0 || (counts[other] >= 64 &&
+                                rowSums[channel].toLong() * counts[other] < rowSums[other].toLong() * counts[channel])
+                            if (count >= 64 && oriented) return
                         }
-                        fail("$stage: ${RendererDefaults.coreRendererName(renderer)} preload=$preload expected channel=$channel, RGB counts=${counts.toList()}")
+                        fail("$stage: ${RendererDefaults.coreRendererName(renderer)} preload=$preload MSAA=$multisamples expected channel=$channel, RGB counts=${counts.toList()}")
                     }
                     awaitColor(0, "native texture")
                     bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements", "true")

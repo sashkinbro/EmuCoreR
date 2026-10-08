@@ -1810,6 +1810,8 @@ void GPU_HW_Vulkan::DestroyFramebuffer()
   Vulkan::Util::SafeFreeGlobalDescriptorSet(m_vram_copy_descriptor_set);
   Vulkan::Util::SafeFreeGlobalDescriptorSet(m_vram_read_descriptor_set);
   Vulkan::Util::SafeFreeGlobalDescriptorSet(m_display_descriptor_set);
+  Vulkan::Util::SafeFreeGlobalDescriptorSet(m_vram_replacement_descriptor_set);
+  m_vram_write_replacement_texture.Destroy(false);
 
   Vulkan::Util::SafeDestroyFramebuffer(m_vram_framebuffer);
   Vulkan::Util::SafeDestroyFramebuffer(m_vram_update_depth_framebuffer);
@@ -2969,6 +2971,38 @@ VkPipeline GPU_HW_Vulkan::GetVRAMWritePipeline(uint8_t depth_test)
   return slot;
 }
 
+VkPipeline GPU_HW_Vulkan::GetVRAMReplacementPipeline()
+{
+  if (m_vram_replacement_pipeline != VK_NULL_HANDLE)
+    return m_vram_replacement_pipeline;
+  const VkShaderModule vs = GetFullscreenQuadVertexShader();
+  if (vs == VK_NULL_HANDLE)
+    return VK_NULL_HANDLE;
+  const VkShaderModule fs = Vulkan::EmbeddedShaders::CreateShaderModule(
+    Vulkan::EmbeddedShaders::k_vram_replacement_fs, Vulkan::EmbeddedShaders::k_vram_replacement_fs_size_bytes);
+  if (fs == VK_NULL_HANDLE)
+    return VK_NULL_HANDLE;
+
+  Vulkan::GraphicsPipelineBuilder builder;
+  builder.SetRenderPass(m_vram_render_pass, 0);
+  builder.SetPipelineLayout(m_single_sampler_pipeline_layout);
+  builder.SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+  builder.SetNoCullRasterizationState();
+  builder.SetNoBlendingState();
+  builder.SetNoDepthTestState();
+  builder.SetDynamicViewportAndScissorState();
+  builder.SetVertexShader(vs);
+  builder.SetFragmentShader(fs);
+  builder.SetMultisamples(m_multisamples, false);
+  {
+    std::lock_guard<std::mutex> lock(g_vulkan_shader_cache->PipelineCacheMutex());
+    m_vram_replacement_pipeline = builder.Create(g_vulkan_context->GetDevice(),
+                                                g_vulkan_shader_cache->GetPipelineCache(), false);
+  }
+  vkDestroyShaderModule(g_vulkan_context->GetDevice(), fs, nullptr);
+  return m_vram_replacement_pipeline;
+}
+
 VkPipeline GPU_HW_Vulkan::GetVRAMUpdateDepthPipeline()
 {
   if (m_vram_update_depth_pipeline != VK_NULL_HANDLE)
@@ -3387,6 +3421,7 @@ void GPU_HW_Vulkan::DestroyPipelines()
 
   Vulkan::Util::SafeDestroyPipeline(m_vram_readback_pipeline);
   Vulkan::Util::SafeDestroyPipeline(m_vram_update_depth_pipeline);
+  Vulkan::Util::SafeDestroyPipeline(m_vram_replacement_pipeline);
 
   DestroyDownsamplePipelines();
 
@@ -4048,14 +4083,34 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
 {
   if (!CreateTextureReplacementStreamBuffer())
     return false;
+  const VkPipeline replacement_pipeline = (m_multisamples > 1) ? GetVRAMReplacementPipeline() : VK_NULL_HANDLE;
+  if (m_multisamples > 1 && replacement_pipeline == VK_NULL_HANDLE)
+    return false;
 
   if (m_vram_write_replacement_texture.GetWidth() < tex->GetWidth() ||
       m_vram_write_replacement_texture.GetHeight() < tex->GetHeight())
   {
+    if (m_vram_replacement_descriptor_set != VK_NULL_HANDLE)
+    {
+      g_vulkan_context->DeferGlobalDescriptorSetDestruction(m_vram_replacement_descriptor_set);
+      m_vram_replacement_descriptor_set = VK_NULL_HANDLE;
+    }
     if (!m_vram_write_replacement_texture.Create(tex->GetWidth(), tex->GetHeight(), 1, 1, VK_FORMAT_R8G8B8A8_UNORM,
                                                  VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_TILING_OPTIMAL,
-                                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT))
+                                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                                   VK_IMAGE_USAGE_SAMPLED_BIT))
       return false;
+  }
+
+  if (m_multisamples > 1 && m_vram_replacement_descriptor_set == VK_NULL_HANDLE)
+  {
+    m_vram_replacement_descriptor_set = g_vulkan_context->AllocateGlobalDescriptorSet(m_single_sampler_descriptor_set_layout);
+    if (m_vram_replacement_descriptor_set == VK_NULL_HANDLE)
+      return false;
+    Vulkan::DescriptorSetUpdateBuilder update;
+    update.AddCombinedImageSamplerDescriptorWrite(m_vram_replacement_descriptor_set, 1,
+      m_vram_write_replacement_texture.GetView(), m_linear_sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    update.Update(g_vulkan_context->GetDevice());
   }
 
   const uint32_t required_size = tex->GetWidth() * tex->GetHeight() * sizeof(uint32_t);
@@ -4080,22 +4135,37 @@ bool GPU_HW_Vulkan::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
                                                     m_texture_replacment_stream_buffer.GetBuffer(), buffer_offset,
 						    tex->GetWidth());
 
-  // texture -> vram
-  const VkImageBlit blit = {
-    {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},
-    {
-      {0, 0, 0},
-      {static_cast<int32_t>(tex->GetWidth()), static_cast<int32_t>(tex->GetHeight()), 1},
-    },
-    {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},
-    {{static_cast<int32_t>(dst_x), static_cast<int32_t>(dst_y), 0},
-     {static_cast<int32_t>(dst_x + width), static_cast<int32_t>(dst_y + height), 1}},
-  };
-  m_vram_write_replacement_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-  m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-  vkCmdBlitImage(cmdbuf, m_vram_write_replacement_texture.GetImage(), m_vram_write_replacement_texture.GetLayout(),
-                 m_vram_texture.GetImage(), m_vram_texture.GetLayout(), 1, &blit, VK_FILTER_LINEAR);
-  m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+  if (m_multisamples > 1)
+  {
+    m_vram_write_replacement_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    BeginVRAMRenderPass();
+    const float uniforms[4] = {0.0f, 0.0f,
+      static_cast<float>(tex->GetWidth()) / m_vram_write_replacement_texture.GetWidth(),
+      static_cast<float>(tex->GetHeight()) / m_vram_write_replacement_texture.GetHeight()};
+    vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, replacement_pipeline);
+    vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_single_sampler_pipeline_layout, 0, 1,
+                            &m_vram_replacement_descriptor_set, 0, nullptr);
+    vkCmdPushConstants(cmdbuf, m_single_sampler_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(uniforms), uniforms);
+    Vulkan::Util::SetViewportAndScissor(cmdbuf, dst_x, dst_y, width, height);
+    vkCmdDraw(cmdbuf, 3, 1, 0, 0);
+    RestoreGraphicsAPIState();
+  }
+  else
+  {
+    const VkImageBlit blit = {
+      {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},
+      {{0, 0, 0}, {static_cast<int32_t>(tex->GetWidth()), static_cast<int32_t>(tex->GetHeight()), 1}},
+      {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 0u, 1u},
+      {{static_cast<int32_t>(dst_x), static_cast<int32_t>(dst_y), 0},
+       {static_cast<int32_t>(dst_x + width), static_cast<int32_t>(dst_y + height), 1}},
+    };
+    m_vram_write_replacement_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    vkCmdBlitImage(cmdbuf, m_vram_write_replacement_texture.GetImage(), m_vram_write_replacement_texture.GetLayout(),
+                   m_vram_texture.GetImage(), m_vram_texture.GetLayout(), 1, &blit, VK_FILTER_LINEAR);
+    m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+  }
   // The CPU shadow contains the original upload. Sampling its decoded page
   // would hide the replacement, so use GPU VRAM until this region is rewritten.
   const Common::Rectangle<uint32_t> native_bounds = Common::Rectangle<uint32_t>::FromExtents(

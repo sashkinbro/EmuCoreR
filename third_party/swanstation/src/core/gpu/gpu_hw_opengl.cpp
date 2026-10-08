@@ -1301,7 +1301,7 @@ bool GPU_HW_OpenGL::CompilePrograms()
       : 0u;
 
   ShaderCompileProgressTracker progress("Compiling Programs",
-                                        batch_progress_units + (2 * 3) + (2 * 2) + 1 + 1 + 1 + 1 + 1);
+                                        batch_progress_units + (2 * 3) + (2 * 2) + 1 + 1 + 1 + 1 + 1 + 1);
 
   if (!PrecompileBatchPrograms(progress))
     return false;
@@ -1372,6 +1372,22 @@ bool GPU_HW_OpenGL::CompilePrograms()
     prog->Uniform1i("samp0", 0);
   }
   m_vram_copy_program = std::move(*prog);
+  progress.Increment();
+
+  prog = shader_cache.GetProgram(shadergen.GenerateScreenQuadVertexShader(), {}, shadergen.GenerateCopyFragmentShader(),
+                                 [this, use_binding_layout](GL::Program& p) {
+                                   if (!IsGLES() && !use_binding_layout)
+                                     p.BindFragData(0, "o_col0");
+                                 });
+  if (!prog)
+    return false;
+  if (!use_binding_layout)
+  {
+    prog->BindUniformBlock("UBOBlock", 1);
+    prog->Bind();
+    prog->Uniform1i("samp0", 0);
+  }
+  m_vram_replacement_program = std::move(*prog);
   progress.Increment();
 
   prog = shader_cache.GetProgram(shadergen.GenerateScreenQuadVertexShader(), {},
@@ -1960,8 +1976,25 @@ bool GPU_HW_OpenGL::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
   const Common::Rectangle<uint32_t> native_bounds = Common::Rectangle<uint32_t>::FromExtents(
     dst_x / m_resolution_scale, dst_y / m_resolution_scale, width / m_resolution_scale, height / m_resolution_scale);
   dst_y = m_vram_texture.GetHeight() - dst_y - height;
-  glBlitFramebuffer(0, tex->GetHeight(), tex->GetWidth(), 0, dst_x, dst_y, dst_x + width, dst_y + height,
-                    GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  if (m_multisamples > 1)
+  {
+    const float uniforms[4] = {0.0f, 1.0f, 1.0f, -1.0f};
+    UploadUniformBuffer(uniforms, sizeof(uniforms));
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_vram_fbo_id);
+    glViewport(dst_x, dst_y, width, height);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glBindVertexArray(m_attributeless_vao_id);
+    m_vram_write_replacement_texture.Bind();
+    m_vram_replacement_program.Bind();
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    RestoreGraphicsAPIState();
+  }
+  else
+  {
+    glBlitFramebuffer(0, tex->GetHeight(), tex->GetWidth(), 0, dst_x, dst_y, dst_x + width, dst_y + height,
+                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+  }
 
   m_vram_read_texture.Bind();
   glEnable(GL_SCISSOR_TEST);

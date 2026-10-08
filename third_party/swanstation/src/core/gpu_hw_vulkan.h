@@ -220,6 +220,7 @@ private:
   VkShaderModule GetUVQuadVertexShader();
   VkPipeline GetVRAMFillPipeline(uint8_t wrapped, uint8_t interlaced);
   VkPipeline GetVRAMCopyPipeline(uint8_t depth_test);
+  VkPipeline GetVRAMReplacementPipeline();
   VkPipeline GetVRAMWritePipeline(uint8_t depth_test);
   VkPipeline GetVRAMUpdateDepthPipeline();
   VkPipeline GetVRAMReadbackPipeline();
@@ -523,12 +524,14 @@ private:
 
   VkPipeline m_vram_readback_pipeline = VK_NULL_HANDLE;
   VkPipeline m_vram_update_depth_pipeline = VK_NULL_HANDLE;
+  VkPipeline m_vram_replacement_pipeline = VK_NULL_HANDLE;
 
   // [depth_24][interlace_mode]
   DimensionalArray<VkPipeline, 3, 2> m_display_pipelines{};
 
   // texture replacements
   Vulkan::Texture m_vram_write_replacement_texture;
+  VkDescriptorSet m_vram_replacement_descriptor_set = VK_NULL_HANDLE;
   Vulkan::StreamBuffer m_texture_replacment_stream_buffer;
 
   // texture page replacements
