@@ -19,13 +19,16 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class PgxpInstrumentedTest {
     @Test
-    fun nativeInstructionsAndDepthRenderCorrectlyOnOnePlus() = runProbe(false)
+    fun nativeInstructionsAndDepthRenderCorrectly() = runProbe(false)
 
     @Test
-    fun texturedPolygonsAndDepthRenderCorrectlyOnOnePlus() = runProbe(true)
+    fun texturedPolygonsAndDepthRenderCorrectly() = runProbe(true)
 
     private fun runProbe(textured: Boolean) {
-        assertEquals("OnePlus", Build.MANUFACTURER)
+        val deviceModel = InstrumentationRegistry.getArguments().getString("pgxpDeviceModel", "CPH2747")
+        assertTrue("unsupported PGXP test device", deviceModel in listOf("CPH2747", "RG556"))
+        assertEquals(deviceModel, Build.MODEL)
+        assertEquals(if (deviceModel == "RG556") "Anbernic" else "OnePlus", Build.MANUFACTURER)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val root = File(context.cacheDir, "pgxp-probe-${System.nanoTime()}").apply { mkdirs() }
         val system = File(root, "system").apply { mkdirs() }
@@ -99,6 +102,21 @@ class PgxpInstrumentedTest {
                                     assertEquals("zero-valued vertex X at $address: $label", 0.25f, before.getFloat(entry), 0.001f)
                                     assertEquals("zero-valued vertex Y at $address: $label", 0.5f, before.getFloat(entry + 4), 0.001f)
                                 }
+                                for ((address, expected) in listOf(
+                                    0x2030 to (0.5f to 1f), 0x2034 to (0.125f to 0.25f),
+                                    0x2038 to (0.5f to 0f), 0x203c to (0f to 0.25f),
+                                    0x2040 to (0.5f to 1f), 0x2044 to (0.125f to 0.25f),
+                                    0x2048 to (0.125f to 0.25f)
+                                )) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("shift X at $address: $label", expected.first, before.getFloat(entry), 0.001f)
+                                    assertEquals("shift Y at $address: $label", expected.second, before.getFloat(entry + 4), 0.001f)
+                                    assertEquals("shift lost component validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                }
+                                val shiftedX = sx / 2f + ((sy.toInt() and 1) shl 15)
+                                val wrappedX = if (shiftedX >= 32768f) shiftedX - 65536f else shiftedX
+                                assertEquals("right shift used fractional carry: $label", wrappedX, before.getFloat(0x2060 / 4 * 20), 0.001f)
+                                assertEquals("right shift Y: $label", sy / 2f, before.getFloat(0x2060 / 4 * 20 + 4), 0.001f)
                                 assertEquals("reload failed: $label", 0, bridge.loadState(session, state.absolutePath))
                                 assertEquals(0, bridge.saveState(session, state.absolutePath))
                                 assertArrayEquals("load lost precision: $label", before.array(), precisionMemory(state, ramSize).array())
@@ -240,6 +258,8 @@ class PgxpInstrumentedTest {
         emit(imm(0x2b, 12, 8, 4))
         emit(imm(0x23, 9, 8, 4))
         emit(0)
+        emit((8 shl 16) or (14 shl 11) or (1 shl 6) or 0x02) // srl
+        emit(imm(0x2b, 12, 14, 0x60))
         emit(imm(0x2a, 12, 8, 9)) // SWL: Y into low half
         emit(imm(0x2e, 12, 8, 14)) // SWR: X into high half
         emit(imm(0x0d, 8, 14, 8)) // X already contains this bit.
@@ -268,6 +288,21 @@ class PgxpInstrumentedTest {
         emit(imm(0x2b, 12, 14, 0x28))
         emit((8 shl 21) or (13 shl 16) or (15 shl 11) or 0x26) // xor
         emit(imm(0x2b, 12, 15, 0x2c))
+        for ((function, shift, address) in listOf(
+            Triple(0x00, 1, 0x30), Triple(0x02, 1, 0x34),
+            Triple(0x03, 16, 0x38), Triple(0x00, 16, 0x3c)
+        )) {
+            emit((8 shl 16) or (14 shl 11) or (shift shl 6) or function)
+            emit(imm(0x2b, 12, 14, address))
+        }
+        constant(13, 33)
+        emit(imm(0x2b, 12, 13, 0x54))
+        emit(imm(0x23, 12, 13, 0x54))
+        emit(0)
+        for ((function, address) in listOf(0x04 to 0x40, 0x06 to 0x44, 0x07 to 0x48)) {
+            emit((13 shl 21) or (8 shl 16) or (14 shl 11) or function)
+            emit(imm(0x2b, 12, 14, address))
+        }
         write(11, 0x50, 0x800) // enable DMA channel 2
         write(11, 0, 0x1000)
         write(11, 4, if (textured) 14 else 8)

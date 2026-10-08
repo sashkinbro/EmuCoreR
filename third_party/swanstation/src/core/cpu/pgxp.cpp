@@ -228,15 +228,11 @@ ALWAYS_INLINE_RELEASE void CombineZ(PGXP_value& dst, const PGXP_value& a, const 
 
 ALWAYS_INLINE_RELEASE double f16Sign(double in)
 {
-  /* Scale to 16.16, keep the low 32 bits (mod 2^32), then reinterpret those
-   * bits as signed - this models the 32-bit register wrap that re-applies the
-   * sign after f16Unsign. Routing the double->integer narrowing through
-   * int64_t makes it well-defined over the operating range: the old
-   * (uint32_t)(double) cast was UB for negative / out-of-range operands (on
-   * x86 it yields the 0x80000000 "integer indefinite" for magnitudes >= 2^31),
-   * and static_cast<int32_t> on the low word replaces the (int32_t*)&s
-   * type-pun, which violated strict aliasing. */
-  const int64_t scaled = static_cast<int64_t>(in * 65536.0);
+  // Reduce before converting to fixed point: large shifts can exceed int64
+  // after scaling, even though only the low 16 bits of the component survive.
+  if (!std::isfinite(in))
+    return 0.0;
+  const int64_t scaled = static_cast<int64_t>(std::fmod(in, 65536.0) * 65536.0);
   const uint32_t bits = static_cast<uint32_t>(static_cast<uint64_t>(scaled) & UINT32_C(0xFFFFFFFF));
   return static_cast<double>(static_cast<int32_t>(bits)) / 65536.0;
 }
@@ -1521,423 +1517,121 @@ void CPU_DIVU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 }
 
 ////////////////////////////////////
-// Shift operations (sa)
+// Shift operations
 ////////////////////////////////////
-void CPU_SLL(uint32_t instr, uint32_t rtVal)
-{
-  // Rd = Rt << Sa
-  const uint32_t rdVal = rtVal << sa(instr);
-  PGXP_value ret;
-  uint32_t sh = sa(instr);
-  Validate(&CPU_reg[rt(instr)], rtVal);
+enum class ShiftOperation { Left, LogicalRight, ArithmeticRight };
 
-  ret = CPU_reg[rt(instr)];
-  if (sh == 0)
+static void CPU_SHIFT(uint32_t instr, uint32_t rtVal, uint32_t shift, ShiftOperation operation)
+{
+  Validate(&CPU_reg[rt(instr)], rtVal);
+  const PGXP_value source = CPU_reg[rt(instr)];
+  if (shift == 0)
   {
-    CPU_reg[rd(instr)] = ret;
+    CPU_reg[rd(instr)] = source;
+    CPU_reg[rd(instr)].value = rtVal;
     return;
   }
-  // A real shift changes the value the Z was attached to.
-  TaintZ(ret);
 
-  // TODO: Shift flags
-  double x = f16Unsign(CPU_reg[rt(instr)].x);
-  double y = f16Unsign(CPU_reg[rt(instr)].y);
-  if (sh >= 32)
+  const bool left = operation == ShiftOperation::Left;
+  const bool arithmetic = operation == ShiftOperation::ArithmeticRight;
+  PGXP_value result = PGXP_value_invalid;
+  result.value = left ? rtVal << shift : arithmetic ?
+    static_cast<uint32_t>(static_cast<int32_t>(rtVal) >> shift) : rtVal >> shift;
+  result.x = static_cast<float>(static_cast<int16_t>(static_cast<uint16_t>(result.value)));
+  result.y = static_cast<float>(static_cast<int16_t>(static_cast<uint16_t>(result.value >> 16)));
+
+  const bool valid_x = (source.flags & VALID_0) != 0 && std::isfinite(source.x);
+  const bool valid_y = (source.flags & VALID_1) != 0 && std::isfinite(source.y);
+  // Use the native sign bit for unsigned conversion. A subpixel coordinate
+  // may cross zero while its associated integer component still equals zero.
+  const double unsigned_x = double(source.x) + ((rtVal & 0x8000u) ? 65536.0 : 0.0);
+  const double unsigned_y = double(source.y) + ((rtVal & 0x80000000u) ? 65536.0 : 0.0);
+  bool retained_precision = false;
+  if (shift < 16)
   {
-    x = 0.f;
-    y = 0.f;
+    const double scale = double(uint32_t(1) << shift);
+    if (valid_x)
+    {
+      // Bits crossing the halfword boundary are integer bits. Multiplying
+      // fractional Y into X would manufacture a large unrelated coordinate.
+      const uint32_t carry = (rtVal >> 16) & ((uint32_t(1) << shift) - 1u);
+      result.x = static_cast<float>(f16Sign(left ? unsigned_x * scale :
+        unsigned_x / scale + double(carry) * double(uint32_t(1) << (16 - shift))));
+      result.flags |= VALID_0;
+      retained_precision = true;
+    }
+    if (valid_y)
+    {
+      const uint32_t carry = (rtVal & 0xffffu) >> (16 - shift);
+      result.y = static_cast<float>(f16Sign(left ? double(source.y) * scale + carry :
+        (arithmetic ? double(source.y) : unsigned_y) / scale));
+      result.flags |= VALID_1;
+      retained_precision = true;
+    }
   }
-  else if (sh == 16)
+  else if (left)
   {
-    y = f16Sign(x);
-    x = 0.f;
-  }
-  else if (sh >= 16)
-  {
-    y = x * (1 << (sh - 16));
-    y = f16Sign(y);
-    x = 0.f;
+    result.x = 0.f;
+    result.flags |= VALID_0;
+    if (valid_x)
+    {
+      result.y = static_cast<float>(f16Sign(double(source.x) * double(uint32_t(1) << (shift - 16))));
+      result.flags |= VALID_1;
+      retained_precision = true;
+    }
   }
   else
   {
-    x = x * (1 << sh);
-    y = y * (1 << sh);
-    y += f16Overflow(x);
-    x = f16Sign(x);
-    y = f16Sign(y);
+    // The upper result contains only zero or sign bits. The low component
+    // now comes entirely from the original high half, including its fraction.
+    result.flags |= VALID_1;
+    if (valid_y)
+    {
+      result.x = static_cast<float>(f16Sign((arithmetic ? double(source.y) : unsigned_y) /
+        double(uint32_t(1) << (shift - 16))));
+      result.flags |= VALID_0;
+      retained_precision = true;
+    }
   }
+  if (retained_precision)
+  {
+    CopyZState(result, source);
+    TaintZ(result);
+  }
+  CPU_reg[rd(instr)] = result;
+}
 
-  ret.x = (float)x;
-  ret.y = (float)y;
-
-  ret.value = rdVal;
-  CPU_reg[rd(instr)] = ret;
+void CPU_SLL(uint32_t instr, uint32_t rtVal)
+{
+  CPU_SHIFT(instr, rtVal, sa(instr), ShiftOperation::Left);
 }
 
 void CPU_SRL(uint32_t instr, uint32_t rtVal)
 {
-  // Rd = Rt >> Sa
-  PGXP_value ret;
-  const uint32_t sh = sa(instr);
-  Validate(&CPU_reg[rt(instr)], rtVal);
-
-  // A zero shift is a straight copy, so preserve the source value as-is
-  // instead of running it through the precision maths.
-  if (sh == 0)
-  {
-    // Carry the low precision value over untouched; only the raw register
-    // value needs refreshing.
-    CPU_reg[rd(instr)] = CPU_reg[rt(instr)];
-    CPU_reg[rd(instr)].value = rtVal;
-    return;
-  }
-
-  const uint32_t rdVal = rtVal >> sh;
-  ret = CPU_reg[rt(instr)];
-  // A real shift changes the value the Z was attached to.
-  TaintZ(ret);
-
-  double x = CPU_reg[rt(instr)].x, y = f16Unsign(CPU_reg[rt(instr)].y);
-
-  psx_value iX;
-  iX.d = rtVal;
-  psx_value iY;
-  iY.d = rtVal;
-
-  iX.sd = (iX.sd << 16) >> 16; // remove Y
-  iY.sw.l = iX.sw.h;           // overwrite x with sign(x)
-
-  // Shift test values
-  psx_value dX;
-  dX.sd = iX.sd >> sh;
-  psx_value dY;
-  dY.d = iY.d >> sh;
-
-  if (dX.sw.l != iX.sw.h)
-    x = x / (1 << sh);
-  else
-    x = dX.sw.l; // only sign bits left
-
-  if (dY.sw.l != iX.sw.h)
-  {
-    if (sh == 16)
-    {
-      x = y;
-    }
-    else if (sh < 16)
-    {
-      x += y * (1 << (16 - sh));
-      if (CPU_reg[rt(instr)].x < 0)
-        x += 1 << (16 - sh);
-    }
-    else
-    {
-      x += y / (1 << (sh - 16));
-    }
-  }
-
-  if ((dY.sw.h == 0) || (dY.sw.h == -1))
-    y = dY.sw.h;
-  else
-    y = y / (1 << sh);
-
-  x = f16Sign(x);
-  y = f16Sign(y);
-
-  ret.x = (float)x;
-  ret.y = (float)y;
-
-  ret.value = rdVal;
-  CPU_reg[rd(instr)] = ret;
+  CPU_SHIFT(instr, rtVal, sa(instr), ShiftOperation::LogicalRight);
 }
 
 void CPU_SRA(uint32_t instr, uint32_t rtVal)
 {
-  // Rd = Rt >> Sa
-  PGXP_value ret;
-  const uint32_t sh = sa(instr);
-  Validate(&CPU_reg[rt(instr)], rtVal);
-
-  // A zero shift is a straight copy, so preserve the source value as-is
-  // instead of running it through the precision maths.
-  if (sh == 0)
-  {
-    // Carry the low precision value over untouched; only the raw register
-    // value needs refreshing.
-    CPU_reg[rd(instr)] = CPU_reg[rt(instr)];
-    CPU_reg[rd(instr)].value = rtVal;
-    return;
-  }
-
-  const uint32_t rdVal = static_cast<uint32_t>(static_cast<int32_t>(rtVal) >> sh);
-  ret = CPU_reg[rt(instr)];
-  // A real shift changes the value the Z was attached to.
-  TaintZ(ret);
-
-  double x = CPU_reg[rt(instr)].x, y = CPU_reg[rt(instr)].y;
-
-  psx_value iX;
-  iX.d = rtVal;
-  psx_value iY;
-  iY.d = rtVal;
-
-  iX.sd = (iX.sd << 16) >> 16; // remove Y
-  iY.sw.l = iX.sw.h;           // overwrite x with sign(x)
-
-  // Shift test values
-  psx_value dX;
-  dX.sd = iX.sd >> sh;
-  psx_value dY;
-  dY.sd = iY.sd >> sh;
-
-  if (dX.sw.l != iX.sw.h)
-    x = x / (1 << sh);
-  else
-    x = dX.sw.l; // only sign bits left
-
-  if (dY.sw.l != iX.sw.h)
-  {
-    if (sh == 16)
-    {
-      x = y;
-    }
-    else if (sh < 16)
-    {
-      x += y * (1 << (16 - sh));
-      if (CPU_reg[rt(instr)].x < 0)
-        x += 1 << (16 - sh);
-    }
-    else
-    {
-      x += y / (1 << (sh - 16));
-    }
-  }
-
-  if ((dY.sw.h == 0) || (dY.sw.h == -1))
-    y = dY.sw.h;
-  else
-    y = y / (1 << sh);
-
-  x = f16Sign(x);
-  y = f16Sign(y);
-
-  ret.x = (float)x;
-  ret.y = (float)y;
-
-  ret.value = rdVal;
-  CPU_reg[rd(instr)] = ret;
+  CPU_SHIFT(instr, rtVal, sa(instr), ShiftOperation::ArithmeticRight);
 }
 
-////////////////////////////////////
-// Shift operations variable
-////////////////////////////////////
 void CPU_SLLV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
 {
-  // Rd = Rt << Rs
-  PGXP_value ret;
-  const uint32_t sh = rsVal & 0x1F;
-  const uint32_t rdVal = rtVal << sh;
-  Validate(&CPU_reg[rt(instr)], rtVal);
   Validate(&CPU_reg[rs(instr)], rsVal);
-
-  ret = CPU_reg[rt(instr)];
-  if (sh == 0)
-  {
-    CPU_reg[rd(instr)] = ret;
-    return;
-  }
-  // A real shift changes the value the Z was attached to.
-  TaintZ(ret);
-
-  double x = f16Unsign(CPU_reg[rt(instr)].x);
-  double y = f16Unsign(CPU_reg[rt(instr)].y);
-  if (sh >= 32)
-  {
-    x = 0.f;
-    y = 0.f;
-  }
-  else if (sh == 16)
-  {
-    y = f16Sign(x);
-    x = 0.f;
-  }
-  else if (sh >= 16)
-  {
-    y = x * (1 << (sh - 16));
-    y = f16Sign(y);
-    x = 0.f;
-  }
-  else
-  {
-    x = x * (1 << sh);
-    y = y * (1 << sh);
-    y += f16Overflow(x);
-    x = f16Sign(x);
-    y = f16Sign(y);
-  }
-
-  ret.x = (float)x;
-  ret.y = (float)y;
-
-  ret.value = rdVal;
-  CPU_reg[rd(instr)] = ret;
+  CPU_SHIFT(instr, rtVal, rsVal & 31u, ShiftOperation::Left);
 }
 
 void CPU_SRLV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
 {
-  // Rd = Rt >> Sa
-  PGXP_value ret;
-  const uint32_t sh = rsVal & 0x1F;
-  Validate(&CPU_reg[rt(instr)], rtVal);
   Validate(&CPU_reg[rs(instr)], rsVal);
-
-  // A zero shift is a straight copy, so preserve the source value as-is
-  // instead of running it through the precision maths.
-  if (sh == 0)
-  {
-    // Carry the low precision value over untouched; only the raw register
-    // value needs refreshing.
-    CPU_reg[rd(instr)] = CPU_reg[rt(instr)];
-    CPU_reg[rd(instr)].value = rtVal;
-    return;
-  }
-
-  const uint32_t rdVal = rtVal >> sh;
-  ret = CPU_reg[rt(instr)];
-  // A real shift changes the value the Z was attached to.
-  TaintZ(ret);
-
-  double x = CPU_reg[rt(instr)].x, y = f16Unsign(CPU_reg[rt(instr)].y);
-
-  psx_value iX;
-  iX.d = rtVal;
-  psx_value iY;
-  iY.d = rtVal;
-
-  iX.sd = (iX.sd << 16) >> 16; // remove Y
-  iY.sw.l = iX.sw.h;           // overwrite x with sign(x)
-
-  // Shift test values
-  psx_value dX;
-  dX.sd = iX.sd >> sh;
-  psx_value dY;
-  dY.d = iY.d >> sh;
-
-  if (dX.sw.l != iX.sw.h)
-    x = x / (1 << sh);
-  else
-    x = dX.sw.l; // only sign bits left
-
-  if (dY.sw.l != iX.sw.h)
-  {
-    if (sh == 16)
-    {
-      x = y;
-    }
-    else if (sh < 16)
-    {
-      x += y * (1 << (16 - sh));
-      if (CPU_reg[rt(instr)].x < 0)
-        x += 1 << (16 - sh);
-    }
-    else
-    {
-      x += y / (1 << (sh - 16));
-    }
-  }
-
-  if ((dY.sw.h == 0) || (dY.sw.h == -1))
-    y = dY.sw.h;
-  else
-    y = y / (1 << sh);
-
-  x = f16Sign(x);
-  y = f16Sign(y);
-
-  ret.x = (float)x;
-  ret.y = (float)y;
-
-  ret.value = rdVal;
-  CPU_reg[rd(instr)] = ret;
+  CPU_SHIFT(instr, rtVal, rsVal & 31u, ShiftOperation::LogicalRight);
 }
 
 void CPU_SRAV(uint32_t instr, uint32_t rtVal, uint32_t rsVal)
 {
-  // Rd = Rt >> Sa
-  PGXP_value ret;
-  const uint32_t sh = rsVal & 0x1F;
-  Validate(&CPU_reg[rt(instr)], rtVal);
   Validate(&CPU_reg[rs(instr)], rsVal);
-
-  // A zero shift is a straight copy, so preserve the source value as-is
-  // instead of running it through the precision maths.
-  if (sh == 0)
-  {
-    // Carry the low precision value over untouched; only the raw register
-    // value needs refreshing.
-    CPU_reg[rd(instr)] = CPU_reg[rt(instr)];
-    CPU_reg[rd(instr)].value = rtVal;
-    return;
-  }
-
-  const uint32_t rdVal = static_cast<uint32_t>(static_cast<int32_t>(rtVal) >> sh);
-  ret = CPU_reg[rt(instr)];
-  // A real shift changes the value the Z was attached to.
-  TaintZ(ret);
-
-  double x = CPU_reg[rt(instr)].x, y = CPU_reg[rt(instr)].y;
-
-  psx_value iX;
-  iX.d = rtVal;
-  psx_value iY;
-  iY.d = rtVal;
-
-  iX.sd = (iX.sd << 16) >> 16; // remove Y
-  iY.sw.l = iX.sw.h;           // overwrite x with sign(x)
-
-  // Shift test values
-  psx_value dX;
-  dX.sd = iX.sd >> sh;
-  psx_value dY;
-  dY.sd = iY.sd >> sh;
-
-  if (dX.sw.l != iX.sw.h)
-    x = x / (1 << sh);
-  else
-    x = dX.sw.l; // only sign bits left
-
-  if (dY.sw.l != iX.sw.h)
-  {
-    if (sh == 16)
-    {
-      x = y;
-    }
-    else if (sh < 16)
-    {
-      x += y * (1 << (16 - sh));
-      if (CPU_reg[rt(instr)].x < 0)
-        x += 1 << (16 - sh);
-    }
-    else
-    {
-      x += y / (1 << (sh - 16));
-    }
-  }
-
-  if ((dY.sw.h == 0) || (dY.sw.h == -1))
-    y = dY.sw.h;
-  else
-    y = y / (1 << sh);
-
-  x = f16Sign(x);
-  y = f16Sign(y);
-
-  ret.x = (float)x;
-  ret.y = (float)y;
-
-  ret.value = rdVal;
-  CPU_reg[rd(instr)] = ret;
+  CPU_SHIFT(instr, rtVal, rsVal & 31u, ShiftOperation::ArithmeticRight);
 }
 
 void CPU_MFHI(uint32_t instr, uint32_t hiVal)
