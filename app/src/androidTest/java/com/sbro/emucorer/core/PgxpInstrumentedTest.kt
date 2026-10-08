@@ -134,6 +134,29 @@ class PgxpInstrumentedTest {
                                     assertEquals("division quotient Y at $address: $label", y, before.getFloat(entry + 4), 0.001f)
                                     assertEquals("division lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
                                 }
+                                for (address in listOf(0x2088, 0x208c)) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("division identity X at $address: $label", sx, before.getFloat(entry), 0.001f)
+                                    assertEquals("division identity Y at $address: $label", sy, before.getFloat(entry + 4), 0.001f)
+                                    assertEquals("division identity lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                }
+                                for ((address, expected) in listOf(
+                                    0x2090 to (0f to 0f), 0x2094 to (0f to 0f),
+                                    0x2098 to (1f to 0f), 0x209c to (-1f to -1f),
+                                    0x20a8 to (0f to -32768f), 0x20ac to (0f to 0f),
+                                    0x20b0 to (1f to 0f), 0x20b4 to (1f to 0f)
+                                )) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("integer division X at $address: $label", expected.first, before.getFloat(entry), 0f)
+                                    assertEquals("integer division Y at $address: $label", expected.second, before.getFloat(entry + 4), 0f)
+                                    assertEquals("integer division borrowed depth at $address: $label", 0, before.getInt(entry + 12) and 0x10000)
+                                }
+                                for (address in listOf(0x20a0, 0x20a4)) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("zero divisor remainder X: $label", 10.25f, before.getFloat(entry), 0f)
+                                    assertEquals("zero divisor remainder Y: $label", -20f, before.getFloat(entry + 4), 0f)
+                                    assertEquals("zero divisor lost the dividend: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                }
                                 assertEquals("variable shift invalidated its source: $label", 0x101, before.getInt(original + 12) and 0x101)
                                 assertEquals("variable shift changed source X: $label", sx, before.getFloat(original), 0.001f)
                                 assertEquals("variable shift changed source Y: $label", sy, before.getFloat(original + 4), 0.001f)
@@ -315,6 +338,15 @@ class PgxpInstrumentedTest {
         emit((8 shl 21) or 0x13) // mtlo
         emit((14 shl 11) or 0x12) // mflo
         emit(imm(0x2b, 12, 14, 0x78))
+        constant(13, 1)
+        for ((function, quotient, remainder) in listOf(Triple(0x1a, 0x88, 0x90), Triple(0x1b, 0x8c, 0x94))) {
+            emit((8 shl 21) or (13 shl 16) or function)
+            repeat(16) { emit(0) }
+            emit((14 shl 11) or 0x12)
+            emit(imm(0x2b, 12, 14, quotient))
+            emit((14 shl 11) or 0x10)
+            emit(imm(0x2b, 12, 14, remainder))
+        }
         emit(imm(0x2a, 12, 8, 9)) // SWL: Y into low half
         emit(imm(0x2e, 12, 8, 14)) // SWR: X into high half
         emit(imm(0x0d, 8, 14, 8)) // X already contains this bit.
@@ -373,6 +405,31 @@ class PgxpInstrumentedTest {
             emit((14 shl 11) or 0x12)
             emit(imm(0x2b, 12, 14, address))
         }
+        constant(13, 0)
+        for ((function, quotient, remainder) in listOf(Triple(0x1a, 0x98, 0xa0), Triple(0x1b, 0x9c, 0xa4))) {
+            emit((8 shl 21) or (13 shl 16) or function)
+            repeat(16) { emit(0) }
+            emit((14 shl 11) or 0x12)
+            emit(imm(0x2b, 12, 14, quotient))
+            emit((14 shl 11) or 0x10)
+            emit(imm(0x2b, 12, 14, remainder))
+        }
+        constant(8, 0x80000000.toInt())
+        constant(13, -1)
+        emit((8 shl 21) or (13 shl 16) or 0x1a)
+        repeat(16) { emit(0) }
+        emit((14 shl 11) or 0x12)
+        emit(imm(0x2b, 12, 14, 0xa8))
+        emit((14 shl 11) or 0x10)
+        emit(imm(0x2b, 12, 14, 0xac))
+        constant(8, 3)
+        constant(13, 2)
+        emit((8 shl 21) or (13 shl 16) or 0x1a)
+        repeat(16) { emit(0) }
+        emit((14 shl 11) or 0x12)
+        emit(imm(0x2b, 12, 14, 0xb0))
+        emit((14 shl 11) or 0x10)
+        emit(imm(0x2b, 12, 14, 0xb4))
         write(11, 0x50, 0x800) // enable DMA channel 2
         write(11, 0, 0x1000)
         write(11, 4, if (textured) 14 else 8)
