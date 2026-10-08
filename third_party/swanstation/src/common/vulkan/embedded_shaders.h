@@ -30,6 +30,8 @@ namespace Vulkan::EmbeddedShaders {
 // The array is sized in the .cpp; consumers see only the bare extern.
 extern const uint32_t k_screen_quad_vs[];
 extern const size_t k_screen_quad_vs_size_bytes;
+extern const uint32_t k_vram_replacement_fs[];
+extern const size_t k_vram_replacement_fs_size_bytes;
 
 // UV-quad vertex shader. Variant of the screen-quad that maps the swept
 // triangle into a configurable [u_uv_min..u_uv_max] UV rect via push

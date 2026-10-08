@@ -317,6 +317,7 @@ private:
   GL::Program m_vram_read_program;
   GL::Program m_vram_write_program;
   GL::Program m_vram_copy_program;
+  GL::Program m_vram_replacement_program;
   GL::Program m_vram_update_depth_program;
 
   // Persistent shader cache, shadergen, and the
