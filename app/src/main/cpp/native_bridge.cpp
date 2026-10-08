@@ -199,6 +199,7 @@ struct FrontendState {
     // only queried when it announces new geometry or when an option that can
     // alter the frame aspect changes, instead of on every presented frame.
     double aspect_ratio = 4.0 / 3.0;
+    double frames_per_second = 60.0;
     std::atomic<bool> av_info_refresh_pending{true};
 
     // Software frame format requested through SET_PIXEL_FORMAT.
@@ -425,7 +426,11 @@ bool EnsureGlShaderChain() {
     g_gl_chain.generation = generation;
 
     libra_shader_preset_t preset = nullptr;
-    if (libra_error_t err = libra_preset_create(path.c_str(), &preset)) {
+    libra_preset_opt_t preset_options{};
+    preset_options.version = LIBRASHADER_CURRENT_VERSION;
+    preset_options.original_aspect_uniforms = true;
+    preset_options.frametime_uniforms = true;
+    if (libra_error_t err = libra_preset_create_with_options(path.c_str(), nullptr, &preset_options, &preset)) {
         ReportGlShaderChainError("preset load", err);
         g_gl_chain.failed = true;
         return false;
@@ -859,8 +864,18 @@ void PresentHardwareFrame(int frame_width, int frame_height) {
         const libra_viewport_t viewport = {0.0f, 0.0f, static_cast<uint32_t>(g_gl_chain.target_width),
                                            static_cast<uint32_t>(g_gl_chain.target_height)};
         libra_gl_filter_chain_t chain = static_cast<libra_gl_filter_chain_t>(g_gl_chain.chain);
+        frame_gl_opt_t frame_options{};
+        frame_options.version = LIBRASHADER_CURRENT_VERSION;
+        frame_options.frame_direction = 1;
+        frame_options.total_subframes = 1;
+        frame_options.current_subframe = 1;
+        frame_options.aspect_ratio = static_cast<float>(display_aspect);
+        const double fps = std::isfinite(info.timing.fps) && info.timing.fps > 0.0 ? info.timing.fps : 60.0;
+        frame_options.frames_per_second = static_cast<float>(fps);
+        frame_options.frametime_delta = static_cast<uint32_t>(std::lround(1000.0 / fps));
+        frame_options.brightness_nits = 200.0f;
         libra_error_t chain_error =
-            libra_gl_filter_chain_frame(&chain, g_gl_chain.frame_count, in, out, &viewport, nullptr, nullptr);
+            libra_gl_filter_chain_frame(&chain, g_gl_chain.frame_count, in, out, &viewport, nullptr, &frame_options);
         RestoreGlStateAfterShaderChain();
         if (!chain_error) {
             ++g_gl_chain.frame_count;
@@ -1479,8 +1494,10 @@ void RetroVideoRefresh(const void* data, unsigned width, unsigned height, size_t
                 retro_system_av_info info{};
                 retro_get_system_av_info(&info);
                 g_frontend.aspect_ratio = info.geometry.aspect_ratio;
+                g_frontend.frames_per_second = info.timing.fps;
             }
-            vulkan::Present(width, height, g_frontend.aspect_ratio, AspectRatioStretchRequested());
+            vulkan::Present(width, height, g_frontend.aspect_ratio, AspectRatioStretchRequested(),
+                            g_frontend.frames_per_second);
             return;
         }
         // Hardware path: the core rendered into the frontend framebuffer; blit

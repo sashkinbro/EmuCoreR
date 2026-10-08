@@ -818,7 +818,11 @@ bool EnsureShaderChain() {
     g_vk.shader_chain_generation = generation;
 
     libra_shader_preset_t preset = nullptr;
-    if (libra_error_t err = libra_preset_create(path.c_str(), &preset)) {
+    libra_preset_opt_t preset_options{};
+    preset_options.version = LIBRASHADER_CURRENT_VERSION;
+    preset_options.original_aspect_uniforms = true;
+    preset_options.frametime_uniforms = true;
+    if (libra_error_t err = libra_preset_create_with_options(path.c_str(), nullptr, &preset_options, &preset)) {
         ReportShaderChainError("preset load", err);
         g_vk.shader_chain_failed = true;
         return false;
@@ -1313,7 +1317,7 @@ bool RecordPresentEffect(uint32_t swapchain_index, uint32_t source_width, uint32
 
 #if defined(EMUCORER_HAVE_LIBRASHADER)
 bool RecordPresentShaderChain(uint32_t swapchain_index, uint32_t source_width, uint32_t source_height,
-                              const PresentRect& dst) {
+                               const PresentRect& dst, double display_aspect, double frames_per_second) {
     if (g_vk.shader_chain == nullptr || g_vk.chain_target_image == VK_NULL_HANDLE) return false;
     if (swapchain_index >= g_vk.swapchain_images.size()) return false;
 
@@ -1360,9 +1364,19 @@ bool RecordPresentShaderChain(uint32_t swapchain_index, uint32_t source_width, u
     const libra_viewport_t viewport = {0.0f, 0.0f, g_vk.chain_target_width, g_vk.chain_target_height};
 
     libra_vk_filter_chain_t chain = static_cast<libra_vk_filter_chain_t>(g_vk.shader_chain);
+    frame_vk_opt_t frame_options{};
+    frame_options.version = LIBRASHADER_CURRENT_VERSION;
+    frame_options.frame_direction = 1;
+    frame_options.total_subframes = 1;
+    frame_options.current_subframe = 1;
+    frame_options.aspect_ratio = static_cast<float>(display_aspect);
+    const double fps = std::isfinite(frames_per_second) && frames_per_second > 0.0 ? frames_per_second : 60.0;
+    frame_options.frames_per_second = static_cast<float>(fps);
+    frame_options.frametime_delta = static_cast<uint32_t>(std::lround(1000.0 / fps));
+    frame_options.brightness_nits = 200.0f;
     if (libra_error_t err =
             libra_vk_filter_chain_frame(&chain, command_buffer, g_vk.shader_frame_count, in, out, &viewport,
-                                        nullptr, nullptr)) {
+                                        nullptr, &frame_options)) {
         ReportShaderChainError("frame", err);
         g_vk.shader_chain_failed = true;
         vkEndCommandBuffer(command_buffer);
@@ -1532,7 +1546,8 @@ bool EnsureContext(ANativeWindow* window, uint32_t window_generation) {
     return true;
 }
 
-bool Present(uint32_t source_width, uint32_t source_height, double display_aspect, bool stretch) {
+bool Present(uint32_t source_width, uint32_t source_height, double display_aspect, bool stretch,
+             double frames_per_second) {
     if (!IsActive() || g_vk.device == VK_NULL_HANDLE || g_vk.swapchain == VK_NULL_HANDLE || !g_vk.has_frame_image) {
         return false;
     }
@@ -1584,7 +1599,8 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
     bool recorded = false;
 #if defined(EMUCORER_HAVE_LIBRASHADER)
     if (want_chain && EnsureShaderChain() && EnsureShaderChainTarget(dst.width, dst.height)) {
-        recorded = RecordPresentShaderChain(swapchain_index, source_width, source_height, dst);
+        recorded = RecordPresentShaderChain(swapchain_index, source_width, source_height, dst, display_aspect,
+                                             frames_per_second);
         if (!recorded) VK_LOGW("librashader chain frame failed; falling back to blit");
     }
     if (!recorded) {
