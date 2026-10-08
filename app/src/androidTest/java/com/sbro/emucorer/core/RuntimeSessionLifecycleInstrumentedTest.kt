@@ -43,6 +43,18 @@ class RuntimeSessionLifecycleInstrumentedTest {
             // Owned MIPS loop continuously changes RAM, making an unwanted
             // extra guest frame observable in a complete serialized snapshot.
             val bytes = ByteBuffer.allocate(512 * 1024).order(ByteOrder.LITTLE_ENDIAN)
+            fun constant(register: Int, value: Int) {
+                bytes.putInt((0xf shl 26) or (register shl 16) or (value ushr 16))
+                bytes.putInt((0xd shl 26) or (register shl 21) or (register shl 16) or (value and 65535))
+            }
+            fun writeGpu(offset: Int, value: Int) {
+                constant(8, value)
+                bytes.putInt((0x2b shl 26) or (10 shl 21) or (8 shl 16) or offset)
+            }
+            constant(10, 0x1f801810)
+            for (command in listOf(0, 0x08000001, 0x05000000, 0x06c60260, 0x07042018, 0x03000000))
+                writeGpu(4, command)
+            for (command in listOf(0x02ffffff, 0, (240 shl 16) or 320)) writeGpu(0, command)
             listOf(0x3c08a000, 0x24090000, 0x25290001, 0xad090000.toInt(),
                 0x1000fffd, 0).forEach { bytes.putInt(it) }
             rom.writeBytes(bytes.array())
@@ -58,7 +70,9 @@ class RuntimeSessionLifecycleInstrumentedTest {
                 for ((index, renderer) in listOf(RendererDefaults.SOFTWARE,
                     RendererDefaults.VULKAN, RendererDefaults.OPENGL).withIndex()) {
                     CoreRuntime.pause()
-                    assertTrue(CoreRuntime.updateSetting("EmuCoreR", "Renderer", renderer.toString()))
+                    assertTrue(CoreRuntime.restartWithRenderer(renderer))
+                    assertTrue("BIOS-only renderer change did not reach the native session",
+                        CoreRuntime.diagnostics().contains("\"renderer\":${RendererDefaults.toCoreRenderer(renderer)}"))
                     val width = 64 + index * 32
                     val frames = AtomicInteger()
                     ImageReader.newInstance(width, 96, PixelFormat.RGBA_8888, 3).use { reader ->
@@ -71,6 +85,19 @@ class RuntimeSessionLifecycleInstrumentedTest {
                             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
                             while (frames.get() < 3 && System.nanoTime() < deadline) Thread.sleep(5)
                             assertTrue("renderer $renderer restart $restart did not present", frames.get() >= 3)
+                            if (restart == 0 && index == 0) {
+                                CoreRuntime.setPerformanceMetricsEnabled(false, false)
+                                assertTrue(CoreRuntime.performanceMetricsSnapshot() == null)
+                                CoreRuntime.setPerformanceMetricsEnabled(true, true)
+                                val metricsDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+                                while (CoreRuntime.performanceMetricsSnapshot() == null && System.nanoTime() < metricsDeadline)
+                                    Thread.sleep(10)
+                                val metrics = CoreRuntime.performanceMetricsSnapshot()
+                                assertTrue("enabling metrics did not publish a sample", metrics != null)
+                                assertTrue("metrics returned an invalid frame rate", metrics!!.lineSequence().first().toDouble() > 0.0)
+                                CoreRuntime.setPerformanceMetricsEnabled(false, false)
+                                assertTrue("disabled metrics retained their sample", CoreRuntime.performanceMetricsSnapshot() == null)
+                            }
                             assertTrue(CoreRuntime.saveState(state.absolutePath))
                             val beforeReload = frames.get()
                             assertTrue(CoreRuntime.loadState(state.absolutePath))
@@ -86,6 +113,11 @@ class RuntimeSessionLifecycleInstrumentedTest {
                             Thread.sleep(100)
                             assertTrue(CoreRuntime.saveState(check.absolutePath))
                             assertArrayEquals("guest advanced while paused", paused, check.readBytes())
+                            if (index == 0) repeat(3) {
+                                assertTrue(CoreRuntime.restartWithRenderer(renderer))
+                                assertTrue(CoreRuntime.saveState(check.absolutePath))
+                                assertArrayEquals("paused renderer restart advanced the guest", paused, check.readBytes())
+                            }
                             check.writeBytes(byteArrayOf(0, 1, 2))
                             assertFalse(CoreRuntime.loadState(check.absolutePath))
                             assertTrue(CoreRuntime.saveState(check.absolutePath))
@@ -146,6 +178,7 @@ class RuntimeSessionLifecycleInstrumentedTest {
                 assertTrue(callers.awaitTermination(15, TimeUnit.SECONDS))
             }
         } finally {
+            CoreRuntime.setPerformanceMetricsEnabled(false, false)
             CoreRuntime.shutdown()
             CoreRuntime.detachSurface()
             CoreRuntime.updateSetting("EmuCoreR", "Renderer", previousRenderer)
