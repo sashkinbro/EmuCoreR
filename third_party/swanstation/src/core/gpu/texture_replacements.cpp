@@ -256,6 +256,12 @@ TextureReplacementHash TextureReplacements::GetVRAMWriteHash(uint32_t width, uin
 
 void TextureReplacements::Reload()
 {
+  // A pack may have been replaced in place, including files which failed to
+  // decode previously. Filenames alone cannot identify the current images.
+  m_texture_cache.clear();
+  m_texture_lru.clear();
+  m_texture_lru_positions.clear();
+  m_texture_cache_bytes = 0;
   m_pending_vram_write_replacements.clear();
   m_vram_write_replacements.clear();
   for (auto& entries : m_texpage_replacements)
@@ -272,6 +278,7 @@ void TextureReplacements::Reload()
   m_texture_pending_hit = false;
   {
     std::lock_guard<std::mutex> lock(m_texture_loader_mutex);
+    ++m_texture_loader_generation;
     m_texture_loader_queue.clear();
     m_texture_loader_completed.clear();
   }
@@ -670,7 +677,7 @@ void TextureReplacements::TextureLoaderEntry(TextureReplacements* self)
 {
   for (;;)
   {
-    std::string filename;
+    DecodedTexture decoded;
     {
       std::unique_lock<std::mutex> lock(self->m_texture_loader_mutex);
       self->m_texture_loader_cv.wait(lock, [self] {
@@ -684,12 +691,12 @@ void TextureReplacements::TextureLoaderEntry(TextureReplacements* self)
         continue;
       }
 
-      filename = std::move(self->m_texture_loader_queue.front());
+      decoded.filename = std::move(self->m_texture_loader_queue.front());
+      decoded.generation = self->m_texture_loader_generation;
       self->m_texture_loader_queue.pop_front();
     }
 
-    DecodedTexture decoded;
-    decoded.filename = filename;
+    const std::string& filename = decoded.filename;
     if (!Common::LoadImageFromFile(&decoded.image, filename.c_str()))
     {
       // Cache the failure as an empty image so the page lookup does not keep
@@ -711,15 +718,21 @@ void TextureReplacements::TextureLoaderEntry(TextureReplacements* self)
 void TextureReplacements::DrainLoadedTextures()
 {
   std::deque<DecodedTexture> completed;
+  uint64_t generation;
   {
     std::lock_guard<std::mutex> lock(m_texture_loader_mutex);
     if (m_texture_loader_completed.empty())
       return;
     completed.swap(m_texture_loader_completed);
+    generation = m_texture_loader_generation;
   }
 
   for (DecodedTexture& decoded : completed)
   {
+    // An old decode may finish after Reload queued the same filename again.
+    // It must not populate the new cache or remove the new pending request.
+    if (decoded.generation != generation)
+      continue;
     m_texture_load_pending.erase(decoded.filename);
     InsertDecodedTexture(std::move(decoded.filename), std::move(decoded.image));
   }
