@@ -352,6 +352,7 @@ private:
   struct DecodedTexture
   {
     std::string filename;
+    uint64_t generation = 0;
     TextureReplacementTexture image;
   };
 
@@ -401,6 +402,7 @@ private:
   std::mutex m_texture_loader_mutex;
   std::condition_variable m_texture_loader_cv;
   bool m_texture_loader_stop = false;
+  uint64_t m_texture_loader_generation = 0;
   std::deque<std::string> m_texture_loader_queue;
   std::deque<DecodedTexture> m_texture_loader_completed;
   std::unordered_set<std::string> m_texture_load_pending;
