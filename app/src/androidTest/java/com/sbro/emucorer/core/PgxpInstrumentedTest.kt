@@ -87,7 +87,7 @@ class PgxpInstrumentedTest {
                                 val state = File(root, "probe.rstate")
                                 assertEquals("save failed: $label", 0, bridge.saveState(session, state.absolutePath))
                                 val ramSize = if (cpu == "Recompiler" && depth) 8 * 1024 * 1024 else 2 * 1024 * 1024
-                                val before = precisionMemory(state, ramSize)
+                                var before = precisionMemory(state, ramSize)
                                 val sx = 160.25f - 12000f / 301f
                                 val sy = 120.25f - 10000f / 301f
                                 assertEquals("LWL full word X: $label", sx, before.getFloat(0x2000 / 4 * 20), 0.001f)
@@ -167,6 +167,16 @@ class PgxpInstrumentedTest {
                                     assertEquals("zero divisor remainder Y: $label", -20f, before.getFloat(entry + 4), 0f)
                                     assertEquals("zero divisor lost the dividend: $label", 0x101, before.getInt(entry + 12) and 0x101)
                                 }
+                                for ((address, expected) in listOf(
+                                    0x2100 to (-20f to 0f), 0x2104 to (-20f to -1f),
+                                    0x2108 to (0f to sy), 0x2110 to (sx to sy), 0x2118 to (sy to 0f)
+                                )) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("partial transfer X at $address: $label", expected.first, before.getFloat(entry), 0.001f)
+                                    assertEquals("partial transfer Y at $address: $label", expected.second, before.getFloat(entry + 4), 0.001f)
+                                    assertEquals("partial transfer lost validity at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                }
+                                assertEquals("overwritten halves retained precision: $label", 0, before.getInt(0x2114 / 4 * 20 + 12) and 0x01010101)
                                 assertEquals("variable shift invalidated its source: $label", 0x101, before.getInt(original + 12) and 0x101)
                                 assertEquals("variable shift changed source X: $label", sx, before.getFloat(original), 0.001f)
                                 assertEquals("variable shift changed source Y: $label", sy, before.getFloat(original + 4), 0.001f)
@@ -183,6 +193,7 @@ class PgxpInstrumentedTest {
                                     assertEquals("aliased variable shift lost precision at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
                                 }
                                 if (runahead) {
+                                    normalizeInvalidPrecision(before)
                                     for (buttons in listOf(0xbfff, 0xffff)) {
                                         bridge.setPadButtons(session, 0, buttons)
                                         repeat(4) {
@@ -191,8 +202,11 @@ class PgxpInstrumentedTest {
                                         }
                                         assertEquals("runahead save failed: $label", 0, bridge.saveState(session, state.absolutePath))
                                         assertArrayEquals("input rollback lost precision: $label buttons=$buttons",
-                                            before.array(), precisionMemory(state, ramSize).array())
+                                            before.array(), normalizeInvalidPrecision(precisionMemory(state, ramSize)).array())
                                     }
+                                    // Persistent states still roundtrip every byte, including invalid
+                                    // fields. Runahead snapshots only promise tracked precision entries.
+                                    before = precisionMemory(state, ramSize)
                                 }
                                 assertEquals("reload failed: $label", 0, bridge.loadState(session, state.absolutePath))
                                 assertEquals(0, bridge.saveState(session, state.absolutePath))
@@ -228,6 +242,14 @@ class PgxpInstrumentedTest {
             Thread.sleep(2)
         }
         return null
+    }
+
+    private fun normalizeInvalidPrecision(memory: ByteBuffer): ByteBuffer {
+        for (offset in 0 until memory.capacity() step 20) {
+            if (memory.getInt(offset + 12) and 0x01010101 == 0)
+                memory.array().fill(0, offset, offset + 20)
+        }
+        return memory
     }
 
     private fun precisionMemory(file: File, ramSize: Int): ByteBuffer {
@@ -466,6 +488,30 @@ class PgxpInstrumentedTest {
         emit(imm(0x2b, 12, 14, 0xb0))
         emit((14 shl 11) or 0x10)
         emit(imm(0x2b, 12, 14, 0xb4))
+        for ((opcode, address) in listOf(0x25 to 0x100, 0x21 to 0x104)) {
+            emit(imm(opcode, 12, 14, 0xa2))
+            emit(0)
+            emit(imm(0x2b, 12, 14, address))
+        }
+        emit(imm(0x23, 9, 14, 4))
+        emit(0)
+        emit(imm(0x2b, 12, 14, 0x108))
+        emit(0x48000000 or (14 shl 11)) // mfc2 r0, SXY2: discarded by hardware
+        emit(0)
+        emit(imm(0x29, 12, 0, 0x108))
+        for (address in listOf(0x110, 0x114)) {
+            emit(imm(0x23, 9, 14, 4))
+            emit(0)
+            emit(imm(0x2b, 12, 14, address))
+        }
+        emit(imm(0x24, 12, 14, 0x110))
+        emit(0)
+        emit(imm(0x28, 12, 14, 0x110)) // redundant byte write
+        emit(imm(0x28, 12, 0, 0x114))
+        emit(imm(0x25, 12, 14, 0x116)) // untouched Y after a byte update of X
+        emit(0)
+        emit(imm(0x2b, 12, 14, 0x118))
+        emit(imm(0x28, 12, 0, 0x116)) // both original components are now gone
         write(11, 0x50, 0x800) // enable DMA channel 2
         write(11, 0, 0x1000)
         write(11, 4, if (textured) 14 else 8)

@@ -281,50 +281,30 @@ ALWAYS_INLINE_RELEASE void ValidateAndCopyMem(PGXP_value* dest, uint32_t addr, u
   *dest = PGXP_value_invalid;
 }
 
-ALWAYS_INLINE_RELEASE static void ValidateAndCopyMem16(PGXP_value* dest, uint32_t addr, uint32_t value, int sign)
+ALWAYS_INLINE_RELEASE static void ValidateAndCopyMem16(PGXP_value* dest, uint32_t addr, uint32_t value)
 {
-  uint32_t validMask = 0;
-  psx_value val, mask;
-  PGXP_value* pMem = GetPtr(addr);
-  if (pMem != NULL)
+  PGXP_value* memory = GetPtr(addr);
+  if (!memory)
   {
-    mask.d = val.d = 0;
-    // determine if high or low word
-    if ((addr % 4) == 2)
-    {
-      val.w.h = static_cast<uint16_t>(value);
-      mask.w.h = 0xFFFF;
-      validMask = VALID_1;
-    }
-    else
-    {
-      val.w.l = static_cast<uint16_t>(value);
-      mask.w.l = 0xFFFF;
-      validMask = VALID_0;
-    }
-
-    // validate and copy whole value
-    MaskValidate(pMem, val.d, mask.d, validMask);
-    *dest = *pMem;
-
-    // if high word then shift
-    if ((addr % 4) == 2)
-    {
-      dest->x = dest->y;
-      dest->compFlags[0] = dest->compFlags[1];
-    }
-
-    // truncate value
-    dest->y = (dest->x < 0) ? -1.f * sign : 0.f; // 0.f;
-    dest->value = value;
-    dest->compFlags[1] = VALID; // iCB: High word is valid, just 0
-    // The register was only half overwritten, so any attached Z no longer
-    // describes the whole value.
-    TaintZ(*dest);
+    *dest = PGXP_value_invalid;
     return;
   }
-
-  *dest = PGXP_value_invalid;
+  const uint32_t shift = (addr & 2u) * 8u;
+  const uint32_t valid_mask = shift ? VALID_1 : VALID_0;
+  MaskValidate(memory, (value & 0xffffu) << shift, 0xffffu << shift, valid_mask);
+  const float component = shift ? memory->y : memory->x;
+  const bool precise = (memory->flags & valid_mask) != 0 && std::isfinite(component);
+  *dest = *memory;
+  dest->x = precise ? component : static_cast<float>(static_cast<int16_t>(value));
+  // Sign/zero extension is an integer CPU operation. Fractional coordinates
+  // can cross zero while their native halfword retains a different sign.
+  dest->y = static_cast<float>(static_cast<int16_t>(value >> 16));
+  dest->value = value;
+  dest->flags |= VALID_01;
+  if (precise)
+    TaintZ(*dest);
+  else
+    ClearZ(*dest);
 }
 
 ALWAYS_INLINE_RELEASE void WriteMem(const PGXP_value* value, uint32_t addr)
@@ -341,6 +321,9 @@ ALWAYS_INLINE_RELEASE static void WriteMem16(const PGXP_value* src, uint32_t add
 
   if (dest)
   {
+    const uint32_t other_valid = (addr & 2u) ? VALID_0 : VALID_1;
+    const bool conflicting_depth = (dest->flags & other_valid) != 0 &&
+      (dest->flags & src->flags & VALID_Z) != 0 && dest->z != src->z;
     /* determine if high or low word. Writing the half through explicit shift/
      * mask on dest->value rather than aliasing it as a psx_value* (a union of
      * a different type) avoids the strict-aliasing violation; the result is
@@ -360,15 +343,11 @@ ALWAYS_INLINE_RELEASE static void WriteMem16(const PGXP_value* src, uint32_t add
       dest->value = (dest->value & UINT32_C(0xFFFF0000)) | static_cast<uint32_t>(half);
     }
 
-    // overwrite z/w if valid
-    if (src->compFlags[2] == VALID)
-    {
-      dest->z = src->z;
-      dest->compFlags[2] = src->compFlags[2];
-      dest->compFlags[3] = src->compFlags[3];
-    }
-
-    // dest->valid = dest->valid && src->valid;
+    if (conflicting_depth)
+      ClearZ(*dest);
+    else if ((src->flags & VALID_Z) != 0)
+      CopyZState(*dest, *src);
+    TaintZ(*dest);
   }
 }
 
@@ -958,21 +937,42 @@ void CPU_LBx(uint32_t instr, uint32_t rtVal, uint32_t addr)
 void CPU_LHx(uint32_t instr, uint32_t rtVal, uint32_t addr)
 {
   // Rt = Mem[Rs + Im] (sign/zero extended)
-  ValidateAndCopyMem16(&CPU_reg[rt(instr)], addr, rtVal, 1);
+  ValidateAndCopyMem16(&CPU_reg[rt(instr)], addr, rtVal);
 }
 
 void CPU_SB(uint32_t instr, uint8_t rtVal, uint32_t addr)
 {
-  WriteMem(&PGXP_value_invalid, addr);
+  PGXP_value* memory = GetPtr(addr);
+  if (!memory)
+    return;
+  const uint32_t shift = (addr & 3u) * 8u;
+  const uint32_t mask = 0xffu << shift;
+  if ((memory->value & mask) == (uint32_t(rtVal) << shift))
+    return;
+  memory->value = (memory->value & ~mask) | (uint32_t(rtVal) << shift);
+  memory->flags &= ~((addr & 2u) ? VALID_1 : VALID_0);
+  if ((memory->flags & VALID_01) == 0)
+    ClearZ(*memory);
+  else
+    TaintZ(*memory);
 }
 
 void CPU_SH(uint32_t instr, uint16_t rtVal, uint32_t addr)
 {
   PGXP_value* val = &CPU_reg[rt(instr)];
-
-  // validate and copy half value
-  MaskValidate(val, rtVal, 0xFFFF, VALID_0);
-  WriteMem16(val, addr);
+  if (rt(instr) == 0)
+    Validate(val, 0);
+  else
+    MaskValidate(val, rtVal, 0xffffu, VALID_0);
+  PGXP_value source = *val;
+  source.value = (source.value & 0xffff0000u) | rtVal;
+  if ((source.flags & VALID_0) == 0 || !std::isfinite(source.x))
+  {
+    source.x = static_cast<float>(static_cast<int16_t>(rtVal));
+    source.flags |= VALID_0;
+    ClearZ(source);
+  }
+  WriteMem16(&source, addr);
 }
 
 void CPU_SW(uint32_t instr, uint32_t rtVal, uint32_t addr)
