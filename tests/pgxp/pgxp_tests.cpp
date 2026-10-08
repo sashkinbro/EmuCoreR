@@ -897,6 +897,15 @@ static void CheckGPUVertexSnapshots()
   bool all_valid = true;
   for (uint32_t token : tokens) all_valid &= precise(token, raw, 10.25f, 20.5f, 1000.f);
   Check(all_valid, "every slot in a full GPU FIFO retains its submitted vertex");
+  for (uint32_t i = 0; i < GPU_VERTEX_SNAPSHOT_COUNT; i++)
+  {
+    CPU_SWC2(I(0x3a, 0, 14), raw, 0x1f801810);
+    DiscardGPUWrite();
+  }
+  all_valid = true;
+  for (uint32_t token : tokens) all_valid &= precise(token, raw, 10.25f, 20.5f, 1000.f);
+  Check(all_valid, "discarded GPU writes preserve every queued precision snapshot");
+  Check(ConsumeGPUWrite(raw) == INVALID_GPU_VERTEX_TOKEN, "discarded GPU writes cannot replay their pending precision");
   Seed(0x100, raw, 10.75f, 20.875f, 4000.f);
   const uint32_t wrapped = CaptureGPUVertex(0x100, raw);
   Check(Vertex(tokens.front(), raw, 10.f, 20.f, false) && precise(wrapped, raw, 10.75f, 20.875f, 4000.f),

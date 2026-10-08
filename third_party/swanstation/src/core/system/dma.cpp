@@ -59,6 +59,9 @@ void DMA::ClearState()
   m_DICR.bits = 0;
 
   m_halt_ticks_remaining = 0;
+  m_gpu_words_remaining = 0;
+  m_gpu_next_address = 0;
+  m_gpu_transfer_active = false;
 }
 
 bool DMA::DoState(StateWrapper& sw)
@@ -76,6 +79,10 @@ bool DMA::DoState(StateWrapper& sw)
 
   sw.Do(&m_DPCR.bits);
   sw.Do(&m_DICR.bits);
+  sw.DoEx(&m_gpu_words_remaining, 59, uint32_t(0));
+  sw.DoEx(&m_gpu_next_address, 59, uint32_t(0));
+  if (sw.HasError() || m_gpu_words_remaining > 0x10000 || m_gpu_next_address > BASE_ADDRESS_MASK)
+    return false;
 
   if (sw.IsReading())
   {
@@ -127,11 +134,15 @@ void DMA::WriteRegister(uint32_t offset, uint32_t value)
       case 0x00:
       {
         state.base_address = value & BASE_ADDRESS_MASK;
+        if (static_cast<Channel>(channel_index) == Channel::GPU)
+          m_gpu_words_remaining = 0;
         return;
       }
       case 0x04:
       {
         state.block_control.bits = value;
+        if (static_cast<Channel>(channel_index) == Channel::GPU)
+          m_gpu_words_remaining = 0;
         return;
       }
 
@@ -142,6 +153,9 @@ void DMA::WriteRegister(uint32_t offset, uint32_t value)
         // transfer is happening, and the SPU transfer gets delayed until the GPU transfer unhalts and finishes, and
         // breaks the interrupt.
         const bool ignore_halt = !state.channel_control.enable_busy && (value & (1u << 24));
+        if (static_cast<Channel>(channel_index) == Channel::GPU &&
+            (!state.channel_control.enable_busy || !(value & (1u << 24))))
+          m_gpu_words_remaining = 0;
 
         const uint32_t write_mask = (static_cast<Channel>(channel_index) != Channel::OTC) ?
                                       ChannelState::ChannelControl::WRITE_MASK :
@@ -197,14 +211,14 @@ void DMA::WriteRegister(uint32_t offset, uint32_t value)
   }
 }
 
-void DMA::SetRequest(Channel channel, bool request)
+void DMA::SetRequest(Channel channel, bool request, bool trigger_transfer)
 {
   ChannelState& cs = m_state[static_cast<uint32_t>(channel)];
   if (cs.request == request)
     return;
 
   cs.request = request;
-  if (CanTransferChannel(channel, false))
+  if (trigger_transfer && CanTransferChannel(channel, false))
     TransferChannel(channel);
 }
 
@@ -270,6 +284,15 @@ TickCount DMA::GetTransferHaltTicks() const
 bool DMA::TransferChannel(Channel channel)
 {
   ChannelState& cs = m_state[static_cast<uint32_t>(channel)];
+  if (channel == Channel::GPU && cs.channel_control.copy_to_device)
+  {
+    if (m_gpu_transfer_active)
+      return true;
+    m_gpu_transfer_active = true;
+    const bool result = TransferGPUToDevice();
+    m_gpu_transfer_active = false;
+    return result;
+  }
   const uint32_t mask = GetAddressMask();
 
   const bool copy_to_device = cs.channel_control.copy_to_device;
@@ -406,6 +429,100 @@ bool DMA::TransferChannel(Channel channel)
     UpdateIRQ();
   }
 
+  return true;
+}
+
+bool DMA::TransferGPUToDevice()
+{
+  ChannelState& cs = m_state[static_cast<uint32_t>(Channel::GPU)];
+  const SyncMode mode = cs.channel_control.sync_mode;
+  if (mode == SyncMode::Reserved)
+    return true;
+
+  const uint32_t mask = GetAddressMask();
+  const uint32_t increment = (mode != SyncMode::LinkedList && cs.channel_control.address_step_reverse) ? uint32_t(-4) : 4;
+  TickCount ticks_remaining = GetTransferSliceTicks(Channel::GPU);
+  cs.channel_control.start_trigger = false;
+
+  for (;;)
+  {
+    if (m_gpu_words_remaining == 0)
+    {
+      if (mode == SyncMode::LinkedList)
+      {
+        uint32_t header;
+        std::memcpy(&header, &Bus::g_ram[cs.base_address & mask], sizeof(header));
+        CPU::AddPendingTicks(LINKED_LIST_HEADER_READ_TICKS);
+        ticks_remaining -= LINKED_LIST_HEADER_READ_TICKS;
+        m_gpu_next_address = header & BASE_ADDRESS_MASK;
+        m_gpu_words_remaining = header >> 24;
+        cs.base_address = (cs.base_address + sizeof(header)) & BASE_ADDRESS_MASK;
+        if (m_gpu_words_remaining > 0)
+        {
+          CPU::AddPendingTicks(5);
+          ticks_remaining -= 5;
+        }
+      }
+      else
+      {
+        m_gpu_words_remaining = (mode == SyncMode::Manual) ? cs.block_control.manual.GetWordCount() :
+                                                           cs.block_control.request.GetBlockSize();
+      }
+    }
+
+    const uint32_t word_count = std::min(m_gpu_words_remaining, g_gpu->GetDMAWriteSpace());
+    if (word_count > 0 && g_gpu->BeginDMAWrite())
+    {
+      const uint32_t address = cs.base_address & mask;
+      // Commit progress before EndDMAWrite can update the request line.
+      cs.base_address = (cs.base_address + increment * word_count) & BASE_ADDRESS_MASK;
+      m_gpu_words_remaining -= word_count;
+      const TickCount ticks = TransferMemoryToDevice(Channel::GPU, address, increment, word_count);
+      CPU::AddPendingTicks(ticks);
+      ticks_remaining -= ticks;
+    }
+
+    if (m_gpu_words_remaining > 0)
+      break;
+
+    bool complete;
+    if (mode == SyncMode::LinkedList)
+    {
+      cs.base_address = m_gpu_next_address;
+      complete = (cs.base_address & 0x800000) != 0;
+    }
+    else if (mode == SyncMode::Request)
+    {
+      const uint32_t blocks_remaining = cs.block_control.request.GetBlockCount() - 1;
+      cs.block_control.request.block_count = blocks_remaining;
+      complete = blocks_remaining == 0;
+    }
+    else
+    {
+      complete = true;
+    }
+
+    if (complete)
+    {
+      cs.channel_control.enable_busy = false;
+      if (m_DICR.IsIRQEnabled(Channel::GPU))
+      {
+        m_DICR.SetIRQFlag(Channel::GPU);
+        UpdateIRQ();
+      }
+      return true;
+    }
+
+    if (!cs.request || ticks_remaining <= 0)
+      break;
+  }
+
+  // Resume at the first word that did not fit when the GPU drains its FIFO.
+  if (cs.request)
+  {
+    HaltTransfer(GetTransferHaltTicks());
+    return false;
+  }
   return true;
 }
 

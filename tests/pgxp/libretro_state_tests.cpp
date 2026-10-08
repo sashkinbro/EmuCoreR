@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2026 SBRO
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <libretro.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
+#include <iterator>
 #include <string>
 #include <unistd.h>
 #include <vector>
@@ -46,7 +48,7 @@ static bool Environment(unsigned command, void* data)
       else if (key == "swanstation_BIOS_PathNTSCU") value = "probe.bin";
       else if (key == "swanstation_MemoryCards_Card1Type" || key == "swanstation_MemoryCards_Card2Type") value = "None";
       else if (key == "swanstation_BIOS_PatchFastBoot" || key == "swanstation_Main_ApplyGameSettings") value = "false";
-      else if (key == "swanstation_Main_SaveStateCompression") value = "None";
+      else if (key == "swanstation_Main_SaveStateCompression") value = "Uncompressed";
       variable->value = value;
       return value != nullptr;
     }
@@ -148,6 +150,36 @@ int main(int argc, char** argv)
             Check(retro_unserialize(state.data(), state.size()), "load the full state in the requested context");
             memory = static_cast<uint32_t*>(retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM));
             Check(memory && memory[0x1000 / 4] == 0x11223344, "rollback restores the RAM payload");
+          }
+          context = RETRO_SAVESTATE_CONTEXT_NORMAL;
+          std::vector<uint8_t> legacy(state);
+          auto read_word = [&](size_t offset) {
+            uint32_t value;
+            std::memcpy(&value, &legacy[offset], sizeof(value));
+            return value;
+          };
+          auto write_word = [&](size_t offset, uint32_t value) {
+            std::memcpy(&legacy[offset], &value, sizeof(value));
+          };
+          const uint32_t data_offset = read_word(212);
+          const uint32_t data_size = read_word(208);
+          const uint8_t marker[] = {3, 0, 0, 0, 'D', 'M', 'A'};
+          const auto end = legacy.begin() + data_offset + data_size;
+          const auto dma = std::search(legacy.begin() + data_offset, end, std::begin(marker), std::end(marker));
+          const bool current_format = read_word(4) == 59 && read_word(200) == 0 && dma != end;
+          Check(current_format, "locate the uncompressed DMA state extension");
+          if (current_format)
+          {
+            const size_t progress = size_t(dma - legacy.begin()) + sizeof(marker) + 4 + 7 * 13 + 8;
+            std::memmove(&legacy[progress], &legacy[progress + 8], data_offset + data_size - progress - 8);
+            write_word(4, 58);
+            write_word(208, data_size - 8);
+            if (read_word(204) >= 8)
+              write_word(204, read_word(204) - 8);
+            memory[0x1000 / 4] = 0xaabbccdd;
+            Check(retro_unserialize(legacy.data(), legacy.size()), "load a previous-version state without DMA progress");
+            memory = static_cast<uint32_t*>(retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM));
+            Check(memory && memory[0x1000 / 4] == 0x11223344, "previous-version states retain RAM contents");
           }
         }
       }

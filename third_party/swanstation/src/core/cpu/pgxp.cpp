@@ -972,8 +972,13 @@ uint32_t CaptureGPUVertex(uint32_t address, uint32_t value)
 uint32_t ConsumeGPUWrite(uint32_t value)
 {
   const PGXP_value pending = s_gpu_write;
-  s_gpu_write = PGXP_value_invalid;
+  DiscardGPUWrite();
   return CaptureGPUValue(&pending, value);
+}
+
+void DiscardGPUWrite()
+{
+  s_gpu_write = PGXP_value_invalid;
 }
 
 bool GetPreciseVertex(uint32_t addr, uint32_t value, int x, int y, int xOffs, int yOffs, float* out_x, float* out_y, float* out_w)

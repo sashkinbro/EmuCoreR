@@ -41,6 +41,7 @@ inline constexpr uint32_t GPU_VERTEX_SNAPSHOT_COUNT = 4096;
 inline constexpr uint32_t INVALID_GPU_VERTEX_TOKEN = 0xffffffffu;
 uint32_t CaptureGPUVertex(uint32_t address, uint32_t value);
 uint32_t ConsumeGPUWrite(uint32_t value);
+void DiscardGPUWrite();
 
 // -- GTE functions
 // Transforms
