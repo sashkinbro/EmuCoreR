@@ -497,7 +497,7 @@ restart_instruction:
           const uint32_t shift_amount = ReadReg(inst.r.rs) & UINT32_C(0x1F);
           const uint32_t new_value = ReadReg(inst.r.rt) << shift_amount;
           if constexpr (pgxp_mode >= PGXPMode::CPU)
-            PGXP::CPU_SLLV(inst.bits, ReadReg(inst.r.rt), shift_amount);
+            PGXP::CPU_SLLV(inst.bits, ReadReg(inst.r.rt), ReadReg(inst.r.rs));
 
           WriteReg(inst.r.rd, new_value);
         }
@@ -508,7 +508,7 @@ restart_instruction:
           const uint32_t shift_amount = ReadReg(inst.r.rs) & UINT32_C(0x1F);
           const uint32_t new_value = ReadReg(inst.r.rt) >> shift_amount;
           if constexpr (pgxp_mode >= PGXPMode::CPU)
-            PGXP::CPU_SRLV(inst.bits, ReadReg(inst.r.rt), shift_amount);
+            PGXP::CPU_SRLV(inst.bits, ReadReg(inst.r.rt), ReadReg(inst.r.rs));
 
           WriteReg(inst.r.rd, new_value);
         }
@@ -519,7 +519,7 @@ restart_instruction:
           const uint32_t shift_amount = ReadReg(inst.r.rs) & UINT32_C(0x1F);
           const uint32_t new_value = static_cast<uint32_t>(static_cast<int32_t>(ReadReg(inst.r.rt)) >> shift_amount);
           if constexpr (pgxp_mode >= PGXPMode::CPU)
-            PGXP::CPU_SRAV(inst.bits, ReadReg(inst.r.rt), shift_amount);
+            PGXP::CPU_SRAV(inst.bits, ReadReg(inst.r.rt), ReadReg(inst.r.rs));
 
           WriteReg(inst.r.rd, new_value);
         }

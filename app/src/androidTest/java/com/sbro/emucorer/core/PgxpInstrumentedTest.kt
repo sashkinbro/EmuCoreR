@@ -121,6 +121,22 @@ class PgxpInstrumentedTest {
                                 val wrappedX = if (shiftedX >= 32768f) shiftedX - 65536f else shiftedX
                                 assertEquals("right shift used fractional carry: $label", wrappedX, before.getFloat(0x2060 / 4 * 20), 0.001f)
                                 assertEquals("right shift Y: $label", sy / 2f, before.getFloat(0x2060 / 4 * 20 + 4), 0.001f)
+                                val original = 0x2064 / 4 * 20
+                                assertEquals("variable shift invalidated its source: $label", 0x101, before.getInt(original + 12) and 0x101)
+                                assertEquals("variable shift changed source X: $label", sx, before.getFloat(original), 0.001f)
+                                assertEquals("variable shift changed source Y: $label", sy, before.getFloat(original + 4), 0.001f)
+                                val shift = sx.toInt() and 31
+                                assertTrue("probe expects a shift beyond one halfword", shift > 16)
+                                for ((address, expected) in listOf(
+                                    0x2068 to (0f to sx * (1 shl (shift - 16))),
+                                    0x206c to (sy / (1 shl (shift - 16)) to 0f),
+                                    0x2070 to (sy / (1 shl (shift - 16)) to 0f)
+                                )) {
+                                    val entry = address / 4 * 20
+                                    assertEquals("aliased variable shift X at $address: $label", expected.first, before.getFloat(entry), 0.001f)
+                                    assertEquals("aliased variable shift Y at $address: $label", expected.second, before.getFloat(entry + 4), 0.001f)
+                                    assertEquals("aliased variable shift lost precision at $address: $label", 0x101, before.getInt(entry + 12) and 0x101)
+                                }
                                 if (runahead) {
                                     for (buttons in listOf(0xbfff, 0xffff)) {
                                         bridge.setPadButtons(session, 0, buttons)
@@ -276,6 +292,11 @@ class PgxpInstrumentedTest {
         emit(0)
         emit((8 shl 16) or (14 shl 11) or (1 shl 6) or 0x02) // srl
         emit(imm(0x2b, 12, 14, 0x60))
+        for ((function, address) in listOf(0x04 to 0x68, 0x06 to 0x6c, 0x07 to 0x70)) {
+            emit((8 shl 21) or (8 shl 16) or (14 shl 11) or function)
+            emit(imm(0x2b, 12, 14, address))
+        }
+        emit(imm(0x2b, 12, 8, 0x64))
         emit(imm(0x2a, 12, 8, 9)) // SWL: Y into low half
         emit(imm(0x2e, 12, 8, 14)) // SWR: X into high half
         emit(imm(0x0d, 8, 14, 8)) // X already contains this bit.
