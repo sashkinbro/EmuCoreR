@@ -1954,6 +1954,7 @@ void GPU_HW_OpenGL::SetBlendMode()
 bool GPU_HW_OpenGL::BlitVRAMReplacementTexture(const TextureReplacementTexture* tex, uint32_t dst_x, uint32_t dst_y, uint32_t width,
                                                uint32_t height)
 {
+  glActiveTexture(GL_TEXTURE0);
   if (!m_vram_write_replacement_texture.IsValid())
   {
     if (!m_vram_write_replacement_texture.Create(tex->GetWidth(), tex->GetHeight(), 1, GL_RGBA, GL_RGBA,
@@ -1961,6 +1962,7 @@ bool GPU_HW_OpenGL::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
         !m_vram_write_replacement_texture.CreateFramebuffer())
     {
       m_vram_write_replacement_texture.Destroy();
+      RestoreGraphicsAPIState();
       return false;
     }
   }
@@ -1971,6 +1973,7 @@ bool GPU_HW_OpenGL::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
   }
 
   glDisable(GL_SCISSOR_TEST);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_vram_fbo_id);
   m_vram_write_replacement_texture.BindFramebuffer(GL_READ_FRAMEBUFFER);
 
   const Common::Rectangle<uint32_t> native_bounds = Common::Rectangle<uint32_t>::FromExtents(
@@ -1980,7 +1983,6 @@ bool GPU_HW_OpenGL::BlitVRAMReplacementTexture(const TextureReplacementTexture* 
   {
     const float uniforms[4] = {0.0f, 1.0f, 1.0f, -1.0f};
     UploadUniformBuffer(uniforms, sizeof(uniforms));
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_vram_fbo_id);
     glViewport(dst_x, dst_y, width, height);
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
@@ -2597,6 +2599,7 @@ void GPU_HW_OpenGL::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t he
 
 void GPU_HW_OpenGL::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t height, const void* data, bool set_mask, bool check_mask)
 {
+  g_texture_replacements.InvalidatePendingVRAMWriteReplacements(x, y, width, height);
   if (IsUsingSoftwareRendererForReadbacks())
     UpdateSoftwareRendererVRAM(x, y, width, height, data, set_mask, check_mask);
 
@@ -2722,6 +2725,7 @@ void GPU_HW_OpenGL::UpdateVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t 
 
 void GPU_HW_OpenGL::CopyVRAM(uint32_t src_x, uint32_t src_y, uint32_t dst_x, uint32_t dst_y, uint32_t width, uint32_t height)
 {
+  g_texture_replacements.InvalidatePendingVRAMWriteReplacements(dst_x, dst_y, width, height);
   if (IsUsingSoftwareRendererForReadbacks())
     CopySoftwareRendererVRAM(src_x, src_y, dst_x, dst_y, width, height);
 

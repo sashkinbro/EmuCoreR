@@ -20,6 +20,13 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TextureReplacementInstrumentedTest {
     @Test
+    fun delayedReplacementsRespectNewerVramWrites() {
+        for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
+            for (mutation in 0..15) runPendingWriteProbe(renderer, mutation)
+        }
+    }
+
+    @Test
     fun multisampledTexturesKeepVramReplacements() {
         for (renderer in listOf(RendererDefaults.CORE_OPENGL, RendererDefaults.CORE_VULKAN)) {
             for (samples in listOf("2", "4", "4-ssaa")) {
@@ -148,7 +155,85 @@ class TextureReplacementInstrumentedTest {
         }
     }
 
-    private fun makeBios(sampleTexture: Boolean): ByteArray {
+    private fun runPendingWriteProbe(renderer: Int, mutation: Int) {
+        assertEquals("CPH2747", Build.MODEL)
+        assertEquals("OnePlus", Build.MANUFACTURER)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val root = File(context.cacheDir, "texture-pending-${System.nanoTime()}").apply { mkdirs() }
+        val system = File(root, "system").apply { mkdirs() }
+        val save = File(root, "save").apply { mkdirs() }
+        val assets = File(root, "assets").apply { mkdirs() }
+        val textures = File(root, "textures").apply { mkdirs() }
+        val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        try {
+            bitmap.eraseColor(Color.GREEN)
+            File(textures, "vram-write-5bf538dc6e289176a1e739cd1e037dd4.png").outputStream().use {
+                assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally { bitmap.recycle() }
+        val bios = File(system, "pending.bin").apply { writeBytes(makeBios(false, mutation)) }
+        val bridge = NativeCoreBridge()
+        try {
+            bridge.nativeInit(system.absolutePath, save.absolutePath, assets.absolutePath)
+            bridge.nativeSetShaderEffect(0)
+            bridge.nativeSetShaderPreset("", false)
+            bridge.setTextureReplacementsPathOverride(textures.absolutePath)
+            mapOf(
+                "CPU_ExecutionMode" to "Recompiler", "GPU_Renderer" to RendererDefaults.coreRendererName(renderer),
+                "GPU_PGXPEnable" to "false", "GPU_ResolutionScale" to "2", "GPU_UseThread" to "false",
+                "GPU_TextureFilter" to "Nearest", "GPU_MSAA" to "1", "GPU_WidescreenHack" to "false",
+                "GPU_DitheringMode" to "Unscaled", "Display_AspectRatio" to "4:3", "Display_CropMode" to "Borders",
+                "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
+                "Main_RunaheadFrameCount" to "0", "Main_ApplyGameSettings" to "false",
+                "BIOS_PatchFastBoot" to "false", "Console_Region" to "NTSC-U",
+                "TextureReplacements_EnableVRAMWriteReplacements" to "false",
+                "TextureReplacements_PreloadTextures" to "false"
+            ).forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
+            val session = bridge.createSession()
+            assertTrue(session != 0L)
+            try {
+                ImageReader.newInstance(320, 240, PixelFormat.RGBA_8888, 3).use { reader ->
+                    assertEquals(0, bridge.setSurface(session, reader.surface, renderer))
+                    assertEquals(0, bridge.loadBios(session, bios.absolutePath))
+                    assertEquals(0, bridge.loadBiosOnly(session))
+                    bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements", "true")
+                    val counts = IntArray(3)
+                    repeat(20) {
+                        bridge.runFrame(session)
+                        val deadline = System.nanoTime() + 100_000_000
+                        while (System.nanoTime() < deadline) {
+                            val frame = reader.acquireLatestImage() ?: continue
+                            frame.use {
+                                counts.fill(0)
+                                val plane = it.planes[0]
+                                for (y in 0 until it.height) for (x in 0 until it.width) {
+                                    val offset = y * plane.rowStride + x * plane.pixelStride
+                                    val r = plane.buffer.get(offset).toInt() and 255
+                                    val g = plane.buffer.get(offset + 1).toInt() and 255
+                                    val b = plane.buffer.get(offset + 2).toInt() and 255
+                                    if (r > 220 && g < 20 && b < 20) counts[0]++
+                                    if (g > 220 && r < 20 && b < 20) counts[1]++
+                                    if (b > 220 && r < 20 && g < 20) counts[2]++
+                                }
+                            }
+                            break
+                        }
+                    }
+                    if (mutation == 7 || mutation == 14) {
+                        assertTrue("unrelated write must keep replacement renderer=$renderer RGB=${counts.toList()}", counts[1] >= 64)
+                    } else {
+                        assertTrue("newer write must survive renderer=$renderer mutation=$mutation RGB=${counts.toList()}",
+                            (mutation == 15 || counts[0] >= 64) && counts[1] == 0 && counts[2] >= 64)
+                    }
+                }
+            } finally { bridge.destroySession(session) }
+        } finally {
+            bridge.setTextureReplacementsPathOverride(null)
+            root.deleteRecursively()
+        }
+    }
+
+    private fun makeBios(sampleTexture: Boolean, mutation: Int = -1): ByteArray {
         val out = ByteBuffer.allocate(512 * 1024).order(ByteOrder.LITTLE_ENDIAN)
         fun emit(value: Int) { out.putInt(value) }
         fun imm(op: Int, source: Int, target: Int, value: Int) =
@@ -163,12 +248,58 @@ class TextureReplacementInstrumentedTest {
         }
         constant(10, 0x1f801810)
         for (command in listOf(0, 0x08000001, 0x05000000, 0x06c60260, 0x07042018, 0x03000000)) write(4, command)
+        val corner = mutation == 13
+        val sampledPending = mutation in 10..13
         for (command in listOf(0xe3000000.toInt(), 0xe407ffff.toInt(), 0xe5000000.toInt(),
-            0xe1000108.toInt(), 0x02000000, 0, (240 shl 16) or 320)) write(0, command)
+            if (corner) 0xe1000100.toInt() else 0xe1000108.toInt(), 0x02000000, 0, (240 shl 16) or 320)) write(0, command)
         val loop = out.position()
-        val uploadPosition = if (sampleTexture) 512 else (80 shl 16) or 80
+        val wrapped = mutation in listOf(6, 8, 9)
+        val uploadPosition = when {
+            corner -> 0
+            sampleTexture || sampledPending -> 512
+            else -> (80 shl 16) or if (wrapped) 0 else 80
+        }
         for (command in listOf(0xa0000000.toInt(), uploadPosition, (16 shl 16) or 16)) write(0, command)
         repeat(128) { write(0, 0x001f001f) }
+        if (mutation >= 0) {
+            if (mutation == 4 || mutation == 5) write(0, 0xe6000002.toInt())
+            when (mutation) {
+                0, 4, 6 -> {
+                    for (command in listOf(0xa0000000.toInt(), (88 shl 16) or if (wrapped) 1020 else 88,
+                        (8 shl 16) or if (wrapped) 12 else 8)) write(0, command)
+                    repeat(if (wrapped) 48 else 32) { write(0, 0x7c007c00) }
+                }
+                1, 8 -> for (command in listOf(0x02ff0000, (88 shl 16) or if (wrapped) 1008 else 80,
+                    (8 shl 16) or if (wrapped) 32 else 16)) write(0, command)
+                2, 5, 9 -> {
+                    for (command in listOf(0x02ff0000, (16 shl 16) or 16, (16 shl 16) or 16,
+                        0x80000000.toInt(), (16 shl 16) or 16, (88 shl 16) or if (wrapped) 1020 else 88,
+                        (8 shl 16) or if (wrapped) 12 else 8)) write(0, command)
+                }
+                3 -> for (command in listOf(0x60ff0000, (88 shl 16) or 88, (8 shl 16) or 8)) write(0, command)
+                7 -> for (command in listOf(0x02ff0000, (16 shl 16) or 16, (16 shl 16) or 16)) write(0, command)
+                10, 13 -> {
+                    for (command in listOf(0xa0000000.toInt(), (508 shl 16) or if (corner) 1020 else 520,
+                        (12 shl 16) or if (corner) 12 else 8)) write(0, command)
+                    repeat(if (corner) 72 else 48) { write(0, 0x7c007c00) }
+                }
+                11 -> for (command in listOf(0x02ff0000, (508 shl 16) or 512, (12 shl 16) or 16)) write(0, command)
+                12 -> for (command in listOf(0x02ff0000, (16 shl 16) or 16, (16 shl 16) or 16,
+                    0x80000000.toInt(), (16 shl 16) or 16, (508 shl 16) or 520, (12 shl 16) or 8)) write(0, command)
+                14, 15 -> {
+                    for (command in listOf(0xa0000000.toInt(), (80 shl 16) or if (mutation == 14) 96 else 80,
+                        (16 shl 16) or if (mutation == 14) 8 else 32)) write(0, command)
+                    repeat(if (mutation == 14) 64 else 256) { write(0, 0x7c007c00) }
+                }
+            }
+            val idle = out.position()
+            if (sampledPending) {
+                for (command in listOf(0x01000000, 0x65808080, (80 shl 16) or 80, 0, (16 shl 16) or 16)) write(0, command)
+            }
+            emit(0x08000000 or (((0xbfc00000.toInt() + idle) ushr 2) and 0x03ffffff))
+            emit(0)
+            return out.array()
+        }
         if (sampleTexture) {
             for (command in listOf(0x01000000, 0x65808080, (80 shl 16) or 80, 0, (16 shl 16) or 16)) write(0, command)
         }
