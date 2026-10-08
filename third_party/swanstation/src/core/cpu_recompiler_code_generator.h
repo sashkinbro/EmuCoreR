@@ -200,6 +200,8 @@ private:
   void BlockEpilogue();
   void InstructionPrologue(const CodeBlockInstruction& cbi, TickCount cycles, bool force_sync = false);
   void InstructionEpilogue(const CodeBlockInstruction& cbi);
+  void EmitPGXPMemoryALU(const CodeBlockInstruction& cbi, const Value& lhs, const Value& rhs);
+  void EmitPGXPRegisterInvalidation(Reg reg);
   void TruncateBlockAtCurrentInstruction();
   void AddPendingCycles(bool commit);
   void AddGTETicks(TickCount ticks);

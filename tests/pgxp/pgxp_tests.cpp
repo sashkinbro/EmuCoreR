@@ -729,6 +729,109 @@ static void CheckPreciseCullingBounds()
   g_settings.gpu_pgxp_culling = false;
 }
 
+static void CheckMemoryALU()
+{
+  using namespace PGXP;
+  const uint32_t raw = XY(10, 20);
+  auto seed_registers = [&]() {
+    Reset();
+    Seed(0x100);
+    CPU_MFC2(R(0, 1, 14), raw, raw);
+    CPU_reg[2] = IntegerValue(0);
+    CPU_reg[3] = CPU_reg[1];
+    CPU_reg[3].z = 9000.f;
+  };
+  auto copied = [&]() {
+    return CPU_reg[3].value == raw && CPU_reg[3].x == 10.25f && CPU_reg[3].y == 20.5f &&
+           CPU_reg[3].z == 1000.f && CPU_reg[3].flags == CPU_reg[1].flags;
+  };
+  for (uint32_t funct : {0x20u, 0x21u, 0x22u, 0x23u, 0x25u, 0x26u})
+  {
+    seed_registers();
+    CPU_MemoryALU(R(1, 2, 3) | funct, raw, 0);
+    Check(copied(), "memory tracking preserves exact copies through zero register operands");
+  }
+  for (uint32_t funct : {0x20u, 0x21u, 0x25u, 0x26u})
+  {
+    seed_registers();
+    CPU_MemoryALU(R(2, 1, 3) | funct, 0, raw);
+    Check(copied(), "memory tracking preserves copies with zero on the left");
+  }
+  for (uint32_t funct : {0x24u, 0x25u})
+  {
+    seed_registers();
+    CPU_MemoryALU(R(1, 1, 3) | funct, raw, raw);
+    Check(copied(), "idempotent bitwise copies preserve the original geometry");
+  }
+  for (bool left : {false, true})
+  {
+    seed_registers();
+    CPU_MemoryALU((left ? R(2, 1, 3) : R(1, 2, 3)) | 0x24, left ? 0xffffffffu : raw,
+                  left ? raw : 0xffffffffu);
+    Check(copied(), "AND with all bits set preserves a complete vertex");
+  }
+  for (uint32_t funct : {0u, 2u, 3u, 4u, 6u, 7u})
+  {
+    seed_registers();
+    CPU_MemoryALU(R(2, 1, 3) | funct, 32, raw);
+    Check(copied(), "zero effective shifts preserve complete precision in memory mode");
+  }
+  for (uint32_t opcode : {8u, 9u, 0xdu, 0xeu})
+  {
+    seed_registers();
+    CPU_MemoryALU(I(opcode, 1, 3, 0), raw, 0);
+    Check(copied(), "zero immediate copies retain their depth and fractional coordinates");
+  }
+  for (uint32_t funct : {0u, 2u, 3u, 4u, 6u, 7u, 0x10u, 0x12u, 0x20u, 0x21u, 0x22u,
+                         0x23u, 0x24u, 0x25u, 0x26u, 0x27u, 0x2au, 0x2bu})
+  {
+    seed_registers();
+    CPU_MemoryALU(R(1, 2, 3, 1) | funct, raw, raw + 1);
+    Check(CPU_reg[3].flags == 0 && CPU_reg[1].z == 1000.f,
+          "untracked register results discard old matching-bit geometry without touching the source");
+  }
+  for (uint32_t opcode : {8u, 9u, 0xau, 0xbu, 0xcu, 0xdu, 0xeu, 0xfu})
+  {
+    seed_registers();
+    CPU_MemoryALU(I(opcode, 1, 3, 1), raw, 0);
+    Check(CPU_reg[3].flags == 0, "untracked immediate results cannot reuse the destination's former depth");
+  }
+  seed_registers();
+  CPU_MemoryALU(R(1, 0, 1) | 0x25u, raw, 0);
+  Check(CPU_reg[1].z == 1000.f && CPU_reg[1].x == 10.25f, "in-place copies retain source precision");
+  CPU_reg[0] = CPU_reg[1];
+  CPU_reg[0].value = 0;
+  CPU_MemoryALU(R(0, 2, 3) | 0x21u, 0, 0);
+  Check(CPU_reg[3].value == 0 && CPU_reg[3].x == 0 && (CPU_reg[3].flags & VALID_Z) == 0,
+        "memory mode copies use the hardwired zero value instead of discarded geometry");
+  for (uint32_t funct : {0x20u, 0x21u, 0x25u, 0x26u})
+  {
+    for (bool left : {false, true})
+    {
+      seed_registers();
+      CPU_reg[1] = PGXP_value{0.25f, 0.5f, 1000.f, {VALID_012}, 0};
+      CPU_MemoryALU((left ? R(0, 1, 3) : R(1, 0, 3)) | funct, 0, 0);
+      Check(CPU_reg[3].x == 0.25f && CPU_reg[3].y == 0.5f && CPU_reg[3].z == 1000.f &&
+            (CPU_reg[3].flags & VALID_Z), "copies of native-zero vertices retain their fractional geometry and depth");
+    }
+  }
+  for (uint32_t funct : {0x20u, 0x21u, 0x22u, 0x23u, 0x26u})
+  {
+    seed_registers();
+    CPU_reg[1] = PGXP_value{0.25f, 0.5f, 1000.f, {VALID_012}, 0};
+    CPU_MemoryALU(R(1, 1, 3) | funct, 0, 0);
+    Check(CPU_reg[3].flags == 0, "a tracked zero word is not an integer zero operand in untracked arithmetic");
+  }
+  seed_registers();
+  CPU_MemoryALU(I(0x23, 1, 3), raw, 0);
+  CPU_MemoryALU(I(0x2b, 1, 3), raw, 0);
+  Check(CPU_reg[3].z == 9000.f, "memory ALU tracking leaves separately tracked transfers alone");
+  CPU_InvalidateRegister(3);
+  Check(CPU_reg[3].flags == 0 && CPU_reg[1].flags != 0, "explicit precision invalidation only clears the written register");
+  *CPU_GetRegisterFlags(1) = 0;
+  Check(CPU_reg[1].flags == 0, "compiled invalidation points at the stable register precision flags");
+}
+
 static void CheckGPUVertexSnapshots()
 {
   using namespace PGXP;
@@ -861,6 +964,7 @@ int main()
   CheckGTERegisterTransfers();
   CheckGTECommandWrites();
   CheckPreciseCullingBounds();
+  CheckMemoryALU();
   CheckShifts();
   Reset();
   Seed(0x100);

@@ -456,6 +456,23 @@ restart_instruction:
   if (inst.bits == 0)
     return;
 
+  const auto write_result = [&](Reg reg, uint32_t value, bool may_copy = true) {
+    if constexpr (pgxp_mode == PGXPMode::Memory)
+    {
+      if (may_copy)
+        PGXP::CPU_MemoryALU(inst.bits, ReadReg(inst.r.rs), ReadReg(inst.r.rt));
+      else
+        PGXP::CPU_InvalidateRegister(static_cast<uint32_t>(reg));
+    }
+    else if constexpr (pgxp_mode == PGXPMode::CPU)
+    {
+      if (inst.op == InstructionOp::jal || inst.op == InstructionOp::b ||
+          (inst.op == InstructionOp::funct && inst.r.funct == InstructionFunct::jalr))
+        PGXP::CPU_InvalidateRegister(static_cast<uint32_t>(reg));
+    }
+    WriteReg(reg, value);
+  };
+
   switch (inst.op)
   {
     case InstructionOp::funct:
@@ -468,7 +485,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_SLL(inst.bits, ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value, inst.r.shamt == 0);
         }
         break;
 
@@ -478,7 +495,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_SRL(inst.bits, ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value, inst.r.shamt == 0);
         }
         break;
 
@@ -488,7 +505,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_SRA(inst.bits, ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value, inst.r.shamt == 0);
         }
         break;
 
@@ -499,7 +516,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_SLLV(inst.bits, ReadReg(inst.r.rt), ReadReg(inst.r.rs));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value, shift_amount == 0);
         }
         break;
 
@@ -510,7 +527,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_SRLV(inst.bits, ReadReg(inst.r.rt), ReadReg(inst.r.rs));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value, shift_amount == 0);
         }
         break;
 
@@ -521,7 +538,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_SRAV(inst.bits, ReadReg(inst.r.rt), ReadReg(inst.r.rs));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value, shift_amount == 0);
         }
         break;
 
@@ -531,7 +548,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_AND_(inst.bits, ReadReg(inst.r.rs), ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value);
         }
         break;
 
@@ -541,7 +558,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_OR_(inst.bits, ReadReg(inst.r.rs), ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value);
         }
         break;
 
@@ -551,7 +568,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_XOR_(inst.bits, ReadReg(inst.r.rs), ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value);
         }
         break;
 
@@ -561,7 +578,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_NOR(inst.bits, ReadReg(inst.r.rs), ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value, false);
         }
         break;
 
@@ -578,16 +595,8 @@ restart_instruction:
 
           if constexpr (pgxp_mode == PGXPMode::CPU)
             PGXP::CPU_ADD(inst.bits, ReadReg(inst.r.rs), ReadReg(inst.r.rt));
-          else if constexpr (pgxp_mode >= PGXPMode::Memory)
-          {
-            if (add_value == 0)
-            {
-              PGXP::CPU_MOVE((static_cast<uint32_t>(inst.r.rd.GetValue()) << 8) | static_cast<uint32_t>(inst.r.rs.GetValue()),
-                             old_value);
-            }
-          }
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value);
         }
         break;
 
@@ -598,16 +607,8 @@ restart_instruction:
           const uint32_t new_value = old_value + add_value;
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_ADD(inst.bits, old_value, add_value);
-          else if constexpr (pgxp_mode >= PGXPMode::Memory)
-          {
-            if (add_value == 0)
-            {
-              PGXP::CPU_MOVE((static_cast<uint32_t>(inst.r.rd.GetValue()) << 8) | static_cast<uint32_t>(inst.r.rs.GetValue()),
-                             old_value);
-            }
-          }
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value);
         }
         break;
 
@@ -625,7 +626,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_SUB(inst.bits, ReadReg(inst.r.rs), ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value);
         }
         break;
 
@@ -635,7 +636,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_SUB(inst.bits, ReadReg(inst.r.rs), ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, new_value);
+          write_result(inst.r.rd, new_value);
         }
         break;
 
@@ -645,7 +646,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_SLT(inst.bits, ReadReg(inst.r.rs), ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, result);
+          write_result(inst.r.rd, result, false);
         }
         break;
 
@@ -655,7 +656,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_SLTU(inst.bits, ReadReg(inst.r.rs), ReadReg(inst.r.rt));
 
-          WriteReg(inst.r.rd, result);
+          write_result(inst.r.rd, result, false);
         }
         break;
 
@@ -664,7 +665,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_MFHI(inst.bits, g_state.regs.hi);
 
-          WriteReg(inst.r.rd, g_state.regs.hi);
+          write_result(inst.r.rd, g_state.regs.hi, false);
         }
         break;
 
@@ -683,7 +684,7 @@ restart_instruction:
           if constexpr (pgxp_mode >= PGXPMode::CPU)
             PGXP::CPU_MFLO(inst.bits, g_state.regs.lo);
 
-          WriteReg(inst.r.rd, g_state.regs.lo);
+          write_result(inst.r.rd, g_state.regs.lo, false);
         }
         break;
 
@@ -788,7 +789,7 @@ restart_instruction:
         {
           g_state.next_instruction_is_branch_delay_slot = true;
           const uint32_t target = ReadReg(inst.r.rs);
-          WriteReg(inst.r.rd, g_state.regs.npc);
+          write_result(inst.r.rd, g_state.regs.npc);
           Branch(target);
         }
         break;
@@ -817,7 +818,7 @@ restart_instruction:
     case InstructionOp::lui:
     {
       const uint32_t value = inst.i.imm_zext32() << 16;
-      WriteReg(inst.i.rt, value);
+      write_result(inst.i.rt, value, false);
 
       if constexpr (pgxp_mode >= PGXPMode::CPU)
         PGXP::CPU_LUI(inst.bits);
@@ -831,7 +832,7 @@ restart_instruction:
       if constexpr (pgxp_mode >= PGXPMode::CPU)
         PGXP::CPU_ANDI(inst.bits, ReadReg(inst.i.rs));
 
-      WriteReg(inst.i.rt, new_value);
+      write_result(inst.i.rt, new_value, false);
     }
     break;
 
@@ -842,7 +843,7 @@ restart_instruction:
       if constexpr (pgxp_mode >= PGXPMode::CPU)
         PGXP::CPU_ORI(inst.bits, ReadReg(inst.i.rs));
 
-      WriteReg(inst.i.rt, new_value);
+      write_result(inst.i.rt, new_value, inst.i.imm_zext32() == 0);
     }
     break;
 
@@ -853,7 +854,7 @@ restart_instruction:
       if constexpr (pgxp_mode >= PGXPMode::CPU)
         PGXP::CPU_XORI(inst.bits, ReadReg(inst.i.rs));
 
-      WriteReg(inst.i.rt, new_value);
+      write_result(inst.i.rt, new_value, inst.i.imm_zext32() == 0);
     }
     break;
 
@@ -870,16 +871,8 @@ restart_instruction:
 
       if constexpr (pgxp_mode >= PGXPMode::CPU)
         PGXP::CPU_ADDI(inst.bits, ReadReg(inst.i.rs));
-      else if constexpr (pgxp_mode >= PGXPMode::Memory)
-      {
-        if (add_value == 0)
-        {
-          PGXP::CPU_MOVE((static_cast<uint32_t>(inst.i.rt.GetValue()) << 8) | static_cast<uint32_t>(inst.i.rs.GetValue()),
-                         old_value);
-        }
-      }
 
-      WriteReg(inst.i.rt, new_value);
+      write_result(inst.i.rt, new_value, inst.i.imm_zext32() == 0);
     }
     break;
 
@@ -891,16 +884,8 @@ restart_instruction:
 
       if constexpr (pgxp_mode >= PGXPMode::CPU)
         PGXP::CPU_ADDI(inst.bits, ReadReg(inst.i.rs));
-      else if constexpr (pgxp_mode >= PGXPMode::Memory)
-      {
-        if (add_value == 0)
-        {
-          PGXP::CPU_MOVE((static_cast<uint32_t>(inst.i.rt.GetValue()) << 8) | static_cast<uint32_t>(inst.i.rs.GetValue()),
-                         old_value);
-        }
-      }
 
-      WriteReg(inst.i.rt, new_value);
+      write_result(inst.i.rt, new_value, inst.i.imm_zext32() == 0);
     }
     break;
 
@@ -911,7 +896,7 @@ restart_instruction:
       if constexpr (pgxp_mode >= PGXPMode::CPU)
         PGXP::CPU_SLTI(inst.bits, ReadReg(inst.i.rs));
 
-      WriteReg(inst.i.rt, result);
+      write_result(inst.i.rt, result, false);
     }
     break;
 
@@ -922,7 +907,7 @@ restart_instruction:
       if constexpr (pgxp_mode >= PGXPMode::CPU)
         PGXP::CPU_SLTIU(inst.bits, ReadReg(inst.i.rs));
 
-      WriteReg(inst.i.rt, result);
+      write_result(inst.i.rt, result, false);
     }
     break;
 
@@ -1130,7 +1115,7 @@ restart_instruction:
 
     case InstructionOp::jal:
     {
-      WriteReg(Reg::ra, g_state.regs.npc);
+      write_result(Reg::ra, g_state.regs.npc);
       g_state.next_instruction_is_branch_delay_slot = true;
       Branch((g_state.regs.pc & UINT32_C(0xF0000000)) | (inst.j.target << 2));
     }
@@ -1185,7 +1170,7 @@ restart_instruction:
       // register is still linked even if the branch isn't taken
       const bool link = (rt & uint8_t(0x1E)) == uint8_t(0x10);
       if (link)
-        WriteReg(Reg::ra, g_state.regs.npc);
+        write_result(Reg::ra, g_state.regs.npc);
 
       if (branch)
         Branch(g_state.regs.pc + (inst.i.imm_sext32() << 2));

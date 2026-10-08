@@ -47,13 +47,28 @@ class PgxpPerspectiveInstrumentedTest {
     fun directCpuWritesKeepProjectedDepth() = runProbe(false, submission = "SW")
 
     @Test
+    fun constantCoordinatesDiscardPreviousDepth() = runProbe(false, submission = "SWConstant")
+
+    @Test
+    fun bitwiseRegisterCopiesKeepProjectedDepth() = runProbe(false, submission = "SWOr")
+
+    @Test
+    fun copyChainsKeepProjectedDepthInBothTrackingModes() {
+        runProbe(false, submission = "SWCopyChain")
+        runProbe(false, submission = "SWCopyChain", cpuTracking = true)
+    }
+
+    @Test
+    fun delayedControlReadsPreserveOldVertexCopies() = runProbe(false, submission = "SWDelayedMfc0")
+
+    @Test
     fun queuedDmaVerticesSurviveRamChangesAndStateReload() = runProbe(false, submission = "DMAQueued")
 
     @Test
     fun queuedDmaVerticesSurviveRunahead() = runProbe(false, submission = "DMAQueuedRunahead")
 
     private fun runProbe(gouraud: Boolean, textured: Boolean = !gouraud, antialiasing: String = "1",
-                         software: Boolean = false, submission: String = "DMA") {
+                         software: Boolean = false, submission: String = "DMA", cpuTracking: Boolean = false) {
         assertEquals("CPH2747", Build.MODEL)
         assertEquals("OnePlus", Build.MANUFACTURER)
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -79,7 +94,7 @@ class PgxpPerspectiveInstrumentedTest {
                                 mapOf(
                                     "CPU_ExecutionMode" to cpu,
                                     "GPU_Renderer" to RendererDefaults.coreRendererName(renderer),
-                                    "GPU_PGXPEnable" to "true", "GPU_PGXPCPU" to "false",
+                                    "GPU_PGXPEnable" to "true", "GPU_PGXPCPU" to cpuTracking.toString(),
                                     "GPU_PGXPPreserveProjFP" to "false", "GPU_PGXPVertexCache" to "false",
                                     "GPU_PGXPTextureCorrection" to (perspective && !forceAffine).toString(),
                                     "GPU_PGXPColorCorrection" to colorCorrection.toString(), "GPU_PGXPDepthBuffer" to "false",
@@ -120,9 +135,9 @@ class PgxpPerspectiveInstrumentedTest {
                                             }
                                         }
                                         renderProbe()
-                                        val label = "$cpu/${RendererDefaults.coreRendererName(renderer)}/scale=$scale/aa=$antialiasing/perspective=$perspective/color=$colorCorrection/gouraud=$gouraud/textured=$textured/submission=$submission"
+                                        val label = "$cpu/${RendererDefaults.coreRendererName(renderer)}/scale=$scale/aa=$antialiasing/perspective=$perspective/color=$colorCorrection/gouraud=$gouraud/textured=$textured/submission=$submission/cpuTracking=$cpuTracking"
                                         assertNotNull("missing frame: $label", frame)
-                                        checkSamples(frame!!, perspective && !software, colorCorrection && !software,
+                                        checkSamples(frame!!, perspective && !software && submission != "SWConstant", colorCorrection && !software,
                                             gouraud, textured, !software && antialiasing == "1", label)
                                         if (queued) {
                                             assertEquals(0, bridge.loadState(session, checkpoint.absolutePath))
@@ -275,7 +290,7 @@ class PgxpPerspectiveInstrumentedTest {
         gte(24, 160 shl 16, true)
         gte(25, 120 shl 16, true)
         gte(26, 100, true)
-        val direct = submission == "SW" || submission == "SWC2"
+        val direct = submission.startsWith("SW")
         write(if (direct) 10 else 9, 0, if (gouraud) (if (textured) 0x340000ff else 0x300000ff) else 0x25808080)
         // Projected points (40,40), (280,40), (40,200), with depths 1:2:4.
         for ((index, xyz) in listOf(Triple(-240, -160, 200), Triple(480, -320, 400), Triple(-960, 640, 800)).withIndex()) {
@@ -286,10 +301,39 @@ class PgxpPerspectiveInstrumentedTest {
             val stride = if (gouraud && textured) 12 else 8
             when (submission) {
                 "SWC2" -> emit(imm(0x3a, 10, 14, 0))
-                "SW" -> {
+                "SW", "SWConstant", "SWOr", "SWCopyChain", "SWDelayedMfc0" -> {
                     emit(0x48087000)
                     repeat(2) { emit(0) }
-                    emit(imm(0x2b, 10, 8, 0))
+                    if (submission == "SWConstant") {
+                        val xy = listOf(40 to 40, 280 to 40, 40 to 200)[index]
+                        constant(8, xy.first or (xy.second shl 16))
+                    }
+                    if (submission == "SWOr") emit((8 shl 21) or (13 shl 11) or 0x25)
+                    if (submission == "SWDelayedMfc0") {
+                        emit(0x40086000)
+                        emit((8 shl 21) or (13 shl 11) or 0x21)
+                    }
+                    if (submission == "SWCopyChain") {
+                        fun reg(funct: Int, rs: Int, rt: Int, rd: Int, shift: Int = 0) =
+                            emit((rs shl 21) or (rt shl 16) or (rd shl 11) or (shift shl 6) or funct)
+                        constant(19, -1)
+                        constant(24, 32)
+                        reg(0x25, 8, 0, 13)
+                        reg(0x26, 0, 13, 15)
+                        reg(0x21, 0, 15, 16)
+                        reg(0x23, 16, 0, 17)
+                        reg(0x24, 17, 19, 18)
+                        reg(0, 0, 18, 20)
+                        reg(2, 0, 20, 21)
+                        reg(3, 0, 21, 22)
+                        reg(4, 24, 22, 23)
+                        emit(imm(0xd, 23, 25, 0))
+                        emit(imm(0xe, 25, 26, 0))
+                        emit(imm(9, 26, 27, 0))
+                        reg(0x24, 27, 27, 27)
+                        reg(0x25, 27, 27, 27)
+                    }
+                    emit(imm(0x2b, 10, when (submission) { "SWOr", "SWDelayedMfc0" -> 13; "SWCopyChain" -> 27; else -> 8 }, 0))
                 }
                 else -> emit(imm(0x3a, 9, 14, 4 + index * stride))
             }
@@ -321,9 +365,16 @@ class PgxpPerspectiveInstrumentedTest {
                 repeat(16) { emit(0) }
                 emit(imm(0x3a, 9, 14, 4))
                 // Keep the partial packet queued across several frame boundaries.
+                // Run the wait from cached RAM so BIOS fetch timing does not
+                // stretch a short rollback probe over hundreds of frames.
+                write(9, 0x2000, imm(9, 12, 12, -1))
+                write(9, 0x2004, imm(5, 12, 0, -2))
+                write(9, 0x2008, 0)
+                write(9, 0x200c, 0x03e00008)
+                write(9, 0x2010, 0)
                 constant(12, 1_000_000)
-                emit(imm(9, 12, 12, -1))
-                emit(imm(5, 12, 0, -2))
+                constant(15, 0x80003000.toInt())
+                emit((15 shl 21) or (31 shl 11) or 9)
                 emit(0)
                 write(11, 0, 0x1014)
                 write(11, 4, 2)

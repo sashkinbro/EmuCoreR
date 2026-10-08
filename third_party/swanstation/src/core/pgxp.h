@@ -71,6 +71,11 @@ void CPU_SB(uint32_t instr, uint8_t rtVal, uint32_t addr);
 void CPU_SH(uint32_t instr, uint16_t rtVal, uint32_t addr);
 void CPU_SW(uint32_t instr, uint32_t rtVal, uint32_t addr);
 void CPU_MOVE(uint32_t rd_and_rs, uint32_t rsVal);
+// Memory mode follows exact copies and invalidates other integer results.
+void CPU_MemoryALU(uint32_t instr, uint32_t rsVal, uint32_t rtVal);
+void CPU_InvalidateRegister(uint32_t reg);
+// The fixed precision array also permits generated flag stores without a call.
+uint32_t* CPU_GetRegisterFlags(uint32_t reg);
 
 // Arithmetic with immediate value
 void CPU_ADDI(uint32_t instr, uint32_t rsVal);

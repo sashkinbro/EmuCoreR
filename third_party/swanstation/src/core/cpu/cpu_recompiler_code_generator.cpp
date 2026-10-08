@@ -1008,6 +1008,90 @@ void CodeGenerator::InstructionPrologue(const CodeBlockInstruction& cbi, TickCou
   AddPendingCycles(true);
 }
 
+void CodeGenerator::EmitPGXPMemoryALU(const CodeBlockInstruction& cbi, const Value& lhs, const Value& rhs)
+{
+  if (!g_settings.gpu_pgxp_enable || g_settings.UsingPGXPCPUMode())
+    return;
+  const Instruction inst = cbi.instruction;
+  const Reg dest = inst.op == InstructionOp::funct ? inst.r.rd : inst.i.rt;
+  if (dest == Reg::zero)
+    return;
+  const auto copy = [&](Reg source, const Value& value) {
+    EmitFunctionCall(nullptr, PGXP::CPU_MOVE,
+                     Value::FromConstantU32((static_cast<uint32_t>(dest) << 8) | static_cast<uint32_t>(source)), value);
+  };
+  if (inst.op != InstructionOp::funct)
+  {
+    if ((inst.op == InstructionOp::addi || inst.op == InstructionOp::addiu ||
+         inst.op == InstructionOp::ori || inst.op == InstructionOp::xori) && inst.i.imm_zext32() == 0)
+      copy(inst.i.rs, lhs);
+    else
+      EmitPGXPRegisterInvalidation(dest);
+    return;
+  }
+  switch (inst.r.funct)
+  {
+    case InstructionFunct::sll: case InstructionFunct::srl: case InstructionFunct::sra:
+      if (inst.r.shamt == 0)
+        copy(inst.r.rt, rhs);
+      else
+        EmitPGXPRegisterInvalidation(dest);
+      return;
+    case InstructionFunct::sllv: case InstructionFunct::srlv: case InstructionFunct::srav:
+      if (inst.r.rs == Reg::zero)
+      {
+        copy(inst.r.rt, rhs);
+        return;
+      }
+      break;
+    case InstructionFunct::or_: case InstructionFunct::and_:
+      if (inst.r.rs == inst.r.rt)
+      {
+        copy(inst.r.rs, lhs);
+        return;
+      }
+      if (inst.r.funct == InstructionFunct::and_)
+      {
+        if (inst.r.rs == Reg::zero || inst.r.rt == Reg::zero)
+        {
+          EmitPGXPRegisterInvalidation(dest);
+          return;
+        }
+        break;
+      }
+      [[fallthrough]];
+    case InstructionFunct::add: case InstructionFunct::addu: case InstructionFunct::xor_:
+      if (inst.r.funct == InstructionFunct::xor_ && inst.r.rs == inst.r.rt)
+      {
+        EmitPGXPRegisterInvalidation(dest);
+        return;
+      }
+      if (inst.r.rs == Reg::zero)
+      {
+        copy(inst.r.rt, rhs);
+        return;
+      }
+      [[fallthrough]];
+    case InstructionFunct::sub: case InstructionFunct::subu:
+      if (inst.r.rt == Reg::zero)
+      {
+        copy(inst.r.rs, lhs);
+        return;
+      }
+      break;
+    default:
+      EmitPGXPRegisterInvalidation(dest);
+      return;
+  }
+  EmitFunctionCall(nullptr, PGXP::CPU_MemoryALU, Value::FromConstantU32(inst.bits), lhs, rhs);
+}
+
+void CodeGenerator::EmitPGXPRegisterInvalidation(Reg reg)
+{
+  if (g_settings.gpu_pgxp_enable && reg != Reg::zero && reg != Reg::count)
+    EmitStoreGlobal(PGXP::CPU_GetRegisterFlags(static_cast<uint32_t>(reg)), Value::FromConstantU32(0));
+}
+
 void CodeGenerator::InstructionEpilogue(const CodeBlockInstruction& cbi)
 {
   m_register_cache.UpdateLoadDelay();
@@ -1278,6 +1362,7 @@ bool CodeGenerator::Compile_Bitwise(const CodeBlockInstruction& cbi)
       break;
   }
 
+  EmitPGXPMemoryALU(cbi, lhs, rhs);
   m_register_cache.WriteGuestRegister(dest, std::move(result));
   SpeculativeWriteReg(dest, spec_value);
 
@@ -1366,6 +1451,7 @@ bool CodeGenerator::Compile_Shift(const CodeBlockInstruction& cbi)
       break;
   }
 
+  EmitPGXPMemoryALU(cbi, shamt, rt);
   m_register_cache.WriteGuestRegister(cbi.instruction.r.rd, std::move(result));
   SpeculativeWriteReg(cbi.instruction.r.rd, result_spec);
 
@@ -1734,6 +1820,8 @@ bool CodeGenerator::Compile_MoveHiLo(const CodeBlockInstruction& cbi)
       Value hi = m_register_cache.ReadGuestRegister(Reg::hi);
       if (g_settings.UsingPGXPCPUMode())
         EmitFunctionCall(nullptr, &PGXP::CPU_MFHI, Value::FromConstantU32(cbi.instruction.bits), hi);
+      else
+        EmitPGXPRegisterInvalidation(cbi.instruction.r.rd);
 
       m_register_cache.WriteGuestRegister(cbi.instruction.r.rd, std::move(hi));
       SpeculativeWriteReg(cbi.instruction.r.rd, std::nullopt);
@@ -1755,6 +1843,8 @@ bool CodeGenerator::Compile_MoveHiLo(const CodeBlockInstruction& cbi)
       Value lo = m_register_cache.ReadGuestRegister(Reg::lo);
       if (g_settings.UsingPGXPCPUMode())
         EmitFunctionCall(nullptr, &PGXP::CPU_MFLO, Value::FromConstantU32(cbi.instruction.bits), lo);
+      else
+        EmitPGXPRegisterInvalidation(cbi.instruction.r.rd);
 
       m_register_cache.WriteGuestRegister(cbi.instruction.r.rd, std::move(lo));
       SpeculativeWriteReg(cbi.instruction.r.rd, std::nullopt);
@@ -1824,7 +1914,7 @@ bool CodeGenerator::Compile_Add(const CodeBlockInstruction& cbi)
   }
 
   // detect register moves and handle them for pgxp
-  if (g_settings.gpu_pgxp_enable && rhs.HasConstantValue(0))
+  if (g_settings.UsingPGXPCPUMode() && rhs.HasConstantValue(0))
   {
     EmitFunctionCall(nullptr, &PGXP::CPU_MOVE,
                      Value::FromConstantU32((static_cast<uint32_t>(dest) << 8) | (static_cast<uint32_t>(lhs_src))), lhs);
@@ -1841,6 +1931,7 @@ bool CodeGenerator::Compile_Add(const CodeBlockInstruction& cbi)
   if (check_overflow)
     GenerateExceptionExit(cbi, Exception::Ov, Condition::Overflow);
 
+  EmitPGXPMemoryALU(cbi, lhs, rhs);
   m_register_cache.WriteGuestRegister(dest, std::move(result));
 
   SpeculativeValue value_spec;
@@ -1871,6 +1962,7 @@ bool CodeGenerator::Compile_Subtract(const CodeBlockInstruction& cbi)
   if (check_overflow)
     GenerateExceptionExit(cbi, Exception::Ov, Condition::Overflow);
 
+  EmitPGXPMemoryALU(cbi, lhs, rhs);
   m_register_cache.WriteGuestRegister(cbi.instruction.r.rd, std::move(result));
 
   SpeculativeValue value_spec;
@@ -2149,6 +2241,7 @@ bool CodeGenerator::Compile_SetLess(const CodeBlockInstruction& cbi)
   EmitCmp(lhs.host_reg, rhs);
   EmitSetConditionResult(result.host_reg, result.size, signed_comparison ? Condition::Less : Condition::Below);
 
+  EmitPGXPMemoryALU(cbi, lhs, rhs);
   m_register_cache.WriteGuestRegister(dest, std::move(result));
 
   SpeculativeValue value_spec;
@@ -2242,6 +2335,7 @@ bool CodeGenerator::Compile_Branch(const CodeBlockInstruction& cbi)
       // Can't cache because we have two branches. Load delay cancel is due to the immediate flush afterwards,
       // if we don't cancel it, at the end of the instruction the value we write can be overridden.
       EmitCancelInterpreterLoadDelayForReg(lr_reg);
+      EmitPGXPRegisterInvalidation(lr_reg);
       EmitStoreGuestRegister(lr_reg, next_pc);
 
       // now invalidate lr because it was possibly written in the branch
@@ -2490,6 +2584,7 @@ bool CodeGenerator::Compile_Branch(const CodeBlockInstruction& cbi)
       if (link)
       {
         EmitCancelInterpreterLoadDelayForReg(Reg::ra);
+        EmitPGXPRegisterInvalidation(Reg::ra);
         m_register_cache.WriteGuestRegister(Reg::ra, CalculatePC(4));
       }
 
@@ -2507,6 +2602,8 @@ bool CodeGenerator::Compile_lui(const CodeBlockInstruction& cbi)
 
   if (g_settings.UsingPGXPCPUMode())
     EmitFunctionCall(nullptr, &PGXP::CPU_LUI, Value::FromConstantU32(cbi.instruction.bits));
+  else
+    EmitPGXPRegisterInvalidation(cbi.instruction.i.rt);
 
   // rt <- (imm << 16)
   const uint32_t value = cbi.instruction.i.imm_zext32() << 16;
