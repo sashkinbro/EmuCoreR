@@ -80,8 +80,9 @@ static std::string GetGameHashCodeForImage(CDImage* cdi);
 static std::string GetExecutableNameForImage(CDImage* cdi);
 static void UpdatePerGameMemoryCards();
 
-static bool DoLoadState(ByteStream* stream, bool force_software_renderer, bool update_display, bool is_memory_state);
-static bool DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display, bool is_memory_state);
+static bool DoLoadState(ByteStream* stream, bool force_software_renderer, bool update_display, bool preserve_code_cache);
+static bool DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display, bool is_memory_state,
+                    bool preserve_code_cache = false);
 static void DoRunFrame();
 static void SwitchToNextDisc();
 static bool CreateGPU(GPURenderer renderer);
@@ -848,7 +849,8 @@ bool CreateGPU(GPURenderer renderer)
   return true;
 }
 
-bool DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display, bool is_memory_state)
+bool DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display, bool is_memory_state,
+             bool preserve_code_cache)
 {
   if (!sw.DoMarker("System"))
     return false;
@@ -862,16 +864,15 @@ bool DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_di
 
   if (sw.IsReading())
   {
-    if (is_memory_state)
+    if (is_memory_state || preserve_code_cache)
       CPU::CodeCache::InvalidateAll();
     else
       CPU::CodeCache::Flush();
   }
 
-  // Rewind/memory states do not carry PGXP data (it would dwarf the state), so
-  // drop the cached precision and let it rebuild. Persistent save states from
-  // version 56 onwards serialize it with the rest of the system below.
-  if (sw.IsReading() && g_settings.gpu_pgxp_enable && (is_memory_state || sw.GetVersion() < 56))
+  // Older persistent states predate precision snapshots. Current internal
+  // runahead snapshots carry compact precision data and restore it below.
+  if (sw.IsReading() && g_settings.gpu_pgxp_enable && sw.GetVersion() < 56)
     PGXP::Reset();
 
   if (!sw.DoMarker("Bus") || !Bus::DoState(sw))
@@ -879,7 +880,7 @@ bool DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_di
 
   // Bus::DoState has restored the RAM size by now, so the PGXP mirror is sized
   // to match the state being loaded.
-  if (!is_memory_state && sw.GetVersion() >= 56 && !PGXP::DoState(sw))
+  if (sw.GetVersion() >= 56 && !(is_memory_state ? PGXP::DoMemoryState(sw) : PGXP::DoState(sw)))
     return false;
 
   if (!sw.DoMarker("DMA") || !g_dma.DoState(sw))
@@ -1038,15 +1039,15 @@ static bool DecompressStateData(const uint8_t* compressed_data, uint32_t compres
   return false;
 }
 
-bool LoadState(ByteStream* state, bool is_memory_state)
+bool LoadState(ByteStream* state, bool preserve_code_cache)
 {
   if (IsShutdown())
     return false;
 
-  return DoLoadState(state, false, false, is_memory_state);
+  return DoLoadState(state, false, false, preserve_code_cache);
 }
 
-bool DoLoadState(ByteStream* state, bool force_software_renderer, bool update_display, bool is_memory_state)
+bool DoLoadState(ByteStream* state, bool force_software_renderer, bool update_display, bool preserve_code_cache)
 {
   SAVE_STATE_HEADER header;
   if (!state->Read2(&header, sizeof(header)))
@@ -1187,7 +1188,9 @@ bool DoLoadState(ByteStream* state, bool force_software_renderer, bool update_di
 
   ReadOnlyMemoryByteStream data_stream(uncompressed_data.data(), static_cast<uint32_t>(uncompressed_data.size()));
   StateWrapper sw(&data_stream, StateWrapper::Mode::Read, header.version);
-  if (!DoState(sw, nullptr, update_display, is_memory_state))
+  // A serialized frontend state always has the persistent layout. Retaining
+  // compiled CPU blocks is independent of the internal runahead stream format.
+  if (!DoState(sw, nullptr, update_display, false, preserve_code_cache))
     return false;
 
   if (s_state == State::Starting)

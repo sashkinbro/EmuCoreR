@@ -4,6 +4,7 @@
 #include "core/system.h"
 #include "core/gte.h"
 #include <limits>
+#include <chrono>
 #include <vector>
 
 // A standalone fixture for the production precision tracker. Instruction
@@ -149,6 +150,79 @@ static void CheckShifts()
   CPU_SRL(R(0, 1, 2, 1), XY(0, 20));
   Check(CPU_reg[2].x == -0.125f && CPU_reg[2].y == 10.25f,
         "fractional sign crossing cannot create a spurious unsigned carry");
+}
+
+static void CheckMemorySnapshots()
+{
+  using namespace PGXP;
+  Reset();
+  const std::vector<uint32_t> addresses = {0u, 0xfcu, 0x100u, Bus::g_ram_size - 4u, 0x1f800000u, 0x1f8003fcu};
+  for (uint32_t address : addresses)
+    Seed(address);
+  // Fill a complete bitmap page, including its highest bit. Also exercise
+  // partial component validity and a tracked depth without known XY.
+  for (uint32_t entry = 128; entry < 192; entry++)
+    Mem[entry] = {float(entry) + 0.25f, 20.5f, 1000.f, {VALID_012}, XY(int16_t(entry), 20)};
+  Mem[128].flags = VALID_0 | VALID_Z | TAINTED_Z;
+  Mem[129].flags = VALID_1;
+  Mem[130].flags = VALID_Z;
+  CPU_LW(I(0x23, 0, 1), XY(10, 20), 0x100);
+  CPU_Hi = CPU_Lo = CPU_reg[1];
+  CPU_MTC0(R(0, 1, 12), XY(10, 20), XY(10, 20));
+  std::array<PGXP_value, 34> expected_cpu;
+  std::array<PGXP_value, 32> expected_cp0, expected_gte, expected_control;
+  std::array<PGXP_value, 64> expected_page;
+  std::memcpy(expected_cpu.data(), CPU_reg, sizeof(CPU_reg));
+  std::memcpy(expected_cp0.data(), CP0_reg, sizeof(CP0_reg));
+  std::memcpy(expected_gte.data(), GTE_data_reg, sizeof(GTE_data_reg));
+  std::memcpy(expected_control.data(), GTE_ctrl_reg, sizeof(GTE_ctrl_reg));
+  std::memcpy(expected_page.data(), Mem + 128, sizeof(expected_page));
+
+  auto snapshot = ByteStream_CreateGrowableMemoryStream();
+  StateWrapper writer(snapshot.get(), StateWrapper::Mode::Write, 56);
+  const auto start = std::chrono::steady_clock::now();
+  Check(DoMemoryState(writer), "write a compact runahead precision snapshot");
+  const double elapsed_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+  Check(snapshot->GetSize() < (Bus::g_ram_size == Bus::RAM_8MB_SIZE ? 512u : 128u) * 1024u,
+        "sparse runahead snapshots avoid a full RAM precision copy");
+  std::printf("PGXP snapshot: RAM=%u bytes=%llu write_ms=%.3f\n", Bus::g_ram_size,
+              static_cast<unsigned long long>(snapshot->GetSize()), elapsed_ms);
+
+  Reset();
+  Seed(0x4000, XY(30, 40), 30.25f, 40.5f);
+  snapshot->SeekAbsolute(0);
+  StateWrapper reader(snapshot.get(), StateWrapper::Mode::Read, 56);
+  Check(DoMemoryState(reader), "load a compact runahead precision snapshot");
+  Check(std::memcmp(CPU_reg, expected_cpu.data(), sizeof(CPU_reg)) == 0 &&
+        std::memcmp(CP0_reg, expected_cp0.data(), sizeof(CP0_reg)) == 0 &&
+        std::memcmp(GTE_data_reg, expected_gte.data(), sizeof(GTE_data_reg)) == 0 &&
+        std::memcmp(GTE_ctrl_reg, expected_control.data(), sizeof(GTE_ctrl_reg)) == 0,
+        "runahead restores CPU, HI/LO, CP0 and GTE precision registers exactly");
+  bool restored = true;
+  for (uint32_t address : addresses)
+    restored &= Vertex(address, XY(10, 20), 10.25f, 20.5f);
+  Check(restored, "runahead restores RAM and scratchpad boundary entries");
+  Check(std::memcmp(Mem + 128, expected_page.data(), sizeof(expected_page)) == 0,
+        "runahead restores full bitmap pages and partial component flags");
+  Check(GetPtr(0x4000)->flags == 0, "runahead removes precision written by the abandoned timeline");
+  Check(!vertexCache || Vertex(0x1f000000, XY(30, 40), 30.f, 40.f, false),
+        "runahead clears derived vertices from the abandoned timeline");
+  snapshot->Resize(static_cast<uint32_t>(snapshot->GetSize() - 1));
+  snapshot->SeekAbsolute(0);
+  StateWrapper truncated(snapshot.get(), StateWrapper::Mode::Read, 56);
+  Check(!DoMemoryState(truncated), "truncated runahead precision snapshots fail cleanly");
+
+  auto disabled = ByteStream_CreateGrowableMemoryStream();
+  g_settings.gpu_pgxp_enable = false;
+  StateWrapper disabled_writer(disabled.get(), StateWrapper::Mode::Write, 56);
+  Check(DoMemoryState(disabled_writer) && disabled->GetSize() == 1,
+        "disabled PGXP adds only its presence byte to runahead");
+  g_settings.gpu_pgxp_enable = true;
+  Seed(0x100);
+  disabled->SeekAbsolute(0);
+  StateWrapper disabled_reader(disabled.get(), StateWrapper::Mode::Read, 56);
+  Check(DoMemoryState(disabled_reader) && GetPtr(0x100)->flags == 0,
+        "loading a snapshot without PGXP cannot retain stale precision");
 }
 
 int main()
@@ -303,6 +377,7 @@ int main()
   Check(Vertex(0x1f000000, XY(10, 20), 10.f, 20.f, false), "load clears derived vertices from the abandoned timeline");
   Check(stream->GetSize() + 5 * 1024 * 1024 < System::MAX_SAVE_STATE_SIZE,
         "2 MB persistent PGXP snapshot fits the libretro state bound");
+  CheckMemorySnapshots();
   Shutdown();
   Bus::g_ram_size = Bus::RAM_8MB_SIZE;
   Bus::g_ram_mask = Bus::RAM_8MB_MASK;
@@ -315,6 +390,7 @@ int main()
         "8 MB persistent PGXP snapshot fits the libretro state bound");
   Check(Vertex(0x700100, XY(10, 20), 10.25f, 20.5f) && Vertex(0x1f800100, XY(30, 40), 30.25f, 40.5f),
         "8 MB RAM precision does not overlap the scratchpad");
+  CheckMemorySnapshots();
 
   // Drive the real GTE with an identity rotation and a deliberately
   // fractional projection. LM saturation must agree with native IR values.
