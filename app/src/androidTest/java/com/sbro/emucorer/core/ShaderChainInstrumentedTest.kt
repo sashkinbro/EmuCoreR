@@ -150,7 +150,8 @@ class ShaderChainInstrumentedTest {
     @Test
     fun resetAndStateLoadsRestartTemporalShaders() {
         for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
-            withScene(renderer, counterShader) { bridge, session, reader, root ->
+            withScene(renderer, counterShader, cropPattern = true) { bridge, session, reader, root ->
+                bridge.setDisplayCrop(64, 64, 0, 0)
                 fun frame(count: Int, stage: String, history: Int = 255) = awaitPixel(bridge, session, reader,
                     intArrayOf(0, count, history), "$stage renderer=$renderer", frames = 1)
                 for (i in 0..6) frame(i, "initial timeline", if (i >= 6) 255 else -1)
@@ -168,6 +169,22 @@ class ShaderChainInstrumentedTest {
     }
 
     @Test
+    fun historyTracksCroppedSourceAcrossResize() {
+        val shader = counterShader.replace("texture(OriginalHistory1, vUV).r", "texture(OriginalHistory1, vUV).b")
+        for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
+            withScene(renderer, shader, cropPattern = true) { bridge, session, reader, _ ->
+                awaitPixel(bridge, session, reader, intArrayOf(0, -1, 255), "uncropped history renderer=$renderer")
+                bridge.setDisplayCrop(64, 64, 0, 0)
+                awaitPixel(bridge, session, reader, intArrayOf(0, -1, 0), "cropped history renderer=$renderer")
+                bridge.setDisplayCrop(48, 48, 8, 0)
+                awaitPixel(bridge, session, reader, intArrayOf(0, -1, 0), "resized history renderer=$renderer")
+                bridge.setDisplayCrop(0, 0, 0, 0)
+                awaitPixel(bridge, session, reader, intArrayOf(0, -1, 255), "uncropped history again renderer=$renderer")
+            }
+        }
+    }
+
+    @Test
     fun shadersReceiveSourceTimingAndAspect() {
         for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
             withScene(renderer, uniformsShader) { bridge, session, reader, _ ->
@@ -179,7 +196,67 @@ class ShaderChainInstrumentedTest {
         }
     }
 
+    @Test
+    fun shadersReceiveCroppedPixelsAndDimensions() {
+        for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
+            for (scale in 1..2) withScene(renderer, cropShader, cropPattern = true, resolutionScale = scale) { bridge, session, reader, _ ->
+                awaitPixel(bridge, session, reader, intArrayOf(128, 123, 255), "uncropped renderer=$renderer")
+                for (crop in listOf(intArrayOf(64, 64, 0, 0), intArrayOf(48, 48, 8, 0),
+                                    intArrayOf(64, 64, 16, 16))) {
+                    bridge.setDisplayCrop(crop[0], crop[1], crop[2], crop[3])
+                    val width = 320 - crop[0] - crop[2]
+                    val height = 232 - crop[1] - crop[3]
+                    awaitPixel(bridge, session, reader,
+                        intArrayOf((width * 255.0 / 640).roundToInt(), (height * 255.0 / 480).roundToInt(), 0),
+                        "cropped input renderer=$renderer crop=${crop.toList()}")
+                    val aspect = (16.0 / 9.0) * (width / 320.0) / (height / 232.0)
+                    val dstWidth = minOf(320, (240 * aspect).roundToInt())
+                    val dstHeight = minOf(240, (320 / aspect).roundToInt())
+                    val rect = bridge.getPresentRect() ?: error("missing present rectangle")
+                    val expected = floatArrayOf(((320 - dstWidth) / 2).toFloat(), ((240 - dstHeight) / 2).toFloat(),
+                        (((320 - dstWidth) / 2) + dstWidth).toFloat(), (((240 - dstHeight) / 2) + dstHeight).toFloat())
+                    expected.indices.forEach { assertEquals("present rectangle renderer=$renderer edge=$it",
+                        expected[it], rect[it], 1f) }
+                    awaitPixel(bridge, session, reader, intArrayOf(0, 0, 0),
+                        "cropped shader letterbox renderer=$renderer", pixelY = 10)
+                }
+                bridge.setDisplayCrop(0, 0, 0, 0)
+                awaitPixel(bridge, session, reader, intArrayOf(128, 123, 255), "uncropped again renderer=$renderer")
+            }
+        }
+    }
+
+    @Test
+    fun croppedAspectAndFallbackStayConsistent() {
+        for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL,
+                                RendererDefaults.CORE_SOFTWARE)) {
+            withScene(renderer, uniformsShader, cropPattern = true) { bridge, session, reader, root ->
+                val fps = bridge.getFrameRate(session)
+                bridge.setDisplayCrop(64, 16, 16, 8)
+                if (renderer != RendererDefaults.CORE_SOFTWARE) {
+                    val aspect = (16.0 / 9.0) * (240.0 / 320) / (208.0 / 232)
+                    awaitPixel(bridge, session, reader,
+                        intArrayOf((fps * 2.55).roundToInt(), (255 * aspect / 2).roundToInt(),
+                            ((1000.0 / fps).roundToInt() * 2.55).roundToInt()), "cropped aspect renderer=$renderer")
+                }
+                bridge.setDisplayCrop(64, 64, 0, 0)
+                bridge.nativeSetShaderPreset(File(root, "missing.slangp").absolutePath, true)
+                val full = if (renderer == RendererDefaults.CORE_SOFTWARE) 248 else 255
+                awaitPixel(bridge, session, reader, intArrayOf(full, full, 0), "invalid preset fallback renderer=$renderer")
+                val fallbackRect = bridge.getPresentRect() ?: error("missing fallback rectangle")
+                assertEquals(38f, fallbackRect[1], 1f)
+                assertEquals(201f, fallbackRect[3], 1f)
+                awaitPixel(bridge, session, reader, intArrayOf(0, 0, 0),
+                    "fallback letterbox renderer=$renderer", pixelY = 20)
+                bridge.nativeSetShaderPreset("", false)
+                awaitPixel(bridge, session, reader, intArrayOf(full, full, 0), "disabled preset renderer=$renderer")
+                assertArrayEquals(fallbackRect, bridge.getPresentRect(), 1f)
+            }
+        }
+    }
+
     private fun withScene(renderer: Int, shader: String, repeatFill: Boolean = false, dmaMode: Int = -1,
+                          cropPattern: Boolean = false, resolutionScale: Int = 2,
                           block: (NativeCoreBridge, Long, ImageReader, File) -> Unit) {
         assertEquals("CPH2747", Build.MODEL)
         assertEquals("OnePlus", Build.MANUFACTURER)
@@ -192,7 +269,7 @@ class ShaderChainInstrumentedTest {
         val preset = File(root, "probe.slangp").apply {
             writeText("shaders = 1\nshader0 = probe.slang\nfilter_linear0 = false\n")
         }
-        val bios = File(system, "shader.bin").apply { writeBytes(makeBios(repeatFill, dmaMode)) }
+        val bios = File(system, "shader.bin").apply { writeBytes(makeBios(repeatFill, dmaMode, cropPattern)) }
         val bridge = NativeCoreBridge()
         try {
             bridge.nativeInit(system.absolutePath, save.absolutePath, assets.absolutePath)
@@ -201,7 +278,7 @@ class ShaderChainInstrumentedTest {
             bridge.nativeSetShaderPreset(preset.absolutePath, true)
             mapOf(
                 "CPU_ExecutionMode" to "Recompiler", "GPU_Renderer" to RendererDefaults.coreRendererName(renderer),
-                "GPU_PGXPEnable" to "false", "GPU_ResolutionScale" to "2", "GPU_UseThread" to "false",
+                "GPU_PGXPEnable" to "false", "GPU_ResolutionScale" to resolutionScale.toString(), "GPU_UseThread" to "false",
                 "GPU_TextureFilter" to "Nearest", "GPU_MSAA" to "1", "GPU_WidescreenHack" to "false",
                 "Display_AspectRatio" to "16:9", "Display_CropMode" to "Borders",
                 "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
@@ -227,7 +304,7 @@ class ShaderChainInstrumentedTest {
     }
 
     private fun awaitPixel(bridge: NativeCoreBridge, session: Long, reader: ImageReader,
-                           expected: IntArray, stage: String, frames: Int = 20) {
+                           expected: IntArray, stage: String, frames: Int = 20, pixelY: Int? = null) {
         var actual = intArrayOf(-1, -1, -1)
         repeat(frames) {
             bridge.runFrame(session)
@@ -236,7 +313,7 @@ class ShaderChainInstrumentedTest {
                 val frame = reader.acquireLatestImage() ?: continue
                 frame.use {
                     val plane = it.planes[0]
-                    val offset = (it.height / 2) * plane.rowStride + (it.width / 2) * plane.pixelStride
+                    val offset = (pixelY ?: (it.height / 2)) * plane.rowStride + (it.width / 2) * plane.pixelStride
                     actual = IntArray(3) { c -> plane.buffer.get(offset + c).toInt() and 255 }
                 }
                 break
@@ -246,7 +323,7 @@ class ShaderChainInstrumentedTest {
         fail("$stage expected=${expected.toList()} actual=${actual.toList()}")
     }
 
-    private fun makeBios(repeatFill: Boolean = false, dmaMode: Int = -1): ByteArray {
+    private fun makeBios(repeatFill: Boolean = false, dmaMode: Int = -1, cropPattern: Boolean = false): ByteArray {
         val out = ByteBuffer.allocate(512 * 1024).order(ByteOrder.LITTLE_ENDIAN)
         fun emit(value: Int) { out.putInt(value) }
         fun constant(register: Int, value: Int) {
@@ -262,6 +339,9 @@ class ShaderChainInstrumentedTest {
         for (command in listOf(0xe3000000.toInt(), 0xe407ffff.toInt(), 0xe5000000.toInt())) write(0, command)
         val fillStart = out.position()
         for (command in listOf(0x02ffffff, 0, (240 shl 16) or 320)) write(0, command)
+        if (cropPattern) {
+            for (command in listOf(0x0200ffff, (136 shl 16) or 176, (104 shl 16) or 144)) write(0, command)
+        }
         if (dmaMode >= 0) {
             constant(12, 0x80010000.toInt())
             fun streamWord(value: Int) {
@@ -311,6 +391,21 @@ class ShaderChainInstrumentedTest {
         emit(0)
         return out.array()
     }
+
+    private val cropShader = """
+        #version 450
+        layout(set = 0, binding = 0, std140) uniform UBO { mat4 MVP; vec4 OriginalSize; } params;
+        #pragma stage vertex
+        layout(location = 0) in vec4 Position;
+        layout(location = 1) in vec2 TexCoord;
+        layout(location = 0) out vec2 vUV;
+        void main() { gl_Position = params.MVP * Position; vUV = TexCoord; }
+        #pragma stage fragment
+        layout(location = 0) in vec2 vUV;
+        layout(location = 0) out vec4 FragColor;
+        layout(set = 0, binding = 1) uniform sampler2D Source;
+        void main() { FragColor = vec4(params.OriginalSize.xy / vec2(640.0, 480.0), texture(Source, vUV).b, 1.0); }
+    """.trimIndent()
 
     private val sourceShader = """
         #version 450
