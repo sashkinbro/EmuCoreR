@@ -194,6 +194,8 @@ struct FrontendState {
     // Last frame geometry reported by the core.
     unsigned frame_width = 0;
     unsigned frame_height = 0;
+    unsigned present_source_width = 0;
+    unsigned present_source_height = 0;
 
     // Presentation aspect ratio taken from the core's AV info. The core is
     // only queried when it announces new geometry or when an option that can
@@ -1480,6 +1482,8 @@ void RetroVideoRefresh(const void* data, unsigned width, unsigned height, size_t
             std::lock_guard<std::mutex> lock(g_frontend.mutex);
             g_frontend.frame_width = 0;
             g_frontend.frame_height = 0;
+            g_frontend.present_source_width = width;
+            g_frontend.present_source_height = height;
         }
         if (vulkan::IsActive()) {
             bool window_attached = false;
@@ -1513,6 +1517,8 @@ void RetroVideoRefresh(const void* data, unsigned width, unsigned height, size_t
         std::lock_guard<std::mutex> lock(g_frontend.mutex);
         g_frontend.frame_width = width;
         g_frontend.frame_height = height;
+        g_frontend.present_source_width = width;
+        g_frontend.present_source_height = height;
     }
     PresentSoftwareFrame(data, width, height, pitch);
 }
@@ -1756,6 +1762,11 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_nativeInit(JNIEnv* env, jobject, js
 
 JNIEXPORT jlong JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_createSession(JNIEnv*, jobject) {
+    {
+        std::lock_guard<std::mutex> lock(g_frontend.mutex);
+        g_frontend.present_source_width = 0;
+        g_frontend.present_source_height = 0;
+    }
     {
         std::lock_guard<std::mutex> lock(g_frontend.core_mutex);
         if (!g_frontend.core_initialized) {
@@ -2318,9 +2329,13 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_getDisplayRect(JNIEnv* env, jobject
 JNIEXPORT jfloatArray JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_getPresentRect(JNIEnv* env, jobject) {
     ANativeWindow* window = nullptr;
+    unsigned source_width = 0;
+    unsigned source_height = 0;
     {
         std::lock_guard<std::mutex> lock(g_frontend.mutex);
         window = g_frontend.window;
+        source_width = g_frontend.present_source_width;
+        source_height = g_frontend.present_source_height;
     }
     if (window == nullptr) return nullptr;
     const int win_width = ANativeWindow_getWidth(window);
@@ -2329,28 +2344,18 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_getPresentRect(JNIEnv* env, jobject
 
     retro_system_av_info info{};
     retro_get_system_av_info(&info);
-    const unsigned base_width = info.geometry.base_width != 0 ? info.geometry.base_width : 1u;
-    const unsigned base_height = info.geometry.base_height != 0 ? info.geometry.base_height : 1u;
+    if (source_width == 0) source_width = std::max(info.geometry.base_width, 1u);
+    if (source_height == 0) source_height = std::max(info.geometry.base_height, 1u);
 
     double display_aspect = info.geometry.aspect_ratio;
     if (display_aspect <= 0.0 || !std::isfinite(display_aspect)) display_aspect = 4.0 / 3.0;
 
-#if defined(EMUCORER_HAVE_LIBRASHADER)
-    const bool shader_chain_active =
-        emucorer::shader_chain::IsEnabled() && !emucorer::shader_chain::PresetPath().empty();
-#else
-    constexpr bool shader_chain_active = false;
-#endif
-    if (!shader_chain_active) {
-        const DisplayCropRect crop = ClampDisplayCrop(CurrentDisplayCrop(), base_width, base_height);
-        if (IsCropActive(crop)) {
-            const unsigned cropped_width = base_width - crop.left - crop.right;
-            const unsigned cropped_height = base_height - crop.top - crop.bottom;
-            if (cropped_width > 0 && cropped_height > 0) {
-                display_aspect *= (static_cast<double>(cropped_width) / static_cast<double>(base_width)) /
-                                  (static_cast<double>(cropped_height) / static_cast<double>(base_height));
-            }
-        }
+    const DisplayCropRect crop = ClampDisplayCrop(CurrentDisplayCrop(), source_width, source_height);
+    if (IsCropActive(crop)) {
+        const unsigned cropped_width = source_width - crop.left - crop.right;
+        const unsigned cropped_height = source_height - crop.top - crop.bottom;
+        display_aspect *= (static_cast<double>(cropped_width) / static_cast<double>(source_width)) /
+                          (static_cast<double>(cropped_height) / static_cast<double>(source_height));
     }
 
     const PresentRect dst = AspectRatioStretchRequested()

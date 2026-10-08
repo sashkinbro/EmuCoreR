@@ -64,14 +64,23 @@ CropRect ClampCrop(CropRect crop, uint32_t width, uint32_t height) {
     return crop;
 }
 
+#if defined(EMUCORER_HAVE_LIBRASHADER)
+struct ShaderChainImage {
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    uint32_t width = 0;
+    uint32_t height = 0;
+};
+#endif
+
 struct State {
     bool requested = false;
     bool failed = false;
     bool active = false;
     bool context_reset_pending = false;
 
-    // Source-pixel crop applied by the plain present paths; shader chains own
-    // their own scaling and receive the uncropped frame.
+    // Source-pixel crop applied before presentation and shader processing.
     int crop_left = 0;
     int crop_top = 0;
     int crop_right = 0;
@@ -117,11 +126,8 @@ struct State {
     uint64_t shader_chain_generation = 0;
     bool shader_chain_failed = false;
     uint64_t shader_frame_count = 0;
-    VkImage chain_target_image = VK_NULL_HANDLE;
-    VkDeviceMemory chain_target_memory = VK_NULL_HANDLE;
-    VkImageView chain_target_view = VK_NULL_HANDLE;
-    uint32_t chain_target_width = 0;
-    uint32_t chain_target_height = 0;
+    ShaderChainImage chain_target;
+    ShaderChainImage chain_input;
 #endif
 
     VkCommandPool command_pool = VK_NULL_HANDLE;
@@ -704,22 +710,22 @@ uint32_t FindMemoryType(uint32_t type_bits, VkMemoryPropertyFlags properties) {
     return UINT32_MAX;
 }
 
-void DestroyShaderChainTarget() {
+void DestroyShaderChainImage(ShaderChainImage& image) {
     if (g_vk.device == VK_NULL_HANDLE) return;
-    if (g_vk.chain_target_view != VK_NULL_HANDLE) {
-        vkDestroyImageView(g_vk.device, g_vk.chain_target_view, nullptr);
-        g_vk.chain_target_view = VK_NULL_HANDLE;
+    if (image.view != VK_NULL_HANDLE) {
+        vkDestroyImageView(g_vk.device, image.view, nullptr);
+        image.view = VK_NULL_HANDLE;
     }
-    if (g_vk.chain_target_image != VK_NULL_HANDLE) {
-        vkDestroyImage(g_vk.device, g_vk.chain_target_image, nullptr);
-        g_vk.chain_target_image = VK_NULL_HANDLE;
+    if (image.image != VK_NULL_HANDLE) {
+        vkDestroyImage(g_vk.device, image.image, nullptr);
+        image.image = VK_NULL_HANDLE;
     }
-    if (g_vk.chain_target_memory != VK_NULL_HANDLE) {
-        vkFreeMemory(g_vk.device, g_vk.chain_target_memory, nullptr);
-        g_vk.chain_target_memory = VK_NULL_HANDLE;
+    if (image.memory != VK_NULL_HANDLE) {
+        vkFreeMemory(g_vk.device, image.memory, nullptr);
+        image.memory = VK_NULL_HANDLE;
     }
-    g_vk.chain_target_width = 0;
-    g_vk.chain_target_height = 0;
+    image.width = 0;
+    image.height = 0;
 }
 
 void DestroyShaderChain() {
@@ -730,20 +736,22 @@ void DestroyShaderChain() {
         g_vk.shader_chain = nullptr;
     }
 #endif
-    DestroyShaderChainTarget();
+    DestroyShaderChainImage(g_vk.chain_input);
+    DestroyShaderChainImage(g_vk.chain_target);
     g_vk.shader_chain_preset.clear();
     g_vk.shader_chain_generation = 0;
     g_vk.shader_chain_failed = false;
     g_vk.shader_frame_count = 0;
 }
 
-bool EnsureShaderChainTarget(uint32_t width, uint32_t height) {
+bool EnsureShaderChainImage(ShaderChainImage& image, uint32_t width, uint32_t height,
+                            VkImageUsageFlags usage) {
     if (width == 0 || height == 0) return false;
-    if (g_vk.chain_target_image != VK_NULL_HANDLE && g_vk.chain_target_width == width &&
-        g_vk.chain_target_height == height) {
+    if (image.image != VK_NULL_HANDLE && image.width == width &&
+        image.height == height) {
         return true;
     }
-    DestroyShaderChainTarget();
+    DestroyShaderChainImage(image);
 
     VkImageCreateInfo image_info{};
     image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -754,47 +762,50 @@ bool EnsureShaderChainTarget(uint32_t width, uint32_t height) {
     image_info.arrayLayers = 1;
     image_info.samples = VK_SAMPLE_COUNT_1_BIT;
     image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    image_info.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                       VK_IMAGE_USAGE_SAMPLED_BIT;
+    image_info.usage = usage;
     image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    if (vkCreateImage(g_vk.device, &image_info, nullptr, &g_vk.chain_target_image) != VK_SUCCESS) {
-        VK_LOGE("vkCreateImage (shader chain target) failed");
+    if (vkCreateImage(g_vk.device, &image_info, nullptr, &image.image) != VK_SUCCESS) {
+        VK_LOGE("vkCreateImage (shader chain image) failed");
         return false;
     }
 
     VkMemoryRequirements requirements{};
-    vkGetImageMemoryRequirements(g_vk.device, g_vk.chain_target_image, &requirements);
+    vkGetImageMemoryRequirements(g_vk.device, image.image, &requirements);
     const uint32_t memory_type = FindMemoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     if (memory_type == UINT32_MAX) {
-        VK_LOGE("No device-local memory for shader chain target");
-        DestroyShaderChainTarget();
+        VK_LOGE("No device-local memory for shader chain image");
+        DestroyShaderChainImage(image);
         return false;
     }
     VkMemoryAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocate_info.allocationSize = requirements.size;
     allocate_info.memoryTypeIndex = memory_type;
-    if (vkAllocateMemory(g_vk.device, &allocate_info, nullptr, &g_vk.chain_target_memory) != VK_SUCCESS) {
-        VK_LOGE("vkAllocateMemory (shader chain target) failed");
-        DestroyShaderChainTarget();
+    if (vkAllocateMemory(g_vk.device, &allocate_info, nullptr, &image.memory) != VK_SUCCESS) {
+        VK_LOGE("vkAllocateMemory (shader chain image) failed");
+        DestroyShaderChainImage(image);
         return false;
     }
-    vkBindImageMemory(g_vk.device, g_vk.chain_target_image, g_vk.chain_target_memory, 0);
+    if (vkBindImageMemory(g_vk.device, image.image, image.memory, 0) != VK_SUCCESS) {
+        VK_LOGE("vkBindImageMemory (shader chain image) failed");
+        DestroyShaderChainImage(image);
+        return false;
+    }
 
     VkImageViewCreateInfo view_info{};
     view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view_info.image = g_vk.chain_target_image;
+    view_info.image = image.image;
     view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
     view_info.format = VK_FORMAT_R8G8B8A8_UNORM;
     view_info.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    if (vkCreateImageView(g_vk.device, &view_info, nullptr, &g_vk.chain_target_view) != VK_SUCCESS) {
-        VK_LOGE("vkCreateImageView (shader chain target) failed");
-        DestroyShaderChainTarget();
+    if (vkCreateImageView(g_vk.device, &view_info, nullptr, &image.view) != VK_SUCCESS) {
+        VK_LOGE("vkCreateImageView (shader chain image) failed");
+        DestroyShaderChainImage(image);
         return false;
     }
-    g_vk.chain_target_width = width;
-    g_vk.chain_target_height = height;
+    image.width = width;
+    image.height = height;
     return true;
 }
 
@@ -1317,8 +1328,9 @@ bool RecordPresentEffect(uint32_t swapchain_index, uint32_t source_width, uint32
 
 #if defined(EMUCORER_HAVE_LIBRASHADER)
 bool RecordPresentShaderChain(uint32_t swapchain_index, uint32_t source_width, uint32_t source_height,
-                               const PresentRect& dst, double display_aspect, double frames_per_second) {
-    if (g_vk.shader_chain == nullptr || g_vk.chain_target_image == VK_NULL_HANDLE) return false;
+                               const PresentRect& dst, const CropRect& crop, double display_aspect,
+                               double frames_per_second) {
+    if (g_vk.shader_chain == nullptr || g_vk.chain_target.image == VK_NULL_HANDLE) return false;
     if (swapchain_index >= g_vk.swapchain_images.size()) return false;
 
     VkCommandBuffer command_buffer = g_vk.command_buffer;
@@ -1333,15 +1345,47 @@ bool RecordPresentShaderChain(uint32_t swapchain_index, uint32_t source_width, u
     VkImageMemoryBarrier source_barrier{};
     source_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     source_barrier.oldLayout = source_layout;
-    source_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    const bool crop_active = IsCropActive(crop);
+    source_barrier.newLayout = crop_active ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+                                          : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     source_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     source_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     source_barrier.image = g_vk.frame_image.create_info.image;
     source_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    source_barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    source_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    source_barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+    source_barrier.dstAccessMask = crop_active ? VK_ACCESS_TRANSFER_READ_BIT : VK_ACCESS_SHADER_READ_BIT;
     vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &source_barrier);
+                         crop_active ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &source_barrier);
+
+    if (crop_active) {
+        VkImageMemoryBarrier input_barrier{};
+        input_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        input_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        input_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        input_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        input_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        input_barrier.image = g_vk.chain_input.image;
+        input_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        input_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &input_barrier);
+
+        VkImageCopy copy{};
+        copy.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        copy.srcOffset = {crop.left, crop.top, 0};
+        copy.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        copy.extent = {g_vk.chain_input.width, g_vk.chain_input.height, 1};
+        vkCmdCopyImage(command_buffer, source_barrier.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       g_vk.chain_input.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+
+        input_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        input_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        input_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        input_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &input_barrier);
+    }
 
     VkImageMemoryBarrier target_barrier{};
     target_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1349,7 +1393,7 @@ bool RecordPresentShaderChain(uint32_t swapchain_index, uint32_t source_width, u
     target_barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     target_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     target_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    target_barrier.image = g_vk.chain_target_image;
+    target_barrier.image = g_vk.chain_target.image;
     target_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     target_barrier.srcAccessMask = 0;
     target_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -1357,11 +1401,14 @@ bool RecordPresentShaderChain(uint32_t swapchain_index, uint32_t source_width, u
                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1,
                          &target_barrier);
 
-    const libra_image_vk_t in = {g_vk.frame_image.create_info.image, VK_FORMAT_R8G8B8A8_UNORM, source_width,
-                                 source_height};
-    const libra_image_vk_t out = {g_vk.chain_target_image, VK_FORMAT_R8G8B8A8_UNORM, g_vk.chain_target_width,
-                                  g_vk.chain_target_height};
-    const libra_viewport_t viewport = {0.0f, 0.0f, g_vk.chain_target_width, g_vk.chain_target_height};
+    const libra_image_vk_t in = crop_active
+        ? libra_image_vk_t{g_vk.chain_input.image, VK_FORMAT_R8G8B8A8_UNORM,
+                           g_vk.chain_input.width, g_vk.chain_input.height}
+        : libra_image_vk_t{g_vk.frame_image.create_info.image, VK_FORMAT_R8G8B8A8_UNORM,
+                           source_width, source_height};
+    const libra_image_vk_t out = {g_vk.chain_target.image, VK_FORMAT_R8G8B8A8_UNORM, g_vk.chain_target.width,
+                                  g_vk.chain_target.height};
+    const libra_viewport_t viewport = {0.0f, 0.0f, g_vk.chain_target.width, g_vk.chain_target.height};
 
     libra_vk_filter_chain_t chain = static_cast<libra_vk_filter_chain_t>(g_vk.shader_chain);
     frame_vk_opt_t frame_options{};
@@ -1383,6 +1430,14 @@ bool RecordPresentShaderChain(uint32_t swapchain_index, uint32_t source_width, u
         return false;
     }
     ++g_vk.shader_frame_count;
+
+    source_barrier.oldLayout = source_barrier.newLayout;
+    source_barrier.newLayout = source_layout;
+    source_barrier.srcAccessMask = crop_active ? VK_ACCESS_TRANSFER_READ_BIT : VK_ACCESS_SHADER_READ_BIT;
+    source_barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+    vkCmdPipelineBarrier(command_buffer,
+                         crop_active ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &source_barrier);
 
     target_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     target_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -1413,12 +1468,12 @@ bool RecordPresentShaderChain(uint32_t swapchain_index, uint32_t source_width, u
     VkImageBlit blit{};
     blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     blit.srcOffsets[0] = {0, 0, 0};
-    blit.srcOffsets[1] = {static_cast<int32_t>(g_vk.chain_target_width),
-                          static_cast<int32_t>(g_vk.chain_target_height), 1};
+    blit.srcOffsets[1] = {static_cast<int32_t>(g_vk.chain_target.width),
+                          static_cast<int32_t>(g_vk.chain_target.height), 1};
     blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     blit.dstOffsets[0] = {dst.x, dst.y, 0};
     blit.dstOffsets[1] = {dst.x + dst.width, dst.y + dst.height, 1};
-    vkCmdBlitImage(command_buffer, g_vk.chain_target_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    vkCmdBlitImage(command_buffer, g_vk.chain_target.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                    g_vk.swapchain_images[swapchain_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit,
                    VK_FILTER_LINEAR);
 
@@ -1580,12 +1635,8 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
 #else
     constexpr bool want_chain = false;
 #endif
-    // Shader chains sample the whole frame image (no sub-rect input), so the
-    // crop applies only to the direct present paths.
-    const CropRect crop = want_chain
-        ? CropRect{0, 0, 0, 0}
-        : ClampCrop(CropRect{g_vk.crop_left, g_vk.crop_top, g_vk.crop_right, g_vk.crop_bottom},
-                    source_width, source_height);
+    const CropRect crop = ClampCrop(
+        CropRect{g_vk.crop_left, g_vk.crop_top, g_vk.crop_right, g_vk.crop_bottom}, source_width, source_height);
     if (IsCropActive(crop)) {
         // The caller's aspect describes the full frame; rescale it for the
         // trimmed region so the fit stays undistorted.
@@ -1598,9 +1649,15 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
     const PresentRect dst = FitDisplayRect(g_vk.swapchain_extent, display_aspect, stretch);
     bool recorded = false;
 #if defined(EMUCORER_HAVE_LIBRASHADER)
-    if (want_chain && EnsureShaderChain() && EnsureShaderChainTarget(dst.width, dst.height)) {
-        recorded = RecordPresentShaderChain(swapchain_index, source_width, source_height, dst, display_aspect,
-                                             frames_per_second);
+    if (want_chain && EnsureShaderChain() &&
+        EnsureShaderChainImage(g_vk.chain_target, dst.width, dst.height,
+                               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                   VK_IMAGE_USAGE_SAMPLED_BIT) &&
+        (!IsCropActive(crop) || EnsureShaderChainImage(g_vk.chain_input,
+            source_width - crop.left - crop.right, source_height - crop.top - crop.bottom,
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT))) {
+        recorded = RecordPresentShaderChain(swapchain_index, source_width, source_height, dst, crop,
+                                             display_aspect, frames_per_second);
         if (!recorded) VK_LOGW("librashader chain frame failed; falling back to blit");
     }
     if (!recorded) {
