@@ -94,6 +94,7 @@ layout(std140, set = 0, binding = 0) uniform BatchUBOData {
   bool  u_set_mask_while_drawing;
   layout(offset = 52) uint u_pgxp_depth;
   layout(offset = 60) uint u_render_mode;
+  layout(offset = 68) uint u_pgxp_interpolation;
 };
 
 // ---- Inputs from the batch VS --------------------------------------
@@ -136,7 +137,9 @@ uvec3 ApplyDithering(uvec2 coord, uvec3 icol)
 
 void main()
 {
-  uvec3 vertcol = uvec3(v_col0.rgb * vec3(255.0, 255.0, 255.0));
+  float affine_scale = 1.0 / v_col0.a;
+  float color_scale = ((u_pgxp_interpolation & 2u) != 0u) ? 1.0 : affine_scale;
+  uvec3 vertcol = uvec3((v_col0.rgb * color_scale) * vec3(255.0, 255.0, 255.0));
 
   // INTERLACING discard (untextured can still hit a field-strobed draw).
   // fixYCoord on Vulkan is the identity function so we use gl_FragCoord.y

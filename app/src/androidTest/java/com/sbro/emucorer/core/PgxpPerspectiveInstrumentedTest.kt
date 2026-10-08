@@ -20,7 +20,28 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class PgxpPerspectiveInstrumentedTest {
     @Test
-    fun varyingDepthInterpolatesTextureCoordinatesCorrectly() {
+    fun varyingDepthInterpolatesTextureCoordinatesCorrectly() = runProbe(false)
+
+    @Test
+    fun vertexColorsRespectIndependentCorrectionSettings() = runProbe(true)
+
+    @Test
+    fun texturedVertexColorsRespectIndependentCorrectionSettings() = runProbe(true, true)
+
+    @Test
+    fun multisamplingRespectsIndependentCorrectionSettings() {
+        runProbe(true, true, "4")
+        runProbe(true, true, "4-ssaa")
+    }
+
+    @Test
+    fun softwareKeepsNativeInterpolation() {
+        runProbe(false, software = true)
+        runProbe(true, true, software = true)
+    }
+
+    private fun runProbe(gouraud: Boolean, textured: Boolean = !gouraud, antialiasing: String = "1",
+                         software: Boolean = false) {
         assertEquals("CPH2747", Build.MODEL)
         assertEquals("OnePlus", Build.MANUFACTURER)
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -28,50 +49,56 @@ class PgxpPerspectiveInstrumentedTest {
         val system = File(root, "system").apply { mkdirs() }
         val save = File(root, "save").apply { mkdirs() }
         val assets = File(root, "assets").apply { mkdirs() }
-        val bios = File(system, "perspective.bin").apply { writeBytes(makeBios()) }
+        val bios = File(system, "perspective.bin").apply { writeBytes(makeBios(gouraud, textured)) }
         val bridge = NativeCoreBridge()
         // Test-only mutation proves the perspective assertions detect an
         // affine renderer instead of merely accepting a textured frame.
         val forceAffine = InstrumentationRegistry.getArguments().getString("pgxpPerspectiveForceAffine") == "true"
         try {
-            for (cpu in listOf("Interpreter", "Recompiler")) {
-                for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
-                    for (scale in listOf(1, 3)) {
+            for (cpu in if (antialiasing == "1") listOf("Interpreter", "Recompiler") else listOf("Recompiler")) {
+                val renderers = if (software) listOf(RendererDefaults.CORE_SOFTWARE)
+                    else listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)
+                for (renderer in renderers) {
+                    for (scale in if (software) listOf(1) else if (antialiasing == "1") listOf(1, 3) else listOf(3)) {
                         for (perspective in listOf(false, true)) {
-                            bridge.nativeInit(system.absolutePath, save.absolutePath, assets.absolutePath)
-                            mapOf(
-                                "CPU_ExecutionMode" to cpu,
-                                "GPU_Renderer" to if (renderer == RendererDefaults.CORE_VULKAN) "Vulkan" else "OpenGL",
-                                "GPU_PGXPEnable" to "true", "GPU_PGXPCPU" to "false",
-                                "GPU_PGXPPreserveProjFP" to "false", "GPU_PGXPVertexCache" to "false",
-                                "GPU_PGXPTextureCorrection" to (perspective && !forceAffine).toString(),
-                                "GPU_PGXPColorCorrection" to "false", "GPU_PGXPDepthBuffer" to "false",
-                                "GPU_PGXPCulling" to "true", "GPU_PGXPDisableOn2DPolygons" to "true",
-                                "GPU_TextureFilter" to "Nearest", "GPU_ResolutionScale" to scale.toString(),
-                                "GPU_UseThread" to "false", "GPU_Multisamples" to "1", "GPU_WidescreenHack" to "false",
-                                "Display_AspectRatio" to "4:3", "Display_CropMode" to "Borders",
-                                "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
-                                "BIOS_PatchFastBoot" to "false", "Console_Region" to "NTSC-U",
-                                "Main_ApplyGameSettings" to "false", "Main_RunaheadFrameCount" to "0",
-                                "Console_Enable8MBRAM" to "false"
-                            ).forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
-                            val session = bridge.createSession()
-                            assertTrue(session != 0L)
-                            ImageReader.newInstance(320, 240, PixelFormat.RGBA_8888, 3).use { reader ->
-                                try {
-                                    assertEquals(0, bridge.setSurface(session, reader.surface, renderer))
-                                    assertEquals(0, bridge.loadBios(session, bios.absolutePath))
-                                    assertEquals(0, bridge.loadBiosOnly(session))
-                                    var frame: Frame? = null
-                                    repeat(6) {
-                                        bridge.runFrame(session)
-                                        frame = capture(reader) ?: frame
-                                    }
-                                    val label = "$cpu/${RendererDefaults.coreRendererName(renderer)}/scale=$scale/perspective=$perspective"
-                                    assertNotNull("missing frame: $label", frame)
-                                    checkSamples(frame!!, perspective, label)
-                                    Log.i("PGXPPerspective", "PASS $label")
-                                } finally { bridge.destroySession(session) }
+                            for (colorCorrection in if (gouraud) listOf(false, true) else listOf(false)) {
+                                bridge.nativeInit(system.absolutePath, save.absolutePath, assets.absolutePath)
+                                mapOf(
+                                    "CPU_ExecutionMode" to cpu,
+                                    "GPU_Renderer" to RendererDefaults.coreRendererName(renderer),
+                                    "GPU_PGXPEnable" to "true", "GPU_PGXPCPU" to "false",
+                                    "GPU_PGXPPreserveProjFP" to "false", "GPU_PGXPVertexCache" to "false",
+                                    "GPU_PGXPTextureCorrection" to (perspective && !forceAffine).toString(),
+                                    "GPU_PGXPColorCorrection" to colorCorrection.toString(), "GPU_PGXPDepthBuffer" to "false",
+                                    "GPU_PGXPCulling" to "true", "GPU_PGXPDisableOn2DPolygons" to "true",
+                                    "GPU_TextureFilter" to "Nearest", "GPU_ResolutionScale" to scale.toString(),
+                                    "GPU_UseThread" to "false", "GPU_MSAA" to antialiasing, "GPU_WidescreenHack" to "false",
+                                    "GPU_DitheringMode" to if (!software && antialiasing == "1") "TrueColor" else "Unscaled",
+                                    "Display_AspectRatio" to "4:3", "Display_CropMode" to "Borders",
+                                    "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
+                                    "BIOS_PatchFastBoot" to "false", "Console_Region" to "NTSC-U",
+                                    "Main_ApplyGameSettings" to "false", "Main_RunaheadFrameCount" to "0",
+                                    "Console_Enable8MBRAM" to "false"
+                                ).forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
+                                val session = bridge.createSession()
+                                assertTrue(session != 0L)
+                                ImageReader.newInstance(320, 240, PixelFormat.RGBA_8888, 3).use { reader ->
+                                    try {
+                                        assertEquals(0, bridge.setSurface(session, reader.surface, renderer))
+                                        assertEquals(0, bridge.loadBios(session, bios.absolutePath))
+                                        assertEquals(0, bridge.loadBiosOnly(session))
+                                        var frame: Frame? = null
+                                        repeat(6) {
+                                            bridge.runFrame(session)
+                                            frame = capture(reader) ?: frame
+                                        }
+                                        val label = "$cpu/${RendererDefaults.coreRendererName(renderer)}/scale=$scale/aa=$antialiasing/perspective=$perspective/color=$colorCorrection/gouraud=$gouraud/textured=$textured"
+                                        assertNotNull("missing frame: $label", frame)
+                                        checkSamples(frame!!, perspective && !software, colorCorrection && !software,
+                                            gouraud, textured, !software && antialiasing == "1", label)
+                                        Log.i("PGXPPerspective", "PASS $label")
+                                    } finally { bridge.destroySession(session) }
+                                }
                             }
                         }
                     }
@@ -100,12 +127,19 @@ class PgxpPerspectiveInstrumentedTest {
         return null
     }
 
-    private fun checkSamples(frame: Frame, perspective: Boolean, label: String) {
+    private fun checkSamples(frame: Frame, perspective: Boolean, colorCorrection: Boolean,
+                             gouraud: Boolean, textured: Boolean, trueColor: Boolean, label: String) {
         fun marker(channel: Int): Pair<Double, Double> {
             var xSum = 0.0
             var ySum = 0.0
             var count = 0
             for (y in 0 until frame.height) for (x in 0 until frame.width) {
+                val corner = when (channel) {
+                    0 -> x < frame.width / 8 && y < frame.height / 8
+                    1 -> x > frame.width * 7 / 8 && y < frame.height / 8
+                    else -> x < frame.width / 8 && y > frame.height * 7 / 8
+                }
+                if (!corner) continue
                 val pixel = frame.rgb[y * frame.width + x]
                 val channels = intArrayOf(pixel shr 16 and 255, pixel shr 8 and 255, pixel and 255)
                 if (channels[channel] > 220 && channels.withIndex().all { it.index == channel || it.value < 20 }) {
@@ -137,7 +171,21 @@ class PgxpPerspectiveInstrumentedTest {
             val denominator = if (perspective) b0 / 200 + b1 / 400 + b2 / 800 else 1.0
             val u = 63 * (if (perspective) b1 / 400 else b1) / denominator
             val v = 63 * (if (perspective) b2 / 800 else b2) / denominator
-            val expected = intArrayOf((5 + u.toInt() / 3) * 255 / 31, (5 + v.toInt() / 3) * 255 / 31, 8 * 255 / 31)
+            val colorDenominator = if (colorCorrection) b0 / 200 + b1 / 400 + b2 / 800 else 1.0
+            val vertexColor = intArrayOf(
+                (255 * (if (colorCorrection) b0 / 200 else b0) / colorDenominator).toInt(),
+                (255 * (if (colorCorrection) b1 / 400 else b1) / colorDenominator).toInt(),
+                (255 * (if (colorCorrection) b2 / 800 else b2) / colorDenominator).toInt()
+            )
+            val texel = intArrayOf(5 + u.toInt() / 3, 5 + v.toInt() / 3, 8)
+            val expected = when {
+                gouraud && textured && trueColor -> IntArray(3) {
+                    (texel[it] * 255 / 31 * vertexColor[it] / 128).coerceAtMost(255)
+                }
+                gouraud && textured -> IntArray(3) { (texel[it] * vertexColor[it] / 128).coerceAtMost(31) * 255 / 31 }
+                gouraud -> vertexColor
+                else -> IntArray(3) { texel[it] * 255 / 31 }
+            }
             val pixel = frame.rgb[py * frame.width + px]
             val actual = intArrayOf(pixel shr 16 and 255, pixel shr 8 and 255, pixel and 255)
             Log.i("PGXPPerspective", "$label sample=($x,$y) uv=($u,$v) rgb=${actual.toList()} expected=${expected.toList()}")
@@ -148,7 +196,7 @@ class PgxpPerspectiveInstrumentedTest {
         }
     }
 
-    private fun makeBios(): ByteArray {
+    private fun makeBios(gouraud: Boolean, textured: Boolean): ByteArray {
         val out = ByteBuffer.allocate(512 * 1024).order(ByteOrder.LITTLE_ENDIAN)
         fun emit(value: Int) { out.putInt(value) }
         fun imm(op: Int, source: Int, target: Int, value: Int) =
@@ -185,19 +233,23 @@ class PgxpPerspectiveInstrumentedTest {
         gte(24, 160 shl 16, true)
         gte(25, 120 shl 16, true)
         gte(26, 100, true)
-        write(9, 0, 0x25808080)
+        write(9, 0, if (gouraud) (if (textured) 0x340000ff else 0x300000ff) else 0x25808080)
         // Projected points (40,40), (280,40), (40,200), with depths 1:2:4.
         for ((index, xyz) in listOf(Triple(-240, -160, 200), Triple(480, -320, 400), Triple(-960, 640, 800)).withIndex()) {
             gte(0, ((xyz.second and 65535) shl 16) or (xyz.first and 65535), false)
             gte(1, xyz.third, false)
             emit(0x4a080001)
             repeat(16) { emit(0) }
-            emit(imm(0x3a, 9, 14, 4 + index * 8))
-            write(9, 8 + index * 8, listOf(0, 63 or (0x108 shl 16), 63 shl 8)[index])
+            val stride = if (gouraud && textured) 12 else 8
+            emit(imm(0x3a, 9, 14, 4 + index * stride))
+            if (gouraud) {
+                if (index > 0) write(9, index * stride, listOf(0xff, 0xff00, 0xff0000)[index])
+            }
+            if (textured) write(9, 8 + index * stride, listOf(0, 63 or (0x108 shl 16), 63 shl 8)[index])
         }
         write(11, 0x50, 0x800)
         write(11, 0, 0x1000)
-        write(11, 4, 7)
+        write(11, 4, if (gouraud) (if (textured) 9 else 6) else 7)
         write(11, 8, 0x11000001)
         // Distinct flat rectangles are independent of texture interpolation.
         for ((color, position) in listOf(0x0000ff to (12 to 12), 0x00ff00 to (302 to 12), 0xff0000 to (12 to 222))) {

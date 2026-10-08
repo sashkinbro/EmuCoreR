@@ -42,7 +42,7 @@
 //                    base-coordinate scaling.
 //
 // Bindings: vertex inputs only. The fragment shader uses the batch UBO;
-// this vertex shader needs no descriptors or push constants.
+// the vertex shader reads the interpolation flags from the same batch UBO.
 
 #version 450 core
 
@@ -63,6 +63,10 @@ layout(constant_id = 0) const uint RESOLUTION_SCALE = 1u;
 #else
 #  define COLOR_INTERP INTERP
 #endif
+
+layout(std140, set = 0, binding = 0) uniform BatchUBOData {
+  layout(offset = 68) uint u_pgxp_interpolation;
+};
 
 // ---- Vertex inputs (attribute layout axis) -------------------------
 layout(location = 0) in vec4 a_pos;
@@ -117,7 +121,8 @@ void main()
 
   gl_Position = vec4(pos_x * pos_w, pos_y * pos_w, pos_z * pos_w, pos_w);
 
-  v_col0 = a_col0;
+  // Alpha carries smooth-interpolated W for affine attribute reconstruction.
+  v_col0 = vec4(a_col0.rgb * (((u_pgxp_interpolation & 2u) != 0u) ? 1.0 : pos_w), pos_w);
 
 #if defined(TEXTURED)
   // Texture coordinates are packed into a single uint per vertex
@@ -125,6 +130,7 @@ void main()
   // factor to address into the upscaled VRAM atlas.
   v_tex0 = vec2(float((a_texcoord & 0xFFFFu) * RESOLUTION_SCALE),
                 float((a_texcoord >> 16)     * RESOLUTION_SCALE));
+  v_tex0 *= ((u_pgxp_interpolation & 1u) != 0u) ? 1.0 : pos_w;
 
   // a_texpage is similarly packed:
   //   bits  0..3   page base X  (in 64-texel native units)

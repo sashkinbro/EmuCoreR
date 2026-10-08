@@ -74,6 +74,7 @@ layout(std140, set = 0, binding = 0) uniform BatchUBOData {
   // Non-zero when binding 1 is a composited texture page replacement (see
   // SampleFromVRAM). Offset 64 matches the C++ BatchUBOData tail.
   layout(offset = 64) uint u_replacement_enabled;
+  layout(offset = 68) uint u_pgxp_interpolation;
 };
 
 // ---- VRAM atlas sampler --------------------------------------------
@@ -265,7 +266,9 @@ void FilteredSampleFromVRAM(uvec4 texpage, vec2 coords, vec4 uv_limits,
 
 void main()
 {
-  uvec3 vertcol = uvec3(v_col0.rgb * vec3(255.0, 255.0, 255.0));
+  float affine_scale = 1.0 / v_col0.a;
+  float color_scale = ((u_pgxp_interpolation & 2u) != 0u) ? 1.0 : affine_scale;
+  uvec3 vertcol = uvec3((v_col0.rgb * color_scale) * vec3(255.0, 255.0, 255.0));
 
   if (INTERLACING)
   {
@@ -277,7 +280,7 @@ void main()
   // resolution coords; direct-16bpp textures use upscaled coords. The
   // UV-limits extension (direct only) compensates for upscaling.
   bool palette = PALETTE_4_BIT || PALETTE_8_BIT;
-  vec2 coords = v_tex0;
+  vec2 coords = v_tex0 * (((u_pgxp_interpolation & 1u) != 0u) ? 1.0 : affine_scale);
   if (palette)
     coords /= float(RESOLUTION_SCALE);
 

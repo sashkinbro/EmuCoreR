@@ -33,9 +33,24 @@ ALWAYS_INLINE static bool ShouldUseUVLimits()
          g_settings.gpu_texture_filter != GPUTextureFilter::Nearest;
 }
 
-ALWAYS_INLINE static bool ShouldDisableColorPerspective()
+ALWAYS_INLINE static bool UsesPGXPAttributeWeights(HostDisplay::RenderAPI render_api)
 {
-  return g_settings.gpu_pgxp_enable && g_settings.gpu_pgxp_texture_correction && !g_settings.gpu_pgxp_color_correction;
+  return render_api == HostDisplay::RenderAPI::Vulkan || render_api == HostDisplay::RenderAPI::OpenGL ||
+         render_api == HostDisplay::RenderAPI::OpenGLES;
+}
+
+ALWAYS_INLINE static bool ShouldDisableColorPerspective(HostDisplay::RenderAPI render_api)
+{
+  // The shaders reconstruct affine attributes using an interpolated W.
+  // Color and UV must share its interpolation mode, including on OpenGL ES.
+  return !UsesPGXPAttributeWeights(render_api) && g_settings.gpu_pgxp_enable &&
+         g_settings.gpu_pgxp_texture_correction && !g_settings.gpu_pgxp_color_correction;
+}
+
+ALWAYS_INLINE static uint32_t GetPGXPInterpolationFlags()
+{
+  return g_settings.gpu_pgxp_enable ? ((g_settings.gpu_pgxp_texture_correction ? 1u : 0u) |
+                                       (g_settings.gpu_pgxp_color_correction ? 2u : 0u)) : 0u;
 }
 
 GPU_HW::GPU_HW() : GPU()
@@ -73,7 +88,7 @@ bool GPU_HW::Initialize(HostDisplay* host_display)
   m_using_uv_limits = ShouldUseUVLimits();
   m_chroma_smoothing = g_settings.gpu_24bit_chroma_smoothing;
   m_downsample_mode = GetDownsampleMode(m_resolution_scale);
-  m_disable_color_perspective = m_supports_disable_color_perspective && ShouldDisableColorPerspective();
+  m_disable_color_perspective = m_supports_disable_color_perspective && ShouldDisableColorPerspective(m_render_api);
   m_shader_precompile_mode = g_settings.gpu_shader_precompile_mode;
 
   if (m_multisamples != g_settings.gpu_multisamples)
@@ -110,6 +125,7 @@ bool GPU_HW::Initialize(HostDisplay* host_display)
   m_batch_ubo_data.u_scaled_dithering = m_scaled_dithering ? 1u : 0u;
   m_batch_ubo_data.u_pgxp_depth = m_pgxp_depth_buffer ? 1u : 0u;
   m_batch_ubo_data.u_uv_limits = m_using_uv_limits ? 1u : 0u;
+  m_batch_ubo_data.u_pgxp_interpolation = GetPGXPInterpolationFlags();
 
   UpdateSoftwareRenderer(false);
 
@@ -159,6 +175,7 @@ void GPU_HW::Reset(bool clear_vram)
   m_batch_ubo_data.u_scaled_dithering = m_scaled_dithering ? 1u : 0u;
   m_batch_ubo_data.u_pgxp_depth = m_pgxp_depth_buffer ? 1u : 0u;
   m_batch_ubo_data.u_uv_limits = m_using_uv_limits ? 1u : 0u;
+  m_batch_ubo_data.u_pgxp_interpolation = GetPGXPInterpolationFlags();
 
   m_batch_ubo_dirty = true;
   m_current_depth = 1;
@@ -218,7 +235,7 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
   const bool per_sample_shading = g_settings.gpu_per_sample_shading && m_supports_per_sample_shading;
   const GPUDownsampleMode downsample_mode = GetDownsampleMode(resolution_scale);
   const bool use_uv_limits = ShouldUseUVLimits();
-  const bool disable_color_perspective = m_supports_disable_color_perspective && ShouldDisableColorPerspective();
+  const bool disable_color_perspective = m_supports_disable_color_perspective && ShouldDisableColorPerspective(m_render_api);
 
   *framebuffer_changed =
     (m_resolution_scale != resolution_scale || m_multisamples != multisamples ||
@@ -385,6 +402,7 @@ void GPU_HW::UpdateHWSettings(bool* framebuffer_changed, bool* shaders_changed,
   m_batch_ubo_data.u_true_color = m_true_color ? 1u : 0u;
   m_batch_ubo_data.u_scaled_dithering = m_scaled_dithering ? 1u : 0u;
   m_batch_ubo_data.u_uv_limits = m_using_uv_limits ? 1u : 0u;
+  m_batch_ubo_data.u_pgxp_interpolation = GetPGXPInterpolationFlags();
   m_batch_ubo_dirty = true;
 
   if (!m_supports_dual_source_blend && TextureFilterRequiresDualSourceBlend(m_texture_filtering))
@@ -873,7 +891,9 @@ void GPU_HW::LoadVertices()
           // polygon can still occlude another polygon using its tracked Z.
           if (m_pgxp_depth_buffer)
             v.z = valid_geometry_depth ? std::min(v.w, 1.f) : 1.f;
-          if (!valid_geometry_depth || !g_settings.gpu_pgxp_texture_correction)
+          if (!valid_geometry_depth ||
+              (!g_settings.gpu_pgxp_texture_correction &&
+               (!UsesPGXPAttributeWeights(m_render_api) || !g_settings.gpu_pgxp_color_correction)))
             v.w = 1.f;
         }
       }

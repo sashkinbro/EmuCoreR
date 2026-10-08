@@ -2,6 +2,7 @@
 #include "common/heap_array.h"
 #include "gpu.h"
 #include "host_display.h"
+#include <cstddef>
 #include <cstring>
 #include <sstream>
 #include <string>
@@ -192,12 +193,17 @@ protected:
     // u_replacement_enabled: non-zero when this batch samples a texture page
     // replacement from binding 1 instead of the VRAM atlas. Appended after
     // u_render_mode so the existing std140 offsets (0..60) are unchanged;
-    // the three padding words bring the block to 80 bytes (a 16-byte
+    // the interpolation field and padding keep the block at 80 bytes (a 16-byte
     // multiple). Only the pre-baked Vulkan fragment shaders read this field
     // (offset 64); the D3D/OpenGL runtime-generated shaders ignore it.
     uint32_t u_replacement_enabled;
-    uint32_t u_replacement_padding[3];
+    // Bit 0 selects perspective UV, bit 1 selects perspective color.
+    // Reuses padding at offset 68; the batch block remains 80 bytes.
+    uint32_t u_pgxp_interpolation;
+    uint32_t u_replacement_padding[2];
   };
+  static_assert(sizeof(BatchUBOData) == 80);
+  static_assert(offsetof(BatchUBOData, u_pgxp_interpolation) == 68);
 
   struct VRAMFillUBOData
   {
