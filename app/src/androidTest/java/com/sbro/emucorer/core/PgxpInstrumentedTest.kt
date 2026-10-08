@@ -24,7 +24,10 @@ class PgxpInstrumentedTest {
     @Test
     fun texturedPolygonsAndDepthRenderCorrectly() = runProbe(true)
 
-    private fun runProbe(textured: Boolean) {
+    @Test
+    fun runaheadPreservesPrecisionAcrossInputChanges() = runProbe(false, true)
+
+    private fun runProbe(textured: Boolean, runahead: Boolean = false) {
         val deviceModel = InstrumentationRegistry.getArguments().getString("pgxpDeviceModel", "CPH2747")
         assertTrue("unsupported PGXP test device", deviceModel in listOf("CPH2747", "RG556"))
         assertEquals(deviceModel, Build.MODEL)
@@ -56,6 +59,7 @@ class PgxpInstrumentedTest {
                             "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
                             "BIOS_PatchFastBoot" to "false", "Console_Region" to "NTSC-U",
                             "Main_ApplyGameSettings" to "false", "Main_SaveStateCompression" to "DeflateLow",
+                            "Main_RunaheadFrameCount" to if (runahead) "2" else "0",
                             "Console_Enable8MBRAM" to (cpu == "Recompiler" && depth).toString()
                         )
                         options.forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
@@ -71,7 +75,7 @@ class PgxpInstrumentedTest {
                                     bridge.runFrame(session)
                                     pixel = centerPixel(reader) ?: pixel
                                 }
-                                val label = "$cpu/${RendererDefaults.coreRendererName(renderer)}/depth=$depth/textured=$textured"
+                                val label = "$cpu/${RendererDefaults.coreRendererName(renderer)}/depth=$depth/textured=$textured/runahead=$runahead"
                                 Log.i("PGXPProbe", "$label display=${bridge.getDisplayRect(session)?.toList()} diagnostics=${bridge.getDiagnostics()}")
                                 assertNotNull("no rendered image: $label", pixel)
                                 val rgb = pixel!!
@@ -117,6 +121,18 @@ class PgxpInstrumentedTest {
                                 val wrappedX = if (shiftedX >= 32768f) shiftedX - 65536f else shiftedX
                                 assertEquals("right shift used fractional carry: $label", wrappedX, before.getFloat(0x2060 / 4 * 20), 0.001f)
                                 assertEquals("right shift Y: $label", sy / 2f, before.getFloat(0x2060 / 4 * 20 + 4), 0.001f)
+                                if (runahead) {
+                                    for (buttons in listOf(0xbfff, 0xffff)) {
+                                        bridge.setPadButtons(session, 0, buttons)
+                                        repeat(4) {
+                                            bridge.runFrame(session)
+                                            pixel = centerPixel(reader) ?: pixel
+                                        }
+                                        assertEquals("runahead save failed: $label", 0, bridge.saveState(session, state.absolutePath))
+                                        assertArrayEquals("input rollback lost precision: $label buttons=$buttons",
+                                            before.array(), precisionMemory(state, ramSize).array())
+                                    }
+                                }
                                 assertEquals("reload failed: $label", 0, bridge.loadState(session, state.absolutePath))
                                 assertEquals(0, bridge.saveState(session, state.absolutePath))
                                 assertArrayEquals("load lost precision: $label", before.array(), precisionMemory(state, ramSize).array())

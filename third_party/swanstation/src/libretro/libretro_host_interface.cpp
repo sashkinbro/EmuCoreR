@@ -1195,24 +1195,18 @@ bool HostInterface::retro_serialize(void* data, size_t size)
 
 bool HostInterface::retro_unserialize(const void* data, size_t size)
 {
-  // Ask the frontend whether this load is for runahead / rewind / netplay
-  // rollback or a normal disk load. The runahead flavours guarantee the
-  // state was produced by the same binary in the same address space, so
-  // we can take the cheap "memory state" path which marks JIT blocks
-  // invalidated rather than throwing the entire CPU code cache away and
-  // recompiling the dispatcher from scratch (System::DoState's
-  // is_memory_state argument). The cache stays warm across the runahead
-  // window, which is what makes per-frame state reload affordable.
+  // Same-binary runahead can retain compiled CPU blocks. The frontend state
+  // still uses the full serialized layout produced by retro_serialize.
   retro_savestate_context ctx = RETRO_SAVESTATE_CONTEXT_NORMAL;
-  bool is_memory_state = false;
+  bool preserve_code_cache = false;
   if (g_retro_environment_callback(RETRO_ENVIRONMENT_GET_SAVESTATE_CONTEXT, &ctx))
   {
-    is_memory_state = (ctx == RETRO_SAVESTATE_CONTEXT_RUNAHEAD_SAME_INSTANCE ||
-                       ctx == RETRO_SAVESTATE_CONTEXT_RUNAHEAD_SAME_BINARY);
+    preserve_code_cache = (ctx == RETRO_SAVESTATE_CONTEXT_RUNAHEAD_SAME_INSTANCE ||
+                           ctx == RETRO_SAVESTATE_CONTEXT_RUNAHEAD_SAME_BINARY);
   }
 
   std::unique_ptr<ByteStream> stream = ByteStream_CreateReadOnlyMemoryStream(data, static_cast<uint32_t>(size));
-  return System::LoadState(stream.get(), is_memory_state);
+  return System::LoadState(stream.get(), preserve_code_cache);
 }
 
 void* HostInterface::retro_get_memory_data(unsigned id)

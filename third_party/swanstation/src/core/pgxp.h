@@ -33,6 +33,9 @@ void Shutdown();
 /// throw away the vertex data the game has already computed.
 bool DoState(StateWrapper& sw);
 
+/// Compact precision snapshots for same-process runahead states.
+bool DoMemoryState(StateWrapper& sw);
+
 // -- GTE functions
 // Transforms
 void GTE_PushSXYZ2f(float x, float y, float z, uint32_t v);

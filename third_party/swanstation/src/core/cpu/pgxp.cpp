@@ -23,6 +23,8 @@
 #include "cpu_core.h"
 #include "settings.h"
 #include "common/state_wrapper.h"
+#include <algorithm>
+#include <array>
 #include <climits>
 #include <cmath>
 #include <cstring>
@@ -481,6 +483,70 @@ bool DoState(StateWrapper& sw)
   if (sw.IsReading() && vertexCache)
     std::memset(vertexCache, 0, sizeof(PGXP_value) * VERTEX_CACHE_SIZE);
 
+  return !sw.HasError();
+}
+
+bool DoMemoryState(StateWrapper& sw)
+{
+  bool has_state = g_settings.gpu_pgxp_enable;
+  sw.Do(&has_state);
+  if (!has_state)
+  {
+    if (sw.IsReading())
+      Reset();
+    return !sw.HasError();
+  }
+
+  EnsureMemory();
+  if (sw.IsReading())
+    Reset();
+  sw.DoBytes(CPU_reg, sizeof(CPU_reg));
+  sw.DoBytes(CP0_reg, sizeof(CP0_reg));
+  sw.DoBytes(GTE_data_reg, sizeof(GTE_data_reg));
+  sw.DoBytes(GTE_ctrl_reg, sizeof(GTE_ctrl_reg));
+
+  // Each 64-word page carries a bitmap and only the entries with tracked
+  // components. Empty RAM needs eight bytes per page instead of 1280, while
+  // fully tracked RAM adds only a bitmap to the existing precision payload.
+  constexpr uint32_t page_size = 64;
+  std::array<PGXP_value, page_size> values;
+  for (uint32_t base = 0; base < s_mem_value_count; base += page_size)
+  {
+    const uint32_t count = std::min(page_size, s_mem_value_count - base);
+    uint64_t mask = 0;
+    uint32_t tracked = 0;
+    if (sw.IsWriting())
+    {
+      for (uint32_t offset = 0; offset < count; offset++)
+      {
+        if ((Mem[base + offset].flags & VALID_ALL) != 0)
+        {
+          mask |= uint64_t(1) << offset;
+          values[tracked++] = Mem[base + offset];
+        }
+      }
+    }
+    sw.Do(&mask);
+    if (sw.HasError() || (count < page_size && (mask >> count) != 0))
+      return false;
+    if (sw.IsReading())
+    {
+      for (uint32_t offset = 0; offset < count; offset++)
+        tracked += static_cast<uint32_t>((mask >> offset) & 1u);
+    }
+    sw.DoBytes(values.data(), sizeof(PGXP_value) * tracked);
+    if (sw.HasError())
+      return false;
+    if (sw.IsReading())
+    {
+      uint32_t entry = 0;
+      for (uint32_t offset = 0; offset < count; offset++)
+      {
+        if ((mask & (uint64_t(1) << offset)) != 0)
+          Mem[base + offset] = values[entry++];
+      }
+    }
+  }
   return !sw.HasError();
 }
 
