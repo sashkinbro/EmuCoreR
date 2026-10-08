@@ -1386,106 +1386,6 @@ void CPU_SLTU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 // Register mult/div
 ////////////////////////////////////
 
-void CPU_MULT(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
-{
-  // Hi/Lo = Rs * Rt (signed)
-  Validate(&CPU_reg[rs(instr)], rsVal);
-  Validate(&CPU_reg[rt(instr)], rtVal);
-
-  // iCB: Only require one valid input
-  if (((CPU_reg[rt(instr)].flags & VALID_01) != VALID_01) != ((CPU_reg[rs(instr)].flags & VALID_01) != VALID_01))
-  {
-    MakeValid(&CPU_reg[rs(instr)], rsVal);
-    MakeValid(&CPU_reg[rt(instr)], rtVal);
-  }
-
-  CPU_Lo = CPU_Hi = CPU_reg[rs(instr)];
-  TaintZ(CPU_Lo);
-  TaintZ(CPU_Hi);
-
-  CPU_Lo.halfFlags[0] = CPU_Hi.halfFlags[0] = (CPU_reg[rs(instr)].halfFlags[0] & CPU_reg[rt(instr)].halfFlags[0]);
-
-  double xx, xy, yx, yy;
-  double lx = 0, ly = 0, hx = 0, hy = 0;
-
-  // Multiply out components
-  xx = f16Unsign(CPU_reg[rs(instr)].x) * f16Unsign(CPU_reg[rt(instr)].x);
-  xy = f16Unsign(CPU_reg[rs(instr)].x) * (CPU_reg[rt(instr)].y);
-  yx = (CPU_reg[rs(instr)].y) * f16Unsign(CPU_reg[rt(instr)].x);
-  yy = (CPU_reg[rs(instr)].y) * (CPU_reg[rt(instr)].y);
-
-  // Split values into outputs
-  lx = xx;
-
-  ly = f16Overflow(xx);
-  ly += xy + yx;
-
-  hx = f16Overflow(ly);
-  hx += yy;
-
-  hy = f16Overflow(hx);
-
-  CPU_Lo.x = (float)f16Sign(lx);
-  CPU_Lo.y = (float)f16Sign(ly);
-  CPU_Hi.x = (float)f16Sign(hx);
-  CPU_Hi.y = (float)f16Sign(hy);
-
-  // compute PSX value (signed 32x32 -> 64 multiply matching MIPS MULT)
-  const uint64_t result = static_cast<uint64_t>(static_cast<int64_t>(static_cast<int32_t>(rsVal)) * static_cast<int64_t>(static_cast<int32_t>(rtVal)));
-  CPU_Hi.value = static_cast<uint32_t>(result >> 32);
-  CPU_Lo.value = static_cast<uint32_t>(result);
-}
-
-void CPU_MULTU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
-{
-  // Hi/Lo = Rs * Rt (unsigned)
-  Validate(&CPU_reg[rs(instr)], rsVal);
-  Validate(&CPU_reg[rt(instr)], rtVal);
-
-  // iCB: Only require one valid input
-  if (((CPU_reg[rt(instr)].flags & VALID_01) != VALID_01) != ((CPU_reg[rs(instr)].flags & VALID_01) != VALID_01))
-  {
-    MakeValid(&CPU_reg[rs(instr)], rsVal);
-    MakeValid(&CPU_reg[rt(instr)], rtVal);
-  }
-
-  CPU_Lo = CPU_Hi = CPU_reg[rs(instr)];
-  TaintZ(CPU_Lo);
-  TaintZ(CPU_Hi);
-
-  CPU_Lo.halfFlags[0] = CPU_Hi.halfFlags[0] = (CPU_reg[rs(instr)].halfFlags[0] & CPU_reg[rt(instr)].halfFlags[0]);
-
-  double xx, xy, yx, yy;
-  double lx = 0, ly = 0, hx = 0, hy = 0;
-
-  // Multiply out components
-  xx = f16Unsign(CPU_reg[rs(instr)].x) * f16Unsign(CPU_reg[rt(instr)].x);
-  xy = f16Unsign(CPU_reg[rs(instr)].x) * f16Unsign(CPU_reg[rt(instr)].y);
-  yx = f16Unsign(CPU_reg[rs(instr)].y) * f16Unsign(CPU_reg[rt(instr)].x);
-  yy = f16Unsign(CPU_reg[rs(instr)].y) * f16Unsign(CPU_reg[rt(instr)].y);
-
-  // Split values into outputs
-  lx = xx;
-
-  ly = f16Overflow(xx);
-  ly += xy + yx;
-
-  hx = f16Overflow(ly);
-  hx += yy;
-
-  hy = f16Overflow(hx);
-
-  CPU_Lo.x = (float)f16Sign(lx);
-  CPU_Lo.y = (float)f16Sign(ly);
-  CPU_Hi.x = (float)f16Sign(hx);
-  CPU_Hi.y = (float)f16Sign(hy);
-
-  // compute PSX value
-  const uint64_t result = static_cast<uint64_t>(rsVal) * static_cast<uint64_t>(rtVal);
-  CPU_Hi.value = static_cast<uint32_t>(result >> 32);
-  CPU_Lo.value = static_cast<uint32_t>(result);
-}
-
 static PGXP_value IntegerValue(uint32_t raw)
 {
   return {static_cast<float>(static_cast<int16_t>(raw)),
@@ -1497,6 +1397,67 @@ static bool IsIntegerValue(const PGXP_value& value)
   return (value.flags & (VALID_01 | VALID_Z)) == VALID_01 &&
          value.x == static_cast<float>(static_cast<int16_t>(value.value)) &&
          value.y == static_cast<float>(static_cast<int16_t>(value.value >> 16));
+}
+
+static void CPU_MULTIPLY(uint32_t instr, uint32_t rsVal, uint32_t rtVal, bool sign)
+{
+  Validate(&CPU_reg[rs(instr)], rsVal);
+  Validate(&CPU_reg[rt(instr)], rtVal);
+  PGXP_value a = CPU_reg[rs(instr)], b = CPU_reg[rt(instr)];
+  MakeValid(&a, rsVal);
+  MakeValid(&b, rtVal);
+  const uint64_t product = sign ?
+    static_cast<uint64_t>(static_cast<int64_t>(static_cast<int32_t>(rsVal)) *
+                          static_cast<int64_t>(static_cast<int32_t>(rtVal))) : uint64_t(rsVal) * rtVal;
+  CPU_Lo = IntegerValue(static_cast<uint32_t>(product));
+  CPU_Hi = IntegerValue(static_cast<uint32_t>(product >> 32));
+  const bool integer_a = IsIntegerValue(a), integer_b = IsIntegerValue(b);
+  if (!std::isfinite(a.x) || !std::isfinite(a.y) || !std::isfinite(b.x) || !std::isfinite(b.y) ||
+      (integer_a && integer_b) || (integer_a && rsVal == 0) || (integer_b && rtVal == 0))
+    return;
+  if ((integer_a && rsVal == 1) || (integer_b && rtVal == 1))
+  {
+    CPU_Lo = integer_a && rsVal == 1 ? b : a;
+    return;
+  }
+
+  const double ax = double(a.x) + ((rsVal & 0x8000u) ? 65536.0 : 0.0);
+  const double bx = double(b.x) + ((rtVal & 0x8000u) ? 65536.0 : 0.0);
+  const double ay = double(a.y) + (!sign && (rsVal & 0x80000000u) ? 65536.0 : 0.0);
+  const double by = double(b.y) + (!sign && (rtVal & 0x80000000u) ? 65536.0 : 0.0);
+  const int64_t raw_ax = rsVal & 0xffffu, raw_bx = rtVal & 0xffffu;
+  const int64_t raw_ay = sign ? static_cast<int16_t>(rsVal >> 16) : int64_t(rsVal >> 16);
+  const int64_t raw_by = sign ? static_cast<int16_t>(rtVal >> 16) : int64_t(rtVal >> 16);
+  const int64_t carry_x = (raw_ax * raw_bx) >> 16;
+  const int64_t raw_y = carry_x + raw_ax * raw_by + raw_ay * raw_bx;
+  const int64_t carry_y = raw_y >> 16;
+  const int64_t raw_high = carry_y + raw_ay * raw_by;
+
+  // Only native bits cross a component boundary. Fractional geometry stays
+  // in the component being scaled instead of causing an early carry in Y.
+  CPU_Lo.x = static_cast<float>(f16Sign(ax * bx));
+  CPU_Lo.y = static_cast<float>(f16Sign(double(carry_x) + ax * by + ay * bx));
+  CPU_Hi.x = static_cast<float>(f16Sign(double(carry_y) + ay * by));
+  CPU_Hi.y = static_cast<float>(f16Sign(double(raw_high >> 16)));
+  // Multiplication is commutative: an exact scale must not hide the vertex
+  // depth merely because the scale was encoded as the first operand.
+  if (!((a.flags & b.flags & VALID_Z) != 0 && a.z != b.z))
+  {
+    CombineZ(CPU_Lo, a, b);
+    CopyZState(CPU_Hi, CPU_Lo);
+    TaintZ(CPU_Lo);
+    TaintZ(CPU_Hi);
+  }
+}
+
+void CPU_MULT(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
+{
+  CPU_MULTIPLY(instr, rsVal, rtVal, true);
+}
+
+void CPU_MULTU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
+{
+  CPU_MULTIPLY(instr, rsVal, rtVal, false);
 }
 
 static void CPU_DIVIDE(uint32_t instr, uint32_t numerator, uint32_t denominator, bool sign)
