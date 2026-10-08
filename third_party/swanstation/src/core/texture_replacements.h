@@ -43,6 +43,8 @@ struct hash<TextureReplacementHash>
 
 using TextureReplacementTexture = Common::RGBA8Image;
 
+class StateWrapper;
+
 // A composited texture page (all matching texpage replacements rasterized into
 // a single RGBA8 image) plus the information the renderer needs to sample it
 // with normalized coordinates. In "expanded" texel space a full page is always
@@ -97,6 +99,9 @@ public:
   // A later write invalidates an upload match even when it only touches part
   // of that upload. Coordinates and extents may wrap around VRAM.
   void InvalidatePendingVRAMWriteReplacements(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+
+  // Internal runahead snapshots retain pending matches alongside their VRAM.
+  bool DoMemoryState(StateWrapper& sw);
 
   // Texture page replacement lookup. `mode` may carry GPUTextureMode::RawTextureBit
   // (the ST* variants); page/palette coordinates are in VRAM words.

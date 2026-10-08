@@ -134,7 +134,11 @@ bool GPU_HW::Initialize(HostDisplay* host_display)
 
 void GPU_HW::Reset(bool clear_vram)
 {
+  g_texture_replacements.InvalidatePendingVRAMWriteReplacements(0, 0, VRAM_WIDTH, VRAM_HEIGHT);
   GPU::Reset(clear_vram);
+  // SoftReset may have completed a partial upload before the framebuffer is
+  // cleared. Its deferred replacement must not survive this reset either.
+  g_texture_replacements.InvalidatePendingVRAMWriteReplacements(0, 0, VRAM_WIDTH, VRAM_HEIGHT);
 
   m_batch_current_vertex_ptr = m_batch_start_vertex_ptr;
 
@@ -192,6 +196,8 @@ void GPU_HW::Reset(bool clear_vram)
 
 bool GPU_HW::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool update_display)
 {
+  if (sw.IsReading())
+    m_batch_current_vertex_ptr = m_batch_start_vertex_ptr;
   if (!GPU::DoState(sw, host_texture, false))
     return false;
 
@@ -209,6 +215,9 @@ bool GPU_HW::DoState(StateWrapper& sw, HostDisplayTexture** host_texture, bool u
     if (m_sw_renderer && sw.IsReading())
       std::memcpy(m_sw_renderer->GetVRAM(), m_vram_shadow.data(), VRAM_WIDTH * VRAM_HEIGHT * sizeof(uint16_t));
   }
+
+  if (host_texture && !g_texture_replacements.DoMemoryState(sw))
+    return false;
 
   // invalidate the whole VRAM read texture when loading state
   if (sw.IsReading())

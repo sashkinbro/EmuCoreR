@@ -696,6 +696,8 @@ bool GPU_HW_OpenGL::DoState(StateWrapper& sw, HostDisplayTexture** host_texture,
 {
   if (host_texture)
   {
+    if (sw.IsWriting())
+      FlushRender();
     HostDisplayTexture* tex = *host_texture;
     if (sw.IsReading())
     {

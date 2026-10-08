@@ -20,6 +20,13 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TextureReplacementInstrumentedTest {
     @Test
+    fun runaheadRetainsPendingTextureReplacements() {
+        for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
+            runPendingWriteProbe(renderer, 7, runaheadFrames = 2, slowDecode = true)
+        }
+    }
+
+    @Test
     fun delayedReplacementsRespectNewerVramWrites() {
         for (renderer in listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)) {
             for (mutation in 0..15) runPendingWriteProbe(renderer, mutation)
@@ -155,7 +162,7 @@ class TextureReplacementInstrumentedTest {
         }
     }
 
-    private fun runPendingWriteProbe(renderer: Int, mutation: Int) {
+    private fun runPendingWriteProbe(renderer: Int, mutation: Int, runaheadFrames: Int = 0, slowDecode: Boolean = false) {
         assertEquals("CPH2747", Build.MODEL)
         assertEquals("OnePlus", Build.MANUFACTURER)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -164,9 +171,20 @@ class TextureReplacementInstrumentedTest {
         val save = File(root, "save").apply { mkdirs() }
         val assets = File(root, "assets").apply { mkdirs() }
         val textures = File(root, "textures").apply { mkdirs() }
-        val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        val imageSize = if (slowDecode) 2048 else 32
+        val bitmap = Bitmap.createBitmap(imageSize, imageSize, Bitmap.Config.ARGB_8888)
         try {
             bitmap.eraseColor(Color.GREEN)
+            if (slowDecode) {
+                var seed = 0x12345678
+                val pixels = IntArray(imageSize * imageSize) {
+                    seed = seed xor (seed shl 13)
+                    seed = seed xor (seed ushr 17)
+                    seed = seed xor (seed shl 5)
+                    Color.rgb(seed and 15, 240 + ((seed ushr 8) and 15), (seed ushr 16) and 15)
+                }
+                bitmap.setPixels(pixels, 0, imageSize, 0, 0, imageSize, imageSize)
+            }
             File(textures, "vram-write-5bf538dc6e289176a1e739cd1e037dd4.png").outputStream().use {
                 assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
             }
@@ -184,7 +202,7 @@ class TextureReplacementInstrumentedTest {
                 "GPU_TextureFilter" to "Nearest", "GPU_MSAA" to "1", "GPU_WidescreenHack" to "false",
                 "GPU_DitheringMode" to "Unscaled", "Display_AspectRatio" to "4:3", "Display_CropMode" to "Borders",
                 "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
-                "Main_RunaheadFrameCount" to "0", "Main_ApplyGameSettings" to "false",
+                "Main_RunaheadFrameCount" to runaheadFrames.toString(), "Main_ApplyGameSettings" to "false",
                 "BIOS_PatchFastBoot" to "false", "Console_Region" to "NTSC-U",
                 "TextureReplacements_EnableVRAMWriteReplacements" to "false",
                 "TextureReplacements_PreloadTextures" to "false"
@@ -198,7 +216,8 @@ class TextureReplacementInstrumentedTest {
                     assertEquals(0, bridge.loadBiosOnly(session))
                     bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements", "true")
                     val counts = IntArray(3)
-                    repeat(20) {
+                    repeat(if (slowDecode) 50 else 20) { index ->
+                        if (runaheadFrames > 0) bridge.setPadButtons(session, 0, if (index % 2 == 0) 0xffff else 0xbfff)
                         bridge.runFrame(session)
                         val deadline = System.nanoTime() + 100_000_000
                         while (System.nanoTime() < deadline) {
