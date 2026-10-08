@@ -729,6 +729,126 @@ static void CheckPreciseCullingBounds()
   g_settings.gpu_pgxp_culling = false;
 }
 
+static void CheckGPUVertexSnapshots()
+{
+  using namespace PGXP;
+  g_settings.gpu_pgxp_vertex_cache = false;
+  auto precise = [](uint32_t token, uint32_t raw, float px, float py, float z) {
+    float x, y, w;
+    return GetPreciseVertex(token, raw, int16_t(raw), int16_t(raw >> 16), 0, 0, &x, &y, &w) &&
+           std::abs(x - px) < 0.0001f && std::abs(y - py) < 0.0001f && std::abs(w - z / 65535.f) < 0.000001f;
+  };
+  const uint32_t raw = XY(10, 20);
+  Reset();
+  Seed(0x100);
+  const uint32_t queued = CaptureGPUVertex(0x100, raw);
+  Seed(0x100, raw, 10.75f, 20.875f, 4000.f);
+  Check(precise(queued, raw, 10.25f, 20.5f, 1000.f),
+        "queued DMA vertex retains its geometry and depth after matching RAM bits are overwritten");
+  Check(CaptureGPUVertex(0x100, XY(30, 40)) == INVALID_GPU_VERTEX_TOKEN,
+        "GPU submission rejects stale memory precision before creating a handle");
+  Seed(0, raw, 10.875f, 20.75f, 8000.f);
+  Check(Vertex(INVALID_GPU_VERTEX_TOKEN, raw, 10.f, 20.f, false),
+        "untracked direct GPU writes cannot accidentally consume precision from RAM zero");
+
+  for (uint32_t address : {0x1f801810u, 0x9f801810u, 0xbf801810u})
+  {
+    Reset();
+    Seed(0x100);
+    CPU_SWC2(I(0x3a, 0, 14), raw, address);
+    const uint32_t direct_gte = ConsumeGPUWrite(raw);
+    Check(precise(direct_gte, raw, 10.25f, 20.5f, 1000.f), "direct SWC2 GPU writes retain precision through every bus alias");
+    Check(ConsumeGPUWrite(raw) == INVALID_GPU_VERTEX_TOKEN, "direct GPU metadata is consumed only once");
+    CPU_MFC2(R(0, 1, 14), raw, raw);
+    CPU_SW(I(0x2b, 0, 1), raw, address);
+    Check(precise(ConsumeGPUWrite(raw), raw, 10.25f, 20.5f, 1000.f), "direct CPU word stores retain GTE vertex precision");
+    CPU_SWC2(I(0x3a, 0, 14), raw, address);
+    CPU_SW(I(0x2b, 0, 1), raw, 0x200);
+    Check(ConsumeGPUWrite(raw) == INVALID_GPU_VERTEX_TOKEN, "unrelated word stores discard an unconsumed GPU latch");
+    CPU_SWC2(I(0x3a, 0, 14), raw, address);
+    CPU_SB(I(0x28, 0, 1), 0, address);
+    Check(ConsumeGPUWrite(raw) == INVALID_GPU_VERTEX_TOKEN, "byte stores cannot replay a full vertex GPU latch");
+    CPU_SWC2(I(0x3a, 0, 14), raw, address);
+    CPU_SH(I(0x29, 0, 1), 0, address);
+    Check(ConsumeGPUWrite(raw) == INVALID_GPU_VERTEX_TOKEN, "halfword stores cannot replay a full vertex GPU latch");
+    for (uint32_t opcode : {0x2au, 0x2eu})
+    {
+      CPU_SWC2(I(0x3a, 0, 14), raw, address);
+      CPU_SW(I(opcode, 0, 1), raw, address);
+      Check(ConsumeGPUWrite(raw) == INVALID_GPU_VERTEX_TOKEN, "merged stores discard an unconsumed GPU latch");
+    }
+    CPU::g_state.cop0_regs.sr.Isc = true;
+    CPU_SWC2(I(0x3a, 0, 14), raw, address);
+    const uint32_t isolated = ConsumeGPUWrite(raw);
+    Check(address == 0xbf801810u ? precise(isolated, raw, 10.25f, 20.5f, 1000.f) :
+          isolated == INVALID_GPU_VERTEX_TOKEN, "only uncached GPU stores reach the bus during cache isolation");
+    CPU::g_state.cop0_regs.sr.Isc = false;
+    CPU_SW(I(0x2b, 0, 1), XY(30, 40), address);
+    Check(ConsumeGPUWrite(XY(30, 40)) == INVALID_GPU_VERTEX_TOKEN, "direct GPU writes reject mismatched source register bits");
+  }
+
+  Reset();
+  Seed(0x100);
+  std::vector<uint32_t> tokens;
+  for (uint32_t i = 0; i < GPU_VERTEX_SNAPSHOT_COUNT; i++) tokens.push_back(CaptureGPUVertex(0x100, raw));
+  bool all_valid = true;
+  for (uint32_t token : tokens) all_valid &= precise(token, raw, 10.25f, 20.5f, 1000.f);
+  Check(all_valid, "every slot in a full GPU FIFO retains its submitted vertex");
+  Seed(0x100, raw, 10.75f, 20.875f, 4000.f);
+  const uint32_t wrapped = CaptureGPUVertex(0x100, raw);
+  Check(Vertex(tokens.front(), raw, 10.f, 20.f, false) && precise(wrapped, raw, 10.75f, 20.875f, 4000.f),
+        "reused GPU slots reject old generations even when the packed coordinates match");
+  Check(precise(tokens.back(), raw, 10.25f, 20.5f, 1000.f), "ring wrap preserves the other queued vertices");
+  Reset();
+  Seed(0x100);
+  const uint32_t after_reset = CaptureGPUVertex(0x100, raw);
+  Check(Vertex(wrapped, raw, 10.f, 20.f, false) && precise(after_reset, raw, 10.25f, 20.5f, 1000.f),
+        "reset cannot attach a new vertex to an old GPU token");
+
+  for (bool memory_state : {false, true})
+  {
+    Reset();
+    Seed(0x100);
+    const uint32_t saved = CaptureGPUVertex(0x100, raw);
+    Seed(0x100, raw, 10.75f, 20.875f, 4000.f);
+    auto stream = ByteStream_CreateGrowableMemoryStream();
+    StateWrapper writer(stream.get(), StateWrapper::Mode::Write, 57);
+    Check(memory_state ? DoMemoryState(writer) : DoState(writer),
+          memory_state ? "runahead saves GPU vertex handles" : "persistent states save GPU vertex handles");
+    const uint32_t abandoned = CaptureGPUVertex(0x100, raw);
+    stream->SeekAbsolute(0);
+    StateWrapper reader(stream.get(), StateWrapper::Mode::Read, 57);
+    Check((memory_state ? DoMemoryState(reader) : DoState(reader)) &&
+          precise(saved, raw, 10.25f, 20.5f, 1000.f) && Vertex(0x100, raw, 10.75f, 20.875f) &&
+          Vertex(abandoned, raw, 10.f, 20.f, false),
+          "state reload restores queued precision independently of RAM and removes abandoned tokens");
+    stream->Resize(static_cast<uint32_t>(stream->GetSize() - 1));
+    stream->SeekAbsolute(0);
+    StateWrapper truncated(stream.get(), StateWrapper::Mode::Read, 57);
+    Check(!(memory_state ? DoMemoryState(truncated) : DoState(truncated)), "truncated GPU snapshot data fails cleanly");
+  }
+
+  Reset();
+  auto empty = ByteStream_CreateGrowableMemoryStream();
+  StateWrapper empty_writer(empty.get(), StateWrapper::Mode::Write, 57);
+  Check(DoGPUVertices(empty_writer) && empty->GetSize() == 516,
+        "empty GPU precision snapshots add only a sequence and sparse slot bitmaps");
+  Seed(0x100);
+  CaptureGPUVertex(0x100, raw);
+  auto malformed = ByteStream_CreateGrowableMemoryStream();
+  StateWrapper malformed_writer(malformed.get(), StateWrapper::Mode::Write, 57);
+  Check(DoGPUVertices(malformed_writer), "write GPU token validation fixture");
+  const uint32_t slot = (s_gpu_vertex_sequence - 1u) & (GPU_VERTEX_SNAPSHOT_COUNT - 1u);
+  // Sequence, preceding page bitmaps, this page's bitmap, then value and token.
+  malformed->SeekAbsolute(4 + (slot / 64) * 8 + 8 + sizeof(PGXP_value));
+  const uint32_t invalid_token = GPU_VERTEX_TOKEN_BASE | ((slot + 1u) & (GPU_VERTEX_SNAPSHOT_COUNT - 1u));
+  malformed->Write2(&invalid_token, sizeof(invalid_token), nullptr);
+  malformed->SeekAbsolute(0);
+  StateWrapper malformed_reader(malformed.get(), StateWrapper::Mode::Read, 57);
+  Check(!DoGPUVertices(malformed_reader), "GPU state rejects a token stored under the wrong ring slot");
+  Reset();
+}
+
 int main()
 {
   using namespace PGXP;
@@ -889,6 +1009,8 @@ int main()
   Check(stream->GetSize() + 5 * 1024 * 1024 < System::MAX_SAVE_STATE_SIZE,
         "2 MB persistent PGXP snapshot fits the libretro state bound");
   CheckMemorySnapshots();
+
+  CheckGPUVertexSnapshots();
   Shutdown();
   Bus::g_ram_size = Bus::RAM_8MB_SIZE;
   Bus::g_ram_mask = Bus::RAM_8MB_MASK;

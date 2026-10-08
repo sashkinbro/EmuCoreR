@@ -130,6 +130,89 @@ static PGXP_value GTE_ctrl_reg[32];
 static PGXP_value* Mem = nullptr;
 static PGXP_value* vertexCache = nullptr;
 
+struct GPUVertexSnapshot
+{
+  PGXP_value value;
+  uint32_t token;
+};
+static_assert(sizeof(GPUVertexSnapshot) == 24);
+static constexpr uint32_t GPU_VERTEX_TOKEN_BASE = 0x1e000000u;
+static constexpr uint32_t GPU_VERTEX_SEQUENCE_MASK = 0x00ffffffu;
+static std::array<GPUVertexSnapshot, GPU_VERTEX_SNAPSHOT_COUNT> s_gpu_vertices{};
+static uint32_t s_gpu_vertex_sequence = 0;
+static PGXP_value s_gpu_write = PGXP_value_invalid;
+
+static void ResetGPUVertices()
+{
+  s_gpu_vertices.fill({});
+  s_gpu_write = PGXP_value_invalid;
+  // A reset abandons old handles, even if native GPU words remain queued.
+  s_gpu_vertex_sequence = (s_gpu_vertex_sequence + GPU_VERTEX_SNAPSHOT_COUNT) & GPU_VERTEX_SEQUENCE_MASK;
+}
+
+static bool DoGPUVertices(StateWrapper& sw)
+{
+  if (sw.GetVersion() < 57)
+  {
+    if (sw.IsReading())
+      ResetGPUVertices();
+    return !sw.HasError();
+  }
+
+  if (sw.IsReading())
+  {
+    s_gpu_vertices.fill({});
+    s_gpu_write = PGXP_value_invalid;
+  }
+  sw.Do(&s_gpu_vertex_sequence);
+  if (sw.HasError() || s_gpu_vertex_sequence > GPU_VERTEX_SEQUENCE_MASK)
+    return false;
+
+  // Only populated slots are serialized, keeping empty runahead states small.
+  std::array<GPUVertexSnapshot, 64> values;
+  for (uint32_t base = 0; base < GPU_VERTEX_SNAPSHOT_COUNT; base += 64)
+  {
+    uint64_t mask = 0;
+    uint32_t count = 0;
+    if (sw.IsWriting())
+    {
+      for (uint32_t offset = 0; offset < 64; offset++)
+      {
+        const auto& entry = s_gpu_vertices[base + offset];
+        if ((entry.value.flags & VALID_01) == VALID_01)
+        {
+          mask |= uint64_t(1) << offset;
+          values[count++] = entry;
+        }
+      }
+    }
+    sw.Do(&mask);
+    if (sw.IsReading())
+    {
+      for (uint32_t offset = 0; offset < 64; offset++)
+        count += static_cast<uint32_t>((mask >> offset) & 1u);
+    }
+    sw.DoBytes(values.data(), sizeof(GPUVertexSnapshot) * count);
+    if (sw.HasError())
+      return false;
+    if (sw.IsReading())
+    {
+      uint32_t index = 0;
+      for (uint32_t offset = 0; offset < 64; offset++)
+      {
+        if ((mask & (uint64_t(1) << offset)) == 0)
+          continue;
+        const auto& entry = values[index++];
+        if ((entry.token & 0xff000000u) != GPU_VERTEX_TOKEN_BASE ||
+            (entry.token & (GPU_VERTEX_SNAPSHOT_COUNT - 1u)) != base + offset)
+          return false;
+        s_gpu_vertices[base + offset] = entry;
+      }
+    }
+  }
+  return !sw.HasError();
+}
+
 ALWAYS_INLINE_RELEASE void MakeValid(PGXP_value* pV, uint32_t psxV)
 {
   if (VALID_01 != (pV->flags & VALID_01))
@@ -311,6 +394,13 @@ ALWAYS_INLINE_RELEASE static void ValidateAndCopyMem16(PGXP_value* dest, uint32_
 
 ALWAYS_INLINE_RELEASE void WriteMem(const PGXP_value* value, uint32_t addr)
 {
+  if ((addr & CPU::PHYSICAL_MEMORY_ADDRESS_MASK) == 0x1f801810u)
+  {
+    const uint32_t segment = addr >> 29;
+    if (segment == 5 || ((segment == 0 || segment == 4) && !CPU::g_state.cop0_regs.sr.Isc))
+      s_gpu_write = *value;
+    return;
+  }
   PGXP_value* pMem = GetPtr(addr);
 
   if (pMem)
@@ -382,6 +472,7 @@ static void EnsureMemory()
 
 void Initialize()
 {
+  ResetGPUVertices();
   std::memset(CPU_reg, 0, sizeof(CPU_reg));
   std::memset(CP0_reg, 0, sizeof(CP0_reg));
 
@@ -403,6 +494,7 @@ void Initialize()
 
 void Reset()
 {
+  ResetGPUVertices();
   std::memset(CPU_reg, 0, sizeof(CPU_reg));
   std::memset(CP0_reg, 0, sizeof(CP0_reg));
 
@@ -418,6 +510,7 @@ void Reset()
 
 void Shutdown()
 {
+  ResetGPUVertices();
   if (vertexCache)
   {
     std::free(vertexCache);
@@ -463,7 +556,7 @@ bool DoState(StateWrapper& sw)
   if (sw.IsReading() && vertexCache)
     std::memset(vertexCache, 0, sizeof(PGXP_value) * VERTEX_CACHE_SIZE);
 
-  return !sw.HasError();
+  return DoGPUVertices(sw);
 }
 
 bool DoMemoryState(StateWrapper& sw)
@@ -527,7 +620,7 @@ bool DoMemoryState(StateWrapper& sw)
       }
     }
   }
-  return !sw.HasError();
+  return DoGPUVertices(sw);
 }
 
 // Instruction register decoding
@@ -758,6 +851,7 @@ void CPU_LWC2(uint32_t instr, uint32_t rtVal, uint32_t addr)
 
 void CPU_SWC2(uint32_t instr, uint32_t rtVal, uint32_t addr)
 {
+  s_gpu_write = PGXP_value_invalid;
   //  Mem[addr] = GTE_D[Rt]
   if (rt(instr) == 28 || rt(instr) == 29 || rt(instr) == 31)
   {
@@ -810,6 +904,34 @@ static ALWAYS_INLINE_RELEASE bool IsWithinTolerance(float precise_x, float preci
           std::abs(precise_y - static_cast<float>(int_y)) <= tolerance);
 }
 
+static uint32_t CaptureGPUValue(const PGXP_value* source, uint32_t raw)
+{
+  if (!source || source->value != raw || (source->flags & VALID_01) != VALID_01 ||
+      !std::isfinite(source->x) || !std::isfinite(source->y))
+    return INVALID_GPU_VERTEX_TOKEN;
+  if ((source->flags & VALID_Z) == 0 && source->x == float(int16_t(raw)) && source->y == float(int16_t(raw >> 16)))
+    return INVALID_GPU_VERTEX_TOKEN;
+
+  const uint32_t token = GPU_VERTEX_TOKEN_BASE | s_gpu_vertex_sequence;
+  s_gpu_vertex_sequence = (s_gpu_vertex_sequence + 1u) & GPU_VERTEX_SEQUENCE_MASK;
+  auto& entry = s_gpu_vertices[token & (GPU_VERTEX_SNAPSHOT_COUNT - 1u)];
+  entry.value = *source;
+  entry.token = token;
+  return token;
+}
+
+uint32_t CaptureGPUVertex(uint32_t address, uint32_t value)
+{
+  return CaptureGPUValue(ReadMem(address), value);
+}
+
+uint32_t ConsumeGPUWrite(uint32_t value)
+{
+  const PGXP_value pending = s_gpu_write;
+  s_gpu_write = PGXP_value_invalid;
+  return CaptureGPUValue(&pending, value);
+}
+
 bool GetPreciseVertex(uint32_t addr, uint32_t value, int x, int y, int xOffs, int yOffs, float* out_x, float* out_y, float* out_w)
 {
   *out_x = static_cast<float>(x);
@@ -837,7 +959,9 @@ bool GetPreciseVertex(uint32_t addr, uint32_t value, int x, int y, int xOffs, in
     return true;
   };
 
-  const PGXP_value* vert = ReadMem(addr);
+  const bool snapshot = (addr & 0xff000000u) == GPU_VERTEX_TOKEN_BASE;
+  const auto& entry = s_gpu_vertices[addr & (GPU_VERTEX_SNAPSHOT_COUNT - 1u)];
+  const PGXP_value* vert = snapshot ? (entry.token == addr ? &entry.value : nullptr) : ReadMem(addr);
   if (use_vertex(vert, true))
     return (vert->flags & VALID_Z) != 0 && std::isfinite(vert->z) && vert->z > 0.f;
 
@@ -1030,6 +1154,7 @@ void CPU_LHx(uint32_t instr, uint32_t rtVal, uint32_t addr)
 
 void CPU_SB(uint32_t instr, uint8_t rtVal, uint32_t addr)
 {
+  s_gpu_write = PGXP_value_invalid;
   PGXP_value* memory = GetPtr(addr);
   if (!memory)
     return;
@@ -1047,6 +1172,7 @@ void CPU_SB(uint32_t instr, uint8_t rtVal, uint32_t addr)
 
 void CPU_SH(uint32_t instr, uint16_t rtVal, uint32_t addr)
 {
+  s_gpu_write = PGXP_value_invalid;
   PGXP_value* val = &CPU_reg[rt(instr)];
   if (rt(instr) == 0)
     Validate(val, 0);
@@ -1065,6 +1191,7 @@ void CPU_SH(uint32_t instr, uint16_t rtVal, uint32_t addr)
 
 void CPU_SW(uint32_t instr, uint32_t rtVal, uint32_t addr)
 {
+  s_gpu_write = PGXP_value_invalid;
   // Mem[Rs + Im] = Rt
   const uint32_t opcode = op(instr);
   if (opcode == 0x2Au || opcode == 0x2Eu)

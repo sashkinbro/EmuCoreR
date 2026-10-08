@@ -40,8 +40,20 @@ class PgxpPerspectiveInstrumentedTest {
         runProbe(true, true, software = true)
     }
 
+    @Test
+    fun directGteWritesKeepProjectedDepth() = runProbe(false, submission = "SWC2")
+
+    @Test
+    fun directCpuWritesKeepProjectedDepth() = runProbe(false, submission = "SW")
+
+    @Test
+    fun queuedDmaVerticesSurviveRamChangesAndStateReload() = runProbe(false, submission = "DMAQueued")
+
+    @Test
+    fun queuedDmaVerticesSurviveRunahead() = runProbe(false, submission = "DMAQueuedRunahead")
+
     private fun runProbe(gouraud: Boolean, textured: Boolean = !gouraud, antialiasing: String = "1",
-                         software: Boolean = false) {
+                         software: Boolean = false, submission: String = "DMA") {
         assertEquals("CPH2747", Build.MODEL)
         assertEquals("OnePlus", Build.MANUFACTURER)
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -49,18 +61,19 @@ class PgxpPerspectiveInstrumentedTest {
         val system = File(root, "system").apply { mkdirs() }
         val save = File(root, "save").apply { mkdirs() }
         val assets = File(root, "assets").apply { mkdirs() }
-        val bios = File(system, "perspective.bin").apply { writeBytes(makeBios(gouraud, textured)) }
+        val bios = File(system, "perspective.bin").apply { writeBytes(makeBios(gouraud, textured, submission)) }
         val bridge = NativeCoreBridge()
         // Test-only mutation proves the perspective assertions detect an
         // affine renderer instead of merely accepting a textured frame.
         val forceAffine = InstrumentationRegistry.getArguments().getString("pgxpPerspectiveForceAffine") == "true"
+        val queued = submission.startsWith("DMAQueued")
         try {
             for (cpu in if (antialiasing == "1") listOf("Interpreter", "Recompiler") else listOf("Recompiler")) {
                 val renderers = if (software) listOf(RendererDefaults.CORE_SOFTWARE)
                     else listOf(RendererDefaults.CORE_VULKAN, RendererDefaults.CORE_OPENGL)
                 for (renderer in renderers) {
-                    for (scale in if (software) listOf(1) else if (antialiasing == "1") listOf(1, 3) else listOf(3)) {
-                        for (perspective in listOf(false, true)) {
+                    for (scale in if (software || queued) listOf(1) else if (antialiasing == "1") listOf(1, 3) else listOf(3)) {
+                        for (perspective in if (queued) listOf(true) else listOf(false, true)) {
                             for (colorCorrection in if (gouraud) listOf(false, true) else listOf(false)) {
                                 bridge.nativeInit(system.absolutePath, save.absolutePath, assets.absolutePath)
                                 mapOf(
@@ -77,7 +90,8 @@ class PgxpPerspectiveInstrumentedTest {
                                     "Display_AspectRatio" to "4:3", "Display_CropMode" to "Borders",
                                     "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
                                     "BIOS_PatchFastBoot" to "false", "Console_Region" to "NTSC-U",
-                                    "Main_ApplyGameSettings" to "false", "Main_RunaheadFrameCount" to "0",
+                                    "Main_ApplyGameSettings" to "false",
+                                    "Main_RunaheadFrameCount" to if (submission == "DMAQueuedRunahead") "2" else "0",
                                     "Console_Enable8MBRAM" to "false"
                                 ).forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
                                 val session = bridge.createSession()
@@ -88,14 +102,35 @@ class PgxpPerspectiveInstrumentedTest {
                                         assertEquals(0, bridge.loadBios(session, bios.absolutePath))
                                         assertEquals(0, bridge.loadBiosOnly(session))
                                         var frame: Frame? = null
-                                        repeat(6) {
-                                            bridge.runFrame(session)
-                                            frame = capture(reader) ?: frame
+                                        val checkpoint = File(root, "queued.rstate")
+                                        if (queued) {
+                                            repeat(1) {
+                                                bridge.runFrame(session)
+                                                frame = capture(reader) ?: frame
+                                            }
+                                            assertNotNull("missing partial-packet frame", frame)
+                                            assertTrue("packet finished before checkpoint", frame!!.rgb.all { it == 0 })
+                                            assertEquals(0, bridge.saveState(session, checkpoint.absolutePath))
                                         }
-                                        val label = "$cpu/${RendererDefaults.coreRendererName(renderer)}/scale=$scale/aa=$antialiasing/perspective=$perspective/color=$colorCorrection/gouraud=$gouraud/textured=$textured"
+                                        fun renderProbe() {
+                                            for (attempt in 0 until if (queued) 160 else 6) {
+                                                bridge.runFrame(session)
+                                                frame = capture(reader) ?: frame
+                                                if (queued && frame?.let(::hasCalibrationMarkers) == true) break
+                                            }
+                                        }
+                                        renderProbe()
+                                        val label = "$cpu/${RendererDefaults.coreRendererName(renderer)}/scale=$scale/aa=$antialiasing/perspective=$perspective/color=$colorCorrection/gouraud=$gouraud/textured=$textured/submission=$submission"
                                         assertNotNull("missing frame: $label", frame)
                                         checkSamples(frame!!, perspective && !software, colorCorrection && !software,
                                             gouraud, textured, !software && antialiasing == "1", label)
+                                        if (queued) {
+                                            assertEquals(0, bridge.loadState(session, checkpoint.absolutePath))
+                                            frame = null
+                                            renderProbe()
+                                            checkSamples(frame!!, perspective, colorCorrection, gouraud, textured,
+                                                antialiasing == "1", "$label/reloaded")
+                                        }
                                         Log.i("PGXPPerspective", "PASS $label")
                                     } finally { bridge.destroySession(session) }
                                 }
@@ -108,6 +143,13 @@ class PgxpPerspectiveInstrumentedTest {
     }
 
     private data class Frame(val width: Int, val height: Int, val rgb: IntArray)
+
+    private fun hasCalibrationMarkers(frame: Frame): Boolean = (0..2).all { channel ->
+        frame.rgb.count { pixel ->
+            val components = intArrayOf(pixel shr 16 and 255, pixel shr 8 and 255, pixel and 255)
+            components[channel] > 220 && components.withIndex().all { it.index == channel || it.value < 20 }
+        } >= 4
+    }
 
     private fun capture(reader: ImageReader): Frame? {
         val deadline = System.nanoTime() + 100_000_000
@@ -196,7 +238,7 @@ class PgxpPerspectiveInstrumentedTest {
         }
     }
 
-    private fun makeBios(gouraud: Boolean, textured: Boolean): ByteArray {
+    private fun makeBios(gouraud: Boolean, textured: Boolean, submission: String): ByteArray {
         val out = ByteBuffer.allocate(512 * 1024).order(ByteOrder.LITTLE_ENDIAN)
         fun emit(value: Int) { out.putInt(value) }
         fun imm(op: Int, source: Int, target: Int, value: Int) =
@@ -233,7 +275,8 @@ class PgxpPerspectiveInstrumentedTest {
         gte(24, 160 shl 16, true)
         gte(25, 120 shl 16, true)
         gte(26, 100, true)
-        write(9, 0, if (gouraud) (if (textured) 0x340000ff else 0x300000ff) else 0x25808080)
+        val direct = submission == "SW" || submission == "SWC2"
+        write(if (direct) 10 else 9, 0, if (gouraud) (if (textured) 0x340000ff else 0x300000ff) else 0x25808080)
         // Projected points (40,40), (280,40), (40,200), with depths 1:2:4.
         for ((index, xyz) in listOf(Triple(-240, -160, 200), Triple(480, -320, 400), Triple(-960, 640, 800)).withIndex()) {
             gte(0, ((xyz.second and 65535) shl 16) or (xyz.first and 65535), false)
@@ -241,16 +284,52 @@ class PgxpPerspectiveInstrumentedTest {
             emit(0x4a080001)
             repeat(16) { emit(0) }
             val stride = if (gouraud && textured) 12 else 8
-            emit(imm(0x3a, 9, 14, 4 + index * stride))
+            when (submission) {
+                "SWC2" -> emit(imm(0x3a, 10, 14, 0))
+                "SW" -> {
+                    emit(0x48087000)
+                    repeat(2) { emit(0) }
+                    emit(imm(0x2b, 10, 8, 0))
+                }
+                else -> emit(imm(0x3a, 9, 14, 4 + index * stride))
+            }
             if (gouraud) {
                 if (index > 0) write(9, index * stride, listOf(0xff, 0xff00, 0xff0000)[index])
             }
-            if (textured) write(9, 8 + index * stride, listOf(0, 63 or (0x108 shl 16), 63 shl 8)[index])
+            if (textured) write(if (direct) 10 else 9, if (direct) 0 else 8 + index * stride,
+                listOf(0, 63 or (0x108 shl 16), 63 shl 8)[index])
         }
-        write(11, 0x50, 0x800)
-        write(11, 0, 0x1000)
-        write(11, 4, if (gouraud) (if (textured) 9 else 6) else 7)
-        write(11, 8, 0x11000001)
+        if (!direct) {
+            write(11, 0x50, 0x800)
+            write(11, 0, 0x1000)
+            write(11, 4, if (submission.startsWith("DMAQueued")) 5 else if (gouraud) (if (textured) 9 else 6) else 7)
+            write(11, 8, 0x11000001)
+            if (submission.startsWith("DMAQueued")) {
+                // Wait for the DMA event to submit the first five words before
+                // changing their RAM source, including with compiled CPU blocks.
+                constant(13, 0x01000000)
+                emit(imm(0x23, 11, 8, 8))
+                emit(0)
+                emit((8 shl 21) or (13 shl 16) or (8 shl 11) or 0x24)
+                emit(imm(5, 8, 0, -4))
+                emit(0)
+                // Same native first vertex, different tracked Z after its words
+                // have entered the GPU FIFO but before the polygon is complete.
+                gte(0, ((-640 and 65535) shl 16) or (-960 and 65535), false)
+                gte(1, 800, false)
+                emit(0x4a080001)
+                repeat(16) { emit(0) }
+                emit(imm(0x3a, 9, 14, 4))
+                // Keep the partial packet queued across several frame boundaries.
+                constant(12, 1_000_000)
+                emit(imm(9, 12, 12, -1))
+                emit(imm(5, 12, 0, -2))
+                emit(0)
+                write(11, 0, 0x1014)
+                write(11, 4, 2)
+                write(11, 8, 0x11000001)
+            }
+        }
         // Distinct flat rectangles are independent of texture interpolation.
         for ((color, position) in listOf(0x0000ff to (12 to 12), 0x00ff00 to (302 to 12), 0xff0000 to (12 to 222))) {
             for (command in listOf(0x60000000 or color, position.first or (position.second shl 16), (5 shl 16) or 5))

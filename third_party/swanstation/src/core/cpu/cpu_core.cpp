@@ -1057,10 +1057,9 @@ restart_instruction:
         Cop0DataBreakpointCheck<MemoryAccessType::Write>(addr);
 
       const uint32_t value = ReadReg(inst.i.rt);
-      WriteMemoryByte(addr, value);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
         PGXP::CPU_SB(inst.bits, static_cast<uint8_t>(value), addr);
+      WriteMemoryByte(addr, value);
     }
     break;
 
@@ -1071,10 +1070,9 @@ restart_instruction:
         Cop0DataBreakpointCheck<MemoryAccessType::Write>(addr);
 
       const uint32_t value = ReadReg(inst.i.rt);
-      WriteMemoryHalfWord(addr, value);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
         PGXP::CPU_SH(inst.bits, static_cast<uint16_t>(value), addr);
+      WriteMemoryHalfWord(addr, value);
     }
     break;
 
@@ -1085,10 +1083,9 @@ restart_instruction:
         Cop0DataBreakpointCheck<MemoryAccessType::Write>(addr);
 
       const uint32_t value = ReadReg(inst.i.rt);
-      WriteMemoryWord(addr, value);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
         PGXP::CPU_SW(inst.bits, value, addr);
+      WriteMemoryWord(addr, value);
     }
     break;
 
@@ -1118,10 +1115,9 @@ restart_instruction:
         new_value = (mem_value & mem_mask) | (reg_value << shift);
       }
 
-      WriteMemoryWord(aligned_addr, new_value);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
         PGXP::CPU_SW(inst.bits, new_value, addr);
+      WriteMemoryWord(aligned_addr, new_value);
     }
     break;
 
@@ -1358,10 +1354,9 @@ restart_instruction:
 
       const VirtualMemoryAddress addr = ReadReg(inst.i.rs) + inst.i.imm_sext32();
       const uint32_t value = GTE::ReadRegister(static_cast<uint32_t>(static_cast<uint8_t>(inst.i.rt.GetValue())));
-      WriteMemoryWord(addr, value);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
         PGXP::CPU_SWC2(inst.bits, value, addr);
+      WriteMemoryWord(addr, value);
     }
     break;
 

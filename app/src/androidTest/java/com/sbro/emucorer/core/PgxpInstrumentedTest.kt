@@ -286,7 +286,7 @@ class PgxpInstrumentedTest {
         val bytes = file.readBytes()
         val header = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         assertEquals(0x43435544, header.getInt(0))
-        assertEquals(56, header.getInt(4))
+        assertEquals(57, header.getInt(4))
         val size = header.getInt(208)
         assertTrue("persistent precision exceeds the old state bound", size > 11 * 1024 * 1024)
         val offset = header.getInt(212)
@@ -309,10 +309,26 @@ class PgxpInstrumentedTest {
         val dma = (0..payload.size - marker.size).firstOrNull { index ->
             marker.indices.all { payload[index + it] == marker[it] }
         } ?: error("missing DMA marker")
+        val busMarker = byteArrayOf(3, 0, 0, 0, 66, 117, 115)
+        val bus = (0..payload.size - busMarker.size).first { index ->
+            busMarker.indices.all { payload[index + it] == busMarker[it] }
+        } + busMarker.size
+        val state = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN)
+        assertEquals(ramSize, state.getInt(bus))
+        // RAM size, five timing arrays, RAM, BIOS, nine memory-control
+        // registers, RAM-control register, then the length-prefixed TTY buffer.
+        val tty = bus + 4 + 5 * 3 * 4 + ramSize + 512 * 1024 + 9 * 4 + 4
+        val start = tty + 4 + state.getInt(tty)
         val metadataSize = (ramSize / 4 + 1024 / 4) * 20
-        val start = dma - metadataSize - 130 * 20 - 1
         assertTrue(start >= 0 && payload[start] == 1.toByte())
-        return ByteBuffer.wrap(payload.copyOfRange(start + 1 + 130 * 20, dma)).order(ByteOrder.LITTLE_ENDIAN)
+        val memory = start + 1 + 130 * 20
+        var snapshots = memory + metadataSize + 4 // GPU snapshot sequence.
+        repeat(64) {
+            val mask = state.getLong(snapshots)
+            snapshots += 8 + java.lang.Long.bitCount(mask) * 24
+        }
+        assertEquals("unexpected GPU snapshot boundary", dma, snapshots)
+        return ByteBuffer.wrap(payload.copyOfRange(memory, memory + metadataSize)).order(ByteOrder.LITTLE_ENDIAN)
     }
 
     private fun makeBios(textured: Boolean): ByteArray {
