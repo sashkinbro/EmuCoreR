@@ -223,6 +223,9 @@ void ClearExternalInterrupt(uint8_t bit)
 
 ALWAYS_INLINE_RELEASE static void UpdateLoadDelay()
 {
+  if (g_settings.gpu_pgxp_enable)
+    PGXP::CPU_UpdateLoadDelay();
+
   // the old value is needed in case the delay slot instruction overwrites the same register
   if (g_state.load_delay_reg != Reg::count)
     g_state.regs.r[static_cast<uint8_t>(g_state.load_delay_reg)] = g_state.load_delay_value;
@@ -234,6 +237,9 @@ ALWAYS_INLINE_RELEASE static void UpdateLoadDelay()
 
 ALWAYS_INLINE_RELEASE static void FlushPipeline()
 {
+  if (g_settings.gpu_pgxp_enable)
+    PGXP::CPU_FlushLoadDelay();
+
   // loads are flushed
   g_state.next_load_delay_reg = Reg::count;
   if (g_state.load_delay_reg != Reg::count)
@@ -263,6 +269,8 @@ ALWAYS_INLINE static uint32_t ReadReg(Reg rs)
 
 ALWAYS_INLINE static void WriteReg(Reg rd, uint32_t value)
 {
+  if (g_settings.gpu_pgxp_enable)
+    PGXP::CPU_CancelLoadDelay(static_cast<uint32_t>(rd));
   g_state.regs.r[static_cast<uint8_t>(rd)] = value;
   g_state.load_delay_reg = (rd == g_state.load_delay_reg) ? Reg::count : g_state.load_delay_reg;
 
@@ -274,6 +282,9 @@ ALWAYS_INLINE_RELEASE static void WriteRegDelayed(Reg rd, uint32_t value)
 {
   if (rd == Reg::zero)
     return;
+
+  if (g_settings.gpu_pgxp_enable)
+    PGXP::CPU_CancelLoadDelay(static_cast<uint32_t>(rd));
 
   // double load delays ignore the first value
   if (g_state.load_delay_reg == rd)
@@ -923,10 +934,10 @@ restart_instruction:
 
       const uint32_t sxvalue = static_cast<uint32_t>(static_cast<int8_t>(value));
 
-      WriteRegDelayed(inst.i.rt, sxvalue);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
-        PGXP::CPU_LBx(inst.bits, sxvalue, addr);
+        PGXP::CPU_LoadDelay(inst.bits, sxvalue, addr);
+
+      WriteRegDelayed(inst.i.rt, sxvalue);
     }
     break;
 
@@ -941,10 +952,10 @@ restart_instruction:
         return;
 
       const uint32_t sxvalue = static_cast<uint32_t>(static_cast<int16_t>(value));
-      WriteRegDelayed(inst.i.rt, sxvalue);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
-        PGXP::CPU_LHx(inst.bits, sxvalue, addr);
+        PGXP::CPU_LoadDelay(inst.bits, sxvalue, addr);
+
+      WriteRegDelayed(inst.i.rt, sxvalue);
     }
     break;
 
@@ -958,10 +969,10 @@ restart_instruction:
       if (!ReadMemoryWord(addr, &value))
         return;
 
-      WriteRegDelayed(inst.i.rt, value);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
-        PGXP::CPU_LW(inst.bits, value, addr);
+        PGXP::CPU_LoadDelay(inst.bits, value, addr);
+
+      WriteRegDelayed(inst.i.rt, value);
     }
     break;
 
@@ -976,10 +987,10 @@ restart_instruction:
         return;
 
       const uint32_t zxvalue = static_cast<uint32_t>(value);
-      WriteRegDelayed(inst.i.rt, zxvalue);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
-        PGXP::CPU_LBx(inst.bits, zxvalue, addr);
+        PGXP::CPU_LoadDelay(inst.bits, zxvalue, addr);
+
+      WriteRegDelayed(inst.i.rt, zxvalue);
     }
     break;
 
@@ -994,10 +1005,10 @@ restart_instruction:
         return;
 
       const uint32_t zxvalue = static_cast<uint32_t>(value);
-      WriteRegDelayed(inst.i.rt, zxvalue);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
-        PGXP::CPU_LHx(inst.bits, zxvalue, addr);
+        PGXP::CPU_LoadDelay(inst.bits, zxvalue, addr);
+
+      WriteRegDelayed(inst.i.rt, zxvalue);
     }
     break;
 
@@ -1028,10 +1039,10 @@ restart_instruction:
         new_value = (existing_value & mask) | (aligned_value >> shift);
       }
 
-      WriteRegDelayed(inst.i.rt, new_value);
-
       if constexpr (pgxp_mode >= PGXPMode::Memory)
-        PGXP::CPU_LW(inst.bits, new_value, addr);
+        PGXP::CPU_LoadDelay(inst.bits, new_value, addr);
+
+      WriteRegDelayed(inst.i.rt, new_value);
     }
     break;
 
@@ -1193,8 +1204,8 @@ restart_instruction:
           {
             const uint32_t value = ReadCop0Reg(static_cast<Cop0Reg>(inst.r.rd.GetValue()));
 
-            if constexpr (pgxp_mode == PGXPMode::CPU)
-              PGXP::CPU_MFC0(inst.bits, value);
+            if constexpr (pgxp_mode >= PGXPMode::Memory)
+              PGXP::CPU_LoadDelay(inst.bits, value, 0);
 
             WriteRegDelayed(inst.r.rt, value);
           }
@@ -1258,10 +1269,10 @@ restart_instruction:
           case CopCommonInstruction::cfcn:
           {
             const uint32_t value = GTE::ReadRegister(static_cast<uint32_t>(inst.r.rd.GetValue()) + 32);
-            WriteRegDelayed(inst.r.rt, value);
-
             if constexpr (pgxp_mode >= PGXPMode::Memory)
-              PGXP::CPU_CFC2(inst.bits, value, value);
+              PGXP::CPU_LoadDelay(inst.bits, value, 0);
+
+            WriteRegDelayed(inst.r.rt, value);
           }
           break;
 
@@ -1278,10 +1289,10 @@ restart_instruction:
           case CopCommonInstruction::mfcn:
           {
             const uint32_t value = GTE::ReadRegister(static_cast<uint32_t>(inst.r.rd.GetValue()));
-            WriteRegDelayed(inst.r.rt, value);
-
             if constexpr (pgxp_mode >= PGXPMode::Memory)
-              PGXP::CPU_MFC2(inst.bits, value, value);
+              PGXP::CPU_LoadDelay(inst.bits, value, 0);
+
+            WriteRegDelayed(inst.r.rt, value);
           }
           break;
 

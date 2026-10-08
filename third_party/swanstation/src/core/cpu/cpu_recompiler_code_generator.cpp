@@ -1092,8 +1092,33 @@ void CodeGenerator::EmitPGXPRegisterInvalidation(Reg reg)
     EmitStoreGlobal(PGXP::CPU_GetRegisterFlags(static_cast<uint32_t>(reg)), Value::FromConstantU32(0));
 }
 
+void CodeGenerator::EmitPGXPLoadDelayCancellation(Reg reg)
+{
+  if (!g_settings.gpu_pgxp_enable || reg == Reg::zero || reg == Reg::count)
+    return;
+  uint32_t* pending = PGXP::CPU_GetLoadDelayRegister();
+  if (m_register_cache.GetLoadDelayRegister() == reg)
+  {
+    EmitStoreGlobal(pending, Value::FromConstantU32(static_cast<uint32_t>(Reg::count)));
+  }
+  else if (m_load_delay_dirty)
+  {
+    Value target = m_register_cache.AllocateScratch(RegSize_32);
+    EmitLoadGlobal(target.GetHostRegister(), RegSize_32, pending);
+    EmitCmp(target.GetHostRegister(), Value::FromConstantU32(static_cast<uint32_t>(reg)));
+    LabelType skip_cancel;
+    EmitConditionalBranch(Condition::NotEqual, false, &skip_cancel);
+    EmitStoreGlobal(pending, Value::FromConstantU32(static_cast<uint32_t>(Reg::count)));
+    EmitBindLabel(&skip_cancel);
+  }
+}
+
 void CodeGenerator::InstructionEpilogue(const CodeBlockInstruction& cbi)
 {
+  if (g_settings.gpu_pgxp_enable &&
+      (m_load_delay_dirty || m_register_cache.HasLoadDelay() || cbi.has_load_delay))
+    EmitFunctionCall(nullptr, PGXP::CPU_UpdateLoadDelay);
+
   m_register_cache.UpdateLoadDelay();
 
   if (m_load_delay_dirty)
@@ -1482,7 +1507,7 @@ bool CodeGenerator::Compile_Load(const CodeBlockInstruction& cbi)
       result = EmitLoadGuestMemory(cbi, address, address_spec, RegSize_8);
       ConvertValueSizeInPlace(&result, RegSize_32, (cbi.instruction.op == InstructionOp::lb));
       if (g_settings.gpu_pgxp_enable)
-        EmitFunctionCall(nullptr, PGXP::CPU_LBx, Value::FromConstantU32(cbi.instruction.bits), result, address);
+        EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), result, address);
 
       if (address_spec)
       {
@@ -1500,7 +1525,7 @@ bool CodeGenerator::Compile_Load(const CodeBlockInstruction& cbi)
       ConvertValueSizeInPlace(&result, RegSize_32, (cbi.instruction.op == InstructionOp::lh));
 
       if (g_settings.gpu_pgxp_enable)
-        EmitFunctionCall(nullptr, PGXP::CPU_LHx, Value::FromConstantU32(cbi.instruction.bits), result, address);
+        EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), result, address);
 
       if (address_spec)
       {
@@ -1515,7 +1540,7 @@ bool CodeGenerator::Compile_Load(const CodeBlockInstruction& cbi)
     {
       result = EmitLoadGuestMemory(cbi, address, address_spec, RegSize_32);
       if (g_settings.gpu_pgxp_enable)
-        EmitFunctionCall(nullptr, PGXP::CPU_LW, Value::FromConstantU32(cbi.instruction.bits), result, address);
+        EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), result, address);
 
       if (address_spec)
         value_spec = SpeculativeReadMemory(*address_spec);
@@ -1695,6 +1720,8 @@ bool CodeGenerator::Compile_LoadLeftRight(const CodeBlockInstruction& cbi)
     // we don't actually care if it's our target reg or not, if it's not, it won't affect anything
     if (m_load_delay_dirty)
     {
+      if (g_settings.gpu_pgxp_enable)
+        EmitFunctionCall(nullptr, PGXP::CPU_CommitLoadDelay);
       EmitFlushInterpreterLoadDelay();
       m_register_cache.InvalidateGuestRegister(cbi.instruction.r.rt);
       m_load_delay_dirty = false;
@@ -1729,7 +1756,7 @@ bool CodeGenerator::Compile_LoadLeftRight(const CodeBlockInstruction& cbi)
   shift.ReleaseAndClear();
 
   if (g_settings.gpu_pgxp_enable)
-    EmitFunctionCall(nullptr, PGXP::CPU_LW, Value::FromConstantU32(cbi.instruction.bits), mem, pgxp_address);
+    EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), mem, pgxp_address);
 
   m_register_cache.WriteGuestRegisterDelayed(cbi.instruction.i.rt, std::move(mem));
 
@@ -2334,7 +2361,7 @@ bool CodeGenerator::Compile_Branch(const CodeBlockInstruction& cbi)
     {
       // Can't cache because we have two branches. Load delay cancel is due to the immediate flush afterwards,
       // if we don't cancel it, at the end of the instruction the value we write can be overridden.
-      EmitCancelInterpreterLoadDelayForReg(lr_reg);
+      m_register_cache.CancelLoadDelay(lr_reg);
       EmitPGXPRegisterInvalidation(lr_reg);
       EmitStoreGuestRegister(lr_reg, next_pc);
 
@@ -2583,7 +2610,6 @@ bool CodeGenerator::Compile_Branch(const CodeBlockInstruction& cbi)
       // The return address is always written if link is set, regardless of whether the branch is taken.
       if (link)
       {
-        EmitCancelInterpreterLoadDelayForReg(Reg::ra);
         EmitPGXPRegisterInvalidation(Reg::ra);
         m_register_cache.WriteGuestRegister(Reg::ra, CalculatePC(4));
       }
@@ -2692,8 +2718,9 @@ bool CodeGenerator::Compile_cop0(const CodeBlockInstruction& cbi)
           Value value = m_register_cache.AllocateScratch(RegSize_32);
           EmitLoadCPUStructField(value.host_reg, value.size, offset);
 
-          if (g_settings.UsingPGXPCPUMode())
-            EmitFunctionCall(nullptr, &PGXP::CPU_MFC0, Value::FromConstantU32(cbi.instruction.bits), value);
+          if (g_settings.gpu_pgxp_enable)
+            EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), value,
+                             Value::FromConstantU32(0));
 
           m_register_cache.WriteGuestRegisterDelayed(cbi.instruction.r.rt, std::move(value));
 
@@ -3036,8 +3063,7 @@ bool CodeGenerator::Compile_cop2(const CodeBlockInstruction& cbi)
         if (g_settings.gpu_pgxp_enable)
         {
           EmitFunctionCall(
-            nullptr, (cbi.instruction.cop.CommonOp() == CopCommonInstruction::cfcn) ? PGXP::CPU_CFC2 : PGXP::CPU_MFC2,
-            Value::FromConstantU32(cbi.instruction.bits), value, value);
+            nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), value, Value::FromConstantU32(0));
         }
 
         m_register_cache.WriteGuestRegisterDelayed(cbi.instruction.r.rt, std::move(value));

@@ -67,6 +67,13 @@ bool GetPreciseVertex(uint32_t addr, uint32_t value, int x, int y, int xOffs, in
 void CPU_LW(uint32_t instr, uint32_t rtVal, uint32_t addr);
 void CPU_LHx(uint32_t instr, uint32_t rtVal, uint32_t addr);
 void CPU_LBx(uint32_t instr, uint32_t rtVal, uint32_t addr);
+// Stage a successful CPU load without replacing the value visible in its slot.
+void CPU_LoadDelay(uint32_t instr, uint32_t value, uint32_t addr);
+void CPU_UpdateLoadDelay();
+void CPU_CommitLoadDelay();
+void CPU_FlushLoadDelay();
+void CPU_CancelLoadDelay(uint32_t reg);
+uint32_t* CPU_GetLoadDelayRegister();
 void CPU_SB(uint32_t instr, uint8_t rtVal, uint32_t addr);
 void CPU_SH(uint32_t instr, uint16_t rtVal, uint32_t addr);
 void CPU_SW(uint32_t instr, uint32_t rtVal, uint32_t addr);

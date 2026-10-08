@@ -503,12 +503,7 @@ Value RegisterCache::WriteGuestRegister(Reg guest_reg, Value&& value)
   if (guest_reg == Reg::zero)
     return std::move(value);
 
-  // cancel any load delay delay
-  if (m_state.load_delay_register == guest_reg)
-  {
-    m_state.load_delay_register = Reg::count;
-    m_state.load_delay_value.ReleaseAndClear();
-  }
+  CancelLoadDelay(guest_reg);
 
   Value& cache_value = m_state.guest_reg_state[static_cast<uint8_t>(guest_reg)];
   if (cache_value.IsInHostRegister() && value.IsInHostRegister() && cache_value.host_reg == value.host_reg)
@@ -549,21 +544,26 @@ Value RegisterCache::WriteGuestRegister(Reg guest_reg, Value&& value)
   return Value::FromHostReg(this, cache_value.host_reg, RegSize_32);
 }
 
+void RegisterCache::CancelLoadDelay(Reg guest_reg)
+{
+  m_code_generator.EmitPGXPLoadDelayCancellation(guest_reg);
+  m_code_generator.EmitCancelInterpreterLoadDelayForReg(guest_reg);
+
+  // An immediate write or a second load to the same register cancels it.
+  if (m_state.load_delay_register == guest_reg)
+  {
+    m_state.load_delay_register = Reg::count;
+    m_state.load_delay_value.ReleaseAndClear();
+  }
+}
+
 void RegisterCache::WriteGuestRegisterDelayed(Reg guest_reg, Value&& value)
 {
   // ignore writes to register zero
   if (guest_reg == Reg::zero)
     return;
 
-  // two load delays in a row? cancel the first one.
-  if (guest_reg == m_state.load_delay_register)
-  {
-    m_state.load_delay_register = Reg::count;
-    m_state.load_delay_value.ReleaseAndClear();
-  }
-
-  // two load delay case with interpreter load delay
-  m_code_generator.EmitCancelInterpreterLoadDelayForReg(guest_reg);
+  CancelLoadDelay(guest_reg);
 
   // set up the load delay at the end of this instruction
   Value& cache_value = m_state.next_load_delay_value;
