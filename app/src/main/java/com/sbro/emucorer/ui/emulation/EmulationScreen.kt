@@ -884,6 +884,26 @@ fun EmulationScreen(
         }
     }
 
+    // The guest writes to the memory card through the emulated kernel, so the
+    // core reports each flush and the player gets the same feedback the memory
+    // card manager gives in the app.
+    val memoryCardSavedTemplate = stringResource(R.string.memory_card_saved)
+    LaunchedEffect(uiState.isRunning) {
+        if (!uiState.isRunning) return@LaunchedEffect
+        while (true) {
+            val cardPath = runCatching { NativeApp.pollMemoryCardEvent() }.getOrNull()
+            if (!cardPath.isNullOrBlank()) {
+                val cardName = cardPath.substringAfterLast('/')
+                Toast.makeText(
+                    context,
+                    String.format(Locale.getDefault(), memoryCardSavedTemplate, cardName),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            delay(250.milliseconds)
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Game surface
         val surfaceGeneration = presentationSurfaceGeneration

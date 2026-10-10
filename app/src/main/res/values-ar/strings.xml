@@ -521,6 +521,7 @@
     <string name="memory_card_import_overwritten">استبدلت البطاقة المستوردة "%1$s".</string>
     <string name="memory_card_slot_cleared">%1$s فارغ الآن.</string>
     <string name="memory_card_needs_restart">أعد تشغيل اللعبة الجارية لاستخدام البطاقة المحدّثة.</string>
+    <string name="memory_card_saved">تم حفظ "%1$s".</string>
     <string name="settings_memory_cards_open">فتح مدير بطاقات الذاكرة</string>
     <string name="settings_memory_cards_open_desc">مراجعة الفتحات، وإنشاء بطاقات جديدة، وإدارة النسخ الاحتياطية.</string>
     <string name="settings_memory_cards_summary">%1$d بطاقات متاحة. الفتحة 1: %2$s. الفتحة 2: %3$s.</string>

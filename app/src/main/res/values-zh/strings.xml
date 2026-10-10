@@ -451,6 +451,7 @@
     <string name="memory_card_import_overwritten">导入的卡片已覆盖"%1$s"。</string>
     <string name="memory_card_slot_cleared">%1$s现在为空。</string>
     <string name="memory_card_needs_restart">重新启动正在运行的游戏以使用更新后的卡片。</string>
+    <string name="memory_card_saved">已保存"%1$s"。</string>
     <string name="settings_memory_cards_open">打开记忆卡管理器</string>
     <string name="settings_memory_cards_open_desc">查看插槽、创建新记忆卡并管理备份。</string>
     <string name="settings_memory_cards_summary">共有 %1$d 张可用记忆卡。插槽 1：%2$s。插槽 2：%3$s。</string>

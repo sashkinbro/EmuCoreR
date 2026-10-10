@@ -451,6 +451,7 @@
     <string name="memory_card_import_overwritten">O cartão importado sobrescreveu "%1$s".</string>
     <string name="memory_card_slot_cleared">%1$s está vazio agora.</string>
     <string name="memory_card_needs_restart">Reinicie o jogo em execução para usar o cartão atualizado.</string>
+    <string name="memory_card_saved">"%1$s" salvo.</string>
     <string name="settings_memory_cards_open">Abrir gerenciador de cartões de memória</string>
     <string name="settings_memory_cards_open_desc">Revise os slots, crie novos cartões e gerencie backups.</string>
     <string name="settings_memory_cards_summary">%1$d cartões disponíveis. Slot 1: %2$s. Slot 2: %3$s.</string>

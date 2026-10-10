@@ -748,6 +748,21 @@ struct emucorer_target_size
   uint32_t height;
 };
 
+/**
+ * EmuCoreR frontend extension: the core flushed a memory-card image to disk
+ * after the guest wrote to it. The frontend queues a notification so the
+ * player is told a save actually landed, like the memory card manager does.
+ *
+ * @param[in] data <tt>const struct emucorer_memory_card_saved*</tt>.
+ * @returns \c true when the frontend accepted the notification.
+ */
+#define EMUCORER_ENVIRONMENT_MEMORY_CARD_SAVED (RETRO_ENVIRONMENT_PRIVATE + 2)
+
+struct emucorer_memory_card_saved
+{
+  const char* path;
+};
+
 /* Environment commands. */
 /**
  * Requests the frontend to set the screen rotation.

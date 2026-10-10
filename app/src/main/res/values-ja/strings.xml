@@ -521,6 +521,7 @@
     <string name="memory_card_import_overwritten">インポートしたカードが「%1$s」を上書きしました。</string>
     <string name="memory_card_slot_cleared">%1$sは空です。</string>
     <string name="memory_card_needs_restart">更新したカードを使うには、実行中のゲームを再起動してください。</string>
+    <string name="memory_card_saved">「%1$s」を保存しました。</string>
     <string name="settings_memory_cards_open">メモリーカードマネージャーを開く</string>
     <string name="settings_memory_cards_open_desc">スロットを確認し、新しいカードを作成し、バックアップを管理します。</string>
     <string name="settings_memory_cards_summary">%1$d 枚のカードが利用可能。スロット 1: %2$s。スロット 2: %3$s。</string>

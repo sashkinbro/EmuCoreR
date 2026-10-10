@@ -678,6 +678,7 @@
     <string name="memory_card_import_overwritten">Importovaná karta přepsala "%1$s".</string>
     <string name="memory_card_slot_cleared">%1$s je nyní prázdné.</string>
     <string name="memory_card_needs_restart">Restartujte spuštěnou hru, aby se použila aktualizovaná karta.</string>
+    <string name="memory_card_saved">"%1$s" uložena.</string>
     <string name="settings_memory_cards_open">Otevřít správce paměťových karet</string>
     <string name="settings_memory_cards_open_desc">Zkontrolujte sloty, vytvořte nové karty a spravujte zálohy.</string>
     <string name="settings_memory_cards_summary">Dostupných karet: %1$d. Slot 1: %2$s. Slot 2: %3$s.</string>

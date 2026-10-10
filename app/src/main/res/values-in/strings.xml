@@ -644,6 +644,7 @@
     <string name="memory_card_import_overwritten">Kartu yang diimpor menimpa "%1$s".</string>
     <string name="memory_card_slot_cleared">%1$s sekarang kosong.</string>
     <string name="memory_card_needs_restart">Mulai ulang game yang berjalan untuk memakai kartu yang diperbarui.</string>
+    <string name="memory_card_saved">"%1$s" disimpan.</string>
     <string name="settings_memory_cards_open">Buka pengelola kartu memori</string>
     <string name="settings_memory_cards_open_desc">Tinjau slot, buat kartu baru, dan kelola cadangan.</string>
     <string name="settings_memory_cards_summary">%1$d kartu tersedia. Slot 1: %2$s. Slot 2: %3$s.</string>

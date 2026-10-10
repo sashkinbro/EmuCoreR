@@ -644,6 +644,7 @@
     <string name="memory_card_import_overwritten">کارت درون‌ریزی‌شده "%1$s" را بازنویسی کرد.</string>
     <string name="memory_card_slot_cleared">%1$s اکنون خالی است.</string>
     <string name="memory_card_needs_restart">بازی در حال اجرا را دوباره راه‌اندازی کنید تا از کارت به‌روزشده استفاده شود.</string>
+    <string name="memory_card_saved">"%1$s" ذخیره شد.</string>
     <string name="settings_memory_cards_open">باز کردن مدیر کارت حافظه</string>
     <string name="settings_memory_cards_open_desc">مرور شکاف‌ها، ایجاد کارت‌های جدید و مدیریت پشتیبان‌ها.</string>
     <string name="settings_memory_cards_summary">%1$d کارت در دسترس. شکاف 1: %2$s. شکاف 2: %3$s.</string>
