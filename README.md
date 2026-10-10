@@ -36,6 +36,22 @@ Builds are published on the project website at **[emucorer.web.app](https://emuc
 - Discord Rich Presence integration
 - 18 interface languages
 
+## Screenshots
+
+In-game captures running on a Snapdragon 8 Elite Gen 5 device with the Vulkan renderer:
+
+| Tekken 3 | Spider-Man |
+| --- | --- |
+| ![Tekken 3](Screenshot/tekken-3.jpg) | ![Spider-Man](Screenshot/spider-man.jpg) |
+
+| Spyro the Dragon | Tomb Raider III |
+| --- | --- |
+| ![Spyro the Dragon](Screenshot/spyro-the-dragon.jpg) | ![Tomb Raider III](Screenshot/tomb-raider-iii.jpg) |
+
+| Grand Theft Auto |
+| --- |
+| ![Grand Theft Auto](Screenshot/grand-theft-auto.jpg) |
+
 ## What This Repository Contains
 
 This repository contains the Android application, its Compose UI, settings and data layers, the JNI libretro frontend, and the vendored [SwanStation](https://github.com/libretro/swanstation) emulation core.
