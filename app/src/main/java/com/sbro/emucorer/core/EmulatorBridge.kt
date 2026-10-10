@@ -50,6 +50,10 @@ object EmulatorBridge {
         4 to "10:7"
     )
 
+    // Card types the bridge derives from the memory-card slot assignment itself,
+    // so a stale persisted value must not override the current assignment.
+    private val AUTO_MANAGED_CARD_TYPES = setOf("Shared", "None")
+
     private val serialDispatcher = Dispatchers.IO.limitedParallelism(1)
     private val serialScope = CoroutineScope(SupervisorJob() + serialDispatcher)
     private val rendererSwitchMutex = Mutex()
@@ -197,10 +201,9 @@ object EmulatorBridge {
                             // shared-card type option.
                             val resolvedPath = resolveMemoryCardPath(fileName)
                             NativeApp.setMemoryCardPath(slotIndex - 1, resolvedPath)
-                            // An explicitly chosen card type wins over the automatic
-                            // Shared/None derived from the slot assignment.
                             val cardTypeKey = "swanstation_MemoryCards_Card${slotIndex}Type"
-                            if (SwanStationOptions.value(cardTypeKey) == null) {
+                            val storedCardType = SwanStationOptions.value(cardTypeKey)
+                            if (storedCardType == null || storedCardType in AUTO_MANAGED_CARD_TYPES) {
                                 NativeApp.setCoreOption(
                                     cardTypeKey,
                                     if (resolvedPath != null) "Shared" else "None"
