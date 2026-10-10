@@ -646,6 +646,9 @@
     <string name="settings_help_back_button_exits_game">डिफ़ॉल्ट रूप से बंद। चालू होने पर Android का वापस बटन गेम मेनू के बाहर निकलें विकल्प वाली ही कार्रवाई और वर्तमान पुष्टि सेटिंग का उपयोग करता है।</string>
     <string name="settings_confirm_save_load_actions">सहेजें/लोड क्रियाओं की पुष्टि करें</string>
     <string name="settings_confirm_save_load_actions_desc">त्वरित सहेजने या त्वरित लोड करने से पहले पूछें।</string>
+    <string name="settings_memory_card_notifications">मेमोरी कार्ड सूचनाएँ</string>
+    <string name="settings_memory_card_notifications_desc">मेमोरी कार्ड बनने, बदलने, असाइन होने या गेम में सेव होने पर संदेश दिखाएँ।</string>
+    <string name="settings_help_memory_card_notifications">मेमोरी कार्ड मैनेजर और उन सेव पर लागू होता है जो गेम खेलते समय कार्ड में लिखता है। डिफ़ॉल्ट रूप से बंद।</string>
     <string name="settings_floating_quick_actions">फ़्लोटिंग त्वरित सहेजें/लोड करें बटन</string>
     <string name="settings_floating_quick_actions_desc">गेमप्ले के दौरान हिलाए जा सकने वाले त्वरित सहेजें और लोड करें बटन दिखाएँ</string>
     <string name="settings_help_floating_quick_actions">एमुलेशन स्क्रीन पर दो छोटे खींचने योग्य बटन जोड़ता है: एक त्वरित सहेजने के लिए और एक त्वरित लोड करने के लिए। उन्हें कहीं भी खींचकर ले जाएँ; उनकी स्थिति याद रखी जाती है। ये हर नियंत्रण मोड में काम करते हैं, चाहे टच नियंत्रण छिपे हों या भौतिक गेमपैड जुड़ा हो।</string>

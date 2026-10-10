@@ -646,6 +646,9 @@
     <string name="settings_help_back_button_exits_game">初期設定ではオフです。有効にすると、Android の戻るボタンはゲームメニューの「終了」と同じ終了操作を使用し、現在の確認設定も引き継ぎます。</string>
     <string name="settings_confirm_save_load_actions">セーブ/ロード操作の確認</string>
     <string name="settings_confirm_save_load_actions_desc">クイックセーブまたはクイックロードの前に確認します。</string>
+    <string name="settings_memory_card_notifications">メモリーカードの通知</string>
+    <string name="settings_memory_card_notifications_desc">メモリーカードの作成・差し替え・割り当て・ゲーム内保存時にメッセージを表示します。</string>
+    <string name="settings_help_memory_card_notifications">メモリーカードマネージャーと、プレイ中にゲームがカードへ書き込むセーブが対象です。初期設定ではオフです。</string>
     <string name="settings_floating_quick_actions">フローティング クイックセーブ/ロードボタン</string>
     <string name="settings_floating_quick_actions_desc">プレイ中に移動可能なクイックセーブとクイックロードのボタンを表示します</string>
     <string name="settings_help_floating_quick_actions">エミュレーション画面に小さなドラッグ可能なボタンを 2 つ追加します。1 つはクイックセーブ用、もう 1 つはクイックロード用です。どこにでもドラッグして移動でき、位置は記憶されます。タッチ操作が非表示の場合や物理コントローラー接続時など、どの操作モードでも機能します。</string>

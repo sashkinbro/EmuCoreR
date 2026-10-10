@@ -648,6 +648,9 @@
     <string name="settings_help_back_button_exits_game">Désactivé par défaut. Une fois activé, le bouton Retour d’Android utilise la même action que Quitter dans le menu du jeu, avec le réglage de confirmation actuel.</string>
     <string name="settings_confirm_save_load_actions">Confirmer les actions de sauvegarde/chargement</string>
     <string name="settings_confirm_save_load_actions_desc">Demander avant une sauvegarde rapide ou un chargement rapide.</string>
+    <string name="settings_memory_card_notifications">Notifications des cartes mémoire</string>
+    <string name="settings_memory_card_notifications_desc">Afficher un message lorsqu\'une carte mémoire est créée, remplacée, attribuée ou sauvegardée en jeu.</string>
+    <string name="settings_help_memory_card_notifications">S\'applique au gestionnaire de cartes mémoire et aux sauvegardes que le jeu écrit sur la carte pendant la partie. Désactivé par défaut.</string>
     <string name="settings_floating_quick_actions">Boutons flottants de sauvegarde/chargement rapides</string>
     <string name="settings_floating_quick_actions_desc">Afficher des boutons flottants de sauvegarde et de chargement rapides pendant le jeu</string>
     <string name="settings_help_floating_quick_actions">Ajoute deux petits boutons déplaçables sur l\'écran d\'émulation : un pour la sauvegarde rapide et un pour le chargement rapide. Faites-les glisser où vous voulez ; leurs positions sont mémorisées. Ils fonctionnent dans tous les modes de contrôle, même lorsque les commandes tactiles sont masquées ou qu\'une manette physique est connectée.</string>

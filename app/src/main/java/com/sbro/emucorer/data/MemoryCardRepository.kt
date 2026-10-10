@@ -402,6 +402,9 @@ class MemoryCardRepository(
 
     private fun memoryCardsDir(): File =
         EmulatorStorage.memoryCardsDir(context, preferences.getEmulatorDataPathSync()).apply { mkdirs() }
+
+    /** Player preference: report card operations back in the app UI. */
+    suspend fun notificationsEnabled(): Boolean = preferences.memoryCardNotifications.first()
 }
 
 internal const val MEMORY_CARD_TYPE_FILE = 1

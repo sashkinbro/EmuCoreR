@@ -888,8 +888,11 @@ fun EmulationScreen(
     // core reports each flush and the player gets the same feedback the memory
     // card manager gives in the app.
     val memoryCardSavedTemplate = stringResource(R.string.memory_card_saved)
-    LaunchedEffect(uiState.isRunning) {
-        if (!uiState.isRunning) return@LaunchedEffect
+    val memoryCardNotifications by remember(context) {
+        AppPreferences(context).memoryCardNotifications
+    }.collectAsState(initial = false)
+    LaunchedEffect(uiState.isRunning, memoryCardNotifications) {
+        if (!uiState.isRunning || !memoryCardNotifications) return@LaunchedEffect
         while (true) {
             val cardPath = runCatching { NativeApp.pollMemoryCardEvent() }.getOrNull()
             if (!cardPath.isNullOrBlank()) {

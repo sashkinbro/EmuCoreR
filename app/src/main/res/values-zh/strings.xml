@@ -648,6 +648,9 @@
     <string name="settings_help_back_button_exits_game">默认关闭。启用后，Android 返回键将使用与游戏菜单中“退出”相同的操作，并沿用当前的确认设置。</string>
     <string name="settings_confirm_save_load_actions">确认保存/加载操作</string>
     <string name="settings_confirm_save_load_actions_desc">在快速保存或快速加载前询问。</string>
+    <string name="settings_memory_card_notifications">记忆卡通知</string>
+    <string name="settings_memory_card_notifications_desc">在创建、替换、分配记忆卡或在游戏中保存时显示提示。</string>
+    <string name="settings_help_memory_card_notifications">适用于记忆卡管理器以及游戏过程中写入记忆卡的存档。默认关闭。</string>
     <string name="settings_floating_quick_actions">浮動快速儲存/讀取按鈕</string>
     <string name="settings_floating_quick_actions_desc">遊戲期間顯示可移動的快速儲存與快速讀取按鈕</string>
     <string name="settings_help_floating_quick_actions">在模擬畫面上新增兩個可拖曳的小按鈕：一個用於快速儲存，另一個用於快速讀取。將它們拖到任何位置，位置會被記住。它們在每種控制模式下都能運作，包括觸控控制隱藏或連接實體手把時。</string>
