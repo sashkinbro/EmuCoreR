@@ -1,6 +1,7 @@
 # EmuCoreR
 
 [![Website](https://img.shields.io/badge/website-emucorer.web.app-2563eb?logo=firebase&logoColor=white)](https://emucorer.web.app)
+[![Google Play](https://img.shields.io/badge/Google%20Play-Get%20it%20on%20Google%20Play-414141?logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.sbro.emucorer)
 [![Discord](https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/c5EBeNRpz2)
 [![Support on Patreon](https://img.shields.io/badge/Patreon-Support%20EmuCore-ff424d?logo=patreon&logoColor=white)](https://www.patreon.com/c/emucore/membership)
 
@@ -11,6 +12,7 @@ EmuCoreR is a PlayStation 1 emulator and game library for Android, built around 
 Builds are published on the project website at **[emucorer.web.app](https://emucorer.web.app)**. Every release has localized notes in all 18 app languages and per-file download links, backed by Cloud Firestore. Release details can be opened directly from the app's Updates screen.
 
 - Website: https://emucorer.web.app
+- Google Play: https://play.google.com/store/apps/details?id=com.sbro.emucorer
 - Changelogs and downloads: https://emucorer.web.app/#downloads
 - Community: https://discord.com/invite/c5EBeNRpz2
 
