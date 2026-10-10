@@ -30,6 +30,39 @@ data class MemoryCardAssignments(
     val slot2: String?
 )
 
+/** What a single memory-card write did, so the UI can report it precisely. */
+data class MemoryCardWriteResult(
+    val success: Boolean,
+    val cardName: String? = null,
+    val requestedName: String? = null,
+    val previousName: String? = null,
+    val renamedToAvoidConflict: Boolean = false,
+    val clearedSlots: List<Int> = emptyList()
+)
+
+/** Outcome of assigning a card to a slot, or clearing one. */
+data class MemoryCardAssignResult(
+    val success: Boolean,
+    val cardName: String? = null,
+    val slot: Int = 1,
+    val clearedSlots: List<Int> = emptyList()
+)
+
+/** A card written by a restore/import batch. */
+data class MemoryCardRestoredCard(
+    val name: String,
+    val overwritten: Boolean
+)
+
+/** Outcome of a restore/import: which cards were written and which were replaced. */
+data class MemoryCardRestoreResult(
+    val success: Boolean,
+    val cards: List<MemoryCardRestoredCard> = emptyList()
+) {
+    val createdCount: Int get() = cards.count { !it.overwritten }
+    val overwrittenCount: Int get() = cards.count { it.overwritten }
+}
+
 /** Owns raw 128 KiB PlayStation memory-card images. */
 class MemoryCardRepository(
     private val context: Context,
@@ -50,10 +83,10 @@ class MemoryCardRepository(
         if (!NativeApp.hasNativeCore) return current
 
         val existingNames = listCards().mapTo(mutableSetOf()) { it.name }
-        if (DEFAULT_CARD_SLOT_1 !in existingNames && createPs1Card(DEFAULT_CARD_SLOT_1)) {
+        if (DEFAULT_CARD_SLOT_1 !in existingNames && createPs1Card(DEFAULT_CARD_SLOT_1).success) {
             existingNames += DEFAULT_CARD_SLOT_1
         }
-        if (DEFAULT_CARD_SLOT_2 !in existingNames && createPs1Card(DEFAULT_CARD_SLOT_2)) {
+        if (DEFAULT_CARD_SLOT_2 !in existingNames && createPs1Card(DEFAULT_CARD_SLOT_2).success) {
             existingNames += DEFAULT_CARD_SLOT_2
         }
         if (existingNames.isEmpty()) return current
@@ -89,60 +122,97 @@ class MemoryCardRepository(
             .toList()
     }
 
-    fun createPs1Card(name: String): Boolean {
+    fun createPs1Card(name: String): MemoryCardWriteResult {
         syncNativeMemoryCardDirectory()
-        return NativeApp.createMemoryCard(
-            buildUniqueCardName(name),
-            MEMORY_CARD_TYPE_FILE,
-            MEMORY_CARD_FILE_TYPE_PS1
+        val requested = normalizeName(name)
+        val target = buildUniqueCardName(name)
+        val created = NativeApp.createMemoryCard(target, MEMORY_CARD_TYPE_FILE, MEMORY_CARD_FILE_TYPE_PS1)
+        return MemoryCardWriteResult(
+            success = created,
+            cardName = target,
+            requestedName = requested,
+            renamedToAvoidConflict = !target.equals(requested, ignoreCase = true)
         )
     }
 
     /** Imports raw DuckStation, SwanStation, or EmuCoreR cards only when byte-compatible. */
-    fun importCard(uri: Uri, displayName: String? = null): Boolean {
+    fun importCard(uri: Uri, displayName: String? = null): MemoryCardWriteResult {
         val resolvedName = displayName?.takeIf(String::isNotBlank)
             ?: DocumentPathResolver.getDisplayName(context, uri.toString())
-        if (!resolvedName.isSupportedMemoryCardName()) return false
+        if (!resolvedName.isSupportedMemoryCardName()) return MemoryCardWriteResult(success = false)
+        val requested = normalizeName(resolvedName)
         val target = File(memoryCardsDir(), buildUniqueCardName(resolvedName))
-        return context.contentResolver.openInputStream(uri)?.use { input ->
+        val imported = context.contentResolver.openInputStream(uri)?.use { input ->
             importExactCard(input, target)
         } ?: false
+        return MemoryCardWriteResult(
+            success = imported,
+            cardName = target.name,
+            requestedName = requested,
+            renamedToAvoidConflict = !target.name.equals(requested, ignoreCase = true)
+        )
     }
 
-    fun duplicateCard(card: MemoryCardInfo, newName: String): Boolean {
+    fun duplicateCard(card: MemoryCardInfo, newName: String): MemoryCardWriteResult {
         val source = File(card.path)
-        if (!source.isValidPs1Card()) return false
+        if (!source.isValidPs1Card()) return MemoryCardWriteResult(success = false)
+        val requested = normalizeName(newName)
         val target = File(memoryCardsDir(), buildUniqueCardName(newName))
-        return source.inputStream().use { importExactCard(it, target) }
+        val copied = source.inputStream().use { importExactCard(it, target) }
+        return MemoryCardWriteResult(
+            success = copied,
+            cardName = target.name,
+            requestedName = requested,
+            renamedToAvoidConflict = !target.name.equals(requested, ignoreCase = true)
+        )
     }
 
-    suspend fun renameCard(card: MemoryCardInfo, newName: String): Boolean {
-        if (card.isDefaultCard || isDefaultMemoryCardName(card.name)) return false
+    suspend fun renameCard(card: MemoryCardInfo, newName: String): MemoryCardWriteResult {
+        if (card.isDefaultCard || isDefaultMemoryCardName(card.name)) {
+            return MemoryCardWriteResult(success = false, cardName = card.name)
+        }
         val source = File(card.path)
-        if (!source.isValidPs1Card()) return false
+        if (!source.isValidPs1Card()) return MemoryCardWriteResult(success = false, cardName = card.name)
         val targetName = normalizeName(newName)
-        if (targetName.equals(card.name, ignoreCase = true)) return true
+        if (targetName.equals(card.name, ignoreCase = true)) {
+            return MemoryCardWriteResult(success = true, cardName = card.name)
+        }
         val target = File(memoryCardsDir(), buildUniqueCardName(targetName, source.name))
-        if (!source.renameTo(target)) return false
+        if (!source.renameTo(target)) {
+            return MemoryCardWriteResult(success = false, cardName = card.name)
+        }
 
         val assignments = currentAssignments()
         assignSlots(
             assignments.slot1.renameIfMatching(card.name, target.name),
             assignments.slot2.renameIfMatching(card.name, target.name)
         )
-        return true
+        return MemoryCardWriteResult(
+            success = true,
+            cardName = target.name,
+            previousName = card.name
+        )
     }
 
-    suspend fun deleteCard(card: MemoryCardInfo): Boolean {
-        if (card.isDefaultCard || isDefaultMemoryCardName(card.name)) return false
+    suspend fun deleteCard(card: MemoryCardInfo): MemoryCardWriteResult {
+        val name = card.name
+        if (card.isDefaultCard || isDefaultMemoryCardName(name)) {
+            return MemoryCardWriteResult(success = false, cardName = name)
+        }
         val file = File(card.path)
-        if (!file.isFile || !file.isSafelyInside(memoryCardsDir()) || !file.delete()) return false
+        if (!file.isFile || !file.isSafelyInside(memoryCardsDir()) || !file.delete()) {
+            return MemoryCardWriteResult(success = false, cardName = name)
+        }
         val assignments = currentAssignments()
+        val clearedSlots = buildList {
+            if (assignments.slot1.equals(name, ignoreCase = true)) add(1)
+            if (assignments.slot2.equals(name, ignoreCase = true)) add(2)
+        }
         assignSlots(
-            assignments.slot1.takeUnless { it.equals(card.name, ignoreCase = true) },
-            assignments.slot2.takeUnless { it.equals(card.name, ignoreCase = true) }
+            assignments.slot1.takeUnless { it.equals(name, ignoreCase = true) },
+            assignments.slot2.takeUnless { it.equals(name, ignoreCase = true) }
         )
-        return true
+        return MemoryCardWriteResult(success = true, cardName = name, clearedSlots = clearedSlots)
     }
 
     fun exportCard(card: MemoryCardInfo, destination: Uri): Boolean {
@@ -155,9 +225,10 @@ class MemoryCardRepository(
         }.getOrDefault(false)
     }
 
-    fun backupCards(cards: List<MemoryCardInfo>, destination: Uri): Boolean {
+    /** Zips the given cards into [destination]; returns how many were written. */
+    fun backupCards(cards: List<MemoryCardInfo>, destination: Uri): Int {
         val files = cards.map { File(it.path) }.filter(File::isValidPs1Card)
-        if (files.isEmpty()) return false
+        if (files.isEmpty()) return 0
         return runCatching {
             context.contentResolver.openOutputStream(destination)?.use { output ->
                 ZipOutputStream(output).use { zip ->
@@ -167,17 +238,26 @@ class MemoryCardRepository(
                         zip.closeEntry()
                     }
                 }
-            } != null
-        }.getOrDefault(false)
+            }
+            files.size
+        }.getOrDefault(0)
     }
 
-    fun restoreCards(source: Uri): Boolean {
+    fun restoreCards(source: Uri): MemoryCardRestoreResult {
         val displayName = DocumentPathResolver.getDisplayName(context, source.toString())
         val mimeType = context.contentResolver.getType(source).orEmpty().lowercase(Locale.ROOT)
         return if (mimeType.contains("zip") || displayName.endsWith(".zip", ignoreCase = true)) {
             restoreCardsFromZip(source)
         } else {
-            importCard(source, displayName)
+            val imported = importCard(source, displayName)
+            MemoryCardRestoreResult(
+                success = imported.success,
+                cards = if (imported.success && imported.cardName != null) {
+                    listOf(MemoryCardRestoredCard(imported.cardName, overwritten = false))
+                } else {
+                    emptyList()
+                }
+            )
         }
     }
 
@@ -189,24 +269,38 @@ class MemoryCardRepository(
         )
     }
 
-    suspend fun assignSlots(slot1: String?, slot2: String?) {
+    suspend fun assignCardToSlot(slot: Int, cardName: String?): MemoryCardAssignResult {
+        val slotIndex = slot.coerceIn(1, 2)
+        val current = currentAssignments()
+        val clearedSlots = mutableListOf<Int>()
+        val updated = when (slotIndex) {
+            1 -> {
+                if (current.slot2.equals(cardName, ignoreCase = true)) clearedSlots += 2
+                MemoryCardAssignments(cardName, current.slot2.takeUnless { it.equals(cardName, ignoreCase = true) })
+            }
+
+            else -> {
+                if (current.slot1.equals(cardName, ignoreCase = true)) clearedSlots += 1
+                MemoryCardAssignments(current.slot1.takeUnless { it.equals(cardName, ignoreCase = true) }, cardName)
+            }
+        }
+        assignSlots(updated.slot1, updated.slot2)
+        return MemoryCardAssignResult(
+            success = true,
+            cardName = cardName,
+            slot = slotIndex,
+            clearedSlots = clearedSlots
+        )
+    }
+
+    private suspend fun assignSlots(slot1: String?, slot2: String?) {
         preferences.setMemoryCardAssignments(slot1, slot2)
         EmulatorBridge.setMemoryCardAssignments(slot1, slot2)
     }
 
-    suspend fun assignCardToSlot(slot: Int, cardName: String?) {
-        val current = currentAssignments()
-        val updated = if (slot.coerceIn(1, 2) == 1) {
-            MemoryCardAssignments(cardName, current.slot2.takeUnless { it.equals(cardName, true) })
-        } else {
-            MemoryCardAssignments(current.slot1.takeUnless { it.equals(cardName, true) }, cardName)
-        }
-        assignSlots(updated.slot1, updated.slot2)
-    }
-
-    private fun restoreCardsFromZip(source: Uri): Boolean {
-        var restored = 0
-        return runCatching {
+    private fun restoreCardsFromZip(source: Uri): MemoryCardRestoreResult {
+        val restored = mutableListOf<MemoryCardRestoredCard>()
+        val opened = runCatching {
             context.contentResolver.openInputStream(source)?.use { input ->
                 ZipInputStream(input).use { zip ->
                     while (true) {
@@ -214,13 +308,17 @@ class MemoryCardRepository(
                         val cardName = entry.safeMemoryCardName()
                         if (!entry.isDirectory && cardName != null) {
                             val target = File(memoryCardsDir(), normalizeName(cardName))
-                            if (importExactCard(zip, target)) restored++
+                            val overwritten = target.exists()
+                            if (importExactCard(zip, target)) {
+                                restored += MemoryCardRestoredCard(target.name, overwritten)
+                            }
                         }
                         zip.closeEntry()
                     }
                 }
-            } != null && restored > 0
-        }.getOrDefault(false)
+            }
+        }.getOrNull()
+        return MemoryCardRestoreResult(success = opened != null && restored.isNotEmpty(), cards = restored)
     }
 
     private fun importExactCard(input: InputStream, target: File): Boolean {

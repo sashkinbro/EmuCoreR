@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.sbro.emucorer.R
+import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.data.AppPreferences
 import com.sbro.emucorer.data.MemoryCardAssignments
 import com.sbro.emucorer.data.MemoryCardInfo
@@ -85,6 +86,7 @@ import com.sbro.emucorer.ui.theme.neon.neonChipShape
 import com.sbro.emucorer.ui.theme.neon.neonShape
 import java.text.DateFormat
 import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -101,22 +103,45 @@ fun MemoryCardManagerScreen(
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val horizontalSystemBarPadding = navigationBarsHorizontalPaddingValues()
 
-    val createSuccessMessage = stringResource(R.string.memory_card_create_success)
+    val createSuccessTemplate = stringResource(R.string.memory_card_create_success)
+    val createRenamedTemplate = stringResource(R.string.memory_card_create_renamed)
     val createFailureMessage = stringResource(R.string.memory_card_create_failed)
-    val backupSuccessMessage = stringResource(R.string.memory_card_backup_success)
+    val backupSuccessTemplate = stringResource(R.string.memory_card_backup_success)
     val backupFailureMessage = stringResource(R.string.memory_card_backup_failed)
-    val restoreSuccessMessage = stringResource(R.string.memory_card_restore_success)
+    val restoreSuccessTemplate = stringResource(R.string.memory_card_restore_success)
     val restoreFailureMessage = stringResource(R.string.memory_card_restore_failed)
-    val exportSuccessMessage = stringResource(R.string.memory_card_export_success)
+    val importedTemplate = stringResource(R.string.memory_card_imported)
+    val importOverwrittenTemplate = stringResource(R.string.memory_card_import_overwritten)
+    val exportSuccessTemplate = stringResource(R.string.memory_card_export_success)
     val exportFailureMessage = stringResource(R.string.memory_card_export_failed)
-    val renameSuccessMessage = stringResource(R.string.memory_card_rename_success)
-    val renameFailureMessage = stringResource(R.string.memory_card_rename_failed)
-    val duplicateSuccessMessage = stringResource(R.string.memory_card_duplicate_success)
+    val duplicateSuccessTemplate = stringResource(R.string.memory_card_duplicate_success)
     val duplicateFailureMessage = stringResource(R.string.memory_card_duplicate_failed)
-    val deleteSuccessMessage = stringResource(R.string.memory_card_delete_success)
+    val renameSuccessTemplate = stringResource(R.string.memory_card_rename_success)
+    val renameFailureMessage = stringResource(R.string.memory_card_rename_failed)
+    val deleteSuccessTemplate = stringResource(R.string.memory_card_delete_success)
     val deleteFailureMessage = stringResource(R.string.memory_card_delete_failed)
-    val assignSuccessMessage = stringResource(R.string.memory_card_assign_success)
+    val assignSuccessTemplate = stringResource(R.string.memory_card_assign_success)
     val assignFailureMessage = stringResource(R.string.memory_card_assign_failed)
+    val slotClearedTemplate = stringResource(R.string.memory_card_slot_cleared)
+    val restartRequiredMessage = stringResource(R.string.memory_card_needs_restart)
+    val slotOneLabel = stringResource(R.string.memory_card_slot_1)
+    val slotTwoLabel = stringResource(R.string.memory_card_slot_2)
+
+    fun slotLabel(slot: Int): String = if (slot == 1) slotOneLabel else slotTwoLabel
+
+    fun showCardMessage(message: String, affectsRunningGame: Boolean = false) {
+        val warnAboutRunningGame = affectsRunningGame && EmulatorBridge.hasValidVm()
+        Toast.makeText(
+            context,
+            if (warnAboutRunningGame) "$message $restartRequiredMessage" else message,
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    fun clearedSlotsSuffix(clearedSlots: List<Int>): String =
+        clearedSlots.joinToString(" ", prefix = " ") { slot ->
+            memoryCardMessage(slotClearedTemplate, slotLabel(slot))
+        }
 
     var cards by remember { mutableStateOf<List<MemoryCardInfo>>(emptyList()) }
     var assignments by remember { mutableStateOf(MemoryCardAssignments(slot1 = null, slot2 = null)) }
@@ -151,13 +176,15 @@ fun MemoryCardManagerScreen(
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
             isWorking = true
-            val success = withContext(Dispatchers.IO) { repository.backupCards(cards, uri) }
+            val written = withContext(Dispatchers.IO) { repository.backupCards(cards, uri) }
             isWorking = false
-            Toast.makeText(
-                context,
-                if (success) backupSuccessMessage else backupFailureMessage,
-                Toast.LENGTH_SHORT
-            ).show()
+            showCardMessage(
+                if (written > 0) {
+                    memoryCardMessage(backupSuccessTemplate, written)
+                } else {
+                    backupFailureMessage
+                }
+            )
             refresh()
         }
     }
@@ -168,13 +195,27 @@ fun MemoryCardManagerScreen(
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
             isWorking = true
-            val success = withContext(Dispatchers.IO) { repository.restoreCards(uri) }
+            val result = withContext(Dispatchers.IO) { repository.restoreCards(uri) }
             isWorking = false
-            Toast.makeText(
-                context,
-                if (success) restoreSuccessMessage else restoreFailureMessage,
-                Toast.LENGTH_SHORT
-            ).show()
+            val message = when {
+                !result.success || result.cards.isEmpty() -> restoreFailureMessage
+                result.cards.size == 1 -> {
+                    val single = result.cards.first()
+                    if (single.overwritten) {
+                        memoryCardMessage(importOverwrittenTemplate, single.name)
+                    } else {
+                        memoryCardMessage(importedTemplate, single.name)
+                    }
+                }
+
+                else -> memoryCardMessage(
+                    restoreSuccessTemplate,
+                    result.cards.size,
+                    result.createdCount,
+                    result.overwrittenCount
+                )
+            }
+            showCardMessage(message, affectsRunningGame = result.success)
             refresh()
         }
     }
@@ -189,11 +230,13 @@ fun MemoryCardManagerScreen(
             isWorking = true
             val success = withContext(Dispatchers.IO) { repository.exportCard(card, uri) }
             isWorking = false
-            Toast.makeText(
-                context,
-                if (success) exportSuccessMessage else exportFailureMessage,
-                Toast.LENGTH_SHORT
-            ).show()
+            showCardMessage(
+                if (success) {
+                    memoryCardMessage(exportSuccessTemplate, card.name)
+                } else {
+                    exportFailureMessage
+                }
+            )
             refresh()
         }
     }
@@ -215,14 +258,18 @@ fun MemoryCardManagerScreen(
                     onClick = {
                         scope.launch {
                             isWorking = true
-                            val success = withContext(Dispatchers.IO) { repository.deleteCard(card) }
+                            val result = withContext(Dispatchers.IO) { repository.deleteCard(card) }
                             isWorking = false
                             pendingDelete.value = null
-                            Toast.makeText(
-                                context,
-                                if (success) deleteSuccessMessage else deleteFailureMessage,
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            showCardMessage(
+                                if (result.success) {
+                                    memoryCardMessage(deleteSuccessTemplate, result.cardName.orEmpty()) +
+                                        clearedSlotsSuffix(result.clearedSlots)
+                                } else {
+                                    deleteFailureMessage
+                                },
+                                affectsRunningGame = result.success && result.clearedSlots.isNotEmpty()
+                            )
                             refresh()
                         }
                     }
@@ -246,14 +293,20 @@ fun MemoryCardManagerScreen(
             onConfirm = { name ->
                 scope.launch {
                     isWorking = true
-                    val success = withContext(Dispatchers.IO) { repository.createPs1Card(name) }
+                    val result = withContext(Dispatchers.IO) { repository.createPs1Card(name) }
                     isWorking = false
                     showCreateDialog.value = false
-                    Toast.makeText(
-                        context,
-                        if (success) createSuccessMessage else createFailureMessage,
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    val message = when {
+                        !result.success -> createFailureMessage
+                        result.renamedToAvoidConflict -> memoryCardMessage(
+                            createRenamedTemplate,
+                            result.requestedName.orEmpty(),
+                            result.cardName.orEmpty()
+                        )
+
+                        else -> memoryCardMessage(createSuccessTemplate, result.cardName.orEmpty())
+                    }
+                    showCardMessage(message)
                     refresh()
                 }
             }
@@ -269,14 +322,20 @@ fun MemoryCardManagerScreen(
             onConfirm = { name ->
                 scope.launch {
                     isWorking = true
-                    val success = withContext(Dispatchers.IO) { repository.renameCard(card, name) }
+                    val result = withContext(Dispatchers.IO) { repository.renameCard(card, name) }
                     isWorking = false
                     pendingRename.value = null
-                    Toast.makeText(
-                        context,
-                        if (success) renameSuccessMessage else renameFailureMessage,
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    showCardMessage(
+                        if (result.success) {
+                            memoryCardMessage(
+                                renameSuccessTemplate,
+                                result.previousName ?: card.name,
+                                result.cardName.orEmpty()
+                            )
+                        } else {
+                            renameFailureMessage
+                        }
+                    )
                     refresh()
                 }
             }
@@ -292,14 +351,20 @@ fun MemoryCardManagerScreen(
             onConfirm = { name ->
                 scope.launch {
                     isWorking = true
-                    val success = withContext(Dispatchers.IO) { repository.duplicateCard(card, name) }
+                    val result = withContext(Dispatchers.IO) { repository.duplicateCard(card, name) }
                     isWorking = false
                     pendingDuplicate.value = null
-                    Toast.makeText(
-                        context,
-                        if (success) duplicateSuccessMessage else duplicateFailureMessage,
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    showCardMessage(
+                        if (result.success) {
+                            memoryCardMessage(
+                                duplicateSuccessTemplate,
+                                card.name,
+                                result.cardName.orEmpty()
+                            )
+                        } else {
+                            duplicateFailureMessage
+                        }
+                    )
                     refresh()
                 }
             }
@@ -397,7 +462,7 @@ fun MemoryCardManagerScreen(
                         onToggleSlot = { slot ->
                             scope.launch {
                                 isWorking = true
-                                val success = withContext(Dispatchers.IO) {
+                                val result = withContext(Dispatchers.IO) {
                                     val currentName = when (slot) {
                                         1 -> assignments.slot1
                                         else -> assignments.slot2
@@ -406,14 +471,18 @@ fun MemoryCardManagerScreen(
                                         slot = slot,
                                         cardName = if (currentName.equals(card.name, ignoreCase = true)) null else card.name
                                     )
-                                    true
                                 }
                                 isWorking = false
-                                Toast.makeText(
-                                    context,
-                                    if (success) assignSuccessMessage else assignFailureMessage,
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                val message = if (result.cardName.isNullOrBlank()) {
+                                    memoryCardMessage(slotClearedTemplate, slotLabel(result.slot))
+                                } else {
+                                    memoryCardMessage(assignSuccessTemplate, result.cardName, slotLabel(result.slot)) +
+                                        clearedSlotsSuffix(result.clearedSlots)
+                                }
+                                showCardMessage(
+                                    if (result.success) message else assignFailureMessage,
+                                    affectsRunningGame = result.success
+                                )
                                 refresh()
                             }
                         },
@@ -747,6 +816,9 @@ private fun formatBytes(bytes: Long): String {
         else -> "$bytes B"
     }
 }
+
+private fun memoryCardMessage(template: String, vararg args: Any): String =
+    String.format(Locale.getDefault(), template, *args)
 
 @Composable
 private fun MemoryCardInfo.storageLabel(): String {
