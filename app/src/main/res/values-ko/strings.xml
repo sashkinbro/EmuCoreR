@@ -521,6 +521,7 @@
     <string name="memory_card_import_overwritten">가져온 카드가 "%1$s"을(를) 덮어썼습니다.</string>
     <string name="memory_card_slot_cleared">%1$s이(가) 비어 있습니다.</string>
     <string name="memory_card_needs_restart">업데이트된 카드를 사용하려면 실행 중인 게임을 다시 시작하세요.</string>
+    <string name="memory_card_saved">"%1$s"가 저장되었습니다.</string>
     <string name="settings_memory_cards_open">메모리 카드 관리자 열기</string>
     <string name="settings_memory_cards_open_desc">슬롯을 검토하고, 새 카드를 만들고, 백업을 관리합니다.</string>
     <string name="settings_memory_cards_summary">%1$d개의 카드 사용 가능. 슬롯 1: %2$s. 슬롯 2: %3$s.</string>

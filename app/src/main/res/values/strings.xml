@@ -702,6 +702,7 @@
     <string name="memory_card_import_overwritten">Imported card overwrote "%1$s".</string>
     <string name="memory_card_slot_cleared">%1$s is now empty.</string>
     <string name="memory_card_needs_restart">Restart the running game to use the updated card.</string>
+    <string name="memory_card_saved">"%1$s" saved.</string>
     <string name="settings_memory_cards_open">Open memory card manager</string>
     <string name="settings_memory_cards_open_desc">Review slots, create new cards, and manage backups.</string>
     <string name="settings_memory_cards_summary">%1$d cards available. Slot 1: %2$s. Slot 2: %3$s.</string>

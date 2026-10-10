@@ -669,6 +669,10 @@ internal object CoreRuntime {
         runCatching { bridge.setMemoryCardPath(slot, path) }
     }
 
+    /** Drains the next card the core flushed to disk, if any. */
+    fun pollMemoryCardEvent(): String? =
+        runCatching { bridge.pollMemoryCardEvent() }.getOrNull()
+
     fun setTextureReplacementsPathOverride(path: String?) {
         runCatching { bridge.setTextureReplacementsPathOverride(path?.takeIf(String::isNotBlank)) }
             .onFailure { Log.w(TAG, "Unable to set texture replacements path", it) }

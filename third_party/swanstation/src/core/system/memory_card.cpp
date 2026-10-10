@@ -290,6 +290,9 @@ bool MemoryCard::SaveIfChanged(bool display_osd_message)
   if (!MemoryCardImage::SaveToFile(m_data, m_filename.c_str()))
     return false;
 
+  if (display_osd_message)
+    g_host_interface->OnMemoryCardSaved(m_filename);
+
   return true;
 }
 

@@ -451,6 +451,7 @@
     <string name="memory_card_import_overwritten">La carte importée a écrasé « %1$s ».</string>
     <string name="memory_card_slot_cleared">%1$s est maintenant vide.</string>
     <string name="memory_card_needs_restart">Redémarrez le jeu en cours pour utiliser la carte mise à jour.</string>
+    <string name="memory_card_saved">« %1$s » a été sauvegardée.</string>
     <string name="settings_memory_cards_open">Ouvrir le gestionnaire de cartes mémoire</string>
     <string name="settings_memory_cards_open_desc">Examinez les emplacements, créez de nouvelles cartes et gérez les sauvegardes.</string>
     <string name="settings_memory_cards_summary">%1$d cartes disponibles. Emplacement 1 : %2$s. Emplacement 2 : %3$s.</string>

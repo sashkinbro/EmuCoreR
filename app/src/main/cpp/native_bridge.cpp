@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <deque>
 #include <fstream>
 #include <mutex>
 #include <string>
@@ -1132,6 +1133,15 @@ bool HandleHardwareRender(void* data) {
     return true;
 }
 
+// Memory-card images the core flushed to disk after the guest wrote to them.
+// The Kotlin layer drains this queue and shows the equivalent app-side message,
+// so in-game saves are confirmed even though the core draws no OSD text.
+namespace {
+std::mutex g_memory_card_events_mutex;
+std::deque<std::string> g_memory_card_events;
+constexpr size_t kMaxMemoryCardEvents = 8;
+}  // namespace
+
 bool EnvironmentCallback(unsigned cmd, void* data) {
     switch (cmd) {
         case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT: {
@@ -1193,6 +1203,17 @@ bool EnvironmentCallback(unsigned cmd, void* data) {
             if (width <= 0 || height <= 0) return false;
             target->width = static_cast<uint32_t>(width);
             target->height = static_cast<uint32_t>(height);
+            return true;
+        }
+
+        case EMUCORER_ENVIRONMENT_MEMORY_CARD_SAVED: {
+            auto* saved = static_cast<emucorer_memory_card_saved*>(data);
+            if (saved == nullptr || saved->path == nullptr || saved->path[0] == '\0')
+                return false;
+            std::lock_guard<std::mutex> lock(g_memory_card_events_mutex);
+            if (g_memory_card_events.size() >= kMaxMemoryCardEvents)
+                g_memory_card_events.pop_front();
+            g_memory_card_events.emplace_back(saved->path);
             return true;
         }
 
@@ -1800,6 +1821,10 @@ JNIEXPORT void JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_destroySession(JNIEnv*, jobject, jlong handle) {
     if (handle == 0) return;
     EmuCoreRAchievementsOnSessionEnd();
+    {
+        std::lock_guard<std::mutex> lock(g_memory_card_events_mutex);
+        g_memory_card_events.clear();
+    }
     std::lock_guard<std::mutex> lock(g_frontend.core_mutex);
     DestroyHardwareRendererContext();
     if (g_frontend.game_loaded) {
@@ -1978,6 +2003,16 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_loadDiscFd(JNIEnv*, jobject, jlong 
     }
     g_frontend.game_loaded = true;
     return 0;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_pollMemoryCardEvent(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> lock(g_memory_card_events_mutex);
+    if (g_memory_card_events.empty())
+        return nullptr;
+    const std::string path = g_memory_card_events.front();
+    g_memory_card_events.pop_front();
+    return env->NewStringUTF(path.c_str());
 }
 
 JNIEXPORT jint JNICALL

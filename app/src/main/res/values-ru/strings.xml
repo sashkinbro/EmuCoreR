@@ -458,6 +458,7 @@
     <string name="memory_card_import_overwritten">Импортированная карта перезаписала "%1$s".</string>
     <string name="memory_card_slot_cleared">%1$s теперь пуст.</string>
     <string name="memory_card_needs_restart">Перезапустите игру, чтобы использовать обновлённую карту.</string>
+    <string name="memory_card_saved">«%1$s» сохранена.</string>
     <string name="settings_memory_cards_open">Открыть менеджер карт памяти</string>
     <string name="settings_memory_cards_open_desc">Просматривайте слоты, создавайте новые карты и управляйте резервными копиями.</string>
     <string name="settings_memory_cards_summary">Доступно карт: %1$d. Слот 1: %2$s. Слот 2: %3$s.</string>

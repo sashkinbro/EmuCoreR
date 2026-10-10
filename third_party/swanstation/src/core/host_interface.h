@@ -111,6 +111,10 @@ public:
   /// Returns the path to the shader cache directory.
   std::string GetShaderCacheBasePath() const;
 
+  /// Called when a memory card image was just flushed to disk after the guest
+  /// wrote to it. The default implementation does nothing.
+  virtual void OnMemoryCardSaved(const std::string_view& path);
+
   /// Returns a setting value from the configuration.
   std::string GetStringSettingValue(const char* section, const char* key, const char* default_value = "");
 

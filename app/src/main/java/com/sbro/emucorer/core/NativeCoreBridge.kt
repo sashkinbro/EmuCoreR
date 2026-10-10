@@ -51,6 +51,12 @@ class NativeCoreBridge {
     external fun loadDiscFd(handle: Long, fd: Int, offset: Long, size: Long): Int
     external fun reset(handle: Long): Int
 
+    /**
+     * Returns the path of a memory card the core just flushed, or null when no
+     * write happened since the previous call.
+     */
+    external fun pollMemoryCardEvent(): String?
+
     /** Runs one guest frame; audio is pulled by the output stream callback. */
     external fun runFrame(handle: Long)
     /**

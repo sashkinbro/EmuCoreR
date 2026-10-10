@@ -851,6 +851,18 @@ void HostInterface::AddOSDMessage(std::string message, float duration /*= 2.0f*/
   g_retro_environment_callback(RETRO_ENVIRONMENT_SET_MESSAGE, &msg);
 }
 
+void HostInterface::OnMemoryCardSaved(const std::string_view& path)
+{
+  // Forward to the frontend, which notifies the player from the app UI instead
+  // of drawing the core's own OSD text over the game.
+  if (path.empty())
+    return;
+
+  const std::string card_path(path);
+  emucorer_memory_card_saved saved = {card_path.c_str()};
+  g_retro_environment_callback(EMUCORER_ENVIRONMENT_MEMORY_CARD_SAVED, &saved);
+}
+
 void HostInterface::retro_get_system_av_info(struct retro_system_av_info* info)
 {
   const bool use_resolution_scale = (g_settings.gpu_renderer != GPURenderer::Software);
