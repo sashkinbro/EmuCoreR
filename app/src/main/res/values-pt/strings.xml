@@ -648,6 +648,9 @@
     <string name="settings_help_back_button_exits_game">Desativado por padrão. Quando ativado, o botão Voltar do Android usa a mesma ação que Sair no menu do jogo, incluindo a configuração de confirmação atual.</string>
     <string name="settings_confirm_save_load_actions">Confirmar ações de salvar/carregar</string>
     <string name="settings_confirm_save_load_actions_desc">Perguntar antes de salvar ou carregar rapidamente.</string>
+    <string name="settings_memory_card_notifications">Notificações de cartões de memória</string>
+    <string name="settings_memory_card_notifications_desc">Mostrar um aviso quando um cartão de memória for criado, substituído, atribuído ou salvo no jogo.</string>
+    <string name="settings_help_memory_card_notifications">Aplica-se ao gerenciador de cartões de memória e aos saves que o jogo grava no cartão durante a partida. Desativado por padrão.</string>
     <string name="settings_floating_quick_actions">Botões flutuantes de salvar/carregar rápido</string>
     <string name="settings_floating_quick_actions_desc">Mostrar botões flutuantes de salvar e carregar rápido durante o jogo</string>
     <string name="settings_help_floating_quick_actions">Adiciona dois pequenos botões arrastáveis na tela de emulação: um para salvar rápido e outro para carregar rápido. Arraste-os para qualquer lugar; as posições são lembradas. Funcionam em todos os modos de controle, mesmo com os controles de toque ocultos ou um controle físico conectado.</string>

@@ -1256,6 +1256,7 @@ private fun SettingsContent(
     val searchEntries = rememberSettingsSearchEntries()
     val floatingQuickActionsEnabled by viewModel.floatingQuickActionsEnabled.collectAsState()
     val showPatchMessages by viewModel.showPatchMessages.collectAsState()
+    val memoryCardNotificationsEnabled by viewModel.memoryCardNotificationsEnabled.collectAsState()
     val orientationLock by viewModel.orientationLock.collectAsState()
     val emulationAllowsBothOrientations by viewModel.emulationAllowsBothOrientations.collectAsState()
     val notSetLabel = stringResource(R.string.settings_not_set)
@@ -1416,6 +1417,15 @@ private fun SettingsContent(
                             onCheckedChange = viewModel::setConfirmSaveLoadActions,
                             helpText = stringResource(R.string.settings_help_confirm_save_load_actions),
                             onResetToDefault = { viewModel.setConfirmSaveLoadActions(defaults.confirmSaveLoadActions) }
+                        )
+                        ToggleItem(
+                            icon = Icons.Rounded.Memory,
+                            title = stringResource(R.string.settings_memory_card_notifications),
+                            subtitle = stringResource(R.string.settings_memory_card_notifications_desc),
+                            checked = memoryCardNotificationsEnabled,
+                            onCheckedChange = viewModel::setMemoryCardNotifications,
+                            helpText = stringResource(R.string.settings_help_memory_card_notifications),
+                            onResetToDefault = { viewModel.setMemoryCardNotifications(false) }
                         )
                         ToggleItem(
                             icon = Icons.Rounded.Save,
@@ -4555,6 +4565,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.General, R.string.settings_orientation_lock),
         entry(SettingsTab.General, R.string.settings_back_button_exits_game),
         entry(SettingsTab.General, R.string.settings_confirm_save_load_actions),
+        entry(SettingsTab.General, R.string.settings_memory_card_notifications),
         entry(SettingsTab.General, R.string.settings_floating_quick_actions),
         entry(SettingsTab.General, R.string.settings_show_recent_games),
         entry(SettingsTab.General, R.string.settings_show_home_search),

@@ -648,6 +648,9 @@
     <string name="settings_help_back_button_exits_game">Standardmäßig deaktiviert. Wenn aktiviert, verwendet die Android-Zurück-Taste denselben Beenden-Vorgang wie „Beenden“ im Spielmenü, einschließlich der aktuellen Bestätigungseinstellung.</string>
     <string name="settings_confirm_save_load_actions">Speichern/Laden bestätigen</string>
     <string name="settings_confirm_save_load_actions_desc">Vor dem Schnellspeichern oder Schnellladen nachfragen.</string>
+    <string name="settings_memory_card_notifications">Speicherkarten-Benachrichtigungen</string>
+    <string name="settings_memory_card_notifications_desc">Meldung anzeigen, wenn eine Speicherkarte erstellt, ersetzt, zugewiesen oder im Spiel gespeichert wird.</string>
+    <string name="settings_help_memory_card_notifications">Gilt für den Speicherkarten-Manager und für Speicherungen, die das Spiel während des Spielens auf die Karte schreibt. Standardmäßig deaktiviert.</string>
     <string name="settings_floating_quick_actions">Schwebende Schnellspeicher-/Schnelllade-Tasten</string>
     <string name="settings_floating_quick_actions_desc">Verschiebbare Tasten für Schnellspeichern und Schnellladen während des Spiels anzeigen</string>
     <string name="settings_help_floating_quick_actions">Fügt zwei kleine verschiebbare Tasten auf dem Emulationsbildschirm hinzu: eine für Schnellspeichern und eine für Schnellladen. Ziehe sie an eine beliebige Stelle; ihre Positionen werden gespeichert. Sie funktionieren in jedem Steuerungsmodus, auch bei ausgeblendeten Touch-Steuerelementen oder angeschlossenem physischem Controller.</string>

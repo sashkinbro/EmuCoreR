@@ -129,7 +129,8 @@ fun MemoryCardManagerScreen(
 
     fun slotLabel(slot: Int): String = if (slot == 1) slotOneLabel else slotTwoLabel
 
-    fun showCardMessage(message: String, affectsRunningGame: Boolean = false) {
+    suspend fun showCardMessage(message: String, affectsRunningGame: Boolean = false) {
+        if (!repository.notificationsEnabled()) return
         val warnAboutRunningGame = affectsRunningGame && EmulatorBridge.hasValidVm()
         Toast.makeText(
             context,

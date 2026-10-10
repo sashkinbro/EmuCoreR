@@ -418,6 +418,7 @@ class AppPreferences(private val context: Context) {
         private val FPS_OVERLAY_SCALE = intPreferencesKey("fps_overlay_scale")
         private val FPS_OVERLAY_METRICS = intPreferencesKey("fps_overlay_metrics")
         private val CONFIRM_SAVE_LOAD_ACTIONS = booleanPreferencesKey("confirm_save_load_actions")
+        private val MEMORY_CARD_NOTIFICATIONS = booleanPreferencesKey("memory_card_notifications")
         private val BACK_BUTTON_EXITS_GAME = booleanPreferencesKey("back_button_exits_game")
         private val COMPACT_CONTROLS = booleanPreferencesKey("compact_controls")
         private val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
@@ -1603,6 +1604,14 @@ class AppPreferences(private val context: Context) {
         prefs[CONFIRM_SAVE_LOAD_ACTIONS] ?: true
     }
 
+    val memoryCardNotifications: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[MEMORY_CARD_NOTIFICATIONS] ?: false
+    }
+
+    suspend fun setMemoryCardNotifications(enabled: Boolean) {
+        context.dataStore.edit { it[MEMORY_CARD_NOTIFICATIONS] = enabled }
+    }
+
     suspend fun setConfirmSaveLoadActions(enabled: Boolean) {
         context.dataStore.edit { it[CONFIRM_SAVE_LOAD_ACTIONS] = enabled }
     }
@@ -2702,6 +2711,7 @@ class AppPreferences(private val context: Context) {
             put("fpsOverlayScale", (prefs[FPS_OVERLAY_SCALE] ?: DEFAULT_FPS_OVERLAY_SCALE).coerceIn(MIN_FPS_OVERLAY_SCALE, MAX_FPS_OVERLAY_SCALE))
             put("fpsOverlayMetrics", PerformanceOverlayMetrics.sanitize(prefs[FPS_OVERLAY_METRICS] ?: PerformanceOverlayMetrics.DEFAULT))
             put("confirmSaveLoadActions", prefs[CONFIRM_SAVE_LOAD_ACTIONS] ?: true)
+            put("memoryCardNotifications", prefs[MEMORY_CARD_NOTIFICATIONS] ?: false)
             put("backButtonExitsGame", prefs[BACK_BUTTON_EXITS_GAME] ?: false)
             put("compactControls", prefs[COMPACT_CONTROLS] ?: true)
             put("keepScreenOn", prefs[KEEP_SCREEN_ON] ?: true)
@@ -2966,6 +2976,7 @@ class AppPreferences(private val context: Context) {
                 json.optInt("fpsOverlayMetrics", PerformanceOverlayMetrics.DEFAULT)
             )
             prefs[CONFIRM_SAVE_LOAD_ACTIONS] = json.optBoolean("confirmSaveLoadActions", true)
+            prefs[MEMORY_CARD_NOTIFICATIONS] = json.optBoolean("memoryCardNotifications", false)
             prefs[BACK_BUTTON_EXITS_GAME] = json.optBoolean("backButtonExitsGame", false)
             prefs[COMPACT_CONTROLS] = json.optBoolean("compactControls", true)
             prefs[KEEP_SCREEN_ON] = json.optBoolean("keepScreenOn", true)

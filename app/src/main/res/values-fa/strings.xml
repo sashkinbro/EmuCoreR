@@ -279,6 +279,9 @@
     <string name="settings_help_back_button_exits_game">به‌طور پیش‌فرض خاموش است. با فعال‌سازی، دکمه بازگشت Android همان عملکرد خروج در منوی بازی را با تنظیم تأیید فعلی اجرا می‌کند.</string>
     <string name="settings_confirm_save_load_actions">تأیید اقدامات ذخیره/بارگذاری</string>
     <string name="settings_confirm_save_load_actions_desc">قبل از ذخیره سریع یا بارگذاری سریع سؤال بپرسید.</string>
+    <string name="settings_memory_card_notifications">اعلان‌های کارت حافظه</string>
+    <string name="settings_memory_card_notifications_desc">هنگام ایجاد، جایگزینی، اختصاص کارت حافظه یا ذخیره در بازی پیام نمایش داده شود.</string>
+    <string name="settings_help_memory_card_notifications">برای مدیر کارت حافظه و ذخیره‌هایی که بازی هنگام بازی روی کارت می‌نویسد اعمال می‌شود. به‌طور پیش‌فرض خاموش است.</string>
     <string name="settings_floating_quick_actions">دکمه‌های شناور ذخیره و بارگذاری سریع</string>
     <string name="settings_floating_quick_actions_desc">نمایش دکمه‌های شناور ذخیره و بارگذاری سریع در حین بازی</string>
     <string name="settings_help_floating_quick_actions">دو دکمه کوچک قابل جابه‌جایی روی صفحه شبیه‌سازی اضافه می‌کند: یکی برای ذخیره سریع و دیگری برای بارگذاری سریع. آن‌ها را هر جا بکشید تا جابه‌جا شوند و مکانشان به خاطر سپرده می‌شود. در همه حالت‌های کنترل کار می‌کنند، حتی وقتی کنترل‌های لمسی پنهان هستند یا دسته فیزیکی وصل است.</string>

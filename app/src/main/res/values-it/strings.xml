@@ -646,6 +646,9 @@
     <string name="settings_help_back_button_exits_game">Disattivato per impostazione predefinita. Se attivato, il pulsante Indietro di Android usa la stessa azione di Esci nel menu di gioco, inclusa l’impostazione di conferma corrente.</string>
     <string name="settings_confirm_save_load_actions">Conferma azioni di salvataggio/caricamento</string>
     <string name="settings_confirm_save_load_actions_desc">Chiedi prima del salvataggio o caricamento rapido.</string>
+    <string name="settings_memory_card_notifications">Notifiche memory card</string>
+    <string name="settings_memory_card_notifications_desc">Mostra un messaggio quando una memory card viene creata, sostituita, assegnata o salvata in gioco.</string>
+    <string name="settings_help_memory_card_notifications">Si applica al gestore delle memory card e ai salvataggi che il gioco scrive sulla card durante il gioco. Disattivato per impostazione predefinita.</string>
     <string name="settings_floating_quick_actions">Pulsanti flottanti di salvataggio/caricamento rapido</string>
     <string name="settings_floating_quick_actions_desc">Mostra pulsanti mobili di salvataggio e caricamento rapido durante il gioco</string>
     <string name="settings_help_floating_quick_actions">Aggiunge due piccoli pulsanti trascinabili sulla schermata di emulazione: uno per il salvataggio rapido e uno per il caricamento rapido. Trascinali dove vuoi; le loro posizioni vengono ricordate. Funzionano in ogni modalità di controllo, anche quando i comandi touch sono nascosti o è collegato un controller fisico.</string>

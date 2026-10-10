@@ -665,6 +665,9 @@
     <string name="settings_help_back_button_exits_game">Типово вимкнено. Після ввімкнення системна кнопка «Назад» запускає ту саму дію виходу, що й пункт «Вийти» в ігровому меню, з урахуванням поточних налаштувань підтвердження.</string>
     <string name="settings_confirm_save_load_actions">Підтверджувати збереження/завантаження</string>
     <string name="settings_confirm_save_load_actions_desc">Запитувати перед швидким збереженням або швидким завантаженням.</string>
+    <string name="settings_memory_card_notifications">Сповіщення про карти пам\'яті</string>
+    <string name="settings_memory_card_notifications_desc">Показувати повідомлення, коли карту пам\'яті створено, перезаписано, призначено або збережено в грі.</string>
+    <string name="settings_help_memory_card_notifications">Стосується менеджера карт пам\'яті та збережень, які гра записує на карту під час гри. Типово вимкнено.</string>
     <string name="settings_floating_quick_actions">Плаваючі кнопки швидкого збереження й завантаження</string>
     <string name="settings_floating_quick_actions_desc">Показувати перетягувані кнопки швидкого збереження й завантаження під час гри</string>
     <string name="settings_help_floating_quick_actions">Додає на екран емуляції дві невеликі кнопки, які можна перетягувати: одну для швидкого збереження, другу для швидкого завантаження. Перетягніть їх у будь-яке місце — позиції пам\'ятовуються. Працюють у будь-якому режимі керування, навіть коли сенсорне керування приховано або під\'єднано фізичний геймпад.</string>

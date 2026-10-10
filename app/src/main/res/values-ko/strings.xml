@@ -646,6 +646,9 @@
     <string name="settings_help_back_button_exits_game">기본적으로 꺼져 있습니다. 활성화하면 Android 뒤로 버튼이 게임 메뉴의 종료와 동일한 동작을 사용하며 현재 확인 설정도 그대로 적용됩니다.</string>
     <string name="settings_confirm_save_load_actions">저장/불러오기 작업 확인</string>
     <string name="settings_confirm_save_load_actions_desc">빠른 저장 또는 빠른 불러오기 전에 묻습니다.</string>
+    <string name="settings_memory_card_notifications">메모리 카드 알림</string>
+    <string name="settings_memory_card_notifications_desc">메모리 카드를 만들거나, 교체하거나, 할당하거나, 게임에서 저장할 때 메시지를 표시합니다.</string>
+    <string name="settings_help_memory_card_notifications">메모리 카드 관리자와 게임 중 카드에 기록되는 저장에 적용됩니다. 기본값은 꺼짐입니다.</string>
     <string name="settings_floating_quick_actions">플로팅 빠른 저장/불러오기 버튼</string>
     <string name="settings_floating_quick_actions_desc">게임 중 이동 가능한 빠른 저장 및 빠른 불러오기 버튼 표시</string>
     <string name="settings_help_floating_quick_actions">에뮬레이션 화면에 드래그할 수 있는 작은 버튼 두 개를 추가합니다. 하나는 빠른 저장, 다른 하나는 빠른 불러오기입니다. 원하는 위치로 끌어 이동할 수 있으며 위치가 기억됩니다. 터치 컨트롤이 숨겨져 있거나 물리 컨트롤러가 연결된 경우를 포함해 모든 제어 모드에서 작동합니다.</string>

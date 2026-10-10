@@ -240,6 +240,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     val showPatchMessages: StateFlow<Boolean> = preferences.showPatchMessages
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val memoryCardNotificationsEnabled: StateFlow<Boolean> = preferences.memoryCardNotifications
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val floatingQuickActionsEnabled: StateFlow<Boolean> = preferences.floatingQuickActionsEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val orientationLock: StateFlow<Int> = preferences.orientationLock
@@ -983,6 +985,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setFpsOverlayScale(scale: Int) { viewModelScope.launch { preferences.setFpsOverlayScale(scale) } }
     fun setFpsOverlayMetrics(metrics: Int) { viewModelScope.launch { preferences.setFpsOverlayMetrics(metrics) } }
     fun setConfirmSaveLoadActions(enabled: Boolean) { viewModelScope.launch { preferences.setConfirmSaveLoadActions(enabled) } }
+
+    fun setMemoryCardNotifications(enabled: Boolean) {
+        viewModelScope.launch { preferences.setMemoryCardNotifications(enabled) }
+    }
     fun setFloatingQuickActionsEnabled(enabled: Boolean) {
         viewModelScope.launch { preferences.setFloatingQuickActionsEnabled(enabled) }
     }
