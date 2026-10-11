@@ -1675,8 +1675,8 @@ void HostInterface::UpdateSettings()
         UpdateGeometry();
       }
 
-      // Don't let the base class mess with the GPU.
-      old_settings.gpu_resolution_scale = g_settings.gpu_resolution_scale;
+      // The frontend may keep its hardware context when AV geometry changes.
+      // Preserve the scale difference so the GPU rebuilds its own targets.
     }
 
     if (g_settings.memory_card_types[0] != old_settings.memory_card_types[0])
