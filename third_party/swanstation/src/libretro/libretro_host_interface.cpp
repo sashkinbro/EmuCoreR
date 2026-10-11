@@ -88,6 +88,11 @@ extern "C" __attribute__((visibility("default"))) bool EmuCoreRHasDiscMedia()
   return System::IsValid() && g_cdrom.HasMedia();
 }
 
+extern "C" __attribute__((visibility("default"))) bool EmuCoreRChangeDisc(const char* path)
+{
+  return g_host_interface_storage.ChangeDisc(path);
+}
+
 // EmuCoreR Android frontend hook: reads the game serial from a disc image
 // without booting it, so the library, cheats and the texture catalog all match
 // packs by the same code the running game reports. The returned buffer is
@@ -2463,6 +2468,37 @@ void HostInterface::SwitchToSoftwareRenderer()
     save_display->DestroyResources();
     m_hw_render_display = std::move(save_display);
   }
+}
+
+bool HostInterface::ChangeDisc(const char* path)
+{
+  if (!System::IsValid() || !path || !*path || !System::InsertMedia(path))
+    return false;
+
+  // InsertMedia opens the replacement before touching the current drive. A
+  // rejected image leaves both the old media and all guest state intact.
+  // Refresh the disk list only after success, including container sub-images.
+  m_disk_control_info = {};
+  m_disk_control_info.has_sub_images = System::HasMediaSubImages();
+  m_disk_control_info.image_index = System::GetMediaSubImageIndex();
+  if (m_disk_control_info.has_sub_images)
+  {
+    m_disk_control_info.sub_images_parent_path = System::GetMediaFileName();
+    m_disk_control_info.image_count = System::GetMediaSubImageCount();
+    for (uint32_t i = 0; i < m_disk_control_info.image_count; i++)
+    {
+      m_disk_control_info.image_paths.push_back(System::GetMediaSubImagePath(i));
+      m_disk_control_info.image_labels.push_back(System::GetMediaSubImageTitle(i));
+    }
+  }
+  else
+  {
+    const std::string image_path = System::GetMediaFileName();
+    m_disk_control_info.image_count = 1;
+    m_disk_control_info.image_paths.push_back(image_path);
+    m_disk_control_info.image_labels.emplace_back(FileSystem::GetFileTitleFromPath(image_path));
+  }
+  return true;
 }
 
 bool HostInterface::DiskControlSetEjectState(bool ejected)
