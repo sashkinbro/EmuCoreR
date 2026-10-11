@@ -101,16 +101,29 @@ internal object CoreRuntime {
         }
         val task = FrameTask(block, CountDownLatch(1))
         frameTasks.add(task)
-        return try {
-            if (!task.completed.await(30, TimeUnit.SECONDS)) {
-                Log.w(TAG, "Timed out waiting for the frame worker to run a state operation")
-                false
-            } else {
-                task.result
+        var callerInterrupted = false
+        try {
+            try {
+                if (!task.completed.await(30, TimeUnit.SECONDS)) {
+                    Log.w(TAG, "Timed out waiting for the frame worker to run a state operation")
+                    if (frameTasks.remove(task)) return false
+                }
+            } catch (_: InterruptedException) {
+                callerInterrupted = true
+                if (frameTasks.remove(task)) return false
             }
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-            false
+            // Once the worker owns the task, its native mutation must finish
+            // before the caller can report a result or release its resources.
+            while (task.completed.count != 0L) {
+                try {
+                    task.completed.await()
+                } catch (_: InterruptedException) {
+                    callerInterrupted = true
+                }
+            }
+            return task.result
+        } finally {
+            if (callerInterrupted) Thread.currentThread().interrupt()
         }
     }
 
@@ -557,9 +570,25 @@ internal object CoreRuntime {
         }
     }
 
-    fun changeDisc(path: String): Boolean {
-        if (!isSupportedDiscPath(path)) return false
-        return sessionLock.withLock { session != 0L && loadDisc(session, path) == 0 }
+    fun changeDisc(path: String): Boolean = lifecycleLock.withLock swap@{
+        if (!isSupportedDiscPath(path) || !hasSession()) return@swap false
+        // Resolve/copy SAF content outside the frame worker, keeping the
+        // current image alive until the core has accepted the replacement.
+        val prepared = prepareDisc(path) ?: return@swap false
+        val changed = runOnFrameThread {
+            sessionLock.withLock {
+                if (session == 0L || bridge.changeDisc(session, prepared.path) != 0) {
+                    false
+                } else {
+                    adoptDisc(prepared)
+                    currentGamePath = path
+                    currentBiosOnly = false
+                    true
+                }
+            }
+        }
+        if (!changed) prepared.close()
+        changed
     }
 
     fun saveState(path: String): Boolean {
@@ -1043,42 +1072,63 @@ internal object CoreRuntime {
     }
 
     private fun loadDisc(handle: Long, gamePath: String): Int {
-        if (!gamePath.startsWith("content://")) return bridge.loadDisc(handle, gamePath)
+        val prepared = prepareDisc(gamePath) ?: return -1
+        val result = bridge.loadDisc(handle, prepared.path)
+        if (result == 0) adoptDisc(prepared) else prepared.close()
+        return result
+    }
+
+    private class PreparedDisc(val path: String, val descriptor: ParcelFileDescriptor? = null,
+                               val link: File? = null) {
+        fun close() {
+            link?.let { runCatching { it.delete() } }
+            descriptor?.let { runCatching { it.close() } }
+        }
+    }
+
+    private fun adoptDisc(prepared: PreparedDisc) {
+        releaseDiscDescriptor()
+        discDescriptor = prepared.descriptor
+        discLink = prepared.link
+    }
+
+    private fun prepareDisc(gamePath: String): PreparedDisc? {
+        if (!gamePath.startsWith("content://")) return PreparedDisc(gamePath)
         val appContext = context
         if (appContext != null) {
             val directory = File(appContext.cacheDir, "swanstation-cue/${gamePath.hashCode()}")
-            DocumentPathResolver.materializePreparedCue(gamePath, directory)?.let { cuePath ->
-                return bridge.loadDisc(handle, cuePath)
+            if (discExtensionFor(gamePath) == "cue") {
+                if (DocumentPathResolver.getPreparedCueLaunch(gamePath) == null) {
+                    val resolved = DocumentPathResolver.prepareGameLaunchPath(appContext, gamePath) ?: return null
+                    if (!resolved.startsWith("content://")) return PreparedDisc(resolved)
+                }
+                return DocumentPathResolver.materializePreparedCue(gamePath, directory)?.let { PreparedDisc(it) }
             }
             // Single-file images (CHD/ISO/PBP/...) cannot be reopened through a
             // /proc/self/fd symlink under scoped storage, so stream them into
             // app-owned cache with their original extension first.
             DocumentPathResolver.materializeSingleFileDisc(appContext, gamePath, directory)?.let { imagePath ->
-                return bridge.loadDisc(handle, imagePath)
+                return PreparedDisc(imagePath)
             }
         }
-        val resolver = context?.contentResolver ?: return -1
+        val resolver = context?.contentResolver ?: return null
         val descriptor = runCatching {
             resolver.openFileDescriptor(Uri.parse(gamePath), "r")
-        }.getOrNull() ?: return -1
-        releaseDiscDescriptor()
-        discDescriptor = descriptor
+        }.getOrNull() ?: return null
         // The core picks its disc container by file extension, so expose the
         // live SAF descriptor through a cache symlink that keeps the original
         // extension ("/proc/self/fd/N" alone would be rejected as unknown).
         val extension = discExtensionFor(gamePath)
-        val link = context?.cacheDir?.let { File(it, "swanstation-disc/disc-${gamePath.hashCode()}.$extension") }
+        val link = runCatching {
+            val directory = File(appContext!!.cacheDir, "swanstation-disc").apply { mkdirs() }
+            File.createTempFile("disc-", ".$extension", directory)
+        }.getOrNull()
         if (link != null && createDiscSymlink(link, descriptor.fd)) {
-            discLink = link
-            val linked = bridge.loadDisc(handle, link.absolutePath)
-            if (linked == 0) return 0
-            releaseDiscDescriptor()
+            return PreparedDisc(link.absolutePath, descriptor, link)
         }
-        return runCatching {
-            bridge.loadDiscFd(handle, descriptor.fd, 0L, descriptor.statSize.coerceAtLeast(0L))
-        }.onFailure { error ->
-            Log.e(TAG, "Unable to open PS1 disc image through SAF: $gamePath", error)
-        }.getOrDefault(-1)
+        link?.delete()
+        descriptor.close()
+        return null
     }
 
     private fun discExtensionFor(gamePath: String): String {
@@ -1148,7 +1198,10 @@ internal object CoreRuntime {
     }
 
     private fun isSupportedDiscPath(path: String): Boolean {
-        val extension = path.substringAfterLast('.', "").lowercase()
+        val name = if (path.startsWith("content://")) {
+            context?.let { DocumentPathResolver.getDisplayName(it, path) } ?: return false
+        } else path
+        val extension = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
         return extension == "cue" || extension == "bin" || extension == "img" ||
             extension == "iso" || extension == "chd" || extension == "pbp" || extension == "m3u" ||
             extension == "ecm" || extension == "mds" || extension == "psf" ||

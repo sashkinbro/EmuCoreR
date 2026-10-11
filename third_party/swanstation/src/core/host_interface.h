@@ -149,6 +149,7 @@ public:
   void retro_set_environment();
   void retro_get_system_av_info(struct retro_system_av_info* info);
   bool retro_load_game(const struct retro_game_info* game);
+  bool ChangeDisc(const char* path);
   void retro_set_controller_port_device(uint32_t port, uint32_t device);
   void retro_run_frame();
   unsigned retro_get_region();

@@ -329,6 +329,7 @@ object DocumentPathResolver {
         if (!targetDir.exists() && !targetDir.mkdirs()) return null
 
         var index = 0
+        var copyFailed = false
         val rewritten = cueBinaryFileRewrite.replace(resources.cueText) { match ->
             val descriptor = resources.descriptors.getOrNull(index)
             if (descriptor == null) {
@@ -339,18 +340,28 @@ object DocumentPathResolver {
                 val expected = descriptor.statSize
                 if (!(trackFile.isFile && expected > 0 && trackFile.length() == expected)) {
                     val copied = runCatching {
-                        FileInputStream(descriptor.fileDescriptor).use { input ->
+                        // Closing a stream over the original descriptor also
+                        // closes the prepared track needed by future restarts.
+                        ParcelFileDescriptor.AutoCloseInputStream(
+                            ParcelFileDescriptor.dup(descriptor.fileDescriptor)
+                        ).use { input ->
+                            input.channel.position(0)
                             FileOutputStream(trackFile).use { output -> input.copyTo(output) }
                         }
                         true
                     }.onFailure { error ->
                         Log.e(TAG, "Unable to materialize CUE track $index for $launchPath", error)
                     }.getOrDefault(false)
-                    if (!copied) return@replace match.value
+                    if (!copied || (expected > 0 && trackFile.length() != expected)) {
+                        trackFile.delete()
+                        copyFailed = true
+                        return@replace match.value
+                    }
                 }
                 "${match.groupValues[1]}\"${trackFile.absolutePath}\"${match.groupValues[3]}"
             }
         }
+        if (copyFailed || index != resources.descriptors.size) return null
         val cueFile = File(targetDir, "disc.cue")
         cueFile.writeText(rewritten)
         return cueFile.absolutePath

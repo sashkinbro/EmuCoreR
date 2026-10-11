@@ -1743,6 +1743,7 @@ extern void EmuCoreRSetTextureReplacementsPathOverride(const char* path);
 
 // Implemented by the core: reports whether a disc image is mounted.
 extern bool EmuCoreRHasDiscMedia();
+extern bool EmuCoreRChangeDisc(const char* path);
 
 // Implemented by the core: reads the game serial from a disc image.
 extern const char* EmuCoreRGetDiscGameCode(const char* path);
@@ -2003,6 +2004,19 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_loadDiscFd(JNIEnv*, jobject, jlong 
     }
     g_frontend.game_loaded = true;
     return 0;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_changeDisc(JNIEnv* env, jobject, jlong handle,
+                                                       jstring path) {
+    if (handle == 0 || path == nullptr) return -1;
+    const char* chars = env->GetStringUTFChars(path, nullptr);
+    const std::string game_path = chars != nullptr ? chars : "";
+    if (chars != nullptr) env->ReleaseStringUTFChars(path, chars);
+    if (game_path.empty()) return -2;
+    std::lock_guard<std::mutex> lock(g_frontend.core_mutex);
+    if (!g_frontend.game_loaded) return -1;
+    return EmuCoreRChangeDisc(game_path.c_str()) ? 0 : -3;
 }
 
 JNIEXPORT jstring JNICALL

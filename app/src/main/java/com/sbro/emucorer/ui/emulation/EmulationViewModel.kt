@@ -1451,8 +1451,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
 
-            // VMManager restores the old image when opening the selected image fails.
-            // Either way the tray cycle must continue, so close the menu and resume.
+            // Rejected replacements keep the mounted image and guest state.
+            // Resume the game so it can observe a successful tray cycle.
             runCatching { EmulatorBridge.resume() }
             pausedForBackground = false
             _uiState.value = _uiState.value.copy(

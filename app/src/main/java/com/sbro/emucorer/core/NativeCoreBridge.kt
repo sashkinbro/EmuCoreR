@@ -48,6 +48,8 @@ class NativeCoreBridge {
     /** Boots the core with no content into the PlayStation BIOS. */
     external fun loadBiosOnly(handle: Long): Int
     external fun loadDisc(handle: Long, path: String): Int
+    /** Replaces media in the current CD drive without booting or resetting the core. */
+    external fun changeDisc(handle: Long, path: String): Int
     external fun loadDiscFd(handle: Long, fd: Int, offset: Long, size: Long): Int
     external fun reset(handle: Long): Int
 
