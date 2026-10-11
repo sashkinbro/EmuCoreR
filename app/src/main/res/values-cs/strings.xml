@@ -2221,4 +2221,9 @@
     <string name="ss_core_choice_scaled">Škálovaný</string>
     <string name="ss_core_choice_true_color">Pravé barvy</string>
     <string name="ss_core_choice_true_color_full">Pravé barvy (plné)</string>
+    <string name="home_library_options">Možnosti knihovny</string>
+    <string name="home_group_discs">Seskupovat disky hry</string>
+    <string name="home_choose_disc">Vyberte disk</string>
+    <string name="home_disc_number">Disk %1$d</string>
+    <string name="home_disc_count">Disky: %1$d</string>
 </resources>

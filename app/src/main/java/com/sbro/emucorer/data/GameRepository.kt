@@ -21,7 +21,9 @@ data class GameItem(
     val fileSize: Long,
     val lastModified: Long,
     val coverArtPath: String? = null,
-    val serial: String? = null
+    val serial: String? = null,
+    /** Present only on grouped library cards; each member retains its launch metadata. */
+    val discs: List<LibraryDisc> = emptyList()
 )
 
 class GameRepository {

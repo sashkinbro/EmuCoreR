@@ -2232,4 +2232,9 @@
     <string name="ss_core_choice_scaled">Scaled</string>
     <string name="ss_core_choice_true_color">True Color</string>
     <string name="ss_core_choice_true_color_full">True Color (Full)</string>
+    <string name="home_library_options">Library options</string>
+    <string name="home_group_discs">Group multiple discs</string>
+    <string name="home_choose_disc">Choose a disc</string>
+    <string name="home_disc_number">Disc %1$d</string>
+    <string name="home_disc_count">Discs: %1$d</string>
 </resources>

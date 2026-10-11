@@ -115,6 +115,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -176,6 +178,16 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var pendingDiscAction by remember { mutableStateOf<DiscAction?>(null) }
+    fun performDiscAction(game: GameItem, action: (GameItem) -> Unit) {
+        if (game.discs.size > 1) pendingDiscAction = DiscAction(game, action) else action(game)
+    }
+    pendingDiscAction?.let { pending ->
+        DiscSelectionDialog(game = pending.game, onDismiss = { pendingDiscAction = null }, onSelected = { disc ->
+            pendingDiscAction = null
+            pending.action(disc)
+        })
+    }
     var showWelcomeSupportOptions by remember { mutableStateOf(false) }
     val supportOffers = if (uiState.isProUnlocked && !uiState.isProPurchaseStatusVerified) {
         emptyList()
@@ -467,14 +479,14 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxSize(),
                         onExitShelfMode = viewModel::toggleShelfMode,
                         onEnable3dCoverArt = viewModel::enable3dCoverArt,
-                        onGameClick = onGameClick,
-                        onLongClickStart = onGameClick,
-                        onLongClickContinue = onContinueGame,
-                        onLongClickLoadSave = onLoadSaveClick,
-                        onLongClickManage = onManageGameClick,
-                        onLongClickCreateShortcut = onCreateShortcutClick,
+                        onGameClick = { performDiscAction(it, onGameClick) },
+                        onLongClickStart = { performDiscAction(it, onGameClick) },
+                        onLongClickContinue = { performDiscAction(it, onContinueGame) },
+                        onLongClickLoadSave = { performDiscAction(it, onLoadSaveClick) },
+                        onLongClickManage = { performDiscAction(it, onManageGameClick) },
+                        onLongClickCreateShortcut = { performDiscAction(it, onCreateShortcutClick) },
                         onLongClickCustomCover = { game ->
-                            gameAwaitingPickerLaunch = game
+                            performDiscAction(game) { gameAwaitingPickerLaunch = it }
                         }
                     )
                 } else {
@@ -503,6 +515,10 @@ fun HomeScreen(
                                     refreshEnabled = !uiState.isRefreshing,
                                     isShelfView = false,
                                     standardViewMode = standardViewMode,
+                                    groupDiscs = uiState.groupDiscs,
+                                    sortOption = uiState.sortOption,
+                                    onToggleDiscGrouping = viewModel::toggleDiscGrouping,
+                                    onSortSelected = viewModel::updateSortOption,
                                     onRefresh = viewModel::refreshGames,
                                     onToggleShelfMode = viewModel::toggleShelfMode,
                                     onToggleLibraryViewMode = viewModel::toggleLibraryViewMode,
@@ -577,14 +593,14 @@ fun HomeScreen(
                                                         focusModifier = if (index == 0) Modifier.focusRequester(initialGamepadFocusRequester) else Modifier,
                                                         game = game,
                                                         showCenteredTitlePlaceholder = showCoverPlaceholder,
-                                                        onClick = { onGameClick(game) },
-                                                        onLongClickStart = { onGameClick(game) },
-                                                        onLongClickContinue = { onContinueGame(game) },
-                                                        onLongClickLoadSave = { onLoadSaveClick(game) },
-                                                        onLongClickManage = { onManageGameClick(game) },
-                                                        onLongClickCreateShortcut = { onCreateShortcutClick(game) },
+                                                        onClick = { performDiscAction(game, onGameClick) },
+                                                        onLongClickStart = { performDiscAction(game, onGameClick) },
+                                                        onLongClickContinue = { performDiscAction(game, onContinueGame) },
+                                                        onLongClickLoadSave = { performDiscAction(game, onLoadSaveClick) },
+                                                        onLongClickManage = { performDiscAction(game, onManageGameClick) },
+                                                        onLongClickCreateShortcut = { performDiscAction(game, onCreateShortcutClick) },
                                                         onLongClickCustomCover = {
-                                                            gameAwaitingPickerLaunch = game
+                                                            performDiscAction(game) { gameAwaitingPickerLaunch = it }
                                                         },
                                                         compact = isLandscape,
                                                         coverScale = uiState.homeGridScale
@@ -626,14 +642,14 @@ fun HomeScreen(
                                                                 focusModifier = itemFocusModifier,
                                                                 game = game,
                                                                 showCoverArt = !showCoverPlaceholder,
-                                                                onClick = { onGameClick(game) },
-                                                                onLongClickStart = { onGameClick(game) },
-                                                                onLongClickContinue = { onContinueGame(game) },
-                                                                onLongClickLoadSave = { onLoadSaveClick(game) },
-                                                                onLongClickManage = { onManageGameClick(game) },
-                                                                onLongClickCreateShortcut = { onCreateShortcutClick(game) },
+                                                                onClick = { performDiscAction(game, onGameClick) },
+                                                                onLongClickStart = { performDiscAction(game, onGameClick) },
+                                                                onLongClickContinue = { performDiscAction(game, onContinueGame) },
+                                                                onLongClickLoadSave = { performDiscAction(game, onLoadSaveClick) },
+                                                                onLongClickManage = { performDiscAction(game, onManageGameClick) },
+                                                                onLongClickCreateShortcut = { performDiscAction(game, onCreateShortcutClick) },
                                                                 onLongClickCustomCover = {
-                                                                    gameAwaitingPickerLaunch = game
+                                                                    performDiscAction(game) { gameAwaitingPickerLaunch = it }
                                                                 }
                                                             )
                                                         } else {
@@ -641,14 +657,14 @@ fun HomeScreen(
                                                                 focusModifier = itemFocusModifier,
                                                                 game = game,
                                                                 showCenteredTitlePlaceholder = showCoverPlaceholder,
-                                                                onClick = { onGameClick(game) },
-                                                                onLongClickStart = { onGameClick(game) },
-                                                                onLongClickContinue = { onContinueGame(game) },
-                                                                onLongClickLoadSave = { onLoadSaveClick(game) },
-                                                                onLongClickManage = { onManageGameClick(game) },
-                                                                onLongClickCreateShortcut = { onCreateShortcutClick(game) },
+                                                                onClick = { performDiscAction(game, onGameClick) },
+                                                                onLongClickStart = { performDiscAction(game, onGameClick) },
+                                                                onLongClickContinue = { performDiscAction(game, onContinueGame) },
+                                                                onLongClickLoadSave = { performDiscAction(game, onLoadSaveClick) },
+                                                                onLongClickManage = { performDiscAction(game, onManageGameClick) },
+                                                                onLongClickCreateShortcut = { performDiscAction(game, onCreateShortcutClick) },
                                                                 onLongClickCustomCover = {
-                                                                    gameAwaitingPickerLaunch = game
+                                                                    performDiscAction(game) { gameAwaitingPickerLaunch = it }
                                                                 }
                                                             )
                                                         }
@@ -888,7 +904,7 @@ private fun HomeSectionDivider(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun HomeHeader(
+internal fun HomeHeader(
     gamesCount: Int,
     isWide: Boolean,
     isLandscape: Boolean,
@@ -898,11 +914,17 @@ private fun HomeHeader(
     refreshEnabled: Boolean,
     isShelfView: Boolean,
     standardViewMode: HomeLibraryViewMode,
+    groupDiscs: Boolean,
+    sortOption: HomeSortOption,
+    onToggleDiscGrouping: () -> Unit,
+    onSortSelected: (HomeSortOption) -> Unit,
     onRefresh: () -> Unit,
     onToggleShelfMode: () -> Unit,
     onToggleLibraryViewMode: () -> Unit,
     onMenuClick: (() -> Unit)? = null
 ) {
+    var showLibraryOptions by remember { mutableStateOf(false) }
+    val libraryOptionsDescription = stringResource(R.string.home_library_options)
     val standardToggleIcon = when {
         isShelfView && standardViewMode == HomeLibraryViewMode.LIST -> Icons.Rounded.ViewAgenda
         isShelfView && standardViewMode == HomeLibraryViewMode.GRID -> Icons.Rounded.ViewModule
@@ -1013,23 +1035,42 @@ private fun HomeHeader(
                 )
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        modifier = Modifier.size(42.dp),
-                        onClick = onRefresh,
-                        enabled = refreshEnabled
-                    ) {
-                        if (isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(19.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Box {
+                        IconButton(
+                            modifier = Modifier.size(42.dp).semantics { contentDescription = libraryOptionsDescription },
+                            onClick = { showLibraryOptions = true }
+                        ) {
+                            if (isRefreshing) {
+                                CircularProgressIndicator(modifier = Modifier.size(19.dp), strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                Icon(Icons.Rounded.Tune, contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        DropdownMenu(expanded = showLibraryOptions, onDismissRequest = { showLibraryOptions = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.home_refresh)) },
+                                leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
+                                enabled = refreshEnabled,
+                                onClick = { showLibraryOptions = false; onRefresh() }
                             )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Rounded.Refresh,
-                                contentDescription = stringResource(R.string.home_refresh),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            HorizontalDivider()
+                            SortMenuItem(label = stringResource(R.string.home_group_discs), isSelected = groupDiscs,
+                                onClick = { onToggleDiscGrouping(); showLibraryOptions = false })
+                            HorizontalDivider()
+                            HomeSortOption.entries.forEach { option ->
+                                val label = when (option) {
+                                    HomeSortOption.TITLE_ASC -> R.string.home_sort_title_asc
+                                    HomeSortOption.TITLE_DESC -> R.string.home_sort_title_desc
+                                    HomeSortOption.RECENT_DESC -> R.string.home_sort_recent_desc
+                                    HomeSortOption.RECENT_ASC -> R.string.home_sort_recent_asc
+                                    HomeSortOption.SIZE_DESC -> R.string.home_sort_size_desc
+                                    HomeSortOption.SIZE_ASC -> R.string.home_sort_size_asc
+                                }
+                                SortMenuItem(label = stringResource(label), isSelected = sortOption == option,
+                                    onClick = { onSortSelected(option); showLibraryOptions = false })
+                            }
                         }
                     }
                     HomeHeaderActionDivider()
@@ -1549,6 +1590,7 @@ private fun RecentGameCard(
                 }
             }
         }
+        DiscCountBadge(game.discs.size, Modifier.align(Alignment.TopEnd).padding(6.dp))
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -1675,6 +1717,7 @@ private fun GameCard(
             }
         }
     }
+        DiscCountBadge(game.discs.size, Modifier.align(Alignment.TopEnd).padding(6.dp))
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -1799,7 +1842,7 @@ private fun GameListCard(
                 )
                 SerialLabel(game = game)
                 Text(
-                    text = game.fileName,
+                    text = if (game.discs.isNotEmpty()) stringResource(R.string.home_disc_count, game.discs.size) else game.fileName,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,

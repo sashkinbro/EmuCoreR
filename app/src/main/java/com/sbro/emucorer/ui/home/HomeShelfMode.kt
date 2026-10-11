@@ -541,22 +541,25 @@ private fun ShelfCoverCard(
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
     ) {
-        if (!shelfCoverPath.isNullOrBlank()) {
-            GameCoverArt(
-                coverPath = shelfCoverPath,
-                fallbackTitle = game.title,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = horizontalCoverPadding, vertical = verticalCoverPadding),
-                contentScale = ContentScale.Fit
-            )
-        } else {
-            ShelfMissingCoverCard(
-                title = game.title,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = horizontalCoverPadding, vertical = verticalCoverPadding)
-            )
+        Box(Modifier.fillMaxSize()) {
+            if (!shelfCoverPath.isNullOrBlank()) {
+                GameCoverArt(
+                    coverPath = shelfCoverPath,
+                    fallbackTitle = game.title,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = horizontalCoverPadding, vertical = verticalCoverPadding),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                ShelfMissingCoverCard(
+                    title = game.title,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = horizontalCoverPadding, vertical = verticalCoverPadding)
+                )
+            }
+            DiscCountBadge(game.discs.size, Modifier.align(Alignment.TopEnd).padding(12.dp))
         }
     }
 

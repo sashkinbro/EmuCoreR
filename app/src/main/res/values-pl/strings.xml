@@ -2220,4 +2220,9 @@
     <string name="ss_core_choice_scaled">Skalowany</string>
     <string name="ss_core_choice_true_color">Prawdziwe kolory</string>
     <string name="ss_core_choice_true_color_full">Prawdziwe kolory (pełne)</string>
+    <string name="home_library_options">Opcje biblioteki</string>
+    <string name="home_group_discs">Grupuj dyski gry</string>
+    <string name="home_choose_disc">Wybierz dysk</string>
+    <string name="home_disc_number">Dysk %1$d</string>
+    <string name="home_disc_count">Dyski: %1$d</string>
 </resources>

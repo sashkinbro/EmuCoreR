@@ -2199,4 +2199,9 @@
     <string name="ss_core_choice_scaled">Ölçekli</string>
     <string name="ss_core_choice_true_color">Gerçek renk</string>
     <string name="ss_core_choice_true_color_full">Gerçek renk (tam)</string>
+    <string name="home_library_options">Kitaplık seçenekleri</string>
+    <string name="home_group_discs">Oyun disklerini grupla</string>
+    <string name="home_choose_disc">Bir disk seçin</string>
+    <string name="home_disc_number">Disk %1$d</string>
+    <string name="home_disc_count">Disk sayısı: %1$d</string>
 </resources>

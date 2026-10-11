@@ -2203,4 +2203,9 @@
     <string name="ss_core_choice_scaled">Масштабированный</string>
     <string name="ss_core_choice_true_color">Истинный цвет</string>
     <string name="ss_core_choice_true_color_full">Истинный цвет (полный)</string>
+    <string name="home_library_options">Параметры библиотеки</string>
+    <string name="home_group_discs">Объединять диски игры</string>
+    <string name="home_choose_disc">Выберите диск</string>
+    <string name="home_disc_number">Диск %1$d</string>
+    <string name="home_disc_count">Диски: %1$d</string>
 </resources>
