@@ -22,6 +22,7 @@ import com.sbro.emucorer.data.CoreMaintenanceRepository
 import com.sbro.emucorer.data.CoreUpdateResetAction
 import com.sbro.emucorer.data.CustomGameCoverRepository
 import com.sbro.emucorer.data.GameItem
+import com.sbro.emucorer.data.groupLibraryDiscs
 import com.sbro.emucorer.data.GameLibraryCacheRepository
 import com.sbro.emucorer.data.GameLibraryCacheSnapshot
 import com.sbro.emucorer.data.GameRepository
@@ -80,6 +81,7 @@ data class HomeUiState(
     val searchQuery: String = "",
     val sortOption: HomeSortOption = HomeSortOption.TITLE_ASC,
     val libraryViewMode: HomeLibraryViewMode = HomeLibraryViewMode.GRID,
+    val groupDiscs: Boolean = true,
     val lastStandardLibraryViewMode: HomeLibraryViewMode = HomeLibraryViewMode.GRID,
     val isCoverArtDisabled: Boolean = true,
     val showWelcomeDialog: Boolean = false,
@@ -322,6 +324,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         viewModelScope.launch {
+            preferences.homeGroupDiscs.distinctUntilChanged().collect { enabled ->
+                _uiState.value = _uiState.value.copy(groupDiscs = enabled)
+                publishVisibleGames()
+            }
+        }
+        viewModelScope.launch {
             preferences.coverArtStyle.distinctUntilChanged().collect { style ->
                 _uiState.value = _uiState.value.copy(
                     isCoverArtDisabled = style == AppPreferences.COVER_ART_STYLE_DISABLED
@@ -414,6 +422,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSortOption(option: HomeSortOption) {
         _uiState.value = _uiState.value.copy(sortOption = option)
         publishVisibleGames()
+    }
+
+    fun toggleDiscGrouping() {
+        viewModelScope.launch { preferences.setHomeGroupDiscs(!_uiState.value.groupDiscs) }
     }
 
     fun toggleLibraryViewMode() {
@@ -656,18 +668,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun publishVisibleGames() {
         val state = _uiState.value
         val query = normalizeSearchToken(state.searchQuery)
-        val filtered = allGames.filter { game ->
+        val valid = allGames.filter { game ->
             !BiosValidator.isLikelyBiosLibraryEntry(
                 fileName = game.fileName,
                 title = game.title,
                 serial = game.serial,
                 fileSize = game.fileSize
-            ) && (
+            )
+        }
+        val grouped = groupLibraryDiscs(valid, state.groupDiscs)
+        fun matches(game: GameItem): Boolean = (
             query.isBlank() ||
                 normalizeSearchToken(game.title).contains(query) ||
                 normalizeSearchToken(game.fileName).contains(query) ||
                 normalizeSearchToken(game.serial).contains(query)
             )
+        val filtered = grouped.filter { game ->
+            matches(game) || game.discs.any { matches(it.game) }
         }
         val sorted = when (state.sortOption) {
             HomeSortOption.TITLE_ASC -> filtered.sortedWith(
@@ -695,15 +712,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     .thenBy { normalizeSortToken(it.title) }
             )
         }
-        val gamesByPath = allGames.associateBy { it.path }
+        val gamesByPath = grouped.flatMap { game ->
+            if (game.discs.isEmpty()) listOf(game.path to game)
+            else game.discs.map { disc -> disc.game.path to game.copy(path = disc.game.path) }
+        }.toMap()
         val recentGames = recentEntries.mapNotNull { entry ->
             gamesByPath[entry.path]
-        }.filter { game ->
-            query.isBlank() ||
-                normalizeSearchToken(game.title).contains(query) ||
-                normalizeSearchToken(game.fileName).contains(query) ||
-                normalizeSearchToken(game.serial).contains(query)
-        }.takeIf { state.showRecentGames }.orEmpty()
+        }.filter { game -> matches(game) || game.discs.any { matches(it.game) } }
+            .distinctBy { it.discs.firstOrNull()?.game?.path ?: it.path }
+            .takeIf { state.showRecentGames }.orEmpty()
         _uiState.value = _uiState.value.copy(
             games = sorted,
             recentGames = recentGames

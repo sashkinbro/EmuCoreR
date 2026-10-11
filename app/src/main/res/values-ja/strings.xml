@@ -2198,4 +2198,9 @@
     <string name="ss_core_choice_scaled">スケーリング</string>
     <string name="ss_core_choice_true_color">トゥルーカラー</string>
     <string name="ss_core_choice_true_color_full">トゥルーカラー（フル）</string>
+    <string name="home_library_options">ライブラリのオプション</string>
+    <string name="home_group_discs">複数のディスクをまとめる</string>
+    <string name="home_choose_disc">ディスクを選択</string>
+    <string name="home_disc_number">ディスク %1$d</string>
+    <string name="home_disc_count">ディスク数：%1$d</string>
 </resources>

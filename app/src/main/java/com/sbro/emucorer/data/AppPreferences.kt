@@ -429,6 +429,7 @@ class AppPreferences(private val context: Context) {
         private val PREFER_ENGLISH_GAME_TITLES = booleanPreferencesKey("prefer_english_game_titles")
         private val RECENT_GAMES = stringPreferencesKey("recent_games")
         private val HOME_LIBRARY_VIEW_MODE = intPreferencesKey("home_library_view_mode")
+        private val HOME_GROUP_DISCS = booleanPreferencesKey("home_group_discs")
         private const val MAX_RECENT_GAMES = 8
         // Overlay customization
         private val OVERLAY_SCALE = intPreferencesKey("overlay_scale")
@@ -1692,6 +1693,12 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[HOME_LIBRARY_VIEW_MODE] = mode.coerceIn(0, 2) }
     }
 
+    val homeGroupDiscs: Flow<Boolean> = context.dataStore.data.map { it[HOME_GROUP_DISCS] ?: true }
+
+    suspend fun setHomeGroupDiscs(enabled: Boolean) {
+        context.dataStore.edit { it[HOME_GROUP_DISCS] = enabled }
+    }
+
     suspend fun markGameLaunched(path: String, title: String, serial: String? = null) {
         context.dataStore.edit { prefs ->
             val cleanTitle = sanitizeRecentTitle(path, title, serial)
@@ -2722,6 +2729,7 @@ class AppPreferences(private val context: Context) {
             put("preferEnglishGameTitles", prefs[PREFER_ENGLISH_GAME_TITLES] ?: false)
             put("recentGames", prefs[RECENT_GAMES] ?: "[]")
             put("homeLibraryViewMode", prefs[HOME_LIBRARY_VIEW_MODE] ?: 0)
+            put("homeGroupDiscs", prefs[HOME_GROUP_DISCS] ?: true)
             put("overlayScale", prefs[OVERLAY_SCALE] ?: 100)
             put(
                 "overlayOpacity",
@@ -2987,6 +2995,7 @@ class AppPreferences(private val context: Context) {
             prefs[PREFER_ENGLISH_GAME_TITLES] = json.optBoolean("preferEnglishGameTitles", false)
             prefs[RECENT_GAMES] = json.optString("recentGames", "[]")
             prefs[HOME_LIBRARY_VIEW_MODE] = json.optInt("homeLibraryViewMode", 0).coerceIn(0, 2)
+            prefs[HOME_GROUP_DISCS] = json.optBoolean("homeGroupDiscs", true)
             prefs[OVERLAY_SCALE] = json.optInt("overlayScale", 100)
             prefs[OVERLAY_OPACITY] = json.optInt("overlayOpacity", DEFAULT_OVERLAY_OPACITY)
                 .coerceIn(OVERLAY_OPACITY_MIN, OVERLAY_OPACITY_MAX)

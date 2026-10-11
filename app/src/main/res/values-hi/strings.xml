@@ -2199,4 +2199,9 @@
     <string name="ss_core_choice_scaled">स्केल्ड</string>
     <string name="ss_core_choice_true_color">ट्रू कलर</string>
     <string name="ss_core_choice_true_color_full">ट्रू कलर (पूर्ण)</string>
+    <string name="home_library_options">लाइब्रेरी विकल्प</string>
+    <string name="home_group_discs">गेम की डिस्क समूहित करें</string>
+    <string name="home_choose_disc">डिस्क चुनें</string>
+    <string name="home_disc_number">डिस्क %1$d</string>
+    <string name="home_disc_count">डिस्क: %1$d</string>
 </resources>

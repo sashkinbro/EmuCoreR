@@ -2201,4 +2201,9 @@
     <string name="ss_core_choice_scaled">Skaliert</string>
     <string name="ss_core_choice_true_color">True Color</string>
     <string name="ss_core_choice_true_color_full">True Color (vollständig)</string>
+    <string name="home_library_options">Bibliotheksoptionen</string>
+    <string name="home_group_discs">Spieldiscs gruppieren</string>
+    <string name="home_choose_disc">Disc auswählen</string>
+    <string name="home_disc_number">Disc %1$d</string>
+    <string name="home_disc_count">Discs: %1$d</string>
 </resources>

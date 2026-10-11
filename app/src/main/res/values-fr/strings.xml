@@ -2201,4 +2201,9 @@
     <string name="ss_core_choice_scaled">Mis à l\'échelle</string>
     <string name="ss_core_choice_true_color">Couleurs réelles</string>
     <string name="ss_core_choice_true_color_full">Couleurs réelles (complètes)</string>
+    <string name="home_library_options">Options de la bibliothèque</string>
+    <string name="home_group_discs">Regrouper les disques du jeu</string>
+    <string name="home_choose_disc">Choisir un disque</string>
+    <string name="home_disc_number">Disque %1$d</string>
+    <string name="home_disc_count">Disques : %1$d</string>
 </resources>
