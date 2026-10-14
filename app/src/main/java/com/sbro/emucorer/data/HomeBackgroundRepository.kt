@@ -1,10 +1,16 @@
 package com.sbro.emucorer.data
 
 import android.content.Context
+import android.content.res.Resources
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
+import androidx.annotation.RequiresApi
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -142,13 +148,7 @@ class HomeBackgroundRepository(context: Context) {
         when (type) {
             HomeBackgroundType.IMAGE,
             HomeBackgroundType.GIF -> {
-                val drawable = ImageDecoder.decodeDrawable(ImageDecoder.createSource(file)) { decoder, info, _ ->
-                    var sampleSize = 1
-                    while (max(info.size.width, info.size.height) / sampleSize > MAX_VALIDATION_DIMENSION) {
-                        sampleSize *= 2
-                    }
-                    decoder.setTargetSampleSize(sampleSize)
-                }
+                val drawable = decodeHomeBackgroundDrawable(appContext.resources, file, MAX_VALIDATION_DIMENSION)
                 require(drawable.intrinsicWidth > 0 && drawable.intrinsicHeight > 0) {
                     "Selected image cannot be decoded"
                 }
@@ -194,4 +194,38 @@ class HomeBackgroundRepository(context: Context) {
         const val MAX_BACKGROUND_BYTES = 250L * 1024L * 1024L
         const val MAX_VALIDATION_DIMENSION = 2048
     }
+}
+
+internal fun decodeHomeBackgroundDrawable(resources: Resources, file: File, maxDimension: Int): Drawable =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        decodeModernHomeBackgroundDrawable(file, maxDimension)
+    } else {
+        // Android 8 can display a GIF's first frame; animated drawable decoding starts at API 28.
+        decodeLegacyHomeBackgroundDrawable(resources, file, maxDimension)
+    }
+
+@RequiresApi(Build.VERSION_CODES.P)
+private fun decodeModernHomeBackgroundDrawable(file: File, maxDimension: Int): Drawable =
+    ImageDecoder.decodeDrawable(ImageDecoder.createSource(file)) { decoder, info, _ ->
+        var sampleSize = 1
+        while (max(info.size.width, info.size.height) / sampleSize > maxDimension) {
+            sampleSize *= 2
+        }
+        decoder.setTargetSampleSize(sampleSize)
+    }
+
+internal fun decodeLegacyHomeBackgroundDrawable(resources: Resources, file: File, maxDimension: Int): BitmapDrawable {
+    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.absolutePath, options)
+    require(options.outWidth > 0 && options.outHeight > 0) { "Selected image cannot be decoded" }
+    var sampleSize = 1
+    while (max(options.outWidth, options.outHeight) / sampleSize > maxDimension) {
+        sampleSize *= 2
+    }
+    options.inJustDecodeBounds = false
+    options.inSampleSize = sampleSize
+    val bitmap = requireNotNull(BitmapFactory.decodeFile(file.absolutePath, options)) {
+        "Selected image cannot be decoded"
+    }
+    return BitmapDrawable(resources, bitmap)
 }

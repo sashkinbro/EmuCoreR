@@ -1120,5 +1120,5 @@ onNavigateAchievements = navigateAchievements,
 
 private fun isSupportedGameImage(fileName: String): Boolean {
     val extension = fileName.substringAfterLast('.', "").lowercase()
-        return extension in setOf("cue", "bin", "iso", "img", "chd", "pbp", "ecm", "mds", "exe", "psexe", "cpe")
+    return extension in setOf("cue", "bin", "iso", "img", "chd", "pbp", "ecm", "mds", "exe", "psexe", "cpe")
 }
