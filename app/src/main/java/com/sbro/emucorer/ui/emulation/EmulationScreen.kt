@@ -277,7 +277,7 @@ private enum class EmulationMenuTab {
     Achievements
 }
 
-private data class TouchButtonSpec(
+internal data class TouchButtonSpec(
     val id: String,
     val drawableRes: Int? = null,
     val width: Dp,
@@ -290,7 +290,8 @@ private data class TouchButtonSpec(
     val haptics: Boolean = true,
     val onPressChange: ((Boolean) -> Unit)? = null,
     val onClick: (() -> Unit)? = null,
-    val tapToHold: Boolean = false
+    val tapToHold: Boolean = false,
+    val actionIds: List<String> = emptyList()
 )
 
 private data class TouchButtonLayoutKey(
@@ -299,7 +300,8 @@ private data class TouchButtonLayoutKey(
     val height: Dp,
     val x: Dp,
     val y: Dp,
-    val tapToHold: Boolean
+    val tapToHold: Boolean,
+    val actionIds: List<String>
 )
 
 private data class LiveSelectionOption(
@@ -2106,7 +2108,7 @@ private fun LocalMultiplayerTouchZone(
 
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
-private fun OnScreenControls(
+internal fun OnScreenControls(
     modifier: Modifier = Modifier,
     scaleFactor: Float,
     stickScaleFactor: Float = 1.0f,
@@ -2157,6 +2159,7 @@ private fun OnScreenControls(
     val currentOnPadInput by rememberUpdatedState(onPadInput)
     var touchL2Pressed by remember { mutableStateOf(false) }
     var touchR2Pressed by remember { mutableStateOf(false) }
+    val buttonActionSources = remember { mutableMapOf<String, MutableSet<String>>() }
 
     fun performTouchHaptic(phase: ButtonPhase) {
         if (touchHaptics) {
@@ -2207,31 +2210,42 @@ private fun OnScreenControls(
         dispatchTouchL2()
     }
 
-    fun buttonPressHandler(id: String): ((Boolean) -> Unit)? = when (id) {
-        "l2" -> { pressed ->
-            touchL2Pressed = pressed
-            dispatchTouchL2()
+    fun buttonPressHandler(id: String, sourceId: String): ((Boolean) -> Unit)? {
+        val handler: (Boolean) -> Unit = when (id) {
+            "l2" -> { pressed ->
+                touchL2Pressed = pressed
+                dispatchTouchL2()
+            }
+            "l1" -> { pressed -> onPadInput(PadKey.L1, 0, pressed) }
+            "r2" -> { pressed ->
+                touchR2Pressed = pressed
+                dispatchTouchR2()
+            }
+            "r1" -> { pressed -> onPadInput(PadKey.R1, 0, pressed) }
+            "dpad_up", "up" -> { pressed -> onPadInput(PadKey.UP, 0, pressed) }
+            "dpad_down", "down" -> { pressed -> onPadInput(PadKey.DOWN, 0, pressed) }
+            "dpad_left", "left" -> { pressed -> onPadInput(PadKey.LEFT, 0, pressed) }
+            "dpad_right", "right" -> { pressed -> onPadInput(PadKey.RIGHT, 0, pressed) }
+            "triangle" -> { pressed -> onPadInput(PadKey.TRIANGLE, 0, pressed) }
+            "cross" -> { pressed -> onPadInput(PadKey.CROSS, 0, pressed) }
+            "square" -> { pressed -> onPadInput(PadKey.SQUARE, 0, pressed) }
+            "circle" -> { pressed -> onPadInput(PadKey.CIRCLE, 0, pressed) }
+            "select" -> { pressed -> onPadInput(PadKey.SELECT, 0, pressed) }
+            "start" -> { pressed -> onPadInput(PadKey.START, 0, pressed) }
+            "pressure" -> { pressed -> onPadInput(PadKey.PRESSURE, 0, pressed) }
+            "l3" -> { pressed -> onPadInput(PadKey.L3, 0, pressed) }
+            "r3" -> { pressed -> onPadInput(PadKey.R3, 0, pressed) }
+            else -> return null
         }
-        "l1" -> { pressed -> onPadInput(PadKey.L1, 0, pressed) }
-        "r2" -> { pressed ->
-            touchR2Pressed = pressed
-            dispatchTouchR2()
+        val actionId = id.removePrefix("dpad_")
+        return { pressed ->
+            val sources = buttonActionSources.getOrPut(actionId) { mutableSetOf() }
+            val wasPressed = sources.isNotEmpty()
+            if (pressed) sources.add(sourceId) else sources.remove(sourceId)
+            val isPressed = sources.isNotEmpty()
+            if (!isPressed) buttonActionSources.remove(actionId)
+            if (wasPressed != isPressed) handler(isPressed)
         }
-        "r1" -> { pressed -> onPadInput(PadKey.R1, 0, pressed) }
-        "dpad_up", "up" -> { pressed -> onPadInput(PadKey.UP, 0, pressed) }
-        "dpad_down", "down" -> { pressed -> onPadInput(PadKey.DOWN, 0, pressed) }
-        "dpad_left", "left" -> { pressed -> onPadInput(PadKey.LEFT, 0, pressed) }
-        "dpad_right", "right" -> { pressed -> onPadInput(PadKey.RIGHT, 0, pressed) }
-        "triangle" -> { pressed -> onPadInput(PadKey.TRIANGLE, 0, pressed) }
-        "cross" -> { pressed -> onPadInput(PadKey.CROSS, 0, pressed) }
-        "square" -> { pressed -> onPadInput(PadKey.SQUARE, 0, pressed) }
-        "circle" -> { pressed -> onPadInput(PadKey.CIRCLE, 0, pressed) }
-        "select" -> { pressed -> onPadInput(PadKey.SELECT, 0, pressed) }
-        "start" -> { pressed -> onPadInput(PadKey.START, 0, pressed) }
-        "pressure" -> { pressed -> onPadInput(PadKey.PRESSURE, 0, pressed) }
-        "l3" -> { pressed -> onPadInput(PadKey.L3, 0, pressed) }
-        "r3" -> { pressed -> onPadInput(PadKey.R3, 0, pressed) }
-        else -> null
     }
 
     fun isRacingTapToHoldButton(id: String): Boolean = id in setOf(
@@ -2311,10 +2325,10 @@ private fun OnScreenControls(
 
         fun runtimeSpecs(specs: List<com.sbro.emucorer.ui.common.OverlayCanvasButtonSpec>): List<TouchButtonSpec> {
             return specs.filter { it.visible }.map { spec ->
-                val primaryPressHandler = buttonPressHandler(spec.id)
+                val primaryPressHandler = buttonPressHandler(spec.id, spec.id)
                 val secondaryPressHandler = controlLayouts[spec.id]
                     ?.secondaryActionId
-                    ?.let(::buttonPressHandler)
+                    ?.let { buttonPressHandler(it, spec.id) }
                 TouchButtonSpec(
                     id = spec.id,
                     drawableRes = spec.drawableRes,
@@ -2334,7 +2348,8 @@ private fun OnScreenControls(
                     },
                     onClick = if (spec.id == "left_input_toggle") onToggleLeftInputMode else null,
                     tapToHold = (racingMode && isRacingTapToHoldButton(spec.id)) ||
-                        spec.id in stickyButtons
+                        spec.id in stickyButtons,
+                    actionIds = listOfNotNull(spec.id, controlLayouts[spec.id]?.secondaryActionId)
                 )
             }
         }
@@ -2373,8 +2388,8 @@ private fun OnScreenControls(
                 val travelX = (maxWidth - safeLeft - safeRight - width).coerceAtLeast(0.dp)
                 val travelY = (maxHeight - safeTop - safeBottom - height).coerceAtLeast(0.dp)
                 val pressHandlers = listOfNotNull(
-                    buttonPressHandler(control.actionId),
-                    control.secondaryActionId?.let(::buttonPressHandler)
+                    buttonPressHandler(control.actionId, "custom:${control.id}"),
+                    control.secondaryActionId?.let { buttonPressHandler(it, "custom:${control.id}") }
                 )
                 TouchButtonSpec(
                     id = "custom:${control.id}",
@@ -2391,7 +2406,8 @@ private fun OnScreenControls(
                     } else {
                         null
                     },
-                    tapToHold = control.pressMode == CustomTouchControlPressMode.TOGGLE
+                    tapToHold = control.pressMode == CustomTouchControlPressMode.TOGGLE,
+                    actionIds = listOfNotNull(control.actionId, control.secondaryActionId)
                 )
             }
             .toList()
@@ -2505,7 +2521,7 @@ private fun OnScreenControls(
 }
 
 @Composable
-private fun TouchButtonGroup(
+internal fun TouchButtonGroup(
     specs: List<TouchButtonSpec>,
     inputWidth: Dp,
     inputHeight: Dp,
@@ -2520,8 +2536,8 @@ private fun TouchButtonGroup(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
-    val activeTargets = remember { mutableStateMapOf<Long, String>() }
-    val downTargets = remember { mutableMapOf<Long, String?>() }
+    val activeTargets = remember { mutableStateMapOf<Long, Set<String>>() }
+    val downTargets = remember { mutableMapOf<Long, Set<String>>() }
     val latchedTargets = remember { mutableStateMapOf<String, Boolean>() }
     val specById = specs.associateBy { it.id }
     val currentSpecById by rememberUpdatedState(specById)
@@ -2539,7 +2555,8 @@ private fun TouchButtonGroup(
             height = spec.height,
             x = spec.x,
             y = spec.y,
-            tapToHold = spec.tapToHold
+            tapToHold = spec.tapToHold,
+            actionIds = spec.actionIds
         )
     }
     val bounds = remember(layoutKey, density) {
@@ -2569,8 +2586,11 @@ private fun TouchButtonGroup(
     val groupWidth = inputWidth
     val groupHeight = inputHeight
 
-    fun hitTarget(x: Float, y: Float): String? =
-        specs.lastOrNull { spec -> rects.getValue(spec.id).contains(Offset(x, y)) }?.id
+    fun hitTargets(x: Float, y: Float): Set<String> = specs
+        .filter { spec -> rects.getValue(spec.id).contains(Offset(x, y)) }
+        .mapTo(linkedSetOf()) { it.id }
+
+    fun isTargetActive(targetId: String): Boolean = activeTargets.values.any { targetId in it }
 
     fun TouchButtonSpec.hasTapToHoldAction(): Boolean {
         return tapToHold && onPressChange != null
@@ -2586,40 +2606,35 @@ private fun TouchButtonGroup(
         }
     }
 
-    fun updatePointerTarget(pointerId: Long, newTarget: String?, emitReleaseHaptic: Boolean = true) {
-        val oldTarget = activeTargets[pointerId]
-        if (oldTarget == newTarget) return
+    fun updatePointerTargets(pointerId: Long, newTargets: Set<String>, emitReleaseHaptic: Boolean = true) {
+        val oldTargets = activeTargets[pointerId].orEmpty()
+        if (oldTargets == newTargets) return
 
-        if (oldTarget != null) {
+        val newlyPressed = (newTargets - oldTargets).filterNot(::isTargetActive)
+        if (newTargets.isEmpty()) {
             activeTargets.remove(pointerId)
-            val oldSpec = specById[oldTarget]
-            if (oldSpec?.hasTapToHoldAction() == true) {
-                // Tap-to-hold buttons are toggled on release, not while the pointer is moving.
-            } else if (!activeTargets.containsValue(oldTarget)) {
-                oldSpec?.onPressChange?.invoke(false)
-            }
-            if (
-                newTarget == null &&
-                emitReleaseHaptic &&
-                oldSpec?.haptics != false &&
-                !activeTargets.containsValue(oldTarget)
-            ) {
-                onTouchHaptic(ButtonPhase.RELEASE)
+        } else {
+            activeTargets[pointerId] = newTargets
+        }
+        val newlyReleased = (oldTargets - newTargets).filterNot(::isTargetActive)
+        newlyReleased.forEach { targetId ->
+            val spec = specById[targetId]
+            if (spec?.hasTapToHoldAction() != true) {
+                spec?.onPressChange?.invoke(false)
             }
         }
-
-        if (newTarget != null) {
-            val alreadyActive = activeTargets.containsValue(newTarget)
-            activeTargets[pointerId] = newTarget
-            val newSpec = specById[newTarget]
-            if (!alreadyActive && newSpec?.haptics != false) {
-                onTouchHaptic(ButtonPhase.PRESS)
+        newlyPressed.forEach { targetId ->
+            val spec = specById[targetId]
+            if (spec?.hasTapToHoldAction() != true) {
+                spec?.onPressChange?.invoke(true)
             }
-            if (newSpec?.hasTapToHoldAction() == true) {
-                // Tap-to-hold buttons are toggled on release, not on pointer entry.
-            } else if (!alreadyActive) {
-                newSpec?.onPressChange?.invoke(true)
-            }
+        }
+        // A chord is one touch: emit at most one haptic per phase.
+        if (newTargets.isEmpty() && emitReleaseHaptic && newlyReleased.any { specById[it]?.haptics != false }) {
+            onTouchHaptic(ButtonPhase.RELEASE)
+        }
+        if (newlyPressed.any { specById[it]?.haptics != false }) {
+            onTouchHaptic(ButtonPhase.PRESS)
         }
     }
 
@@ -2636,10 +2651,10 @@ private fun TouchButtonGroup(
     DisposableEffect(layoutKey, touchscreenRightStick) {
         onDispose {
             latchedTargets.keys.toList().forEach { targetId ->
-                currentSpecById[targetId]?.onPressChange?.invoke(false)
+                specById[targetId]?.onPressChange?.invoke(false)
             }
-            activeTargets.values.toSet().forEach { targetId ->
-                val spec = currentSpecById[targetId]
+            activeTargets.values.flatten().toSet().forEach { targetId ->
+                val spec = specById[targetId]
                 if (spec?.hasTapToHoldAction() != true) {
                     spec?.onPressChange?.invoke(false)
                 }
@@ -2669,10 +2684,10 @@ private fun TouchButtonGroup(
 
                                 when {
                                     change.pressed && !change.previousPressed -> {
-                                        val target = hitTarget(x, y)
-                                        if (target != null) {
-                                            downTargets[pointerId] = target
-                                            updatePointerTarget(pointerId, target)
+                                        val targets = hitTargets(x, y)
+                                        if (targets.isNotEmpty()) {
+                                            downTargets[pointerId] = targets
+                                            updatePointerTargets(pointerId, targets)
                                             change.consume()
                                         } else if (
                                             touchscreenRightStick &&
@@ -2687,8 +2702,8 @@ private fun TouchButtonGroup(
 
                                     change.pressed -> {
                                         if (downTargets.containsKey(pointerId)) {
-                                            val target = hitTarget(x, y)
-                                            updatePointerTarget(pointerId, target)
+                                            val targets = hitTargets(x, y)
+                                            updatePointerTargets(pointerId, targets)
                                             change.consume()
                                         } else if (gesturePointerId == pointerId) {
                                             val value = calculateRightStickGestureValue(
@@ -2707,12 +2722,12 @@ private fun TouchButtonGroup(
                                     }
 
                                     change.previousPressed -> {
-                                        val downTarget = downTargets.remove(pointerId)
-                                        if (downTarget != null) {
-                                            val upTarget = hitTarget(x, y)
-                                            val downSpec = specById[downTarget]
-                                            updatePointerTarget(pointerId, null)
-                                            if (downTarget == upTarget) {
+                                        val initialTargets = downTargets.remove(pointerId)
+                                        if (initialTargets != null) {
+                                            val upTargets = hitTargets(x, y)
+                                            updatePointerTargets(pointerId, emptySet())
+                                            (initialTargets intersect upTargets).forEach { targetId ->
+                                                val downSpec = currentSpecById[targetId]
                                                 if (downSpec?.hasTapToHoldAction() == true) {
                                                     toggleLatchedTarget(downSpec)
                                                 } else {
@@ -2731,7 +2746,7 @@ private fun TouchButtonGroup(
                     }
                 } finally {
                     activeTargets.keys.toList().forEach { pointerId ->
-                        updatePointerTarget(pointerId, null, emitReleaseHaptic = false)
+                        updatePointerTargets(pointerId, emptySet(), emitReleaseHaptic = false)
                     }
                     downTargets.clear()
                     releaseTouchscreenRightStick()
@@ -2745,7 +2760,7 @@ private fun TouchButtonGroup(
                         (spec.y.roundToPx() - groupRect.top.roundToInt())
                     )
                 }
-            val pressed = activeTargets.containsValue(spec.id) || latchedTargets[spec.id] == true
+            val pressed = isTargetActive(spec.id) || latchedTargets[spec.id] == true
             val vectorDrawable = spec.customControl
                 ?.takeIf { it.usesVectorStyle }
                 ?.let { actionDrawableRes(it.actionId) }
