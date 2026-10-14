@@ -780,6 +780,7 @@
     <plurals name="settings_customization_games_per_row">
         <item quantity="one">%d hra na řádek</item>
         <item quantity="few">%d hry na řádek</item>
+        <item quantity="many">%d hry na řádek</item>
         <item quantity="other">%d her na řádek</item>
     </plurals>
     <string name="settings_customization_background_section">Pozadí domovské obrazovky</string>

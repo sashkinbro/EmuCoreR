@@ -12,9 +12,10 @@
         <item name="postSplashScreenTheme">@style/Theme.EmuCoreR</item>
     </style>
 
-    <style name="Theme.EmuCoreR" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.EmuCoreR" parent="Theme.EmuCoreR.Base" />
+
+    <style name="Theme.EmuCoreR.Base" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowFullscreen">true</item>
-        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>

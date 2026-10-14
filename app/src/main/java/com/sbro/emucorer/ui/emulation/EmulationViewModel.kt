@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sbro.emucorer.EmuCoreRApp
@@ -100,7 +101,7 @@ private fun buildPerformanceOverlayHeader(application: Application): String {
         application.packageManager.getPackageInfo(application.packageName, 0)
     }.getOrNull()
     val appVersion = packageInfo?.versionName?.takeIf(String::isNotBlank) ?: "?"
-    val buildNumber = packageInfo?.longVersionCode?.toString() ?: "?"
+    val buildNumber = packageInfo?.let { PackageInfoCompat.getLongVersionCode(it).toString() } ?: "?"
     val coreName = runCatching { NativeApp.getCoreName().orEmpty() }
         .getOrDefault("")
         .ifBlank { "?" }

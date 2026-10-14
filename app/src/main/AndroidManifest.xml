@@ -6,9 +6,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- WorkManager declares FOREGROUND_SERVICE for its optional foreground workers; this app
-         never runs a foreground service, so the permission is stripped from the merged manifest. -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="com.android.vending.BILLING" />
 
     <!-- Discord Social SDK: permissions added by the SDK AAR are not needed. -->
@@ -90,6 +89,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:host="*" />
                 <data android:scheme="file" android:pathPattern=".*\\.cue" />
                 <data android:scheme="file" android:pathPattern=".*\\.CUE" />
                 <data android:scheme="file" android:pathPattern=".*\\.bin" />
@@ -206,6 +206,11 @@
         <service
             android:name="com.discord.socialsdk.ForegroundService"
             tools:node="remove" />
+
+        <service
+            android:name=".network.RemotePlayCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
     </application>
 
 </manifest>

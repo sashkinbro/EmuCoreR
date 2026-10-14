@@ -101,7 +101,9 @@ object AndroidTouchHaptics {
             else -> if (phase == ButtonPhase.PRESS) Pulse(24L, 28, 153, 255) else Pulse(14L, 14, 98, 163)
         }
         if (!runCatching { vibrator.hasAmplitudeControl() }.getOrDefault(false)) {
-            if (strengthPercent.coerceIn(10, 100) == 60) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                strengthPercent.coerceIn(10, 100) == 60
+            ) {
                 return VibrationEffect.createPredefined(
                     when {
                         preset == 0 -> VibrationEffect.EFFECT_TICK
@@ -150,7 +152,7 @@ object AndroidTouchHaptics {
     }
 
     private fun createTouchEffect(amplitude: Int, durationMs: Long): VibrationEffect {
-        if (durationMs <= 120L) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && durationMs <= 120L) {
             return VibrationEffect.createPredefined(
                 if (amplitude >= 180) {
                     VibrationEffect.EFFECT_HEAVY_CLICK

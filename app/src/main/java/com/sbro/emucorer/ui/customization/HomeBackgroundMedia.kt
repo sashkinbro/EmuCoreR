@@ -1,7 +1,6 @@
 package com.sbro.emucorer.ui.customization
 
-import android.graphics.ImageDecoder
-import android.graphics.drawable.AnimatedImageDrawable
+import android.graphics.drawable.Animatable
 import android.media.MediaPlayer
 import android.os.PowerManager
 import android.view.ViewGroup
@@ -28,15 +27,15 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sbro.emucorer.R
 import com.sbro.emucorer.data.HomeBackgroundPreset
 import com.sbro.emucorer.data.HomeBackgroundType
+import com.sbro.emucorer.data.decodeHomeBackgroundDrawable
 import java.io.File
-import kotlin.math.max
 
 @Composable
 fun HomeBackgroundMedia(
     type: HomeBackgroundType,
     file: File?,
-    preset: HomeBackgroundPreset = HomeBackgroundPreset.OLYMPUS,
     modifier: Modifier = Modifier,
+    preset: HomeBackgroundPreset = HomeBackgroundPreset.OLYMPUS,
     revision: Int = 0
 ) {
     if (type == HomeBackgroundType.BUILT_IN) {
@@ -97,19 +96,13 @@ private fun ImageBackground(file: File, modifier: Modifier) {
     val allowAnimation = powerManager?.isPowerSaveMode != true
     val drawable = remember(file.absolutePath, file.lastModified()) {
         runCatching {
-            ImageDecoder.decodeDrawable(ImageDecoder.createSource(file)) { decoder, info, _ ->
-                var sampleSize = 1
-                while (max(info.size.width, info.size.height) / sampleSize > 2048) {
-                    sampleSize *= 2
-                }
-                decoder.setTargetSampleSize(sampleSize)
-            }
+            decodeHomeBackgroundDrawable(context.resources, file, 2048)
         }.getOrNull()
     } ?: return
     var imageView by remember(file.absolutePath) { mutableStateOf<ImageView?>(null) }
 
     DisposableEffect(lifecycleOwner, drawable, allowAnimation) {
-        val animatedDrawable = drawable as? AnimatedImageDrawable
+        val animatedDrawable = drawable as? Animatable
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> if (allowAnimation) animatedDrawable?.start()
@@ -137,16 +130,16 @@ private fun ImageBackground(file: File, modifier: Modifier) {
                 )
                 scaleType = ImageView.ScaleType.CENTER_CROP
                 setImageDrawable(drawable)
-                if (allowAnimation) (drawable as? AnimatedImageDrawable)?.start()
+                if (allowAnimation) (drawable as? Animatable)?.start()
                 imageView = this
             }
         },
         update = { imageView ->
             if (imageView.drawable !== drawable) imageView.setImageDrawable(drawable)
-            if (allowAnimation) (drawable as? AnimatedImageDrawable)?.start()
+            if (allowAnimation) (drawable as? Animatable)?.start()
         },
         onRelease = {
-            (drawable as? AnimatedImageDrawable)?.stop()
+            (drawable as? Animatable)?.stop()
             it.setImageDrawable(null)
         }
     )
