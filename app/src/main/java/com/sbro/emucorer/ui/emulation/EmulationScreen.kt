@@ -1551,12 +1551,11 @@ fun EmulationScreen(
         }
 
         // Sidebar Menu
-        AnimatedVisibility(
-            visible = uiState.showMenu && !showControlsEditor,
-            enter = androidx.compose.animation.slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) + fadeIn(tween(300)),
-            exit = androidx.compose.animation.slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) + fadeOut(tween(250)),
+        EmulationMenuVisibility(
+            uiState = uiState,
+            showControlsEditor = showControlsEditor,
             modifier = Modifier.fillMaxHeight()
-        ) {
+        ) { menuState ->
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -1571,7 +1570,7 @@ fun EmulationScreen(
                 )
 
                 EmulationSidebarMenu(
-                    uiState = uiState,
+                    uiState = menuState,
                     gamepadConnected = gamepadConnected,
                     currentGamePath = gamePath,
                     globalDefaults = globalDefaults,
