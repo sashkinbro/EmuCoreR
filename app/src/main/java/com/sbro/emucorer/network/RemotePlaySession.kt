@@ -67,7 +67,6 @@ object RemotePlaySession {
     private var remoteTrack: VideoTrack? = null
     private var capturer: VideoCapturer? = null
     private var textureHelper: SurfaceTextureHelper? = null
-    private var applicationContext: Context? = null
     private var signalingPoll: Job? = null
     private var roomCode = ""
     private var roomToken = ""
@@ -80,7 +79,6 @@ object RemotePlaySession {
     @Synchronized
     fun initialize(context: Context) {
         if (factory != null) return
-        applicationContext = context.applicationContext
         eglBase = EglBase.create()
         PeerConnectionFactory.initialize(
             PeerConnectionFactory.InitializationOptions.builder(context.applicationContext).createInitializationOptions()
@@ -306,7 +304,6 @@ object RemotePlaySession {
         if (deleteRoom && wasHost && code.isNotBlank() && token.isNotBlank()) {
             runCatching { MultiplayerSignalingClient.deleteRoom(code, token) }
         }
-        if (wasHost) applicationContext?.let(RemotePlayCaptureService::stop)
         roomCode = ""; roomToken = ""; lastCandidateId = 0
         remoteDescriptionApplied = false
         synchronized(pendingCandidates) { pendingCandidates.clear() }
@@ -315,7 +312,6 @@ object RemotePlaySession {
     }
 
     private fun fail(error: MultiplayerSessionError) {
-        if (_state.value.isHost) applicationContext?.let(RemotePlayCaptureService::stop)
         _state.value = _state.value.copy(status = RemotePlayStatus.Error, error = error)
     }
 

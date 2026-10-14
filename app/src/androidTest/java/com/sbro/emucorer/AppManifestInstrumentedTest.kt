@@ -1,13 +1,10 @@
 package com.sbro.emucorer
 
-import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.ServiceInfo
+import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.sbro.emucorer.network.RemotePlayCaptureService
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -24,14 +21,11 @@ class AppManifestInstrumentedTest {
         assertEquals(MainActivity::class.java.name, activity?.activityInfo?.name)
     }
 
-    @Test fun screenCaptureServiceDeclaresItsForegroundType() {
+    @Test fun appDoesNotRequestForegroundServicePermissions() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val service = context.packageManager.getServiceInfo(
-            ComponentName(context, RemotePlayCaptureService::class.java), 0
-        )
-        assertFalse(service.exported)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION, service.foregroundServiceType)
-        }
+        val permissions = context.packageManager.getPackageInfo(
+            context.packageName, PackageManager.GET_PERMISSIONS
+        ).requestedPermissions.orEmpty()
+        assertFalse(permissions.any { it.startsWith("android.permission.FOREGROUND_SERVICE") })
     }
 }
