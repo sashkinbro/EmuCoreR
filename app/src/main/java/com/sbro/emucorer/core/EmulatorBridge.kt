@@ -11,6 +11,7 @@ import android.view.PixelCopy
 import android.view.Surface
 import com.sbro.emucorer.BuildConfig
 import com.sbro.emucorer.data.AppPreferences
+import com.sbro.emucorer.data.swanStationCardTypeForPath
 import com.sbro.emucorer.network.NetPlaySession
 import com.sbro.emucorer.network.RemotePlaySession
 import com.sbro.emucorer.data.DisplayCrop
@@ -49,10 +50,6 @@ object EmulatorBridge {
         3 to "16:9",
         4 to "10:7"
     )
-
-    // Card types the bridge derives from the memory-card slot assignment itself,
-    // so a stale persisted value must not override the current assignment.
-    private val AUTO_MANAGED_CARD_TYPES = setOf("Shared", "None")
 
     private val serialDispatcher = Dispatchers.IO.limitedParallelism(1)
     private val serialScope = CoroutineScope(SupervisorJob() + serialDispatcher)
@@ -196,19 +193,18 @@ object EmulatorBridge {
                             if (!NativeApp.setSetting("MemoryCards", "Slot${slotIndex}_Filename", "string", fileName))
                                 succeeded = false
                             // The bundled SwanStation core opens memory cards through
-                            // the libretro host interface, so translate the app's slot
-                            // assignment into an explicit image path plus the matching
-                            // shared-card type option.
+                            // the libretro host interface only in shared-card mode.
+                            // Bind the resolved image path and force the matching type
+                            // option so the core reads and writes the exact file the
+                            // memory card manager shows (Libretro's in-memory card
+                            // would silently ignore it).
                             val resolvedPath = resolveMemoryCardPath(fileName)
                             NativeApp.setMemoryCardPath(slotIndex - 1, resolvedPath)
                             val cardTypeKey = "swanstation_MemoryCards_Card${slotIndex}Type"
-                            val storedCardType = SwanStationOptions.value(cardTypeKey)
-                            if (storedCardType == null || storedCardType in AUTO_MANAGED_CARD_TYPES) {
-                                NativeApp.setCoreOption(
-                                    cardTypeKey,
-                                    if (resolvedPath != null) "Shared" else "None"
-                                )
-                            }
+                            NativeApp.setCoreOption(
+                                cardTypeKey,
+                                swanStationCardTypeForPath(resolvedPath)
+                            )
                         }
                     }
                 }

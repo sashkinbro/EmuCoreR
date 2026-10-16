@@ -4263,6 +4263,11 @@ object SwanStationCoreOptions {
         "swanstation_TextureReplacements_PreloadTextures",
         "swanstation_Main_ApplyGameSettings",
 
+        // Memory cards are owned by the app's memory-card manager and the
+        // per-game profiles: the bridge derives the card type from the assigned
+        // card file, so the raw type choices must not be edited anywhere.
+        "swanstation_MemoryCards_Card1Type",
+        "swanstation_MemoryCards_Card2Type",
         "swanstation_MemoryCards_UsePlaylistTitle",
         "swanstation_GPU_ShaderPrecompile",
         "swanstation_CPU_RecompilerICache",

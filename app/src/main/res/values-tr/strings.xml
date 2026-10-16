@@ -2204,4 +2204,9 @@
     <string name="home_choose_disc">Bir disk seçin</string>
     <string name="home_disc_number">Disk %1$d</string>
     <string name="home_disc_count">Disk sayısı: %1$d</string>
+<string name="game_settings_manager_tab_memory_cards">Hafıza kartları</string>
+<string name="per_game_memory_cards_title">Hafıza kartları</string>
+<string name="per_game_memory_cards_desc">Bu oyunun hangi hafıza kartlarını kullanacağını seçin. “Global ayarları kullan” hafıza kartı yöneticisinde atanan kartları korur; “Atanmadı” oyunu boş bir yuva ile başlatır. Değişiklikler oyunun bir sonraki açılışında uygulanır.</string>
+<string name="settings_help_per_game_memory_cards">Oyun başına seçim yalnızca bu oyunu etkiler ve profilinde saklanır. Seçilen kart silinir veya adı değiştirilirse oyun global atamaya geri döner.</string>
+<string name="per_game_memory_card_create">Bu oyun için kart oluştur</string>
 </resources>

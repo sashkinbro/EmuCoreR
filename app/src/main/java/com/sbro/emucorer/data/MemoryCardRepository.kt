@@ -135,6 +135,25 @@ class MemoryCardRepository(
         )
     }
 
+    /**
+     * Returns the file name of a card dedicated to a single game, creating it
+     * in the visible memcards folder when it does not exist yet. The card is
+     * named after the game (serial or title) so it is easy to recognise in the
+     * memory card manager, and only the owning game's profile references it.
+     */
+    fun ensureGameCard(baseName: String): String? {
+        if (!NativeApp.hasNativeCore) return null
+        syncNativeMemoryCardDirectory()
+        val truncated = baseName.trim().take(GAME_CARD_NAME_MAX_LENGTH)
+        val normalized = normalizeName(truncated)
+        val existing = File(memoryCardsDir(), normalized)
+        if (existing.isFile && existing.length() == PS1_MEMORY_CARD_SIZE_BYTES) {
+            return normalized
+        }
+        val result = createPs1Card(truncated)
+        return result.cardName?.takeIf { result.success }
+    }
+
     /** Imports raw DuckStation, SwanStation, or EmuCoreR cards only when byte-compatible. */
     fun importCard(uri: Uri, displayName: String? = null): MemoryCardWriteResult {
         val resolvedName = displayName?.takeIf(String::isNotBlank)
@@ -368,29 +387,14 @@ class MemoryCardRepository(
         return false
     }
 
-    private fun buildUniqueCardName(value: String, currentName: String? = null): String {
-        val normalized = normalizeName(value)
-        val baseName = normalized.removeSuffix(PS1_MEMORY_CARD_EXTENSION)
-        var candidate = normalized
-        var index = 2
-        while (true) {
-            val existing = File(memoryCardsDir(), candidate)
-            if (!existing.exists() || candidate.equals(currentName, ignoreCase = true)) return candidate
-            candidate = "$baseName ($index)$PS1_MEMORY_CARD_EXTENSION"
-            index++
-        }
-    }
+    private fun buildUniqueCardName(value: String, currentName: String? = null): String =
+        pickUniqueMemoryCardName(
+            normalized = normalizeName(value),
+            exists = { candidate -> File(memoryCardsDir(), candidate).exists() },
+            currentName = currentName
+        )
 
-    private fun normalizeName(value: String): String {
-        val trimmed = value.trim()
-        val baseName = if (trimmed.isSupportedMemoryCardName()) trimmed.substringBeforeLast('.') else trimmed
-        val safeBase = baseName
-            .replace(Regex("[^a-zA-Z0-9._ -]"), "_")
-            .replace(Regex("\\s+"), " ")
-            .trim().trim('.', ' ')
-            .ifBlank { "Memory Card" }
-        return "$safeBase$PS1_MEMORY_CARD_EXTENSION"
-    }
+    private fun normalizeName(value: String): String = normalizeMemoryCardName(value)
 
     private fun syncNativeMemoryCardDirectory() {
         runCatching {
@@ -413,6 +417,42 @@ internal const val PS1_MEMORY_CARD_SIZE_BYTES = 128L * 1024L
 private const val PS1_MEMORY_CARD_EXTENSION = ".mcd"
 private const val DEFAULT_CARD_SLOT_1 = "MemoryCard1.mcd"
 private const val DEFAULT_CARD_SLOT_2 = "MemoryCard2.mcd"
+
+/**
+ * Sanitises a user-provided or game-derived name into a memcards file name:
+ * unsupported extensions are dropped, characters outside a safe set become
+ * underscores, and an empty name falls back to "Memory Card".
+ */
+internal fun normalizeMemoryCardName(value: String): String {
+    val trimmed = value.trim()
+    val baseName = if (trimmed.isSupportedMemoryCardName()) trimmed.substringBeforeLast('.') else trimmed
+    val safeBase = baseName
+        .replace(Regex("[^a-zA-Z0-9._ -]"), "_")
+        .replace(Regex("\\s+"), " ")
+        .trim().trim('.', ' ')
+        .ifBlank { "Memory Card" }
+    return "$safeBase$PS1_MEMORY_CARD_EXTENSION"
+}
+
+/**
+ * Appends " (2)", " (3)", ... to [normalized] until [exists] reports a free
+ * name; a name equal to [currentName] counts as free so a rename onto the same
+ * file keeps its name.
+ */
+internal fun pickUniqueMemoryCardName(
+    normalized: String,
+    exists: (String) -> Boolean,
+    currentName: String? = null
+): String {
+    val baseName = normalized.removeSuffix(PS1_MEMORY_CARD_EXTENSION)
+    var candidate = normalized
+    var index = 2
+    while (true) {
+        if (!exists(candidate) || candidate.equals(currentName, ignoreCase = true)) return candidate
+        candidate = "$baseName ($index)$PS1_MEMORY_CARD_EXTENSION"
+        index++
+    }
+}
 
 private fun isDefaultMemoryCardName(name: String): Boolean =
     name.equals(DEFAULT_CARD_SLOT_1, true) || name.equals(DEFAULT_CARD_SLOT_2, true)

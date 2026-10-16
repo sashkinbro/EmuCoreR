@@ -2205,4 +2205,9 @@
     <string name="home_choose_disc">选择光盘</string>
     <string name="home_disc_number">光盘 %1$d</string>
     <string name="home_disc_count">光盘数：%1$d</string>
+<string name="game_settings_manager_tab_memory_cards">记忆卡</string>
+<string name="per_game_memory_cards_title">记忆卡</string>
+<string name="per_game_memory_cards_desc">选择此游戏使用的记忆卡。“使用全局设置”保留在记忆卡管理器中分配的卡；“未分配”则以空插槽启动游戏。更改将在下次启动游戏时生效。</string>
+<string name="settings_help_per_game_memory_cards">按游戏的选择仅影响此游戏，并保存在其配置中。如果所选记忆卡被删除或重命名，游戏将回退到全局分配。</string>
+<string name="per_game_memory_card_create">为此游戏创建记忆卡</string>
 </resources>

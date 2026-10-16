@@ -11,6 +11,7 @@ import android.util.Log
 import android.view.Surface
 import com.sbro.emucorer.BuildConfig
 import com.sbro.emucorer.data.AppPreferences
+import com.sbro.emucorer.data.LEGACY_MEMORY_CARD_CORE_OPTION_KEYS
 import com.sbro.emucorer.data.RetroArchShaderEffects
 import java.io.File
 import java.util.Locale
@@ -153,6 +154,10 @@ internal object CoreRuntime {
         saveDirectory = memoryCardsDirectory.absolutePath
         coreAssetsDirectory = File(root, "assets").apply { mkdirs() }.absolutePath
         SwanStationOptions.initialize(context.applicationContext)
+        // Memory-card types are derived from the assigned card files by the
+        // bridge now; stale values persisted by earlier versions (including the
+        // in-memory "Libretro" default) must never reach the core.
+        LEGACY_MEMORY_CARD_CORE_OPTION_KEYS.forEach { key -> SwanStationOptions.remove(key) }
         runCatching {
             bridge.nativeInit(systemDirectory, saveDirectory, coreAssetsDirectory)
             bridge.apiVersion()

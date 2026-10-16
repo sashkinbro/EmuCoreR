@@ -2203,4 +2203,9 @@
     <string name="home_choose_disc">디스크 선택</string>
     <string name="home_disc_number">디스크 %1$d</string>
     <string name="home_disc_count">디스크 수: %1$d</string>
+<string name="game_settings_manager_tab_memory_cards">메모리 카드</string>
+<string name="per_game_memory_cards_title">메모리 카드</string>
+<string name="per_game_memory_cards_desc">이 게임에서 사용할 메모리 카드를 선택하세요. “글로벌 설정 사용”은 메모리 카드 관리자에서 할당한 카드를 유지하고, “할당되지 않음”은 빈 슬롯으로 게임을 시작합니다. 변경 사항은 다음에 게임을 시작할 때 적용됩니다.</string>
+<string name="settings_help_per_game_memory_cards">게임별 선택은 이 게임에만 적용되며 프로필에 저장됩니다. 선택한 카드가 삭제되거나 이름이 바뀌면 게임은 글로벌 할당으로 돌아갑니다.</string>
+<string name="per_game_memory_card_create">이 게임용 카드 만들기</string>
 </resources>

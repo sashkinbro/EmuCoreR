@@ -62,6 +62,14 @@ data class PerGameSettings(
     val enableCddaAudio: Boolean = true,
     val multitapMode: Int = 0,
     val cdReadAhead: Int = 0,
+    /**
+     * Per-game memory-card overrides: null = follow the global slot
+     * assignment, "" = no card in the slot, otherwise a card file name.
+     */
+    val memoryCardSlot1: String? = null,
+    val memoryCardSlot2: String? = null,
+    /** Cards created for this game; hidden from other games' selectors. */
+    val dedicatedMemoryCards: List<String> = emptyList(),
     /** Per-game SwanStation libretro core option overrides (key -> value). */
     val coreOptions: Map<String, String> = emptyMap(),
     val providedKeys: Set<String>? = null,
@@ -170,8 +178,15 @@ class PerGameSettingsRepository(context: Context) {
     }
 }
 
-private fun JSONObject.toPerGameSettings(): PerGameSettings {
+internal fun JSONObject.toPerGameSettings(): PerGameSettings {
     val providedKeys = keys().asSequence().toSet()
+    val rawCoreOptions = optJSONObject("coreOptions")?.let { obj ->
+        buildMap {
+            obj.keys().forEach { optionKey ->
+                obj.optString(optionKey).takeIf { it.isNotBlank() }?.let { put(optionKey, it) }
+            }
+        }
+    } ?: emptyMap()
     return PerGameSettings(
         gameKey = optString("gameKey"),
         gameTitle = optString("gameTitle"),
@@ -258,6 +273,18 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         enableCddaAudio = optBoolean("enableCddaAudio", true),
         multitapMode = optInt("multitapMode", 0).coerceIn(0, 3),
         cdReadAhead = optInt("cdReadAhead", 0).coerceIn(0, 333000),
+        memoryCardSlot1 = optionalCardOverride("memoryCardSlot1")
+            ?: legacyMemoryCardSlotOverride(rawCoreOptions["swanstation_MemoryCards_Card1Type"]),
+        memoryCardSlot2 = optionalCardOverride("memoryCardSlot2")
+            ?: legacyMemoryCardSlotOverride(rawCoreOptions["swanstation_MemoryCards_Card2Type"]),
+        dedicatedMemoryCards = optJSONArray("dedicatedMemoryCards")?.let { array ->
+            buildList {
+                for (index in 0 until array.length()) {
+                    val name = array.optString(index)
+                    if (name.isNotBlank()) add(name)
+                }
+            }
+        }.orEmpty(),
         touchControlVisualStyle = if (has("touchControlVisualStyle")) {
             TouchControlVisualStyle.fromPreference(optInt("touchControlVisualStyle"))
         } else {
@@ -272,25 +299,24 @@ private fun JSONObject.toPerGameSettings(): PerGameSettings {
         customTouchControls = CustomTouchControlLibrary.decodeOrNull(
             optString("customTouchControls")
         ),
-        coreOptions = optJSONObject("coreOptions")?.let { obj ->
-            buildMap {
-                obj.keys().forEach { optionKey ->
-                    obj.optString(optionKey).takeIf { it.isNotBlank() }?.let { put(optionKey, it) }
-                }
-            }
-        } ?: emptyMap(),
+        coreOptions = rawCoreOptions.filterKeys { it !in LEGACY_MEMORY_CARD_CORE_OPTION_KEYS },
         providedKeys = providedKeys,
         updatedAt = optLong("updatedAt", System.currentTimeMillis())
     )
 }
 
-private fun PerGameSettings.toJson(): JSONObject {
+internal fun PerGameSettings.toJson(): JSONObject {
     return JSONObject().apply {
         put("gameKey", gameKey)
         put("gameTitle", gameTitle)
         put("gameSerial", gameSerial)
         val keys = providedKeys
         fun shouldWrite(key: String): Boolean = keys == null || key in keys
+        if (shouldWrite("memoryCardSlot1")) memoryCardSlot1?.let { put("memoryCardSlot1", it) }
+        if (shouldWrite("memoryCardSlot2")) memoryCardSlot2?.let { put("memoryCardSlot2", it) }
+        if (shouldWrite("dedicatedMemoryCards") && dedicatedMemoryCards.isNotEmpty()) {
+            put("dedicatedMemoryCards", JSONArray().apply { dedicatedMemoryCards.forEach { put(it) } })
+        }
         if (shouldWrite("renderer")) put("renderer", sanitizeRendererValue(renderer))
         if (shouldWrite("upscaleMultiplier")) put("upscaleMultiplier", upscaleMultiplier.toDouble())
         if (shouldWrite("aspectRatio")) put("aspectRatio", sanitizeAspectRatioValue(aspectRatio))
@@ -349,9 +375,10 @@ private fun PerGameSettings.toJson(): JSONObject {
         if (shouldWrite("enableCddaAudio")) put("enableCddaAudio", enableCddaAudio)
         if (shouldWrite("multitapMode")) put("multitapMode", multitapMode)
         if (shouldWrite("cdReadAhead")) put("cdReadAhead", cdReadAhead)
-        if (coreOptions.isNotEmpty()) {
+        val sanitizedCoreOptions = coreOptions.filterKeys { it !in LEGACY_MEMORY_CARD_CORE_OPTION_KEYS }
+        if (sanitizedCoreOptions.isNotEmpty()) {
             put("coreOptions", JSONObject().apply {
-                coreOptions.forEach { (optionKey, optionValue) -> put(optionKey, optionValue) }
+                sanitizedCoreOptions.forEach { (optionKey, optionValue) -> put(optionKey, optionValue) }
             })
         }
         if (shouldWrite("touchControlVisualStyle")) {
@@ -487,6 +514,10 @@ private fun sanitizeLocalMultiplayerMode(value: Int): Int {
         AppPreferences.LOCAL_MULTIPLAYER_HORIZONTAL_CROP_SWAPPED
     )
 }
+
+/** Distinguishes an absent/null card override from an explicit empty string. */
+private fun JSONObject.optionalCardOverride(key: String): String? =
+    if (has(key) && !isNull(key)) optString(key) else null
 
 private fun JSONObject.readUpscaleMultiplier(): Float {
     val doubleValue = optDouble("upscaleMultiplier", Double.NaN)

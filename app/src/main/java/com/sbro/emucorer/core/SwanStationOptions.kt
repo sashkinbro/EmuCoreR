@@ -204,6 +204,13 @@ object SwanStationOptions {
         prefs?.edit()?.putString(key, value)?.apply()
     }
 
+    /** Drops a persisted override so the option falls back to its default. */
+    fun remove(key: String): Boolean {
+        val removed = cache.remove(key) != null
+        if (removed) prefs?.edit()?.remove(key)?.apply()
+        return removed
+    }
+
     fun initialize(context: Context) {
         prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         cache.clear()

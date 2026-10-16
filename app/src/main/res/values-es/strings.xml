@@ -2206,4 +2206,9 @@
     <string name="home_choose_disc">Elige un disco</string>
     <string name="home_disc_number">Disco %1$d</string>
     <string name="home_disc_count">Discos: %1$d</string>
+<string name="game_settings_manager_tab_memory_cards">Tarjetas de memoria</string>
+<string name="per_game_memory_cards_title">Tarjetas de memoria</string>
+<string name="per_game_memory_cards_desc">Elige qué tarjetas de memoria usa este juego. «Usar global» mantiene las tarjetas asignadas en el administrador de tarjetas de memoria; «No asignada» inicia el juego con una ranura vacía. Los cambios se aplican la próxima vez que se inicie el juego.</string>
+<string name="settings_help_per_game_memory_cards">La elección por juego solo afecta a este juego y se guarda en su perfil. Si la tarjeta seleccionada se elimina o se renombra, el juego vuelve a la asignación global.</string>
+<string name="per_game_memory_card_create">Crear una tarjeta para este juego</string>
 </resources>
