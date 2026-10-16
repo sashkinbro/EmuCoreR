@@ -1789,6 +1789,16 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_nativeInit(JNIEnv* env, jobject, js
          g_frontend.save_dir.c_str(), g_frontend.core_assets_dir.c_str());
 }
 
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_nativeSetSaveDirectory(JNIEnv* env, jobject,
+                                                                    jstring saveDir) {
+    std::lock_guard<std::mutex> lock(g_frontend.mutex);
+    const char* chars = saveDir != nullptr ? env->GetStringUTFChars(saveDir, nullptr) : nullptr;
+    g_frontend.save_dir = chars != nullptr ? chars : "";
+    if (chars != nullptr) env->ReleaseStringUTFChars(saveDir, chars);
+    LOGI("nativeSetSaveDirectory save=%s", g_frontend.save_dir.c_str());
+}
+
 JNIEXPORT jlong JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_createSession(JNIEnv*, jobject) {
     {

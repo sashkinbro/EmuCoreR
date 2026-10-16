@@ -50,7 +50,13 @@ object NativeApp {
     private var profilerActive = false
     private var hangTraceActive = false
 
-    @JvmStatic fun reloadDataRoot(path: String) { dataRootOverride = path.takeIf(String::isNotBlank) }
+    @JvmStatic fun reloadDataRoot(path: String) {
+        dataRootOverride = path.takeIf(String::isNotBlank)
+        val appContext = contextRef?.get() ?: return
+        CoreRuntime.setSaveDirectory(
+            EmulatorStorage.memoryCardsDir(appContext, dataRootOverride).absolutePath
+        )
+    }
     @JvmStatic fun setSaveStateIdentityPath(path: String?) {
         saveStateIdentityPath = path?.takeIf(String::isNotBlank)
     }

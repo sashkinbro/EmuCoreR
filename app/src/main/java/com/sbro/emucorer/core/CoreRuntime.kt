@@ -10,6 +10,7 @@ import android.system.Os
 import android.util.Log
 import android.view.Surface
 import com.sbro.emucorer.BuildConfig
+import com.sbro.emucorer.data.AppPreferences
 import com.sbro.emucorer.data.RetroArchShaderEffects
 import java.io.File
 import java.util.Locale
@@ -144,13 +145,43 @@ internal object CoreRuntime {
         this.context = context.applicationContext
         val root = File(context.filesDir, "swanstation")
         systemDirectory = File(root, "system").apply { mkdirs() }.absolutePath
-        saveDirectory = File(root, "save").apply { mkdirs() }.absolutePath
+        val memoryCardsDirectory = EmulatorStorage.memoryCardsDir(
+            context.applicationContext,
+            AppPreferences(context.applicationContext).getEmulatorDataPathSync()
+        )
+        migrateLegacyMemoryCards(File(root, "save"), memoryCardsDirectory)
+        saveDirectory = memoryCardsDirectory.absolutePath
         coreAssetsDirectory = File(root, "assets").apply { mkdirs() }.absolutePath
         SwanStationOptions.initialize(context.applicationContext)
         runCatching {
             bridge.nativeInit(systemDirectory, saveDirectory, coreAssetsDirectory)
             bridge.apiVersion()
         }.onFailure { Log.e(TAG, "Unable to initialise libretro frontend", it) }
+    }
+
+    fun setSaveDirectory(path: String) {
+        if (path.isBlank() || path == saveDirectory) return
+        saveDirectory = path
+        runCatching { bridge.nativeSetSaveDirectory(path) }
+    }
+
+    private fun migrateLegacyMemoryCards(legacyDirectory: File, targetDirectory: File) {
+        if (legacyDirectory.absolutePath == targetDirectory.absolutePath) return
+        if (!legacyDirectory.isDirectory) return
+        val legacyCards = legacyDirectory.listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".mcd", ignoreCase = true) }
+            .orEmpty()
+        if (legacyCards.isEmpty()) return
+        targetDirectory.mkdirs()
+        for (card in legacyCards) {
+            val target = File(targetDirectory, card.name)
+            if (target.exists()) continue
+            val migrated = runCatching {
+                card.copyTo(target, overwrite = false)
+                true
+            }.getOrDefault(false)
+            if (migrated) runCatching { card.delete() }
+        }
     }
 
     fun isRunning(): Boolean = running && failure.value == null && sessionLock.withLock { session != 0L }

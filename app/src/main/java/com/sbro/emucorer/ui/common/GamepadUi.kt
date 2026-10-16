@@ -55,9 +55,10 @@ fun Modifier.gamepadFocusableCard(
         targetValue = if (shouldShowFocusHighlight && !tvUiEnabled) 1.02f else 1f,
         label = "gamepadFocusScale"
     )
-    val focusBorder = when {
-        shouldShowFocusHighlight -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.95f))
-        else -> BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+    val focusBorder = if (shouldShowFocusHighlight) {
+        BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.95f))
+    } else {
+        null
     }
 
     var focusedModifier = if (tvUiEnabled) {
@@ -76,10 +77,11 @@ fun Modifier.gamepadFocusableCard(
             .clip(effectiveShape)
     }
 
-    focusedModifier = focusedModifier.border(
-        border = focusBorder,
-        shape = effectiveShape
-    )
+    focusedModifier = if (focusBorder != null) {
+        focusedModifier.border(border = focusBorder, shape = effectiveShape)
+    } else {
+        focusedModifier
+    }
 
     if (addFocusTarget) {
         focusedModifier.focusable(

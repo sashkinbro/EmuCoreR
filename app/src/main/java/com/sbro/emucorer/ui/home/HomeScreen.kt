@@ -104,8 +104,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -1560,7 +1560,7 @@ private fun RecentGameCard(
                     addFocusTarget = false
                 ),
             shape = coverShape,
-            color = MaterialTheme.colorScheme.surface,
+            color = if (showCenteredTitlePlaceholder) MaterialTheme.colorScheme.surface else Color.Transparent,
             tonalElevation = 0.dp,
             shadowElevation = 0.dp
         ) {
@@ -1568,7 +1568,6 @@ private fun RecentGameCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(resolvedCoverAspectRatio)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
             ) {
                 if (showCenteredTitlePlaceholder) {
                     GridCoverPlaceholder(
@@ -1661,13 +1660,6 @@ private fun GameCard(
     } else {
         (coverAspectRatio ?: GameCoverAspectRatio).coerceIn(0.62f, 1.0f)
     }
-    val isLightTheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
-    val gridCardBorder = if (isLightTheme) {
-        BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.34f))
-    } else {
-        null
-    }
-
     Box(modifier = modifier.fillMaxWidth()) {
         Surface(
         modifier = focusModifier
@@ -1686,16 +1678,14 @@ private fun GameCard(
                 addFocusTarget = false
             ),
         shape = coverShape,
-        color = MaterialTheme.colorScheme.surface,
+        color = if (showCenteredTitlePlaceholder) MaterialTheme.colorScheme.surface else Color.Transparent,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        border = gridCardBorder
+        shadowElevation = 0.dp
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(resolvedCoverAspectRatio)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
         ) {
             if (showCenteredTitlePlaceholder) {
                 GridCoverPlaceholder(

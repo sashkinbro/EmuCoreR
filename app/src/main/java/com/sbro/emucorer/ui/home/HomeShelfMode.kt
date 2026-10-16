@@ -546,9 +546,7 @@ private fun ShelfCoverCard(
                 GameCoverArt(
                     coverPath = shelfCoverPath,
                     fallbackTitle = game.title,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = horizontalCoverPadding, vertical = verticalCoverPadding),
+                    modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
                 )
             } else {
