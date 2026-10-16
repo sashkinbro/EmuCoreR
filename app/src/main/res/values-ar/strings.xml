@@ -2212,4 +2212,9 @@
     <string name="home_choose_disc">اختر قرصًا</string>
     <string name="home_disc_number">القرص %1$d</string>
     <string name="home_disc_count">الأقراص: %1$d</string>
+<string name="game_settings_manager_tab_memory_cards">بطاقات الذاكرة</string>
+<string name="per_game_memory_cards_title">بطاقات الذاكرة</string>
+<string name="per_game_memory_cards_desc">اختر بطاقات الذاكرة التي تستخدمها هذه اللعبة. «استخدام الإعدادات العامة» يبقي البطاقات المعيّنة في مدير بطاقات الذاكرة، و«غير معيّن» يبدأ اللعبة بفتحة فارغة. تُطبَّق التغييرات عند تشغيل اللعبة في المرة التالية.</string>
+<string name="settings_help_per_game_memory_cards">ينطبق اختيار كل لعبة على هذه اللعبة فقط ويُحفظ في ملفها الشخصي. إذا حُذفت البطاقة المحددة أو أُعيدت تسميتها، تعود اللعبة إلى التعيين العام.</string>
+<string name="per_game_memory_card_create">إنشاء بطاقة لهذه اللعبة</string>
 </resources>

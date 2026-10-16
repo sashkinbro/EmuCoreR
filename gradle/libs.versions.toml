@@ -15,7 +15,7 @@ kotlinxSerializationJson = "1.11.0"
 documentfile = "1.1.0"
 fragment = "1.9.1"
 androidYoutubePlayer = "13.0.0"
-firebaseBom = "35.0.1"
+firebaseBom = "35.0.2"
 googleServices = "4.5.0"
 billing = "9.1.0"
 playReview = "2.0.2"
@@ -28,6 +28,7 @@ webrtc = "150.7871.01"
 credentials = "1.6.0"
 googleId = "1.2.1"
 googleAuth = "22.0.0"
+json = "20250517"
 
 [libraries]
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
@@ -37,6 +38,7 @@ google-auth = { group = "com.google.android.gms", name = "play-services-auth", v
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+json = { group = "org.json", name = "json", version.ref = "json" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }

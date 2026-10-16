@@ -2210,4 +2210,9 @@
     <string name="home_choose_disc">Виберіть диск</string>
     <string name="home_disc_number">Диск %1$d</string>
     <string name="home_disc_count">Диски: %1$d</string>
+<string name="game_settings_manager_tab_memory_cards">Карти пам’яті</string>
+<string name="per_game_memory_cards_title">Карти пам’яті</string>
+<string name="per_game_memory_cards_desc">Виберіть, які карти пам’яті використовує ця гра. «Використовувати глобальні» зберігає карти, призначені в менеджері карт пам’яті; «Не призначено» запускає гру з порожнім слотом. Зміни застосуються під час наступного запуску гри.</string>
+<string name="settings_help_per_game_memory_cards">Вибір для окремої гри впливає лише на неї та зберігається в її профілі. Якщо вибрану карту видалено або перейменовано, гра повертається до глобального призначення.</string>
+<string name="per_game_memory_card_create">Створити карту для цієї гри</string>
 </resources>

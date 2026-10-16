@@ -2206,4 +2206,9 @@
     <string name="home_choose_disc">Disc auswählen</string>
     <string name="home_disc_number">Disc %1$d</string>
     <string name="home_disc_count">Discs: %1$d</string>
+<string name="game_settings_manager_tab_memory_cards">Speicherkarten</string>
+<string name="per_game_memory_cards_title">Speicherkarten</string>
+<string name="per_game_memory_cards_desc">Wählen Sie, welche Speicherkarten dieses Spiel verwendet. „Global verwenden“ behält die im Speicherkarten-Manager zugewiesenen Karten, „Nicht zugewiesen“ startet das Spiel mit einem leeren Steckplatz. Änderungen gelten beim nächsten Start des Spiels.</string>
+<string name="settings_help_per_game_memory_cards">Die Auswahl gilt nur für dieses Spiel und wird in seinem Profil gespeichert. Wird die gewählte Karte gelöscht oder umbenannt, greift wieder die globale Zuweisung.</string>
+<string name="per_game_memory_card_create">Karte für dieses Spiel erstellen</string>
 </resources>

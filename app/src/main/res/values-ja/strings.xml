@@ -2203,4 +2203,9 @@
     <string name="home_choose_disc">ディスクを選択</string>
     <string name="home_disc_number">ディスク %1$d</string>
     <string name="home_disc_count">ディスク数：%1$d</string>
+<string name="game_settings_manager_tab_memory_cards">メモリーカード</string>
+<string name="per_game_memory_cards_title">メモリーカード</string>
+<string name="per_game_memory_cards_desc">このゲームが使用するメモリーカードを選択します。「グローバル設定を使用」はメモリーカードマネージャーで割り当てたカードを維持し、「未割り当て」は空のスロットでゲームを起動します。変更は次回のゲーム起動時に適用されます。</string>
+<string name="settings_help_per_game_memory_cards">ゲームごとの選択はこのゲームにのみ適用され、そのプロファイルに保存されます。選択したカードが削除または名前変更された場合、ゲームはグローバル設定に戻ります。</string>
+<string name="per_game_memory_card_create">このゲーム用のカードを作成</string>
 </resources>

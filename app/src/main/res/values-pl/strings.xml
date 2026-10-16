@@ -2225,4 +2225,9 @@
     <string name="home_choose_disc">Wybierz dysk</string>
     <string name="home_disc_number">Dysk %1$d</string>
     <string name="home_disc_count">Dyski: %1$d</string>
+<string name="game_settings_manager_tab_memory_cards">Karty pamięci</string>
+<string name="per_game_memory_cards_title">Karty pamięci</string>
+<string name="per_game_memory_cards_desc">Wybierz, których kart pamięci używa ta gra. „Użyj globalnych” zachowuje karty przypisane w menedżerze kart pamięci, „Nie przypisano” uruchamia grę z pustym gniazdem. Zmiany zostaną zastosowane przy następnym uruchomieniu gry.</string>
+<string name="settings_help_per_game_memory_cards">Wybór dla gry dotyczy tylko tej gry i jest zapisywany w jej profilu. Jeśli wybrana karta zostanie usunięta lub zmieniona nazwa, gra wróci do przypisania globalnego.</string>
+<string name="per_game_memory_card_create">Utwórz kartę dla tej gry</string>
 </resources>

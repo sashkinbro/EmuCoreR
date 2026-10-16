@@ -2204,4 +2204,9 @@
     <string name="home_choose_disc">डिस्क चुनें</string>
     <string name="home_disc_number">डिस्क %1$d</string>
     <string name="home_disc_count">डिस्क: %1$d</string>
+<string name="game_settings_manager_tab_memory_cards">मेमोरी कार्ड</string>
+<string name="per_game_memory_cards_title">मेमोरी कार्ड</string>
+<string name="per_game_memory_cards_desc">चुनें कि यह गेम कौन से मेमोरी कार्ड उपयोग करे। «ग्लोबल का उपयोग करें» मेमोरी कार्ड मैनेजर में असाइन किए गए कार्ड रखता है, «असाइन नहीं किया गया» गेम को खाली स्लॉट के साथ शुरू करता है। बदलाव अगली बार गेम शुरू होने पर लागू होंगे।</string>
+<string name="settings_help_per_game_memory_cards">प्रति-गेम चयन केवल इस गेम पर लागू होता है और इसकी प्रोफ़ाइल में सहेजा जाता है। यदि चुना गया कार्ड हटा या नाम बदला गया हो, तो गेम ग्लोबल असाइनमेंट पर वापस चला जाता है।</string>
+<string name="per_game_memory_card_create">इस गेम के लिए कार्ड बनाएँ</string>
 </resources>

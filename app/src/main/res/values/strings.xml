@@ -2237,4 +2237,9 @@
     <string name="home_choose_disc">Choose a disc</string>
     <string name="home_disc_number">Disc %1$d</string>
     <string name="home_disc_count">Discs: %1$d</string>
+<string name="game_settings_manager_tab_memory_cards">Memory cards</string>
+<string name="per_game_memory_cards_title">Memory cards</string>
+<string name="per_game_memory_cards_desc">Choose which memory cards this game uses. “Use global” keeps the cards assigned in the Memory Card manager; “Not assigned” starts the game with an empty slot. Changes apply the next time the game starts.</string>
+<string name="settings_help_per_game_memory_cards">The per-game choice only affects this game and is saved in its profile. If the selected card is deleted or renamed, the game falls back to the global assignment.</string>
+<string name="per_game_memory_card_create">Create a card for this game</string>
 </resources>

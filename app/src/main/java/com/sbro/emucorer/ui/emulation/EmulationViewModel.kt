@@ -49,6 +49,8 @@ import com.sbro.emucorer.data.PlayerProfileRepository
 import com.sbro.emucorer.data.PlayTimeSyncCacheRepository
 import com.sbro.emucorer.data.RetroAchievementsRepository
 import com.sbro.emucorer.data.resolveShaderChain
+import com.sbro.emucorer.data.resolvePerGameMemoryCardOverride
+import com.sbro.emucorer.data.validatePerGameMemoryCardName
 import com.sbro.emucorer.data.TouchControlsLayoutProfile
 import com.sbro.emucorer.data.PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY
 import com.sbro.emucorer.data.PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY
@@ -2440,7 +2442,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
         val profile = activePerGameKey()?.let(perGameSettingsRepository::get)
         val ensuredAssignments = memoryCardRepository.ensureDefaultCardsAssigned()
         val settings = preferences.settingsSnapshot.first()
-        return EmulationLaunchConfig(
+        val config = EmulationLaunchConfig(
             biosPath = settings.biosPath,
             emulatorDataPath = settings.emulatorDataPath,
             memoryCardSlot1 = ensuredAssignments.slot1,
@@ -2467,6 +2469,22 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             enableCddaAudio = settings.enableCddaAudio,
             multitapMode = settings.multitapMode
         ).applyProfile(profile)
+        // A per-game card that was renamed or deleted outside the manager must
+        // never launch as a vanished path: fall back to the global assignment.
+        val availableCardNames = withContext(Dispatchers.IO) {
+            memoryCardRepository.listCards().mapTo(HashSet()) { it.name }
+        }
+        val validatedSlot1 = validatePerGameMemoryCardName(
+            selected = config.memoryCardSlot1,
+            fallback = ensuredAssignments.slot1,
+            availableCards = availableCardNames
+        )
+        val validatedSlot2 = validatePerGameMemoryCardName(
+            selected = config.memoryCardSlot2,
+            fallback = ensuredAssignments.slot2,
+            availableCards = availableCardNames
+        ).takeUnless { it.equals(validatedSlot1, ignoreCase = true) }
+        return config.copy(memoryCardSlot1 = validatedSlot1, memoryCardSlot2 = validatedSlot2)
     }
 
     private suspend fun loadLiveRuntimeSnapshot(): LiveRuntimeSnapshot {
@@ -2530,6 +2548,12 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             return if (keys == null || key in keys) profile.value() else current
         }
         return copy(
+            memoryCardSlot1 = resolvePerGameMemoryCardOverride(
+                profile.providedKeys, "memoryCardSlot1", memoryCardSlot1, profile.memoryCardSlot1
+            ),
+            memoryCardSlot2 = resolvePerGameMemoryCardOverride(
+                profile.providedKeys, "memoryCardSlot2", memoryCardSlot2, profile.memoryCardSlot2
+            ),
             renderer = pick("renderer", renderer) { renderer },
             upscaleMultiplier = pick("upscaleMultiplier", upscaleMultiplier) { upscaleMultiplier },
             aspectRatio = pick("aspectRatio", aspectRatio) { aspectRatio },
