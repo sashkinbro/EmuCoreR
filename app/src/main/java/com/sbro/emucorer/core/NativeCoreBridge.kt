@@ -31,6 +31,7 @@ class NativeCoreBridge {
     // Lifecycle / configuration.
     // ---------------------------------------------------------------------
     external fun nativeInit(systemDir: String, saveDir: String, coreAssetsDir: String)
+    external fun nativeSetSaveDirectory(saveDir: String)
     external fun createSession(): Long
     external fun destroySession(handle: Long)
     external fun nativeSetOption(key: String, value: String)
