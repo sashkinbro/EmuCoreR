@@ -2211,4 +2211,15 @@
 <string name="per_game_memory_cards_desc">Choisissez les cartes mémoire utilisées par ce jeu. « Utiliser les paramètres globaux » conserve les cartes assignées dans le gestionnaire de cartes mémoire ; « Non attribué » démarre le jeu avec un emplacement vide. Les changements s\'appliquent au prochain démarrage du jeu.</string>
 <string name="settings_help_per_game_memory_cards">Le choix par jeu ne concerne que ce jeu et est enregistré dans son profil. Si la carte sélectionnée est supprimée ou renommée, le jeu revient à l\'assignation globale.</string>
 <string name="per_game_memory_card_create">Créer une carte pour ce jeu</string>
+
+    <string name="home_game_menu_restore_cover">Rétablir la jaquette par défaut</string>
+    <string name="home_game_menu_restore_cover_success">Jaquette par défaut rétablie.</string>
+    <string name="home_game_menu_restore_cover_failed">Impossible de rétablir la jaquette par défaut.</string>
+    <string name="settings_reset_custom_covers">Réinitialiser les jaquettes personnalisées</string>
+    <string name="settings_reset_custom_covers_desc">Rétablir les jaquettes par défaut de tous les jeux.</string>
+    <string name="settings_reset_custom_covers_confirm_title">Réinitialiser toutes les jaquettes personnalisées ?</string>
+    <string name="settings_reset_custom_covers_confirm_body">Les jaquettes personnalisées seront retirées de la bibliothèque et remplacées par les jaquettes par défaut. Vos images originales et les fichiers des jeux seront conservés.</string>
+    <string name="settings_reset_custom_covers_action">Réinitialiser</string>
+    <string name="settings_reset_custom_covers_success">Jaquettes personnalisées réinitialisées.</string>
+    <string name="settings_reset_custom_covers_partial">Certaines jaquettes personnalisées n’ont pas pu être réinitialisées. Veuillez réessayer.</string>
 </resources>

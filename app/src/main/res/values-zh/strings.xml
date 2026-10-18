@@ -2210,4 +2210,15 @@
 <string name="per_game_memory_cards_desc">选择此游戏使用的记忆卡。“使用全局设置”保留在记忆卡管理器中分配的卡；“未分配”则以空插槽启动游戏。更改将在下次启动游戏时生效。</string>
 <string name="settings_help_per_game_memory_cards">按游戏的选择仅影响此游戏，并保存在其配置中。如果所选记忆卡被删除或重命名，游戏将回退到全局分配。</string>
 <string name="per_game_memory_card_create">为此游戏创建记忆卡</string>
+
+    <string name="home_game_menu_restore_cover">恢复默认封面</string>
+    <string name="home_game_menu_restore_cover_success">已恢复默认封面。</string>
+    <string name="home_game_menu_restore_cover_failed">无法恢复默认封面。</string>
+    <string name="settings_reset_custom_covers">重置自定义封面</string>
+    <string name="settings_reset_custom_covers_desc">将所有游戏的封面恢复为默认封面。</string>
+    <string name="settings_reset_custom_covers_confirm_title">重置所有自定义封面？</string>
+    <string name="settings_reset_custom_covers_confirm_body">自定义封面将从游戏库中移除并替换为默认封面。原始图片和游戏文件将保留。</string>
+    <string name="settings_reset_custom_covers_action">重置</string>
+    <string name="settings_reset_custom_covers_success">已重置自定义封面。</string>
+    <string name="settings_reset_custom_covers_partial">部分自定义封面无法重置，请重试。</string>
 </resources>

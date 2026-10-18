@@ -2209,4 +2209,15 @@
 <string name="per_game_memory_cards_desc">चुनें कि यह गेम कौन से मेमोरी कार्ड उपयोग करे। «ग्लोबल का उपयोग करें» मेमोरी कार्ड मैनेजर में असाइन किए गए कार्ड रखता है, «असाइन नहीं किया गया» गेम को खाली स्लॉट के साथ शुरू करता है। बदलाव अगली बार गेम शुरू होने पर लागू होंगे।</string>
 <string name="settings_help_per_game_memory_cards">प्रति-गेम चयन केवल इस गेम पर लागू होता है और इसकी प्रोफ़ाइल में सहेजा जाता है। यदि चुना गया कार्ड हटा या नाम बदला गया हो, तो गेम ग्लोबल असाइनमेंट पर वापस चला जाता है।</string>
 <string name="per_game_memory_card_create">इस गेम के लिए कार्ड बनाएँ</string>
+
+    <string name="home_game_menu_restore_cover">डिफ़ॉल्ट कवर बहाल करें</string>
+    <string name="home_game_menu_restore_cover_success">डिफ़ॉल्ट कवर बहाल हो गया।</string>
+    <string name="home_game_menu_restore_cover_failed">डिफ़ॉल्ट कवर बहाल नहीं किया जा सका।</string>
+    <string name="settings_reset_custom_covers">कस्टम कवर रीसेट करें</string>
+    <string name="settings_reset_custom_covers_desc">सभी गेम के डिफ़ॉल्ट कवर बहाल करें।</string>
+    <string name="settings_reset_custom_covers_confirm_title">सभी कस्टम कवर रीसेट करें?</string>
+    <string name="settings_reset_custom_covers_confirm_body">कस्टम कवर लाइब्रेरी से हटाकर उनकी जगह डिफ़ॉल्ट कवर लगा दिए जाएँगे। आपकी मूल तस्वीरें और गेम की फ़ाइलें सुरक्षित रहेंगी।</string>
+    <string name="settings_reset_custom_covers_action">रीसेट करें</string>
+    <string name="settings_reset_custom_covers_success">कस्टम कवर रीसेट हो गए।</string>
+    <string name="settings_reset_custom_covers_partial">कुछ कस्टम कवर रीसेट नहीं किए जा सके। कृपया फिर कोशिश करें।</string>
 </resources>

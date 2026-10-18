@@ -2211,4 +2211,15 @@
 <string name="per_game_memory_cards_desc">Elige qué tarjetas de memoria usa este juego. «Usar global» mantiene las tarjetas asignadas en el administrador de tarjetas de memoria; «No asignada» inicia el juego con una ranura vacía. Los cambios se aplican la próxima vez que se inicie el juego.</string>
 <string name="settings_help_per_game_memory_cards">La elección por juego solo afecta a este juego y se guarda en su perfil. Si la tarjeta seleccionada se elimina o se renombra, el juego vuelve a la asignación global.</string>
 <string name="per_game_memory_card_create">Crear una tarjeta para este juego</string>
+
+    <string name="home_game_menu_restore_cover">Restaurar carátula predeterminada</string>
+    <string name="home_game_menu_restore_cover_success">Carátula predeterminada restaurada.</string>
+    <string name="home_game_menu_restore_cover_failed">No se pudo restaurar la carátula predeterminada.</string>
+    <string name="settings_reset_custom_covers">Restablecer carátulas personalizadas</string>
+    <string name="settings_reset_custom_covers_desc">Restaurar las carátulas predeterminadas de todos los juegos.</string>
+    <string name="settings_reset_custom_covers_confirm_title">¿Restablecer todas las carátulas personalizadas?</string>
+    <string name="settings_reset_custom_covers_confirm_body">Las carátulas personalizadas se eliminarán de la biblioteca y se sustituirán por las predeterminadas. Se conservarán las imágenes originales y los archivos de los juegos.</string>
+    <string name="settings_reset_custom_covers_action">Restablecer</string>
+    <string name="settings_reset_custom_covers_success">Carátulas personalizadas restablecidas.</string>
+    <string name="settings_reset_custom_covers_partial">No se pudieron restablecer algunas carátulas personalizadas. Inténtalo de nuevo.</string>
 </resources>

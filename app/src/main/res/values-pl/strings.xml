@@ -2230,4 +2230,15 @@
 <string name="per_game_memory_cards_desc">Wybierz, których kart pamięci używa ta gra. „Użyj globalnych” zachowuje karty przypisane w menedżerze kart pamięci, „Nie przypisano” uruchamia grę z pustym gniazdem. Zmiany zostaną zastosowane przy następnym uruchomieniu gry.</string>
 <string name="settings_help_per_game_memory_cards">Wybór dla gry dotyczy tylko tej gry i jest zapisywany w jej profilu. Jeśli wybrana karta zostanie usunięta lub zmieniona nazwa, gra wróci do przypisania globalnego.</string>
 <string name="per_game_memory_card_create">Utwórz kartę dla tej gry</string>
+
+    <string name="home_game_menu_restore_cover">Przywróć domyślną okładkę</string>
+    <string name="home_game_menu_restore_cover_success">Przywrócono domyślną okładkę.</string>
+    <string name="home_game_menu_restore_cover_failed">Nie udało się przywrócić domyślnej okładki.</string>
+    <string name="settings_reset_custom_covers">Zresetuj własne okładki</string>
+    <string name="settings_reset_custom_covers_desc">Przywróć domyślne okładki wszystkich gier.</string>
+    <string name="settings_reset_custom_covers_confirm_title">Zresetować wszystkie własne okładki?</string>
+    <string name="settings_reset_custom_covers_confirm_body">Własne okładki zostaną usunięte z biblioteki i zastąpione domyślnymi. Oryginalne obrazy i pliki gier zostaną zachowane.</string>
+    <string name="settings_reset_custom_covers_action">Resetuj</string>
+    <string name="settings_reset_custom_covers_success">Własne okładki zostały zresetowane.</string>
+    <string name="settings_reset_custom_covers_partial">Nie udało się zresetować niektórych własnych okładek. Spróbuj ponownie.</string>
 </resources>

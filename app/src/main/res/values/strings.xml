@@ -2242,4 +2242,15 @@
 <string name="per_game_memory_cards_desc">Choose which memory cards this game uses. “Use global” keeps the cards assigned in the Memory Card manager; “Not assigned” starts the game with an empty slot. Changes apply the next time the game starts.</string>
 <string name="settings_help_per_game_memory_cards">The per-game choice only affects this game and is saved in its profile. If the selected card is deleted or renamed, the game falls back to the global assignment.</string>
 <string name="per_game_memory_card_create">Create a card for this game</string>
+
+    <string name="home_game_menu_restore_cover">Restore default cover</string>
+    <string name="home_game_menu_restore_cover_success">Default cover restored.</string>
+    <string name="home_game_menu_restore_cover_failed">Could not restore the default cover.</string>
+    <string name="settings_reset_custom_covers">Reset custom covers</string>
+    <string name="settings_reset_custom_covers_desc">Restore default covers for all games.</string>
+    <string name="settings_reset_custom_covers_confirm_title">Reset all custom covers?</string>
+    <string name="settings_reset_custom_covers_confirm_body">Custom covers will be removed from the library and replaced with default covers. Your original images and game files will be kept.</string>
+    <string name="settings_reset_custom_covers_action">Reset</string>
+    <string name="settings_reset_custom_covers_success">Custom covers reset.</string>
+    <string name="settings_reset_custom_covers_partial">Some custom covers could not be reset. Please try again.</string>
 </resources>

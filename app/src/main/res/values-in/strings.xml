@@ -2223,4 +2223,15 @@
 <string name="per_game_memory_cards_desc">Pilih kartu memori yang digunakan game ini. “Gunakan global” mempertahankan kartu yang ditetapkan di pengelola kartu memori; “Tidak ditetapkan” memulai game dengan slot kosong. Perubahan berlaku saat game dijalankan berikutnya.</string>
 <string name="settings_help_per_game_memory_cards">Pilihan per game hanya memengaruhi game ini dan disimpan di profilnya. Jika kartu yang dipilih dihapus atau diganti namanya, game kembali ke penetapan global.</string>
 <string name="per_game_memory_card_create">Buat kartu untuk game ini</string>
+
+    <string name="home_game_menu_restore_cover">Pulihkan sampul bawaan</string>
+    <string name="home_game_menu_restore_cover_success">Sampul bawaan dipulihkan.</string>
+    <string name="home_game_menu_restore_cover_failed">Tidak dapat memulihkan sampul bawaan.</string>
+    <string name="settings_reset_custom_covers">Reset sampul kustom</string>
+    <string name="settings_reset_custom_covers_desc">Pulihkan sampul bawaan untuk semua gim.</string>
+    <string name="settings_reset_custom_covers_confirm_title">Reset semua sampul kustom?</string>
+    <string name="settings_reset_custom_covers_confirm_body">Sampul kustom akan dihapus dari pustaka dan diganti dengan sampul bawaan. Gambar asli dan berkas gim Anda akan tetap disimpan.</string>
+    <string name="settings_reset_custom_covers_action">Reset</string>
+    <string name="settings_reset_custom_covers_success">Sampul kustom direset.</string>
+    <string name="settings_reset_custom_covers_partial">Beberapa sampul kustom tidak dapat direset. Silakan coba lagi.</string>
 </resources>
