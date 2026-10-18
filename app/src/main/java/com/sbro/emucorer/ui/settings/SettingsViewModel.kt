@@ -52,6 +52,7 @@ import com.sbro.emucorer.data.GameMenuSectionId
 import com.sbro.emucorer.data.DefaultGameMenuTabOrder
 import com.sbro.emucorer.data.DefaultGameMenuSectionOrder
 import com.sbro.emucorer.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
+import com.sbro.emucorer.data.CustomGameCoverRepository
 import com.sbro.emucorer.data.CoverArtRepository
 import com.sbro.emucorer.data.CoverCacheClearResult
 import com.sbro.emucorer.data.CustomFontRepository
@@ -1247,6 +1248,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             withContext(Dispatchers.Main) {
                 onComplete(result)
             }
+        }
+    }
+
+    fun resetCustomCovers(onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = CustomGameCoverRepository(getApplication()).resetAllCustomCovers()
+            clearCoverImageMemoryCache()
+            preferences.notifyCustomCoversReset()
+            withContext(Dispatchers.Main) { onComplete(result) }
         }
     }
 

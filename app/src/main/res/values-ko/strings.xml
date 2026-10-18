@@ -2208,4 +2208,15 @@
 <string name="per_game_memory_cards_desc">이 게임에서 사용할 메모리 카드를 선택하세요. “글로벌 설정 사용”은 메모리 카드 관리자에서 할당한 카드를 유지하고, “할당되지 않음”은 빈 슬롯으로 게임을 시작합니다. 변경 사항은 다음에 게임을 시작할 때 적용됩니다.</string>
 <string name="settings_help_per_game_memory_cards">게임별 선택은 이 게임에만 적용되며 프로필에 저장됩니다. 선택한 카드가 삭제되거나 이름이 바뀌면 게임은 글로벌 할당으로 돌아갑니다.</string>
 <string name="per_game_memory_card_create">이 게임용 카드 만들기</string>
+
+    <string name="home_game_menu_restore_cover">기본 커버로 되돌리기</string>
+    <string name="home_game_menu_restore_cover_success">기본 커버로 되돌렸습니다.</string>
+    <string name="home_game_menu_restore_cover_failed">기본 커버로 되돌리지 못했습니다.</string>
+    <string name="settings_reset_custom_covers">사용자 지정 커버 초기화</string>
+    <string name="settings_reset_custom_covers_desc">모든 게임의 커버를 기본 커버로 되돌립니다.</string>
+    <string name="settings_reset_custom_covers_confirm_title">모든 사용자 지정 커버를 초기화할까요?</string>
+    <string name="settings_reset_custom_covers_confirm_body">라이브러리에서 사용자 지정 커버를 삭제하고 기본 커버로 되돌립니다. 원본 이미지와 게임 파일은 유지됩니다.</string>
+    <string name="settings_reset_custom_covers_action">초기화</string>
+    <string name="settings_reset_custom_covers_success">사용자 지정 커버를 초기화했습니다.</string>
+    <string name="settings_reset_custom_covers_partial">일부 사용자 지정 커버를 초기화하지 못했습니다. 다시 시도해 주세요.</string>
 </resources>

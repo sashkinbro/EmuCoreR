@@ -28,7 +28,7 @@ webrtc = "150.7871.01"
 credentials = "1.6.0"
 googleId = "1.2.1"
 googleAuth = "22.0.0"
-json = "20250517"
+json = "20260814"
 
 [libraries]
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }

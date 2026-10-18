@@ -2209,4 +2209,15 @@
 <string name="per_game_memory_cards_desc">Bu oyunun hangi hafıza kartlarını kullanacağını seçin. “Global ayarları kullan” hafıza kartı yöneticisinde atanan kartları korur; “Atanmadı” oyunu boş bir yuva ile başlatır. Değişiklikler oyunun bir sonraki açılışında uygulanır.</string>
 <string name="settings_help_per_game_memory_cards">Oyun başına seçim yalnızca bu oyunu etkiler ve profilinde saklanır. Seçilen kart silinir veya adı değiştirilirse oyun global atamaya geri döner.</string>
 <string name="per_game_memory_card_create">Bu oyun için kart oluştur</string>
+
+    <string name="home_game_menu_restore_cover">Varsayılan kapağı geri yükle</string>
+    <string name="home_game_menu_restore_cover_success">Varsayılan kapak geri yüklendi.</string>
+    <string name="home_game_menu_restore_cover_failed">Varsayılan kapak geri yüklenemedi.</string>
+    <string name="settings_reset_custom_covers">Özel kapakları sıfırla</string>
+    <string name="settings_reset_custom_covers_desc">Tüm oyunların varsayılan kapaklarını geri yükle.</string>
+    <string name="settings_reset_custom_covers_confirm_title">Tüm özel kapaklar sıfırlansın mı?</string>
+    <string name="settings_reset_custom_covers_confirm_body">Özel kapaklar kütüphaneden kaldırılacak ve varsayılan kapaklarla değiştirilecek. Özgün görselleriniz ve oyun dosyalarınız korunacak.</string>
+    <string name="settings_reset_custom_covers_action">Sıfırla</string>
+    <string name="settings_reset_custom_covers_success">Özel kapaklar sıfırlandı.</string>
+    <string name="settings_reset_custom_covers_partial">Bazı özel kapaklar sıfırlanamadı. Lütfen tekrar deneyin.</string>
 </resources>

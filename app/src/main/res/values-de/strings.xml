@@ -2211,4 +2211,15 @@
 <string name="per_game_memory_cards_desc">Wählen Sie, welche Speicherkarten dieses Spiel verwendet. „Global verwenden“ behält die im Speicherkarten-Manager zugewiesenen Karten, „Nicht zugewiesen“ startet das Spiel mit einem leeren Steckplatz. Änderungen gelten beim nächsten Start des Spiels.</string>
 <string name="settings_help_per_game_memory_cards">Die Auswahl gilt nur für dieses Spiel und wird in seinem Profil gespeichert. Wird die gewählte Karte gelöscht oder umbenannt, greift wieder die globale Zuweisung.</string>
 <string name="per_game_memory_card_create">Karte für dieses Spiel erstellen</string>
+
+    <string name="home_game_menu_restore_cover">Standardcover wiederherstellen</string>
+    <string name="home_game_menu_restore_cover_success">Standardcover wiederhergestellt.</string>
+    <string name="home_game_menu_restore_cover_failed">Das Standardcover konnte nicht wiederhergestellt werden.</string>
+    <string name="settings_reset_custom_covers">Eigene Cover zurücksetzen</string>
+    <string name="settings_reset_custom_covers_desc">Standardcover für alle Spiele wiederherstellen.</string>
+    <string name="settings_reset_custom_covers_confirm_title">Alle eigenen Cover zurücksetzen?</string>
+    <string name="settings_reset_custom_covers_confirm_body">Eigene Cover werden aus der Bibliothek entfernt und durch Standardcover ersetzt. Die ursprünglichen Bilder und Spieldateien bleiben erhalten.</string>
+    <string name="settings_reset_custom_covers_action">Zurücksetzen</string>
+    <string name="settings_reset_custom_covers_success">Eigene Cover zurückgesetzt.</string>
+    <string name="settings_reset_custom_covers_partial">Einige eigene Cover konnten nicht zurückgesetzt werden. Bitte erneut versuchen.</string>
 </resources>

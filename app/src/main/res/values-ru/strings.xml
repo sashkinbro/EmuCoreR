@@ -2213,4 +2213,15 @@
 <string name="per_game_memory_cards_desc">Выберите, какие карты памяти использует эта игра. «Использовать глобальные» сохраняет карты, назначенные в менеджере карт памяти; «Не назначено» запускает игру с пустым слотом. Изменения применяются при следующем запуске игры.</string>
 <string name="settings_help_per_game_memory_cards">Выбор для конкретной игры влияет только на неё и сохраняется в её профиле. Если выбранная карта удалена или переименована, игра возвращается к глобальному назначению.</string>
 <string name="per_game_memory_card_create">Создать карту для этой игры</string>
+
+    <string name="home_game_menu_restore_cover">Вернуть стандартную обложку</string>
+    <string name="home_game_menu_restore_cover_success">Стандартная обложка восстановлена.</string>
+    <string name="home_game_menu_restore_cover_failed">Не удалось восстановить стандартную обложку.</string>
+    <string name="settings_reset_custom_covers">Сбросить пользовательские обложки</string>
+    <string name="settings_reset_custom_covers_desc">Вернуть стандартные обложки для всех игр.</string>
+    <string name="settings_reset_custom_covers_confirm_title">Сбросить все пользовательские обложки?</string>
+    <string name="settings_reset_custom_covers_confirm_body">Пользовательские обложки будут удалены из библиотеки и заменены стандартными. Исходные изображения и файлы игр сохранятся.</string>
+    <string name="settings_reset_custom_covers_action">Сбросить</string>
+    <string name="settings_reset_custom_covers_success">Пользовательские обложки сброшены.</string>
+    <string name="settings_reset_custom_covers_partial">Некоторые пользовательские обложки не удалось сбросить. Попробуйте ещё раз.</string>
 </resources>
