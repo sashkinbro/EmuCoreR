@@ -125,7 +125,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -256,6 +255,7 @@ import com.sbro.emucorer.ui.common.calculateSideArtworkPreviewLayout
 import com.sbro.emucorer.ui.common.gamepadActionLabel
 import com.sbro.emucorer.ui.common.gamepadFocusableCard
 import com.sbro.emucorer.ui.common.navigationBarsHorizontalPaddingValues
+import com.sbro.emucorer.ui.common.premiumFilterChipColors
 import com.sbro.emucorer.ui.common.rememberDebouncedClick
 import com.sbro.emucorer.ui.common.skipGamepadTextFieldFocus
 import com.sbro.emucorer.ui.common.tvFocusGroup
@@ -2061,6 +2061,7 @@ private fun SettingsContent(
                                     selected = selectedGamepadPadIndex == padIndex,
                                     onClick = { selectedGamepadPadIndex = padIndex },
                                     interactionSource = interactionSource,
+                                    colors = premiumFilterChipColors(),
                                     label = { Text(gamepadPlayerLabel(padIndex)) }
                                 )
                             }
@@ -6117,17 +6118,6 @@ private fun BitmaskChoiceSection(
 }
 
 @Composable
-internal fun premiumFilterChipColors() = FilterChipDefaults.filterChipColors(
-    containerColor = Color.Transparent,
-    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    iconColor = MaterialTheme.colorScheme.primary,
-    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    selectedTrailingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
-)
-
-@Composable
 internal fun SettingsInlineNote(text: String) {
     Text(
         text = text,
@@ -6347,6 +6337,7 @@ private fun GamepadAssignmentChip(
         selected = selected,
         onClick = onClick,
         interactionSource = interactionSource,
+        colors = premiumFilterChipColors(),
         label = { Text(label) }
     )
 }

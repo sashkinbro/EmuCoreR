@@ -75,6 +75,7 @@ import com.sbro.emucorer.data.CustomThemeLibrary
 import com.sbro.emucorer.data.SavedCustomTheme
 import com.sbro.emucorer.ui.common.ScreenTopBar
 import com.sbro.emucorer.ui.common.appScreenTopPadding
+import com.sbro.emucorer.ui.common.premiumFilterChipColors
 import com.sbro.emucorer.ui.theme.neon.neonButtonShape
 import com.sbro.emucorer.ui.theme.neon.neonShape
 import java.util.UUID
@@ -413,6 +414,7 @@ fun ThemeManagerScreen(
                         label = { Text(stringResource(R.string.theme_manager_light_canvas)) },
                         leadingIcon = { Icon(Icons.Rounded.LightMode, contentDescription = null) },
                         shape = managerControlShape(),
+                        colors = premiumFilterChipColors(),
                         modifier = Modifier.weight(1f)
                     )
                     FilterChip(
@@ -422,6 +424,7 @@ fun ThemeManagerScreen(
                         label = { Text(stringResource(R.string.theme_manager_dark_canvas)) },
                         leadingIcon = { Icon(Icons.Rounded.DarkMode, contentDescription = null) },
                         shape = managerControlShape(),
+                        colors = premiumFilterChipColors(),
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -512,7 +515,8 @@ fun ThemeManagerScreen(
                             } else {
                                 null
                             },
-                            shape = managerSmallShape()
+                            shape = managerSmallShape(),
+                            colors = premiumFilterChipColors()
                         )
                     }
                 }

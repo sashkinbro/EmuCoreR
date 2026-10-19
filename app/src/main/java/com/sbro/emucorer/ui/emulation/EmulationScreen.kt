@@ -122,6 +122,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
@@ -194,6 +195,7 @@ import com.sbro.emucorer.ui.common.composeShape
 import com.sbro.emucorer.ui.common.BitmapPathImage
 import com.sbro.emucorer.ui.common.EmulationSideArtworkOverlay
 import com.sbro.emucorer.ui.common.GameCoverArt
+import com.sbro.emucorer.ui.common.gameCoverContentScale
 import com.sbro.emucorer.ui.common.ProvideGamepadMenuAction
 import com.sbro.emucorer.ui.common.ProvideGamepadShoulderActions
 import com.sbro.emucorer.ui.common.ProvideGamepadUiNavigation
@@ -206,6 +208,7 @@ import com.sbro.emucorer.ui.common.VectorOverlayButton
 import com.sbro.emucorer.ui.common.buildOverlayCanvasLayout
 import com.sbro.emucorer.ui.common.gamepadActionLabel
 import com.sbro.emucorer.ui.common.gamepadFocusableCard
+import com.sbro.emucorer.ui.common.premiumFilterChipColors
 import com.sbro.emucorer.ui.common.rememberDebouncedClick
 import com.sbro.emucorer.ui.common.tvFocusGroup
 import com.sbro.emucorer.ui.settings.ControlsEditorScreen
@@ -1800,6 +1803,7 @@ fun EmulationScreen(
                         shape = neonChipShape(),
                         selected = selectedGamepadPadIndex == padIndex,
                         onClick = { selectedGamepadPadIndex = padIndex },
+                        colors = premiumFilterChipColors(),
                         label = { Text(gamepadPlayerLabel(padIndex)) }
                     )
                 }
@@ -1843,6 +1847,8 @@ fun EmulationScreen(
                         } else {
                             stringResource(R.string.settings_gamepad_mapping_auto_format)
                         },
+                        highlight = pendingGamepadActionId == action.id &&
+                            pendingGamepadPadIndex == selectedGamepadPadIndex,
                         onBindClick = {
                             pendingGamepadPadIndex = selectedGamepadPadIndex
                             pendingGamepadActionId = action.id
@@ -3072,17 +3078,18 @@ private fun EmulationSidebarMenu(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Surface(
-                            shape = neonShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                        Box(
                             modifier = Modifier
-                                .size(64.dp)
+                                .size(82.dp)
+                                .clip(RectangleShape)
                         ) {
                             GameCoverArt(
                                 coverPath = uiState.currentGameCoverPath,
                                 fallbackTitle = menuTitle,
-                                contentScale = ContentScale.Crop,
+                                contentScale = gameCoverContentScale(
+                                    uiState.currentGameCoverPath,
+                                    ContentScale.Crop
+                                ),
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
@@ -4562,13 +4569,23 @@ private fun EmulationGamepadBindingRow(
     title: String,
     value: String,
     autoLabel: String?,
+    highlight: Boolean = false,
     onBindClick: () -> Unit,
     onClearClick: (() -> Unit)?
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = neonShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+        color = if (highlight) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+        },
+        border = if (highlight) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f))
+        } else {
+            null
+        },
         onClick = onBindClick
     ) {
         Row(
@@ -5212,6 +5229,7 @@ private fun LiveSelectionChip(
         modifier = modifier,
         selected = selected,
         onClick = onClick,
+        colors = premiumFilterChipColors(),
         leadingIcon = option.icon?.let { icon ->
             {
                 Icon(
@@ -5468,6 +5486,7 @@ private fun LiveBitmaskChoiceRow(
                     shape = neonChipShape(),
                     selected = PerformanceOverlayMetrics.isEnabled(selectedMask, metric),
                     onClick = { onToggle(metric) },
+                    colors = premiumFilterChipColors(),
                     label = { Text(text = label) }
                 )
             }

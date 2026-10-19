@@ -91,6 +91,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
@@ -143,8 +144,8 @@ import com.sbro.emucorer.ui.common.StickyTabHeader
 import com.sbro.emucorer.ui.common.appScreenTopPadding
 import com.sbro.emucorer.ui.common.SettingHelpButton
 import com.sbro.emucorer.ui.common.gameCoverContentScale
-import com.sbro.emucorer.ui.common.gameCoverShape
 import com.sbro.emucorer.ui.common.gamepadActionLabel
+import com.sbro.emucorer.ui.common.premiumFilterChipColors
 import com.sbro.emucorer.ui.common.rememberStickyTabHeaderPinned
 import com.sbro.emucorer.ui.common.stickyTabTopInset
 import com.sbro.emucorer.ui.common.gamepadFocusableCard
@@ -735,7 +736,7 @@ private fun GamePickerCard(
                 modifier = Modifier
                     .height(72.dp)
                     .aspectRatio(GameCoverAspectRatio),
-                shape = gameCoverShape(game.coverArtPath, neonShape(16.dp)),
+                shape = RectangleShape,
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.26f)
             ) {
                 GameCoverArt(
@@ -743,7 +744,7 @@ private fun GamePickerCard(
                     fallbackTitle = game.title,
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(gameCoverShape(game.coverArtPath, neonShape(16.dp))),
+                        .clip(RectangleShape),
                     contentScale = gameCoverContentScale(game.coverArtPath, ContentScale.Crop)
                 )
             }
@@ -2002,6 +2003,7 @@ private fun PerGameGamepadMappingDialog(
                     onClick = {
                         if (pendingActionId == null) selectedPadIndex = padIndex
                     },
+                    colors = premiumFilterChipColors(),
                     label = { Text(gamepadPlayerLabel(padIndex)) }
                 )
             }
@@ -2101,12 +2103,12 @@ private fun ManagerGamepadBindingRow(
         modifier = Modifier.fillMaxWidth(),
         shape = neonShape(16.dp),
         color = if (highlight) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
         } else {
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
         },
         border = if (highlight) {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f))
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f))
         } else {
             null
         },

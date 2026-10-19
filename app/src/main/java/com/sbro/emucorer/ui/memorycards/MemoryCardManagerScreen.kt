@@ -78,6 +78,7 @@ import com.sbro.emucorer.data.MemoryCardRepository
 import com.sbro.emucorer.ui.common.ScreenTopBar
 import com.sbro.emucorer.ui.common.appScreenTopPadding
 import com.sbro.emucorer.ui.common.navigationBarsHorizontalPaddingValues
+import com.sbro.emucorer.ui.common.premiumFilterChipColors
 import com.sbro.emucorer.ui.theme.ScreenHorizontalPadding
 import com.sbro.emucorer.ui.theme.neon.LocalNeonTheme
 import com.sbro.emucorer.ui.theme.neon.NeonSystemBanner
@@ -625,12 +626,14 @@ private fun MemoryCardItem(
                     shape = neonChipShape(),
                     selected = assignedSlot1,
                     onClick = { onToggleSlot(1) },
+                    colors = premiumFilterChipColors(),
                     label = { Text(stringResource(R.string.memory_card_slot_1)) }
                 )
                 FilterChip(
                     shape = neonChipShape(),
                     selected = assignedSlot2,
                     onClick = { onToggleSlot(2) },
+                    colors = premiumFilterChipColors(),
                     label = { Text(stringResource(R.string.memory_card_slot_2)) }
                 )
             }
