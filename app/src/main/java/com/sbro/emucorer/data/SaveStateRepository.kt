@@ -507,15 +507,17 @@ class SaveStateRepository(private val context: Context) {
         val version: Int?
     )
 
-    fun getPreviewImagePath(entry: SaveStateEntryInfo): String? {
-        val saveFile = File(entry.absolutePath)
+    fun getPreviewImagePath(entry: SaveStateEntryInfo): String? =
+        getPreviewImagePath(File(entry.absolutePath))
+
+    fun getPreviewImagePath(saveFile: File): String? {
         if (!saveFile.exists()) return null
 
-        val sidecar = File("${entry.absolutePath}.png")
+        val sidecar = File("${saveFile.absolutePath}.png")
         if (sidecar.isFile && sidecar.length() > 0L) return sidecar.absolutePath
 
         val previewDir = File(context.cacheDir, "save-previews").apply { mkdirs() }
-        val previewFile = File(previewDir, "${entry.absolutePath.sha1()}.png")
+        val previewFile = File(previewDir, "${saveFile.absolutePath.sha1()}.png")
         if (previewFile.exists() && previewFile.lastModified() >= saveFile.lastModified()) {
             return previewFile.absolutePath
         }
