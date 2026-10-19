@@ -243,6 +243,9 @@ import com.sbro.emucorer.ui.common.RequestFocusOnResume
 import com.sbro.emucorer.ui.common.ScreenTopBar
 import com.sbro.emucorer.ui.common.ScrollableFilterTabRow
 import com.sbro.emucorer.ui.common.SettingHelpButton
+import com.sbro.emucorer.ui.common.StickyTabHeader
+import com.sbro.emucorer.ui.common.rememberStickyTabHeaderPinned
+import com.sbro.emucorer.ui.common.stickyTabTopInset
 import com.sbro.emucorer.ui.common.SettingsStyledDialog
 import com.sbro.emucorer.ui.common.TvStoragePickerHost
 import com.sbro.emucorer.ui.common.TvStorageRequest
@@ -343,7 +346,9 @@ fun SettingsScreen(
     val customCoversResetMessage = stringResource(R.string.settings_reset_custom_covers_success)
     val customCoversResetFailedMessage = stringResource(R.string.settings_reset_custom_covers_partial)
     stringResource(R.string.settings_not_set)
-    val settingsScrollState = rememberScrollState()
+    val settingsListState = rememberLazyListState()
+    val stickyTabInset = stickyTabTopInset()
+    val settingsTabsPinned = rememberStickyTabHeaderPinned(settingsListState, "settings-tabs")
     val proPurchaseMessage = uiState.proPurchaseMessageResId?.let { stringResource(it) }
     LaunchedEffect(proPurchaseMessage) {
         val message = proPurchaseMessage ?: return@LaunchedEffect
@@ -532,15 +537,17 @@ fun SettingsScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontalSystemBarPadding)
     ) {
-        Column(
+        LazyColumn(
+            state = settingsListState,
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(settingsScrollState)
+                .padding(top = stickyTabInset)
         ) {
+            item(key = "settings-top-bar") {
             SettingsCompactTopBar(
                 title = stringResource(R.string.settings_title),
                 subtitle = if (searchEnabled) stringResource(R.string.settings_search_subtitle) else selectedTab.label(),
-                topInset = topInset,
+                topInset = (topInset - stickyTabInset).coerceAtLeast(0.dp),
                 onBackClick = onBackClick,
                 menuExpanded = showTopBarMenu,
                 onMenuExpandedChange = { showTopBarMenu = it },
@@ -556,16 +563,25 @@ fun SettingsScreen(
                 },
                 onSearchQueryChange = { searchQuery = it }
             )
+            }
 
-            SettingsTabRow(
-                selectedTab = selectedTab,
-                onSelected = { tab ->
-                    if (selectedTab == tab) return@SettingsTabRow
-                    selectedTab = tab
-                },
-                selectedTabFocusRequester = selectedTabFocusRequester
-            )
+            stickyHeader(key = "settings-tabs") {
+                StickyTabHeader(
+                    showDivider = settingsTabsPinned
+                ) {
+                    SettingsTabRow(
+                        selectedTab = selectedTab,
+                        onSelected = { tab ->
+                            if (selectedTab == tab) return@SettingsTabRow
+                            selectedTab = tab
+                        },
+                        selectedTabFocusRequester = selectedTabFocusRequester
+                    )
+                }
+            }
 
+            item(key = "settings-content") {
+                Column(modifier = Modifier.fillMaxWidth()) {
             SettingsContent(
                 uiState = uiState,
                 selectedTab = selectedTab,
@@ -633,6 +649,11 @@ fun SettingsScreen(
             )
 
             Spacer(modifier = Modifier.height(bottomInset))
+                }
+            }
+        }
+        LaunchedEffect(selectedTab) {
+            settingsListState.scrollToItem(0)
         }
     }
 
@@ -1254,7 +1275,8 @@ private fun SettingsTabRow(
         key = SettingsTab::name,
         label = SettingsTab::label,
         icon = SettingsTab::icon,
-        selectedTabFocusRequester = selectedTabFocusRequester
+        selectedTabFocusRequester = selectedTabFocusRequester,
+        verticalPadding = 0.dp
     )
 }
 
