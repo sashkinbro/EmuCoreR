@@ -48,7 +48,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -83,6 +82,7 @@ import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import com.sbro.emucorer.ui.common.AppAlertDialog as AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -152,7 +152,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
-import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -176,6 +175,7 @@ import com.sbro.emucorer.data.AppPreferences
 import com.sbro.emucorer.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorer.data.AppPreferences.Companion.FPS_OVERLAY_MODE_SIMPLE
 import com.sbro.emucorer.data.DisplayCrop
+import com.sbro.emucorer.data.GamepadBindingRules
 import com.sbro.emucorer.data.OverlayControlLayout
 import com.sbro.emucorer.data.OverlayLayoutSnapshot
 import com.sbro.emucorer.data.PerformanceOverlayMetrics
@@ -198,11 +198,13 @@ import com.sbro.emucorer.ui.common.ProvideGamepadMenuAction
 import com.sbro.emucorer.ui.common.ProvideGamepadShoulderActions
 import com.sbro.emucorer.ui.common.ProvideGamepadUiNavigation
 import com.sbro.emucorer.ui.common.SettingHelpButton
+import com.sbro.emucorer.ui.common.SettingsStyledDialog
 import com.sbro.emucorer.ui.common.OverlayDpadDirection
 import com.sbro.emucorer.ui.common.VectorAnalogStick
 import com.sbro.emucorer.ui.common.VectorDpadCluster
 import com.sbro.emucorer.ui.common.VectorOverlayButton
 import com.sbro.emucorer.ui.common.buildOverlayCanvasLayout
+import com.sbro.emucorer.ui.common.gamepadActionLabel
 import com.sbro.emucorer.ui.common.gamepadFocusableCard
 import com.sbro.emucorer.ui.common.rememberDebouncedClick
 import com.sbro.emucorer.ui.common.tvFocusGroup
@@ -405,8 +407,8 @@ fun EmulationScreen(
     val emulationAllowsBothOrientations by preferences.emulationAllowsBothOrientations.collectAsState(
         initial = null
     )
-    val effectiveGamepadBindingsByPad = if (uiState.gameSettingsProfileActive && uiState.gamepadBindingsByPad.isNotEmpty()) {
-        uiState.gamepadBindingsByPad
+    val effectiveGamepadBindingsByPad = if (uiState.gameSettingsProfileActive) {
+        GamepadBindingRules.merge(gamepadBindingsByPad, uiState.gamepadBindingsByPad)
     } else {
         gamepadBindingsByPad
     }
@@ -778,8 +780,8 @@ fun EmulationScreen(
                     if (uiState.gameSettingsProfileActive) {
                         val currentBindings = uiState.gamepadBindingsByPad.toMutableMap()
                         val padBindings = currentBindings[pendingGamepadPadIndex].orEmpty().toMutableMap()
-                        padBindings[actionId] = keyCode
-                        currentBindings[pendingGamepadPadIndex] = padBindings
+                        currentBindings[pendingGamepadPadIndex] =
+                            GamepadBindingRules.assign(padBindings, actionId, keyCode)
                         viewModel.setGamepadBindingsByPad(currentBindings)
                     } else {
                         preferences.setGamepadBinding(pendingGamepadPadIndex, actionId, keyCode)
@@ -1778,144 +1780,118 @@ fun EmulationScreen(
     }
 
     if (showGamepadMappingDialog && uiState.runtimeFailure == null) {
-        Dialog(onDismissRequest = dismissGamepadMappingDialog) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 560.dp),
-                shape = neonShape(28.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp,
-                shadowElevation = 16.dp
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    val connectedControllerName = GamepadManager.connectedControllerName(selectedGamepadPadIndex)
-                    val selectedBindings = effectiveGamepadBindingsByPad[selectedGamepadPadIndex].orEmpty()
-                    Column(
-                        modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_gamepad_mapping_title),
-                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(0, 1).forEach { padIndex ->
-                                FilterChip(
-                                    shape = neonChipShape(),
-                                    selected = selectedGamepadPadIndex == padIndex,
-                                    onClick = { selectedGamepadPadIndex = padIndex },
-                                    label = { Text(gamepadPlayerLabel(padIndex)) }
-                                )
-                            }
-                        }
-                        Text(
-                            text = connectedControllerName?.let {
-                                stringResource(
-                                    R.string.settings_gamepad_mapping_player_connected,
-                                    gamepadPlayerLabel(selectedGamepadPadIndex),
-                                    it
-                                )
-                            } ?: stringResource(
-                                R.string.settings_gamepad_mapping_player_disconnected,
-                                gamepadPlayerLabel(selectedGamepadPadIndex)
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 420.dp)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        gamepadActions.forEach { action ->
-                            val assignedKeyCode = GamepadManager.resolveBindingForAction(
-                                actionId = action.id,
-                                customBindings = selectedBindings
-                            )
-                            val isCustomBinding = selectedBindings.containsKey(action.id)
-                            EmulationGamepadBindingRow(
-                                title = gamepadActionLabel(action.id),
-                                value = assignedKeyCode?.let(GamepadManager::keyCodeLabel)
-                                    ?: stringResource(R.string.settings_not_set),
-                                autoLabel = if (isCustomBinding || action.defaultKeyCodes.isEmpty()) {
-                                    null
-                                } else {
-                                    stringResource(R.string.settings_gamepad_mapping_auto_format)
-                                },
-                                onBindClick = {
-                                    pendingGamepadPadIndex = selectedGamepadPadIndex
-                                    pendingGamepadActionId = action.id
-                                },
-                                onClearClick = if (isCustomBinding) {
-                                    {
-                                        scope.launch {
-                                            if (uiState.gameSettingsProfileActive) {
-                                                val currentBindings = uiState.gamepadBindingsByPad.toMutableMap()
-                                                val padBindings = currentBindings[selectedGamepadPadIndex].orEmpty().toMutableMap()
-                                                padBindings.remove(action.id)
-                                                if (padBindings.isEmpty()) {
-                                                    currentBindings.remove(selectedGamepadPadIndex)
-                                                } else {
-                                                    currentBindings[selectedGamepadPadIndex] = padBindings
-                                                }
-                                                viewModel.setGamepadBindingsByPad(currentBindings)
-                                            } else {
-                                                preferences.clearGamepadBinding(selectedGamepadPadIndex, action.id)
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    null
-                                }
-                            )
-                        }
-                        Box(modifier = Modifier.padding(bottom = 4.dp)) {
-                            MenuButton(
-                                icon = Icons.Rounded.SettingsSuggest,
-                                text = stringResource(R.string.settings_gamepad_mapping_reset_title),
-                                onClick = {
-                                    scope.launch {
-                                        if (uiState.gameSettingsProfileActive) {
-                                            val currentBindings = uiState.gamepadBindingsByPad.toMutableMap()
-                                            currentBindings.remove(selectedGamepadPadIndex)
-                                            viewModel.setGamepadBindingsByPad(currentBindings)
-                                        } else {
-                                            preferences.resetGamepadBindingsForPad(selectedGamepadPadIndex)
-                                        }
-                                    }
-                                },
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                            )
-                        }
-                    }
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 18.dp),
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        val connectedControllerName = GamepadManager.connectedControllerName(selectedGamepadPadIndex)
+        val selectedBindings = effectiveGamepadBindingsByPad[selectedGamepadPadIndex].orEmpty()
+        SettingsStyledDialog(
+            title = stringResource(R.string.settings_gamepad_mapping_title),
+            eyebrow = stringResource(R.string.app_name),
+            icon = Icons.Rounded.Gamepad,
+            onDismissRequest = dismissGamepadMappingDialog
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0, 1).forEach { padIndex ->
+                    FilterChip(
+                        shape = neonChipShape(),
+                        selected = selectedGamepadPadIndex == padIndex,
+                        onClick = { selectedGamepadPadIndex = padIndex },
+                        label = { Text(gamepadPlayerLabel(padIndex)) }
                     )
-                    Column(
-                        modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            TextButton(onClick = dismissGamepadMappingDialogClick) {
-                                Text(stringResource(android.R.string.ok))
+                }
+            }
+            Text(
+                text = connectedControllerName?.let {
+                    stringResource(
+                        R.string.settings_gamepad_mapping_player_connected,
+                        gamepadPlayerLabel(selectedGamepadPadIndex),
+                        it
+                    )
+                } ?: stringResource(
+                    R.string.settings_gamepad_mapping_player_disconnected,
+                    gamepadPlayerLabel(selectedGamepadPadIndex)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                gamepadActions.forEach { action ->
+                    val assignedKeyCode = GamepadManager.resolveBindingForAction(
+                        actionId = action.id,
+                        customBindings = selectedBindings
+                    )
+                    val isMappedBinding = selectedBindings.containsKey(action.id)
+                    val isCustomBinding = if (uiState.gameSettingsProfileActive) {
+                        uiState.gamepadBindingsByPad[selectedGamepadPadIndex]
+                            .orEmpty().containsKey(action.id)
+                    } else {
+                        isMappedBinding
+                    }
+                    EmulationGamepadBindingRow(
+                        title = gamepadActionLabel(action.id),
+                        value = assignedKeyCode?.let(GamepadManager::keyCodeLabel)
+                            ?: stringResource(R.string.settings_not_set),
+                        autoLabel = if (isMappedBinding || action.defaultKeyCodes.isEmpty()) {
+                            null
+                        } else {
+                            stringResource(R.string.settings_gamepad_mapping_auto_format)
+                        },
+                        onBindClick = {
+                            pendingGamepadPadIndex = selectedGamepadPadIndex
+                            pendingGamepadActionId = action.id
+                        },
+                        onClearClick = if (isCustomBinding) {
+                            {
+                                scope.launch {
+                                    if (uiState.gameSettingsProfileActive) {
+                                        val currentBindings = uiState.gamepadBindingsByPad.toMutableMap()
+                                        val padBindings = currentBindings[selectedGamepadPadIndex].orEmpty().toMutableMap()
+                                        padBindings.remove(action.id)
+                                        if (padBindings.isEmpty()) {
+                                            currentBindings.remove(selectedGamepadPadIndex)
+                                        } else {
+                                            currentBindings[selectedGamepadPadIndex] = padBindings
+                                        }
+                                        viewModel.setGamepadBindingsByPad(currentBindings)
+                                    } else {
+                                        preferences.clearGamepadBinding(selectedGamepadPadIndex, action.id)
+                                    }
+                                }
                             }
+                        } else {
+                            null
+                        }
+                    )
+                }
+            }
+            MenuButton(
+                icon = Icons.Rounded.SettingsSuggest,
+                text = stringResource(R.string.settings_gamepad_mapping_reset_title),
+                onClick = {
+                    scope.launch {
+                        if (uiState.gameSettingsProfileActive) {
+                            val currentBindings = uiState.gamepadBindingsByPad.toMutableMap()
+                            currentBindings.remove(selectedGamepadPadIndex)
+                            viewModel.setGamepadBindingsByPad(currentBindings)
+                        } else {
+                            preferences.resetGamepadBindingsForPad(selectedGamepadPadIndex)
                         }
                     }
-                }
+                },
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            )
+            Button(
+                onClick = dismissGamepadMappingDialogClick,
+                modifier = Modifier.fillMaxWidth(),
+                shape = neonShape(18.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.close),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(vertical = 6.dp)
+                )
             }
         }
     }
@@ -4494,39 +4470,6 @@ private fun EmulationGamepadBindingRow(
             }
         }
     }
-}
-
-@androidx.annotation.StringRes
-private fun gamepadActionLabelRes(actionId: String): Int = when (actionId) {
-    "cross" -> R.string.settings_gamepad_action_cross
-    "circle" -> R.string.settings_gamepad_action_circle
-    "square" -> R.string.settings_gamepad_action_square
-    "triangle" -> R.string.settings_gamepad_action_triangle
-    "l1" -> R.string.settings_gamepad_action_l1
-    "r1" -> R.string.settings_gamepad_action_r1
-    "l2" -> R.string.settings_gamepad_action_l2
-    "r2" -> R.string.settings_gamepad_action_r2
-    "l3" -> R.string.settings_gamepad_action_l3
-    "r3" -> R.string.settings_gamepad_action_r3
-    "select" -> R.string.settings_gamepad_action_select
-    "start" -> R.string.settings_gamepad_action_start
-    "left_input_toggle" -> R.string.settings_gamepad_action_left_input_toggle
-    GamepadManager.ACTION_QUICK_SAVE -> R.string.emulation_quick_save
-    GamepadManager.ACTION_QUICK_LOAD -> R.string.emulation_quick_load
-    "dpad_up" -> R.string.settings_gamepad_action_dpad_up
-    "dpad_down" -> R.string.settings_gamepad_action_dpad_down
-    "dpad_left" -> R.string.settings_gamepad_action_dpad_left
-    "dpad_right" -> R.string.settings_gamepad_action_dpad_right
-    else -> R.string.settings_gamepad_section
-}
-
-@Composable
-private fun gamepadActionLabel(actionId: String): String = when (actionId) {
-    "cross" -> "\u2715"
-    "circle" -> "\u25cb"
-    "square" -> "\u25a1"
-    "triangle" -> "\u25b3"
-    else -> stringResource(gamepadActionLabelRes(actionId))
 }
 
 @Composable
