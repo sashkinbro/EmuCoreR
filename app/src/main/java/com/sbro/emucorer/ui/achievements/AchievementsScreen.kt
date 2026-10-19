@@ -46,12 +46,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -61,13 +64,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.sbro.emucorer.R
 import com.sbro.emucorer.data.AchievementItem
+import com.sbro.emucorer.data.CoverArtRepository
+import com.sbro.emucorer.data.CustomGameCoverRepository
 import com.sbro.emucorer.data.RetroAchievementsGameData
 import com.sbro.emucorer.data.RetroAchievementsLibraryGame
 import com.sbro.emucorer.data.RetroAchievementsState
 import com.sbro.emucorer.ui.common.ScreenTopBar
 import com.sbro.emucorer.ui.common.appScreenTopPadding
 import com.sbro.emucorer.ui.common.gameCoverContentScale
-import com.sbro.emucorer.ui.common.gameCoverShape
 import com.sbro.emucorer.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorer.ui.settings.SettingsSection
 import com.sbro.emucorer.ui.settings.ToggleItem
@@ -414,10 +418,36 @@ private fun AccountSection(
 
 @Composable
 private fun LibraryGameCard(game: RetroAchievementsLibraryGame, onClick: () -> Unit) {
-    val coverModel: Any? = game.coverArtPath
-        ?.takeIf { it.isNotBlank() }
-        ?.let { path -> File(path).takeIf(File::exists) }
-        ?: game.imageUrl.takeIf { it.isNotBlank() }
+    val context = LocalContext.current
+    val coverRepository = remember(context) { CoverArtRepository(context) }
+    val customCoverRepository = remember(context) { CustomGameCoverRepository(context) }
+    val resolvedCoverPath = remember(game.coverArtPath, game.serial, coverRepository) {
+        val storedPath = game.coverArtPath?.takeIf { it.isNotBlank() }
+        when {
+            storedPath == null || !customCoverRepository.isCustomCoverPath(storedPath) ->
+                game.serial
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(coverRepository::findCachedCoverPath)
+                    ?: storedPath
+            else -> storedPath
+        }
+    }
+    val localCoverModel: Any? = remember(resolvedCoverPath) {
+        resolvedCoverPath?.let { path ->
+            when {
+                path.startsWith("content://") ||
+                    path.startsWith("http://") ||
+                    path.startsWith("https://") -> path
+                File(path).exists() -> File(path)
+                else -> null
+            }
+        }
+    }
+    val coverModel: Any? = localCoverModel ?: game.imageUrl.takeIf { it.isNotBlank() }
+    val coverContentScale = gameCoverContentScale(
+        resolvedCoverPath.takeIf { localCoverModel != null },
+        ContentScale.Crop
+    )
 
     Surface(
         onClick = onClick,
@@ -433,10 +463,10 @@ private fun LibraryGameCard(game: RetroAchievementsLibraryGame, onClick: () -> U
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val coverShape = gameCoverShape(game.coverArtPath, neonShape(16.dp))
+            val coverShape = RectangleShape
             Box(
                 modifier = Modifier
-                    .size(68.dp)
+                    .size(82.dp)
                     .clip(coverShape)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
                 contentAlignment = Alignment.Center
@@ -445,9 +475,9 @@ private fun LibraryGameCard(game: RetroAchievementsLibraryGame, onClick: () -> U
                     AsyncImage(
                         model = coverModel,
                         contentDescription = game.title,
-                        contentScale = gameCoverContentScale(game.coverArtPath, ContentScale.Crop),
+                        contentScale = coverContentScale,
                         modifier = Modifier
-                            .size(68.dp)
+                            .size(82.dp)
                             .clip(coverShape)
                     )
                 } else {
@@ -817,7 +847,7 @@ private fun LibraryGameSkeletonCard(alpha: Float) {
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SkeletonBox(Modifier.size(68.dp), alpha, neonShape(16.dp))
+            SkeletonBox(Modifier.size(82.dp), alpha, RectangleShape)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
