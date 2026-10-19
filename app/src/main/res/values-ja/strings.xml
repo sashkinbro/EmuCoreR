@@ -2163,12 +2163,7 @@
     <string name="touch_control_creator_pro_desc">すべてのオプションを無料で探索できます。ゲームでカスタムコントロールを作成、保存、複製、または有効にするにはPROが必要です。</string>
     <string name="feature_gate_unavailable_body">チートとテクスチャのマネージャーは公式 EmuCoreR アプリでのみ利用できます。</string>
     <string name="settings_theme_manager_locked">PROで利用可能</string>
-    <string name="core_update_reset_title">コアの更新</string>
-    <string name="core_update_reset_body">この更新にはエミュレーターコアの変更が含まれます。不具合を防ぐため、キャッシュと設定をリセットしてください。</string>
-    <string name="core_update_reset_kept">BIOS、ゲームフォルダー、操作設定、セーブデータ、メモリーカード、カバーは保持されます。</string>
-    <string name="core_update_reset_action">設定をリセット</string>
-    <string name="core_update_reset_keep">設定を保持</string>
-    <string name="core_update_reset_done">設定をリセットしました</string>
+    <string name="core_update_reset_done">エミュレーターコアを更新しました — キャッシュをクリアしました</string>
     <string name="ss_core_gpu_pgxptransparentdepthtest">PGXP: 透明ポリゴンの深度テスト</string>
     <string name="ss_core_gpu_pgxptransparentdepthtest_desc">PGXP デプスバッファを透明ポリゴンにも適用します。一部のゲームでは深度の不具合を修正できますが、他のゲームでは描画の問題を引き起こすことがあります。ジオメトリ補正が有効である必要があります。</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP: 2D ポリゴンでは無効化</string>

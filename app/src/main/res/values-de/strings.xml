@@ -2166,12 +2166,7 @@
     <string name="touch_control_creator_pro_desc">Erkunden Sie jede Option kostenlos. PRO ist erforderlich, um benutzerdefinierte Steuerelemente in Spielen zu erstellen, zu speichern, zu duplizieren oder zu aktivieren.</string>
     <string name="feature_gate_unavailable_body">Cheat- und Textur-Manager sind nur in der offiziellen EmuCoreR-App verfügbar.</string>
     <string name="settings_theme_manager_locked">Verfügbar mit PRO</string>
-    <string name="core_update_reset_title">Kern-Update</string>
-    <string name="core_update_reset_body">Dieses Update enthält Änderungen am Emulator-Core. Setze Emulator-Cache und Konfiguration zurück, damit der neue Core ohne Fehler läuft.</string>
-    <string name="core_update_reset_kept">BIOS, Spielordner, Steuerung, Spielstände, Speicherkarten und Cover bleiben erhalten.</string>
-    <string name="core_update_reset_action">Einstellungen zurücksetzen</string>
-    <string name="core_update_reset_keep">Einstellungen behalten</string>
-    <string name="core_update_reset_done">Einstellungen zurückgesetzt</string>
+    <string name="core_update_reset_done">Emulator-Core aktualisiert – Cache zurückgesetzt</string>
     <string name="ss_core_gpu_pgxptransparentdepthtest">PGXP: Tiefentest für transparente Polygone</string>
     <string name="ss_core_gpu_pgxptransparentdepthtest_desc">Wendet den PGXP-Tiefenpuffer auch auf transparente Polygone an. Kann Tiefenartefakte in manchen Spielen beheben, in anderen aber Rendering-Probleme verursachen. Erfordert aktivierte Geometriekorrektur.</string>
     <string name="ss_core_gpu_pgxpdisableon2dpolygons">PGXP auf 2D-Polygone deaktivieren</string>
