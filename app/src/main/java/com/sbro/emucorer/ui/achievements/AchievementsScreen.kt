@@ -66,6 +66,8 @@ import com.sbro.emucorer.data.RetroAchievementsLibraryGame
 import com.sbro.emucorer.data.RetroAchievementsState
 import com.sbro.emucorer.ui.common.ScreenTopBar
 import com.sbro.emucorer.ui.common.appScreenTopPadding
+import com.sbro.emucorer.ui.common.gameCoverContentScale
+import com.sbro.emucorer.ui.common.gameCoverShape
 import com.sbro.emucorer.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorer.ui.settings.SettingsSection
 import com.sbro.emucorer.ui.settings.ToggleItem
@@ -431,10 +433,11 @@ private fun LibraryGameCard(game: RetroAchievementsLibraryGame, onClick: () -> U
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val coverShape = gameCoverShape(game.coverArtPath, neonShape(16.dp))
             Box(
                 modifier = Modifier
                     .size(68.dp)
-                    .clip(neonShape(16.dp))
+                    .clip(coverShape)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -442,10 +445,10 @@ private fun LibraryGameCard(game: RetroAchievementsLibraryGame, onClick: () -> U
                     AsyncImage(
                         model = coverModel,
                         contentDescription = game.title,
-                        contentScale = ContentScale.Crop,
+                        contentScale = gameCoverContentScale(game.coverArtPath, ContentScale.Crop),
                         modifier = Modifier
                             .size(68.dp)
-                            .clip(neonShape(16.dp))
+                            .clip(coverShape)
                     )
                 } else {
                     Icon(
