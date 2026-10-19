@@ -1635,6 +1635,42 @@ private fun SettingsContent(
                         )
                         ToggleItem(
                             icon = Icons.Rounded.TouchApp,
+                            title = stringResource(R.string.settings_touchscreen_left_stick),
+                            subtitle = stringResource(R.string.settings_touchscreen_left_stick_desc),
+                            checked = uiState.touchscreenLeftStick,
+                            onCheckedChange = viewModel::setTouchscreenLeftStick,
+                            helpText = stringResource(R.string.settings_help_touchscreen_left_stick),
+                            onResetToDefault = {
+                                viewModel.setTouchscreenLeftStick(
+                                    AppPreferences.DEFAULT_TOUCHSCREEN_LEFT_STICK
+                                )
+                            }
+                        )
+                        if (uiState.touchscreenLeftStick) {
+                            SliderItem(
+                                icon = Icons.Rounded.TouchApp,
+                                title = stringResource(R.string.settings_touchscreen_left_stick_sensitivity),
+                                subtitle = "${uiState.touchscreenLeftStickSensitivity}%",
+                                value = uiState.touchscreenLeftStickSensitivity.toFloat(),
+                                range = AppPreferences.TOUCHSCREEN_RIGHT_STICK_SENSITIVITY_MIN.toFloat()..
+                                    AppPreferences.TOUCHSCREEN_RIGHT_STICK_SENSITIVITY_MAX.toFloat(),
+                                steps = AppPreferences.TOUCHSCREEN_RIGHT_STICK_SENSITIVITY_MAX -
+                                    AppPreferences.TOUCHSCREEN_RIGHT_STICK_SENSITIVITY_MIN - 1,
+                                onValueChange = {
+                                    viewModel.setTouchscreenLeftStickSensitivity(it.roundToInt())
+                                },
+                                helpText = stringResource(
+                                    R.string.settings_help_touchscreen_left_stick_sensitivity
+                                ),
+                                onResetToDefault = {
+                                    viewModel.setTouchscreenLeftStickSensitivity(
+                                        AppPreferences.DEFAULT_TOUCHSCREEN_LEFT_STICK_SENSITIVITY
+                                    )
+                                }
+                            )
+                        }
+                        ToggleItem(
+                            icon = Icons.Rounded.TouchApp,
                             title = stringResource(R.string.settings_touchscreen_right_stick),
                             subtitle = stringResource(R.string.settings_touchscreen_right_stick_desc),
                             checked = uiState.touchscreenRightStick,
@@ -4626,6 +4662,8 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Audio, R.string.ss_core_audio_fasthook),
         entry(SettingsTab.Controls, R.string.settings_overlay_scale),
         entry(SettingsTab.Controls, R.string.settings_overlay_opacity),
+        entry(SettingsTab.Controls, R.string.settings_touchscreen_left_stick),
+        entry(SettingsTab.Controls, R.string.settings_touchscreen_left_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_touchscreen_right_stick),
         entry(SettingsTab.Controls, R.string.settings_touchscreen_right_stick_sensitivity),
         entry(SettingsTab.Controls, R.string.settings_racing_mode),

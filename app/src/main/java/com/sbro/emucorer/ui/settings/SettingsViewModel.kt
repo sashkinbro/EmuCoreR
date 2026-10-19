@@ -175,6 +175,8 @@ data class SettingsUiState(
     val stickyButtons: Set<String> = emptySet(),
     val touchscreenRightStick: Boolean = AppPreferences.DEFAULT_TOUCHSCREEN_RIGHT_STICK,
     val touchscreenRightStickSensitivity: Int = AppPreferences.DEFAULT_TOUCHSCREEN_RIGHT_STICK_SENSITIVITY,
+    val touchscreenLeftStick: Boolean = AppPreferences.DEFAULT_TOUCHSCREEN_LEFT_STICK,
+    val touchscreenLeftStickSensitivity: Int = AppPreferences.DEFAULT_TOUCHSCREEN_LEFT_STICK_SENSITIVITY,
     val touchHaptics: Boolean = false,
     val touchHapticsPreset: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_PRESET,
     val touchHapticsStrength: Int = AppPreferences.DEFAULT_TOUCH_HAPTICS_STRENGTH,
@@ -367,6 +369,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             stickyButtons = snapshot.stickyButtons,
             touchscreenRightStick = snapshot.touchscreenRightStick,
             touchscreenRightStickSensitivity = snapshot.touchscreenRightStickSensitivity,
+            touchscreenLeftStick = snapshot.touchscreenLeftStick,
+            touchscreenLeftStickSensitivity = snapshot.touchscreenLeftStickSensitivity,
             touchHaptics = snapshot.touchHaptics,
             touchHapticsPreset = snapshot.touchHapticsPreset,
             touchHapticsStrength = snapshot.touchHapticsStrength,
@@ -1018,6 +1022,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setTouchscreenRightStick(enabled: Boolean) { viewModelScope.launch { preferences.setTouchscreenRightStick(enabled) } }
     fun setTouchscreenRightStickSensitivity(value: Int) {
         viewModelScope.launch { preferences.setTouchscreenRightStickSensitivity(value) }
+    }
+    fun setTouchscreenLeftStick(enabled: Boolean) { viewModelScope.launch { preferences.setTouchscreenLeftStick(enabled) } }
+    fun setTouchscreenLeftStickSensitivity(value: Int) {
+        viewModelScope.launch { preferences.setTouchscreenLeftStickSensitivity(value) }
     }
     fun setTouchHapticsPreset(value: Int) { viewModelScope.launch { preferences.setTouchHapticsPreset(value) } }
     fun setTouchHapticsStrength(value: Int) { viewModelScope.launch { preferences.setTouchHapticsStrength(value) } }
