@@ -250,6 +250,7 @@ import com.sbro.emucorer.ui.common.VectorAnalogStick
 import com.sbro.emucorer.ui.common.VectorOverlayButton
 import com.sbro.emucorer.ui.common.appScreenTopPadding
 import com.sbro.emucorer.ui.common.calculateSideArtworkPreviewLayout
+import com.sbro.emucorer.ui.common.gamepadActionLabel
 import com.sbro.emucorer.ui.common.gamepadFocusableCard
 import com.sbro.emucorer.ui.common.navigationBarsHorizontalPaddingValues
 import com.sbro.emucorer.ui.common.rememberDebouncedClick
@@ -6110,41 +6111,6 @@ private fun fpsOverlayMetricOptions(): List<Pair<Int, String>> = listOf(
     PerformanceOverlayMetrics.HOST_CPU to stringResource(R.string.settings_fps_metric_host_cpu),
     PerformanceOverlayMetrics.AUDIO to stringResource(R.string.settings_fps_metric_audio)
 )
-
-@StringRes
-private fun gamepadActionLabelRes(actionId: String): Int = when (actionId) {
-    "cross" -> R.string.settings_gamepad_action_cross
-    "circle" -> R.string.settings_gamepad_action_circle
-    "square" -> R.string.settings_gamepad_action_square
-    "triangle" -> R.string.settings_gamepad_action_triangle
-    "l1" -> R.string.settings_gamepad_action_l1
-    "r1" -> R.string.settings_gamepad_action_r1
-    "l2" -> R.string.settings_gamepad_action_l2
-    "r2" -> R.string.settings_gamepad_action_r2
-    "l3" -> R.string.settings_gamepad_action_l3
-    "r3" -> R.string.settings_gamepad_action_r3
-    "select" -> R.string.settings_gamepad_action_select
-    "start" -> R.string.settings_gamepad_action_start
-    "left_input_toggle" -> R.string.settings_gamepad_action_left_input_toggle
-    "pressure" -> R.string.settings_gamepad_action_pressure
-    GamepadManager.ACTION_QUICK_SAVE -> R.string.emulation_quick_save
-    GamepadManager.ACTION_QUICK_LOAD -> R.string.emulation_quick_load
-    "dpad_up" -> R.string.settings_gamepad_action_dpad_up
-    "dpad_down" -> R.string.settings_gamepad_action_dpad_down
-    "dpad_left" -> R.string.settings_gamepad_action_dpad_left
-    "dpad_right" -> R.string.settings_gamepad_action_dpad_right
-    else -> R.string.settings_gamepad_section
-}
-
-@Composable
-private fun gamepadActionLabel(actionId: String): String = when (actionId) {
-    "cross" -> "\u2715"
-    "circle" -> "\u25cb"
-    "square" -> "\u25a1"
-    "triangle" -> "\u25b3"
-    "pressure" -> stringResource(R.string.settings_gamepad_action_pressure)
-    else -> stringResource(gamepadActionLabelRes(actionId))
-}
 
 @Composable
 private fun gamepadPlayerLabel(padIndex: Int): String {

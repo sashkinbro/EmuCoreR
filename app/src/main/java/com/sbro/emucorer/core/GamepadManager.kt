@@ -13,6 +13,7 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import com.sbro.emucorer.data.AppPreferences
+import com.sbro.emucorer.data.GamepadBindingRules
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -225,6 +226,8 @@ object GamepadManager {
     @Volatile
     private var savedGlobalBindingsByPad: Map<Int, Map<String, Int>> = emptyMap()
     @Volatile
+    private var activePerGameBindingsByPad: Map<Int, Map<String, Int>> = emptyMap()
+    @Volatile
     private var savedGlobalAnalogDeadzone: Float = analogDeadzone
     @Volatile
     private var savedGlobalLeftStickSensitivity: Float = leftStickSensitivity
@@ -288,7 +291,15 @@ object GamepadManager {
         MappableButtonAction("dpad_up", PadKey.Up, listOf(KeyEvent.KEYCODE_DPAD_UP)),
         MappableButtonAction("dpad_down", PadKey.Down, listOf(KeyEvent.KEYCODE_DPAD_DOWN)),
         MappableButtonAction("dpad_left", PadKey.Left, listOf(KeyEvent.KEYCODE_DPAD_LEFT)),
-        MappableButtonAction("dpad_right", PadKey.Right, listOf(KeyEvent.KEYCODE_DPAD_RIGHT))
+        MappableButtonAction("dpad_right", PadKey.Right, listOf(KeyEvent.KEYCODE_DPAD_RIGHT)),
+        MappableButtonAction("left_stick_up", PadKey.LeftStickUp, emptyList()),
+        MappableButtonAction("left_stick_down", PadKey.LeftStickDown, emptyList()),
+        MappableButtonAction("left_stick_left", PadKey.LeftStickLeft, emptyList()),
+        MappableButtonAction("left_stick_right", PadKey.LeftStickRight, emptyList()),
+        MappableButtonAction("right_stick_up", PadKey.RightStickUp, emptyList()),
+        MappableButtonAction("right_stick_down", PadKey.RightStickDown, emptyList()),
+        MappableButtonAction("right_stick_left", PadKey.RightStickLeft, emptyList()),
+        MappableButtonAction("right_stick_right", PadKey.RightStickRight, emptyList())
     )
     private val actionsById = mappableActions.associateBy { it.id }
     private val shortcutActionIds = setOf(ACTION_QUICK_SAVE, ACTION_QUICK_LOAD)
@@ -312,13 +323,18 @@ object GamepadManager {
         scope.launch {
             preferences.gamepadBindingsByPad.collectLatest { bindingsByPad ->
                 val previousBindingsByPad = customBindingsByPad
-                customBindingsByPad = bindingsByPad
-                customShortcutBindingsByPadAndKeyCode = bindingsByPad.mapValues { (_, bindings) ->
+                savedGlobalBindingsByPad = bindingsByPad
+                customBindingsByPad = if (perGameBindingsActive) {
+                    GamepadBindingRules.merge(bindingsByPad, activePerGameBindingsByPad)
+                } else {
+                    bindingsByPad
+                }
+                customShortcutBindingsByPadAndKeyCode = customBindingsByPad.mapValues { (_, bindings) ->
                     bindings.entries.mapNotNull { (actionId, keyCode) ->
                         actionId.takeIf { it in shortcutActionIds }?.let { keyCode to it }
                     }.toMap()
                 }
-                resetChangedBindingStates(previousBindingsByPad, bindingsByPad)
+                resetChangedBindingStates(previousBindingsByPad, customBindingsByPad)
             }
         }
         scope.launch {
@@ -545,15 +561,16 @@ object GamepadManager {
             savedGlobalRightStickSensitivity = rightStickSensitivity
             perGameBindingsActive = true
         }
-        if (bindingsByPad != null && bindingsByPad.isNotEmpty()) {
+        if (bindingsByPad != null) {
             val previousBindingsByPad = customBindingsByPad
-            customBindingsByPad = bindingsByPad
-            customShortcutBindingsByPadAndKeyCode = bindingsByPad.mapValues { (_, bindings) ->
+            activePerGameBindingsByPad = bindingsByPad
+            customBindingsByPad = GamepadBindingRules.merge(savedGlobalBindingsByPad, bindingsByPad)
+            customShortcutBindingsByPadAndKeyCode = customBindingsByPad.mapValues { (_, bindings) ->
                 bindings.entries.mapNotNull { (actionId, keyCode) ->
                     actionId.takeIf { it in shortcutActionIds }?.let { keyCode to it }
                 }.toMap()
             }
-            resetChangedBindingStates(previousBindingsByPad, bindingsByPad)
+            resetChangedBindingStates(previousBindingsByPad, customBindingsByPad)
         }
         if (deadzone != null) {
             analogDeadzone = deadzone.coerceIn(0, 35) / 100f
@@ -569,6 +586,7 @@ object GamepadManager {
     fun clearPerGameOverrides() {
         if (!perGameBindingsActive) return
         perGameBindingsActive = false
+        activePerGameBindingsByPad = emptyMap()
         val previousBindingsByPad = customBindingsByPad
         customBindingsByPad = savedGlobalBindingsByPad
         customShortcutBindingsByPadAndKeyCode = savedGlobalBindingsByPad.mapValues { (_, bindings) ->
