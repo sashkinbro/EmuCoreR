@@ -497,6 +497,10 @@ object GamepadManager {
         if (device == null) return false
         if (device.isVirtual) return false
         if (isFingerprintUinputDevice(device)) return false
+        val deviceName = device.name.lowercase(Locale.ROOT)
+        if (deviceName.contains("system control") || deviceName.contains("consumer control")) {
+            return false
+        }
         val sources = device.sources
         val hasControllerSource =
             (sources and InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
@@ -524,6 +528,16 @@ object GamepadManager {
             stopAllGamepadVibrations()
             EmulatorBridge.resetKeyStatus()
         }
+        KeyboardMouseManager.setEmulationInputEnabled(enabled)
+    }
+
+    /** Allows keyboard/mouse mappings to reuse the existing quick save/load flow. */
+    fun triggerShortcutAction(padIndex: Int, actionId: String) {
+        if (!emulationInputEnabled) return
+        if (actionId != ACTION_QUICK_SAVE && actionId != ACTION_QUICK_LOAD) return
+        _gamepadShortcutActions.tryEmit(
+            GamepadShortcutAction(normalizePadIndex(padIndex), actionId)
+        )
     }
 
     fun setRightStickTriggerMapping(upToR2: Boolean, downToL2: Boolean) {

@@ -2107,6 +2107,8 @@ private fun SettingsContent(
                         )
                     }
 
+                    GlobalKeyboardMouseSettingsSection()
+
                     SettingsSection(title = stringResource(R.string.settings_core_input)) {
                         ChoiceSection(
                             title = stringResource(R.string.settings_multitap_mode),
@@ -4715,6 +4717,13 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Controls, R.string.settings_pad_vibration_strength),
         entry(SettingsTab.Controls, R.string.settings_pad_vibration_test),
         entry(SettingsTab.Controls, R.string.settings_pad_vibration_fallback),
+        entry(SettingsTab.Controls, R.string.settings_keyboard_input),
+        entry(SettingsTab.Controls, R.string.settings_mouse_input),
+        entry(SettingsTab.Controls, R.string.settings_keyboard_mapping_title),
+        entry(SettingsTab.Controls, R.string.settings_mouse_mapping_title),
+        entry(SettingsTab.Controls, R.string.settings_mouse_aim_mode),
+        entry(SettingsTab.Controls, R.string.settings_mouse_sensitivity),
+        entry(SettingsTab.Controls, R.string.settings_mouse_capture),
         entry(SettingsTab.Library, R.string.settings_bios_path),
         entry(SettingsTab.Library, R.string.settings_game_path),
         entry(SettingsTab.Library, R.string.emulator_data_location_title),

@@ -898,6 +898,11 @@ private fun GameSettingsTabContent(
     onDraftChange: (PerGameSettings) -> Unit
 ) {
     val nativeUpscaleLabel = stringResource(R.string.settings_upscale_native)
+    val context = LocalContext.current
+    val preferences = remember(context) { AppPreferences(context) }
+    val globalKeyboardMouseSettings by preferences.keyboardMouseSettings.collectAsState(
+        initial = com.sbro.emucorer.data.KeyboardMouseSettings()
+    )
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -1380,6 +1385,14 @@ private fun GameSettingsTabContent(
                     bindingsByPad = draft.gamepadBindingsByPad,
                     onBindingsChange = { bindings ->
                         onDraftChange(draft.copy(gamepadBindingsByPad = bindings))
+                    }
+                )
+
+                PerGameKeyboardMouseSettingsSection(
+                    override = draft.keyboardMouse,
+                    globalSettings = globalKeyboardMouseSettings,
+                    onOverrideChange = { keyboardMouse ->
+                        onDraftChange(draft.copy(keyboardMouse = keyboardMouse))
                     }
                 )
 
@@ -1993,9 +2006,13 @@ private fun PerGameGamepadMappingDialog(
         title = stringResource(R.string.settings_gamepad_mapping_title),
         eyebrow = stringResource(R.string.app_name),
         icon = Icons.Rounded.Gamepad,
-        onDismissRequest = { if (pendingActionId == null) onDismiss() }
+        onDismissRequest = { if (pendingActionId == null) onDismiss() },
+        edgeToEdgeContent = true
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             listOf(0, 1).forEach { padIndex ->
                 FilterChip(
                     shape = neonChipShape(),
@@ -2020,7 +2037,8 @@ private fun PerGameGamepadMappingDialog(
                 gamepadPlayerLabel(selectedPadIndex)
             ),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
         pendingActionId?.let { actionId ->
             Text(
@@ -2069,15 +2087,21 @@ private fun PerGameGamepadMappingDialog(
                 )
             }
         }
-        ManagerActionButton(
-            icon = Icons.Rounded.Restore,
+        ManagerGamepadBindingRow(
             title = stringResource(R.string.settings_gamepad_mapping_use_global),
-            onClick = { onBindingsChange(emptyMap()) }
+            value = stringResource(R.string.settings_gamepad_mapping_use_global_desc),
+            autoLabel = null,
+            icon = Icons.Rounded.Restore,
+            valueColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            onBindClick = { onBindingsChange(emptyMap()) },
+            onClearClick = null
         )
         Button(
             onClick = onDismiss,
             enabled = pendingActionId == null,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
             shape = neonShape(18.dp)
         ) {
             Text(
@@ -2095,12 +2119,16 @@ private fun ManagerGamepadBindingRow(
     title: String,
     value: String,
     autoLabel: String?,
-    highlight: Boolean,
+    highlight: Boolean = false,
+    icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Rounded.Gamepad,
+    valueColor: androidx.compose.ui.graphics.Color? = null,
     onBindClick: () -> Unit,
     onClearClick: (() -> Unit)?
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
         shape = neonShape(16.dp),
         color = if (highlight) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
@@ -2117,10 +2145,24 @@ private fun ManagerGamepadBindingRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(neonShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
@@ -2134,7 +2176,7 @@ private fun ManagerGamepadBindingRow(
                     Text(
                         text = value,
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.primary
+                        color = valueColor ?: MaterialTheme.colorScheme.primary
                     )
                     autoLabel?.let {
                         Text(
@@ -2314,6 +2356,7 @@ private fun PerGameSettings.resolveAgainst(defaultProfile: PerGameSettings): Per
         gamepadRightStickUpToR2 = pick("gamepadRightStickUpToR2", gamepadRightStickUpToR2, defaultProfile.gamepadRightStickUpToR2),
         gamepadRightStickDownToL2 = pick("gamepadRightStickDownToL2", gamepadRightStickDownToL2, defaultProfile.gamepadRightStickDownToL2),
         gamepadButtonHaptics = pick("gamepadButtonHaptics", gamepadButtonHaptics, defaultProfile.gamepadButtonHaptics),
+        keyboardMouse = pick("keyboardMouse", keyboardMouse, defaultProfile.keyboardMouse),
         autoSaveOnExit = pick("autoSaveOnExit", autoSaveOnExit, defaultProfile.autoSaveOnExit),
         autoLoadOnStart = pick("autoLoadOnStart", autoLoadOnStart, defaultProfile.autoLoadOnStart),
         enableFastBoot = pick("enableFastBoot", enableFastBoot, defaultProfile.enableFastBoot),

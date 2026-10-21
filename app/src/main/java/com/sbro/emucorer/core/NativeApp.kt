@@ -47,6 +47,14 @@ object NativeApp {
     private val padAnalogMode = booleanArrayOf(false, false)
     private val analogDpadOptionCache = arrayOfNulls<Boolean>(2)
     private val padAnalogHalfAxes = Array(2) { IntArray(8) }
+    // Keyboard and mouse keep their own active-low button masks and analog
+    // half-axes. The effective pad state intersects the button masks and takes
+    // the strongest analog value from every source, so releasing one physical
+    // source can never clear a button another source is still holding.
+    private val sourcePadButtons =
+        Array(PAD_INPUT_SOURCE_COUNT) { intArrayOf(DPAD_ALL_RELEASED, DPAD_ALL_RELEASED) }
+    private val sourcePadAnalogHalfAxes =
+        Array(PAD_INPUT_SOURCE_COUNT) { Array(2) { IntArray(8) } }
     private var profilerActive = false
     private var hangTraceActive = false
 
@@ -168,13 +176,50 @@ object NativeApp {
     @JvmStatic fun onHostKeyEvent(keyCode: Int, pressed: Boolean) {
         setPadButton(0, keyCode, 0, pressed)
     }
+    @JvmStatic @Synchronized fun setPadButtonFromSource(
+        padIndex: Int,
+        index: Int,
+        range: Int,
+        pressed: Boolean,
+        source: Int
+    ) {
+        if (source != KeyboardMouseBindings.PAD_SOURCE_KEYBOARD &&
+            source != KeyboardMouseBindings.PAD_SOURCE_MOUSE
+        ) {
+            setPadButton(padIndex, index, range, pressed)
+            return
+        }
+        if (padIndex !in 0..1) return
+        if (index == PAD_ANALOG_TOGGLE) {
+            if (pressed) setPadButton(padIndex, index, range, pressed)
+            return
+        }
+        val halfAxis = analogHalfAxisIndex(index)
+        if (halfAxis != null) {
+            sourcePadAnalogHalfAxes[source][padIndex][halfAxis] =
+                if (pressed) range.coerceIn(0, 255) else 0
+            dispatchPadAnalog(padIndex)
+            return
+        }
+        val bit = ps1ButtonBit(index) ?: return
+        sourcePadButtons[source][padIndex] = PadInputMerge.applyButton(
+            sourcePadButtons[source][padIndex],
+            bit,
+            pressed
+        )
+        CoreRuntime.setPadButtons(padIndex, effectivePadButtons(padIndex))
+    }
     @JvmStatic fun resetKeyStatus() { resetPadState(0); resetPadState(1) }
     @JvmStatic @Synchronized fun resetPadState(padIndex: Int) {
         if (padIndex !in 0..1) return
-        padButtons[padIndex] = 0xFFFF
-        derivedDpadButtons[padIndex] = 0xFFFF
+        padButtons[padIndex] = DPAD_ALL_RELEASED
+        derivedDpadButtons[padIndex] = DPAD_ALL_RELEASED
         padAnalogHalfAxes[padIndex].fill(0)
-        CoreRuntime.setPadButtons(padIndex, 0xFFFF)
+        for (source in 0 until PAD_INPUT_SOURCE_COUNT) {
+            sourcePadButtons[source][padIndex] = DPAD_ALL_RELEASED
+            sourcePadAnalogHalfAxes[source][padIndex].fill(0)
+        }
+        CoreRuntime.setPadButtons(padIndex, DPAD_ALL_RELEASED)
         CoreRuntime.setPadAnalog(padIndex, 128, 128, 128, 128)
     }
 
@@ -503,7 +548,14 @@ object NativeApp {
     }
 
     private fun dispatchPadAnalog(padIndex: Int) {
-        val axes = padAnalogHalfAxes[padIndex]
+        val axes = IntArray(8) { halfAxis ->
+            PadInputMerge.strongestHalfAxis(
+                padAnalogHalfAxes[padIndex][halfAxis],
+                sourcePadAnalogHalfAxes,
+                padIndex,
+                halfAxis
+            )
+        }
         val lx = mergeHalfAxes(axes[3], axes[1])
         val ly = mergeHalfAxes(axes[0], axes[2])
         val rx = mergeHalfAxes(axes[7], axes[5])
@@ -538,7 +590,12 @@ object NativeApp {
     }
 
     private fun effectivePadButtons(padIndex: Int): Int =
-        padButtons[padIndex] and derivedDpadButtons[padIndex]
+        PadInputMerge.effectiveButtons(
+            padButtons[padIndex],
+            derivedDpadButtons[padIndex],
+            sourcePadButtons,
+            padIndex
+        )
 
     private fun isAnalogDpadInDigitalModeEnabled(padIndex: Int): Boolean {
         if (padAnalogMode[padIndex]) return false
@@ -574,6 +631,7 @@ object NativeApp {
 
     private const val BIOS_SIZE_BYTES = 512L * 1024L
     private const val PAD_ANALOG_TOGGLE = 125
+    private const val PAD_INPUT_SOURCE_COUNT = 3
     private const val PS1_MEMORY_CARD_SIZE_BYTES = 128L * 1024L
     private const val DPAD_ALL_RELEASED = 0xFFFF
     private const val ANALOG_DPAD_THRESHOLD = 64
