@@ -22,6 +22,7 @@ import com.sbro.emucorer.core.SetupValidator
 import com.sbro.emucorer.core.EmulatorStorage
 import com.sbro.emucorer.core.GamepadManager
 import com.sbro.emucorer.core.GpuHardwareProfiles
+import com.sbro.emucorer.core.KeyboardMouseManager
 import com.sbro.emucorer.core.MobileSocNameMapper
 import com.sbro.emucorer.core.NativeApp
 import com.sbro.emucorer.core.RuntimeFailure
@@ -35,6 +36,7 @@ import com.sbro.emucorer.data.AppPreferences.Companion.FPS_OVERLAY_MODE_SIMPLE
 import com.sbro.emucorer.data.AppPreferences.Companion.FPS_OVERLAY_MODE_DETAILED
 import com.sbro.emucorer.data.CheatBlock
 import com.sbro.emucorer.data.DisplayCrop
+import com.sbro.emucorer.data.KeyboardMouseSettings
 import com.sbro.emucorer.data.OverlayControlLayout
 import com.sbro.emucorer.data.CheatRepository
 import com.sbro.emucorer.data.GamePatchRepository
@@ -59,6 +61,7 @@ import com.sbro.emucorer.data.overlayControlActionId
 import com.sbro.emucorer.data.saveTouchControlsLayout
 import com.sbro.emucorer.data.toggleStick
 import com.sbro.emucorer.data.withCustomTouchControls
+import com.sbro.emucorer.data.withKeyboardMouseSettings
 import com.sbro.emucorer.data.withTouchControlsLayout
 import com.sbro.emucorer.data.TouchControlVisualStyle
 import com.sbro.emucorer.data.TouchControlPressEffect
@@ -355,6 +358,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     // Kept outside EmulationUiState: that data class is near the JVM 255-argument limit.
     private val _activePatchNotice = MutableStateFlow<ActivePatchNotice?>(null)
     val activePatchNotice: StateFlow<ActivePatchNotice?> = _activePatchNotice.asStateFlow()
+    private val _keyboardMouseOverride = MutableStateFlow<KeyboardMouseSettings?>(null)
+    val keyboardMouseOverride: StateFlow<KeyboardMouseSettings?> = _keyboardMouseOverride.asStateFlow()
     private val lifecycleMutex = Mutex()
     private var pausedForBackground = false
     @Volatile
@@ -439,6 +444,30 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             strengthPercent = state.touchHapticsStrength,
             preset = state.touchHapticsPreset
         )
+    }
+
+    private fun refreshKeyboardMouseOverride() {
+        val override = activePerGameKey()
+            ?.let(perGameSettingsRepository::get)
+            ?.keyboardMouse
+        _keyboardMouseOverride.value = override
+        KeyboardMouseManager.setPerGameOverride(override)
+    }
+
+    fun setKeyboardMouseSettings(settings: KeyboardMouseSettings?) {
+        viewModelScope.launch {
+            val gameKey = activePerGameKey() ?: return@launch
+            val existing = withContext(Dispatchers.IO) { perGameSettingsRepository.get(gameKey) }
+            val base = existing ?: PerGameSettings(
+                gameKey = gameKey,
+                gameTitle = resolvePerGameTitle(_uiState.value),
+                gameSerial = currentGameSerial.takeIf { it.isNotBlank() }
+            )
+            withContext(Dispatchers.IO) {
+                perGameSettingsRepository.save(base.withKeyboardMouseSettings(settings))
+            }
+            refreshKeyboardMouseOverride()
+        }
     }
 
     init {
@@ -1258,6 +1287,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 _uiState.value = currentTouchControlsLayoutProfile?.let { overlayState.withTouchControlsLayout(it) } ?: overlayState
                 syncNativePerformanceOverlayState(_uiState.value)
                 syncGamepadRuntimeSettings(_uiState.value)
+                refreshKeyboardMouseOverride()
                 if (_uiState.value.gameSettingsProfileActive) {
                     val state = _uiState.value
                     GamepadManager.applyPerGameOverrides(
@@ -2422,6 +2452,8 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 ?: runtimeProfile.touchControlVisualStyle
             val pressEffectOverride = existingProfile?.touchControlPressEffect
                 ?: runtimeProfile.touchControlPressEffect
+            val keyboardMouseOverride = existingProfile?.keyboardMouse
+                ?: runtimeProfile.keyboardMouse
             val visualOverrideKeys = buildSet {
                 if (visualStyleOverride != null) add("touchControlVisualStyle")
                 if (pressEffectOverride != null) add("touchControlPressEffect")
@@ -2439,6 +2471,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     addAll(runtimeProfile.providedKeys)
                     addAll(visualOverrideKeys)
                     addAll(audioOverrideKeys)
+                    if (keyboardMouseOverride != null) add("keyboardMouse")
                     if (touchControlsLayout != null) add(PER_GAME_TOUCH_CONTROLS_LAYOUT_KEY)
                     if (customTouchControls != null) add(PER_GAME_CUSTOM_TOUCH_CONTROLS_KEY)
                 }
@@ -2449,6 +2482,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     customTouchControls = customTouchControls,
                     touchControlVisualStyle = visualStyleOverride,
                     touchControlPressEffect = pressEffectOverride,
+                    keyboardMouse = keyboardMouseOverride,
                     coreOptions = existingProfile?.coreOptions ?: runtimeProfile.coreOptions,
                     shaderChainOverrideEnabled = existingProfile?.shaderChainOverrideEnabled,
                     shaderChainPreset = existingProfile?.shaderChainPreset.orEmpty(),
@@ -3274,6 +3308,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     GamepadManager.clearPerGameOverrides()
                 } catch (_: Exception) { }
                 try {
+                    _keyboardMouseOverride.value = null
+                    KeyboardMouseManager.setPerGameOverride(null)
+                } catch (_: Exception) { }
+                try {
                     EmulatorBridge.shutdown()
                     var waitTime = 0
                     while (EmulatorBridge.isVmActive() && waitTime < 2000) {
@@ -3359,6 +3397,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             gameSettingsProfileActive = false
         )
         currentGameSource = ""
+        refreshKeyboardMouseOverride()
         NativeApp.setCrashContextString("emu_launch_state", "idle")
         NativeApp.setCrashContextString("emu_game_title", "")
         NativeApp.setCrashContextString("emu_game_serial", "")

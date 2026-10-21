@@ -29,6 +29,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.sbro.emucorer.core.AppLocaleManager
 import com.sbro.emucorer.core.GamepadManager
+import com.sbro.emucorer.core.KeyboardMouseManager
 import com.sbro.emucorer.core.NativeApp
 import com.sbro.emucorer.core.PlayInAppReviewManager
 import com.sbro.emucorer.core.LocalTvUiEnvironment
@@ -66,6 +67,8 @@ open class MainActivity : ComponentActivity() {
     private var reviewRequestInFlight = false
     private var reviewRetryAfterResumeScheduled = false
     private var appliedDarkTheme = true
+    @Volatile
+    private var pointerCaptureEnabled = false
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocaleManager.wrap(newBase))
@@ -90,6 +93,13 @@ open class MainActivity : ComponentActivity() {
         restoredFromSavedState = savedInstanceState != null
 
         GamepadManager.ensureInitialized(this)
+        KeyboardMouseManager.ensureInitialized(this)
+        KeyboardMouseManager.setPointerCaptureListener { enabled ->
+            runOnUiThread { updatePointerCapture(enabled) }
+        }
+        window.decorView.setOnCapturedPointerListener { _, event ->
+            KeyboardMouseManager.handleCapturedPointerEvent(event)
+        }
         appliedLanguageTag = preferences.getStoredLanguageTagSync()
 
         lifecycleScope.launch {
@@ -279,6 +289,7 @@ open class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        KeyboardMouseManager.refreshConnectionState()
         window.decorView.post {
             applySystemBarTheme(appliedDarkTheme)
         }
@@ -288,6 +299,49 @@ open class MainActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             applySystemBarTheme(appliedDarkTheme)
+            KeyboardMouseManager.refreshConnectionState()
+            KeyboardMouseManager.refreshPointerCapture()
+        } else {
+            KeyboardMouseManager.releaseAll()
+            updatePointerCapture(false)
+        }
+    }
+
+    override fun onPause() {
+        KeyboardMouseManager.releaseAll()
+        updatePointerCapture(false)
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        KeyboardMouseManager.setPointerCaptureListener(null)
+        KeyboardMouseManager.releaseAll()
+        super.onDestroy()
+    }
+
+    private fun updatePointerCapture(enabled: Boolean) {
+        pointerCaptureEnabled = enabled
+        val decorView = window.decorView
+        if (enabled && hasWindowFocus()) {
+            decorView.isFocusable = true
+            decorView.isFocusableInTouchMode = true
+            if (!decorView.hasFocus()) decorView.requestFocus()
+            if (!decorView.hasPointerCapture()) {
+                decorView.post {
+                    if (pointerCaptureEnabled && !isFinishing && hasWindowFocus() &&
+                        !decorView.hasPointerCapture()
+                    ) {
+                        decorView.requestPointerCapture()
+                    }
+                }
+            }
+        } else {
+            if (decorView.hasPointerCapture()) {
+                decorView.releasePointerCapture()
+            }
+            decorView.isFocusable = false
+            decorView.isFocusableInTouchMode = false
+            decorView.clearFocus()
         }
     }
 
@@ -312,6 +366,8 @@ open class MainActivity : ComponentActivity() {
 
     @SuppressLint("RestrictedApi", "GestureBackNavigation")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (KeyboardMouseManager.handleKeyBindingCapture(event)) return true
+
         if (GamepadManager.isGameController(event.device)) {
             if (GamepadManager.handleBindingCapture(event)) return true
             if (GamepadManager.isEmulationInputEnabled()) {
@@ -325,6 +381,10 @@ open class MainActivity : ComponentActivity() {
             }
         }
 
+        if (GamepadManager.isEmulationInputEnabled() && KeyboardMouseManager.handleKeyEvent(event)) {
+            return true
+        }
+
         if (GamepadManager.isEmulationInputEnabled() && shouldRouteHostKeyEvent(event)) {
             when (event.action) {
                 KeyEvent.ACTION_DOWN -> NativeApp.onHostKeyEvent(event.keyCode, true)
@@ -334,6 +394,44 @@ open class MainActivity : ComponentActivity() {
         }
 
         return super.dispatchKeyEvent(event)
+    }
+
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (KeyboardMouseManager.handleMouseBindingCapture(event)) return true
+        if (GamepadManager.isEmulationInputEnabled() && handleMouseInput(event)) return true
+        return super.dispatchGenericMotionEvent(event)
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (KeyboardMouseManager.handleMouseBindingCapture(event)) return true
+        if (GamepadManager.isEmulationInputEnabled() && handleMouseInput(event)) return true
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun handleMouseInput(event: MotionEvent): Boolean {
+        if (!isMouseEvent(event)) return false
+        val handled = KeyboardMouseManager.handleMouseButtonEvent(event) ||
+            KeyboardMouseManager.handleMouseWheelEvent(event) ||
+            KeyboardMouseManager.handleMouseMotionEvent(event)
+        return handled || when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN,
+            MotionEvent.ACTION_UP,
+            MotionEvent.ACTION_MOVE,
+            MotionEvent.ACTION_HOVER_MOVE,
+            MotionEvent.ACTION_BUTTON_PRESS,
+            MotionEvent.ACTION_BUTTON_RELEASE,
+            MotionEvent.ACTION_SCROLL,
+            MotionEvent.ACTION_CANCEL -> true
+            else -> false
+        }
+    }
+
+    private fun isMouseEvent(event: MotionEvent): Boolean {
+        val source = event.source
+        return (source and android.view.InputDevice.SOURCE_MOUSE) ==
+            android.view.InputDevice.SOURCE_MOUSE ||
+            (source and android.view.InputDevice.SOURCE_MOUSE_RELATIVE) ==
+            android.view.InputDevice.SOURCE_MOUSE_RELATIVE
     }
 
     override fun onGenericMotionEvent(event: MotionEvent?): Boolean {
