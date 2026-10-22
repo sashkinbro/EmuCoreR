@@ -31,7 +31,8 @@ public final class TestGameDocumentsProvider extends ContentProvider {
             addDocument(cursor, "root/cue");
             addDocument(cursor, "root/track");
         } else {
-            addDocument(cursor, DocumentsContract.getDocumentId(uri));
+            addDocument(cursor, "open".equals(uri.getPathSegments().get(0))
+                ? "root/track" : DocumentsContract.getDocumentId(uri));
         }
         return cursor;
     }
@@ -70,9 +71,11 @@ public final class TestGameDocumentsProvider extends ContentProvider {
     }
 
     @Override public Bundle call(String method, String arg, Bundle extras) {
-        if (!method.equals("grantFixture")) return super.call(method, arg, extras);
+        if (!method.equals("grantFixture") && !method.equals("grantSingleFixture")) return super.call(method, arg, extras);
         if (!"com.sbro.emucorer".equals(arg)) throw new IllegalArgumentException("Test target only");
-        Uri tree = DocumentsContract.buildTreeDocumentUri("com.sbro.emucorer.test.documents", "root");
+        Uri tree = method.equals("grantSingleFixture")
+            ? DocumentsContract.buildDocumentUri("com.sbro.emucorer.test.documents", "root/track")
+            : DocumentsContract.buildTreeDocumentUri("com.sbro.emucorer.test.documents", "root");
         getContext().grantUriPermission(arg, tree, Intent.FLAG_GRANT_READ_URI_PERMISSION |
             Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
         return new Bundle();
