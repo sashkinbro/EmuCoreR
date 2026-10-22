@@ -86,6 +86,7 @@ object DocumentPathResolver {
 
         val normalizedRawPath = File(rawPath).absolutePath.removeSuffix("/")
         val persistedTrees = context.contentResolver.persistedUriPermissions
+            .filter { permission -> permission.isReadPermission && DocumentsContract.isTreeUri(permission.uri) }
             .mapNotNull { permission ->
                 val treeUri = permission.uri
                 val treePath = resolveExternalStoragePath(treeUri)?.removeSuffix("/") ?: return@mapNotNull null
@@ -671,7 +672,10 @@ object DocumentPathResolver {
     }
 
     private fun findFileInPersistedTree(context: Context, targetUri: Uri, fileName: String): String? {
+        // Persisted grants include individual documents selected with OpenDocument.
+        // Those do not grant directory access, and fromTreeUri throws for them.
         val persistedTrees = context.contentResolver.persistedUriPermissions
+            .filter { permission -> permission.isReadPermission && DocumentsContract.isTreeUri(permission.uri) }
             .mapNotNull { permission -> DocumentFile.fromTreeUri(context, permission.uri) }
 
         for (tree in persistedTrees) {
