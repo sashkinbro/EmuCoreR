@@ -656,7 +656,11 @@ bool CompileBlock(CodeBlock* block, bool allow_flush)
       break;
   }
 
-  if (block->instructions.empty())
+  // A failed fetch can leave a branch at the end without its delay slot.
+  // The recompiler consumes that slot while compiling a linked branch, so
+  // leave incomplete blocks to the uncached interpreter instead of reading
+  // past the instruction vector.
+  if (block->instructions.empty() || block->instructions.back().is_branch_instruction)
     return false;
 
 #ifdef WITH_RECOMPILER
