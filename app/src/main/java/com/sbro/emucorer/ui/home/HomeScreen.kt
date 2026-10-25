@@ -378,6 +378,23 @@ fun HomeScreen(
         entryKey = standardViewMode
     )
 
+    val coverPrefetchWindow = remember(
+        uiState.games, columnsCount, isListView, uiState.isCoverArtDisabled, customCoverRepository
+    ) {
+        val rowSize = if (isListView) 1 else columnsCount.coerceAtLeast(1)
+        HomeCoverPrefetchWindow(uiState.games.chunked(rowSize).map { row ->
+            HomeCoverPrefetchRow(homeLibraryRowKey(row.first()), row.map { game ->
+                game.coverArtPath.takeUnless {
+                    uiState.isCoverArtDisabled && !customCoverRepository.isCustomCoverPath(it)
+                }
+            })
+        })
+    }
+    HomeCoverPrefetch(
+        gridState = gridState, window = coverPrefetchWindow,
+        enabled = !isShelfView && !uiState.isLoading && !uiState.isBootstrapping
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
