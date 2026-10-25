@@ -65,8 +65,25 @@ fun gameCoverContentScale(coverPath: String?, defaultScale: ContentScale): Conte
     if (isGenerated3dCover(coverPath)) ContentScale.Fit else defaultScale
 
 private val imageLoadingSemaphore = Semaphore(4)
+private val imagePrefetchSemaphore = Semaphore(1)
 private const val DEFAULT_COVER_DECODE_WIDTH = 400
 private const val DEFAULT_COVER_DECODE_HEIGHT = 600
+
+/** Shares the exact default card decode key; only one speculative image uses a loader slot. */
+internal suspend fun prefetchGameCoverArt(context: android.content.Context, coverPath: String) {
+    val key = "$coverPath@${DEFAULT_COVER_DECODE_WIDTH}x$DEFAULT_COVER_DECODE_HEIGHT"
+    if (getCachedBitmap(key) != null) return
+    imagePrefetchSemaphore.withPermit {
+        withContext(Dispatchers.IO) {
+            imageLoadingSemaphore.withPermit {
+                if (getCachedBitmap(key) == null) {
+                    loadBitmap(context, coverPath, DEFAULT_COVER_DECODE_WIDTH, DEFAULT_COVER_DECODE_HEIGHT)
+                        ?.let { putCachedBitmap(key, it) }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun GameCoverArt(
@@ -133,7 +150,7 @@ fun GameCoverArt(
         for (candidate in candidates) {
             val candidateBitmap = withContext(Dispatchers.IO) {
                 imageLoadingSemaphore.withPermit {
-                    loadBitmap(context, candidate, decodeWidth, decodeHeight)
+                    getCachedBitmap(cacheKey(candidate)) ?: loadBitmap(context, candidate, decodeWidth, decodeHeight)
                 }
             }
             if (candidateBitmap != null) {
