@@ -843,7 +843,9 @@ onNavigateAchievements = navigateAchievements,
                                 launchSingleTop = true
                             }
                         },
-                        onOpenGpuDriverManager = { navController.navigate(GpuDriverSettingsRoute) },
+                        onOpenGpuDriverManager = {
+                            navController.navigate(GpuDriverSettingsRoute) { launchSingleTop = true }
+                        },
                         viewModel = settingsViewModel
                     )
                 }

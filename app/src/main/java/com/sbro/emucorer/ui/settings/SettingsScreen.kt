@@ -2290,7 +2290,6 @@ private fun SettingsContent(
 
                 SettingsTab.Graphics -> {
                     SettingsSection(title = stringResource(R.string.settings_graphics_tab)) {
-                        SettingsItem(icon = Icons.Rounded.Memory, label = stringResource(R.string.settings_gpu_driver_manager_title), value = uiState.customDriverPath?.substringBeforeLast('/')?.substringAfterLast('/') ?: stringResource(R.string.settings_gpu_driver_system), onClick = onOpenGpuDriverManager ?: {})
                         ChoiceSection(
                             title = stringResource(R.string.settings_renderer),
                             options = listOf(
@@ -2302,6 +2301,16 @@ private fun SettingsContent(
                             onSelect = viewModel::setRenderer,
                             helpText = stringResource(R.string.settings_help_renderer),
                             onResetToDefault = { viewModel.setRenderer(defaults.renderer) }
+                        )
+                        SettingsItem(
+                            icon = Icons.Rounded.Tune,
+                            label = stringResource(R.string.settings_gpu_driver_manager_title),
+                            value = uiState.customDriverPath
+                                ?.takeIf { uiState.gpuDriverType == 1 }
+                                ?.let { java.io.File(it).parentFile?.name ?: java.io.File(it).name }
+                                ?: stringResource(R.string.settings_gpu_driver_system),
+                            onClick = onOpenGpuDriverManager ?: {},
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
                         )
                         ChoiceSection(
                             title = stringResource(R.string.settings_aspect_ratio),
@@ -4729,6 +4738,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Library, R.string.settings_backup_export_title),
         entry(SettingsTab.Library, R.string.settings_backup_restore_title),
         entry(SettingsTab.Graphics, R.string.settings_renderer),
+        entry(SettingsTab.Graphics, R.string.settings_gpu_driver_manager_title),
         entry(SettingsTab.Graphics, R.string.settings_upscale),
         entry(SettingsTab.Graphics, R.string.settings_aspect_ratio),
         entry(SettingsTab.Patches, R.string.settings_patches_download),

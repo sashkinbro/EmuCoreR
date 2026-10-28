@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
@@ -53,8 +54,6 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 private const val TAG = "MainActivity"
-private const val LIGHT_NAVIGATION_BAR_SCRIM = 0x04000000
-private const val DARK_NAVIGATION_BAR_SCRIM = 0x0A000000
 private const val IN_APP_REVIEW_HOME_SETTLE_DELAY_MS = 750L
 
 open class MainActivity : ComponentActivity() {
@@ -352,10 +351,13 @@ open class MainActivity : ComponentActivity() {
                 Color.TRANSPARENT
             ),
             navigationBarStyle = SystemBarStyle.auto(
-                LIGHT_NAVIGATION_BAR_SCRIM,
-                DARK_NAVIGATION_BAR_SCRIM
+                Color.TRANSPARENT,
+                Color.TRANSPARENT
             )
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
