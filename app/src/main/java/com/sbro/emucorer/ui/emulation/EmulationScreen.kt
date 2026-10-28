@@ -81,6 +81,7 @@ import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.SettingsSuggest
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import com.sbro.emucorer.ui.common.AppAlertDialog as AlertDialog
@@ -619,6 +620,7 @@ fun EmulationScreen(
     val sessionRestoredUnavailableMessage = stringResource(R.string.emulation_session_restored_unavailable)
     val gamepadUiActive = uiState.showMenu ||
         showControlsEditor ||
+        showGpuDriverManager ||
         showExitDialog ||
         showQuickSaveDialog ||
         showQuickLoadDialog ||
@@ -634,11 +636,17 @@ fun EmulationScreen(
         }
     }
 
-    ProvideGamepadMenuAction(onMenu = toggleMenuClick)
+    ProvideGamepadMenuAction(onMenu = {
+        if (showGpuDriverManager) showGpuDriverManager = false else toggleMenuClick()
+    })
     ProvideGamepadUiNavigation(
         enabled = gamepadUiActive,
         onBack = {
             when {
+                showGpuDriverManager -> {
+                    showGpuDriverManager = false
+                    true
+                }
                 pendingGamepadActionId != null -> {
                     pendingGamepadActionId = null
                     true
@@ -1698,6 +1706,22 @@ fun EmulationScreen(
                 }
             }
         }
+
+        GpuDriverManagerOverlay(
+            visible = showGpuDriverManager && uiState.runtimeFailure == null,
+            onBack = { showGpuDriverManager = false }
+        ) {
+            com.sbro.emucorer.ui.settings.GpuDriverScreen(
+                onBackClick = { showGpuDriverManager = false },
+                selectedDriverPathOverride = gameDriverPath?.takeIf { it.isNotEmpty() },
+                rendererOverride = uiState.renderer,
+                onSelectDriverForGame = { name ->
+                    val path = name?.let(driverManager::readMainLibraryPath).orEmpty()
+                    if (gamePath != null) driverPreferences.edit().putString("game:$gamePath", path).apply()
+                    gameDriverPath = path
+                }
+            )
+        }
     }
 
     uiState.runtimeFailure?.let { failure ->
@@ -1961,23 +1985,6 @@ fun EmulationScreen(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(vertical = 6.dp)
-                )
-            }
-        }
-    }
-
-    if (showGpuDriverManager && uiState.runtimeFailure == null) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { showGpuDriverManager = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
-            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                com.sbro.emucorer.ui.settings.GpuDriverScreen(
-                    onBackClick = { showGpuDriverManager = false },
-                    selectedDriverPathOverride = gameDriverPath?.takeIf { it.isNotEmpty() },
-                    rendererOverride = uiState.renderer,
-                    onSelectDriverForGame = { name ->
-                        val path = name?.let(driverManager::readMainLibraryPath).orEmpty()
-                        if (gamePath != null) driverPreferences.edit().putString("game:$gamePath", path).apply()
-                        gameDriverPath = path
-                    }
                 )
             }
         }
@@ -4012,8 +4019,6 @@ private fun EmulationSidebarMenu(
                             horizontalInset = sectionLabelInset
                         )
 
-                        MenuButton(icon = Icons.Rounded.Gamepad, text = stringResource(R.string.settings_gpu_driver_manager_title), onClick = onOpenGpuDriverManager, containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f))
-
                         LiveSelectionRow(
                             title = stringResource(R.string.settings_renderer),
                             options = listOf(
@@ -4026,6 +4031,13 @@ private fun EmulationSidebarMenu(
                             allowWrap = false,
                             helpText = stringResource(R.string.settings_help_renderer),
                             onResetToDefault = { onSetRenderer(globalDefaults.renderer) }
+                        )
+                        MenuButton(
+                            icon = Icons.Rounded.Tune,
+                            text = stringResource(R.string.settings_gpu_driver_manage),
+                            onClick = onOpenGpuDriverManager,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
                         )
 
                         // Internal resolution belongs to the app-level per-game
@@ -5756,7 +5768,8 @@ private fun MenuButton(
     gradientColors: List<Color>? = null,
     enabled: Boolean = true,
     showProgress: Boolean = false,
-    containerColor: Color? = null
+    containerColor: Color? = null,
+    border: BorderStroke? = null
 ) {
     val shape = neonShape(16.dp)
     val interactionSource = remember { MutableInteractionSource() }
@@ -5782,7 +5795,7 @@ private fun MenuButton(
             isDestructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
             else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
         },
-        border = if (gradientColors == null) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)) else null
+        border = border ?: if (gradientColors == null) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)) else null
     ) {
         Row(
             modifier = Modifier

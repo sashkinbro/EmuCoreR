@@ -80,6 +80,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
@@ -242,7 +243,10 @@ data class AppUpdateUiState(
     val historyErrorMessage: String? = null
 )
 
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+class SettingsViewModel @JvmOverloads constructor(
+    application: Application,
+    private val installedDriversLoader: (() -> List<InstalledGpuDriver>)? = null
+) : AndroidViewModel(application) {
 
     private val gpuDriverManager = GpuDriverManager(application)
     private val gpuDriverCatalogRepository = GpuDriverCatalogRepository(application)
@@ -271,8 +275,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     init {
         val driverPath = driverPreferences.getString("global", null)
-        _uiState.value = _uiState.value.copy(customDriverPath = driverPath, gpuDriverType = if (driverPath.isNullOrBlank()) 0 else 1)
-        refreshInstalledGpuDrivers()
+        _uiState.update { currentUiState -> currentUiState.copy(customDriverPath = driverPath, gpuDriverType = if (driverPath.isNullOrBlank()) 0 else 1) }
         viewModelScope.launch(Dispatchers.IO) { DeviceGpuInfoProvider.preload(application); refreshInstalledGpuDrivers() }
         initializeAboutInfo()
         refreshShaderPresets()
@@ -287,13 +290,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 val biosValid = withContext(Dispatchers.IO) {
                     BiosValidator.hasUsableBiosFiles(getApplication(), path)
                 }
-                _uiState.value = _uiState.value.copy(biosValid = biosValid)
+                _uiState.update { currentUiState -> currentUiState.copy(biosValid = biosValid) }
             }
         }
         refreshEmulatorDataLocations()
         viewModelScope.launch {
             proPurchaseManager.state.collect { proState ->
-                _uiState.value = _uiState.value.copy(proState = proState)
+                _uiState.update { currentUiState -> currentUiState.copy(proState = proState) }
             }
         }
     }
@@ -303,15 +306,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val appVersion = runCatching {
             application.packageManager.getPackageInfo(application.packageName, 0).versionName
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: BuildConfig.VERSION_NAME
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             appVersion = appVersion,
             coreName = CORE_NAME,
             coreVersion = CORE_VERSION
-        )
+        ) }
     }
 
-    private fun applySettingsSnapshot(snapshot: SettingsSnapshot) {
-        _uiState.value = _uiState.value.copy(
+    internal fun applySettingsSnapshot(snapshot: SettingsSnapshot) {
+        _uiState.update { currentUiState -> currentUiState.copy(
             isLoaded = true,
             themeMode = snapshot.themeMode,
             customTheme = snapshot.customTheme,
@@ -421,7 +424,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             enableCddaAudio = snapshot.enableCddaAudio,
             multitapMode = snapshot.multitapMode,
             cdReadAhead = snapshot.cdReadAhead
-        )
+        ) }
     }
 
     fun checkMediatekCompatibilityNotice() {
@@ -431,13 +434,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             if (!preferences.mediatekSettingsNoticeShown.first()) {
-                _uiState.value = _uiState.value.copy(showMediatekCompatibilityNotice = true)
+                _uiState.update { currentUiState -> currentUiState.copy(showMediatekCompatibilityNotice = true) }
             }
         }
     }
 
     fun dismissMediatekCompatibilityNotice() {
-        _uiState.value = _uiState.value.copy(showMediatekCompatibilityNotice = false)
+        _uiState.update { currentUiState -> currentUiState.copy(showMediatekCompatibilityNotice = false) }
         viewModelScope.launch {
             preferences.markMediatekSettingsNoticeShown()
         }
@@ -471,11 +474,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             current.themeMode == ThemeMode.CUSTOM && activeConfig == null -> ThemeMode.SYSTEM
             else -> current.themeMode
         }
-        _uiState.value = current.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             themeMode = nextThemeMode,
             customTheme = activeConfig ?: CustomThemeConfig.Default,
             customThemeLibrary = safeLibrary
-        )
+        ) }
         viewModelScope.launch {
             preferences.setCustomThemeLibrary(safeLibrary, activate)
         }
@@ -486,7 +489,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         if (!current.isProUnlocked) return
 
         val safeLibrary = library.sanitized()
-        _uiState.value = current.copy(customTouchControls = safeLibrary)
+        _uiState.update { currentUiState -> currentUiState.copy(customTouchControls = safeLibrary) }
         viewModelScope.launch {
             preferences.setCustomTouchControls(safeLibrary)
         }
@@ -497,26 +500,26 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun installCustomFont(uri: Uri) = viewModelScope.launch {
-        _uiState.value = _uiState.value.copy(customizationMessageResId = null)
+        _uiState.update { currentUiState -> currentUiState.copy(customizationMessageResId = null) }
         val result = customFontRepository.install(uri)
         result.getOrNull()?.let { installed ->
             preferences.setCustomFontInstalled(installed.displayName)
         }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             customizationMessageResId = if (result.isSuccess) {
                 com.sbro.emucorer.R.string.settings_customization_custom_font_applied
             } else {
                 com.sbro.emucorer.R.string.settings_customization_custom_font_failed
             }
-        )
+        ) }
     }
 
     fun clearCustomFont() = viewModelScope.launch(Dispatchers.IO) {
         customFontRepository.clear()
         preferences.clearCustomFont()
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             customizationMessageResId = com.sbro.emucorer.R.string.settings_customization_custom_font_removed
-        )
+        ) }
     }
 
     fun setAppFontScale(scale: Float) = viewModelScope.launch {
@@ -609,20 +612,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun installHomeBackground(uri: Uri) = viewModelScope.launch {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             isBackgroundImporting = true,
             customizationMessageResId = null
-        )
+        ) }
         val result = homeBackgroundRepository.install(uri)
         result.getOrNull()?.let { preferences.setHomeBackgroundType(it) }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             isBackgroundImporting = false,
             customizationMessageResId = if (result.isSuccess) {
                 com.sbro.emucorer.R.string.settings_customization_background_applied
             } else {
                 com.sbro.emucorer.R.string.settings_customization_background_failed
             }
-        )
+        ) }
     }
 
     fun setHomeBackgroundPreset(preset: HomeBackgroundPreset) = viewModelScope.launch {
@@ -632,9 +635,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun clearHomeBackground() = viewModelScope.launch(Dispatchers.IO) {
         homeBackgroundRepository.clear()
         preferences.setHomeBackgroundType(HomeBackgroundType.NONE)
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             customizationMessageResId = com.sbro.emucorer.R.string.settings_customization_background_removed
-        )
+        ) }
     }
 
     fun setEmulationSideArtwork(artwork: EmulationSideArtwork) = viewModelScope.launch {
@@ -644,38 +647,39 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun installEmulationSideArtwork(uri: Uri) = viewModelScope.launch {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             isSideArtworkImporting = true,
             customizationMessageResId = null
-        )
+        ) }
         val result = emulationSideArtworkRepository.install(uri)
         if (result.isSuccess) {
             preferences.setEmulationSideArtwork(EmulationSideArtwork.CUSTOM)
         }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             isSideArtworkImporting = false,
             customizationMessageResId = if (result.isSuccess) {
                 com.sbro.emucorer.R.string.settings_customization_side_artwork_applied
             } else {
                 com.sbro.emucorer.R.string.settings_customization_side_artwork_failed
             }
-        )
+        ) }
     }
 
     fun clearCustomEmulationSideArtwork() = viewModelScope.launch(Dispatchers.IO) {
         emulationSideArtworkRepository.clear()
         preferences.setEmulationSideArtwork(EmulationSideArtwork.NONE)
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             customizationMessageResId = com.sbro.emucorer.R.string.settings_customization_side_artwork_removed
-        )
+        ) }
     }
 
     fun refreshShaderPresets() = viewModelScope.launch(Dispatchers.IO) {
         val presets = retroArchShaderRepository.listPresets()
-        _uiState.value = _uiState.value.copy(
+        val installed = retroArchShaderRepository.hasInstalledPack()
+        _uiState.update { currentUiState -> currentUiState.copy(
             shaderPresets = presets,
-            isShaderPackInstalled = retroArchShaderRepository.hasInstalledPack()
-        )
+            isShaderPackInstalled = installed
+        ) }
     }
 
     fun setShaderChainEnabled(enabled: Boolean) = viewModelScope.launch {
@@ -694,7 +698,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     suspend fun removeShaderPresets(paths: Set<String>): Boolean {
         if (_uiState.value.isShaderPackBusy) return false
-        _uiState.value = _uiState.value.copy(isShaderPackBusy = true)
+        _uiState.update { currentUiState -> currentUiState.copy(isShaderPackBusy = true) }
         var removalCommitted = false
         val removed = com.sbro.emucorer.data.RemovedShaderPresetPaths(paths)
         val activePreset = _uiState.value.shaderChainPreset
@@ -728,15 +732,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     val installed = runCatching {
                         withContext(Dispatchers.IO) { retroArchShaderRepository.hasInstalledPack() }
                     }.getOrDefault(_uiState.value.isShaderPackInstalled)
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { currentUiState -> currentUiState.copy(
                         shaderPresets = remaining,
                         isShaderPackInstalled = installed,
-                        shaderChainEnabled = if (removed.contains(activePreset)) false else _uiState.value.shaderChainEnabled,
-                        shaderChainPreset = if (removed.contains(activePreset)) "" else _uiState.value.shaderChainPreset
-                    )
+                        shaderChainEnabled = if (removed.contains(activePreset)) false else currentUiState.shaderChainEnabled,
+                        shaderChainPreset = if (removed.contains(activePreset)) "" else currentUiState.shaderChainPreset
+                    ) }
                 }
             } finally {
-                _uiState.value = _uiState.value.copy(isShaderPackBusy = false)
+                _uiState.update { currentUiState -> currentUiState.copy(isShaderPackBusy = false) }
             }
         }
     }
@@ -760,58 +764,60 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         block: ((ShaderPackInstallProgress) -> Unit) -> Result<Int>
     ) = viewModelScope.launch(Dispatchers.IO) {
         if (_uiState.value.isShaderPackBusy) return@launch
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             isShaderPackBusy = true,
             shaderPackProgress = initialProgress,
             shaderPackMessageResId = null
-        )
+        ) }
         val result = block { progress ->
-            _uiState.value = _uiState.value.copy(shaderPackProgress = progress)
+            _uiState.update { currentUiState -> currentUiState.copy(shaderPackProgress = progress) }
         }
         val presets = retroArchShaderRepository.listPresets()
-        _uiState.value = _uiState.value.copy(
+        val installed = retroArchShaderRepository.hasInstalledPack()
+        _uiState.update { currentUiState -> currentUiState.copy(
             isShaderPackBusy = false,
             shaderPackProgress = null,
             shaderPresets = presets,
-            isShaderPackInstalled = retroArchShaderRepository.hasInstalledPack(),
+            isShaderPackInstalled = installed,
             shaderPackMessageResId = if (result.isSuccess) {
                 com.sbro.emucorer.R.string.settings_shader_pack_installed
             } else {
                 com.sbro.emucorer.R.string.settings_shader_pack_failed
             }
-        )
+        ) }
     }
 
     fun clearShaderPackMessage() {
-        _uiState.value = _uiState.value.copy(shaderPackMessageResId = null)
+        _uiState.update { currentUiState -> currentUiState.copy(shaderPackMessageResId = null) }
     }
 
     fun refreshPatchDatabaseState() = viewModelScope.launch(Dispatchers.IO) {
-        _uiState.value = _uiState.value.copy(
-            installedPatchCount = patchDatabaseDownloader.installedPatchCount()
-        )
+        val installedCount = patchDatabaseDownloader.installedPatchCount()
+        _uiState.update { currentUiState -> currentUiState.copy(
+            installedPatchCount = installedCount
+        ) }
     }
 
     fun downloadPatchDatabase() = viewModelScope.launch(Dispatchers.IO) {
         if (_uiState.value.isPatchDatabaseBusy) return@launch
         if (!patchDatabaseDownloader.hasConfiguredSource()) {
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { currentUiState -> currentUiState.copy(
                 patchDatabaseMessageResId = com.sbro.emucorer.R.string.settings_patches_source_missing,
                 patchDatabaseMessageCount = null
-            )
+            ) }
             return@launch
         }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             isPatchDatabaseBusy = true,
             patchDatabaseProgress = PatchDatabaseInstallProgress(PatchDatabaseInstallStage.DOWNLOADING),
             patchDatabaseMessageResId = null,
             patchDatabaseMessageCount = null
-        )
+        ) }
         val result = patchDatabaseDownloader.download { progress ->
-            _uiState.value = _uiState.value.copy(patchDatabaseProgress = progress)
+            _uiState.update { currentUiState -> currentUiState.copy(patchDatabaseProgress = progress) }
         }
         val installedCount = patchDatabaseDownloader.installedPatchCount()
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             isPatchDatabaseBusy = false,
             patchDatabaseProgress = null,
             installedPatchCount = installedCount,
@@ -821,7 +827,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 com.sbro.emucorer.R.string.settings_patches_download_failed
             },
             patchDatabaseMessageCount = installedCount.takeIf { result.isSuccess }
-        )
+        ) }
         if (result.isSuccess) {
             preferences.bumpPatchDatabaseRevision()
             EmulatorBridge.reloadPatches()
@@ -829,10 +835,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun clearPatchDatabaseMessage() {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             patchDatabaseMessageResId = null,
             patchDatabaseMessageCount = null
-        )
+        ) }
     }
 
     fun setPatchDatabaseUseOfficial(enabled: Boolean) = viewModelScope.launch {
@@ -860,13 +866,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         preferences.setDrawerVisualStyle(DrawerVisualStyle.CLASSIC)
         preferences.setHiddenDrawerItems(emptySet())
         preferences.setCustomTheme(CustomThemeConfig.Default)
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { currentUiState -> currentUiState.copy(
             customizationMessageResId = com.sbro.emucorer.R.string.settings_customization_reset_done
-        )
+        ) }
     }
 
     fun clearCustomizationMessage() {
-        _uiState.value = _uiState.value.copy(customizationMessageResId = null)
+        _uiState.update { currentUiState -> currentUiState.copy(customizationMessageResId = null) }
     }
     fun setLanguage(tag: String?) { viewModelScope.launch { preferences.setLanguageTag(tag) } }
 
@@ -880,22 +886,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun loadAppReleaseHistory(showErrors: Boolean = true, force: Boolean = false) {
         if (_uiState.value.appUpdate.historyLoading) return
         viewModelScope.launch(Dispatchers.IO) {
-            _uiState.value = _uiState.value.copy(
-                appUpdate = _uiState.value.appUpdate.copy(
+            _uiState.update { currentUiState -> currentUiState.copy(
+                appUpdate = currentUiState.appUpdate.copy(
                     historyLoading = true,
                     historyErrorMessage = null
                 )
-            )
+            ) }
             runCatching {
                 appUpdateRepository.loadReleaseHistory(force)
             }.onSuccess { releases ->
-                _uiState.value = _uiState.value.copy(
-                    appUpdate = _uiState.value.appUpdate.copy(
+                _uiState.update { currentUiState -> currentUiState.copy(
+                    appUpdate = currentUiState.appUpdate.copy(
                         releaseHistory = releases,
                         historyLoading = false,
                         historyErrorMessage = null
                     )
-                )
+                ) }
             }.onFailure { error ->
                 val errorMsg = if (showErrors) {
                     if (error is com.sbro.emucorer.core.RateLimitException) {
@@ -906,12 +912,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     }
                 } else null
 
-                _uiState.value = _uiState.value.copy(
-                    appUpdate = _uiState.value.appUpdate.copy(
+                _uiState.update { currentUiState -> currentUiState.copy(
+                    appUpdate = currentUiState.appUpdate.copy(
                         historyLoading = false,
                         historyErrorMessage = errorMsg
                     )
-                )
+                ) }
             }
         }
     }
@@ -1295,7 +1301,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             val sdCardDataPath = EmulatorStorage.sdCardRoot(getApplication())?.absolutePath
             withContext(Dispatchers.Main) {
-                _uiState.value = _uiState.value.copy(sdCardDataPath = sdCardDataPath)
+                _uiState.update { currentUiState -> currentUiState.copy(sdCardDataPath = sdCardDataPath) }
             }
         }
     }
@@ -1341,16 +1347,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         const val CORE_VERSION = "1.0.0"
     }
     fun refreshInstalledGpuDrivers() {
-        _uiState.value = _uiState.value.copy(installedGpuDrivers = gpuDriverManager.listInstalledDrivers())
+        val drivers = installedDriversLoader?.invoke() ?: gpuDriverManager.listInstalledDrivers()
+        _uiState.update { currentUiState -> currentUiState.copy(installedGpuDrivers = drivers) }
     }
     fun refreshGpuDriverCatalog() {
         if (_uiState.value.gpuDriverCatalogLoading) return
-        _uiState.value = _uiState.value.copy(gpuDriverCatalogLoading = true, gpuDriverCatalogError = null)
+        _uiState.update { currentUiState -> currentUiState.copy(gpuDriverCatalogLoading = true, gpuDriverCatalogError = null) }
         viewModelScope.launch(Dispatchers.IO) {
             runCatching { gpuDriverCatalogRepository.loadCatalog() }.onSuccess {
-                _uiState.value = _uiState.value.copy(remoteGpuDrivers = it, gpuDriverCatalogLoading = false)
+                _uiState.update { currentUiState -> currentUiState.copy(remoteGpuDrivers = it, gpuDriverCatalogLoading = false) }
             }.onFailure {
-                _uiState.value = _uiState.value.copy(gpuDriverCatalogLoading = false, gpuDriverCatalogError = it.message ?: "Catalog unavailable")
+                _uiState.update { currentUiState -> currentUiState.copy(gpuDriverCatalogLoading = false, gpuDriverCatalogError = it.message ?: "Catalog unavailable") }
             }
         }
     }
@@ -1358,12 +1365,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val path = gpuDriverManager.readMainLibraryPath(name) ?: error("Driver is not installed")
         check(gpuDriverManager.isVendorCompatible(path)) { "Driver is not compatible with this GPU" }
         driverPreferences.edit().putString("global", path).apply()
-        _uiState.value = _uiState.value.copy(customDriverPath = path, gpuDriverType = 1)
+        _uiState.update { currentUiState -> currentUiState.copy(customDriverPath = path, gpuDriverType = 1) }
     }
     fun selectGpuDriver(name: String) { viewModelScope.launch(Dispatchers.IO) { selectDriverInternal(name); refreshInstalledGpuDrivers() } }
     fun useSystemGpuDriver() {
         driverPreferences.edit().remove("global").apply()
-        _uiState.value = _uiState.value.copy(customDriverPath = null, gpuDriverType = 0)
+        _uiState.update { currentUiState -> currentUiState.copy(customDriverPath = null, gpuDriverType = 0) }
     }
     fun removeGpuDriver(name: String) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1383,14 +1390,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun installRemoteGpuDriver(driver: RemoteGpuDriver, activate: Boolean = true, onComplete: (Result<String>) -> Unit) {
         if (_uiState.value.gpuDriverDownloads.containsKey(driver.id)) return
         viewModelScope.launch(Dispatchers.IO) {
-            _uiState.value = _uiState.value.copy(gpuDriverDownloads = _uiState.value.gpuDriverDownloads + (driver.id to 0f))
+            _uiState.update { currentUiState -> currentUiState.copy(gpuDriverDownloads = currentUiState.gpuDriverDownloads + (driver.id to 0f)) }
             val result = runCatching {
                 val archive = gpuDriverCatalogRepository.downloadDriver(driver) { progress ->
-                    _uiState.value = _uiState.value.copy(gpuDriverDownloads = _uiState.value.gpuDriverDownloads + (driver.id to progress))
+                    _uiState.update { currentUiState -> currentUiState.copy(gpuDriverDownloads = currentUiState.gpuDriverDownloads + (driver.id to progress)) }
                 }
                 gpuDriverManager.installFromArchive(archive, driver.vendor).also { if (activate) selectDriverInternal(it) }
             }
-            _uiState.value = _uiState.value.copy(gpuDriverDownloads = _uiState.value.gpuDriverDownloads - driver.id)
+            _uiState.update { currentUiState -> currentUiState.copy(gpuDriverDownloads = currentUiState.gpuDriverDownloads - driver.id) }
             refreshInstalledGpuDrivers()
             withContext(Dispatchers.Main) { onComplete(result) }
         }
