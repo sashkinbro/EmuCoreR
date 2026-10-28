@@ -44,7 +44,7 @@ public final class TestGameDocumentsProvider extends ContentProvider {
             switch (columns[i]) {
                 case DocumentsContract.Document.COLUMN_DOCUMENT_ID: row[i] = id; break;
                 case DocumentsContract.Document.COLUMN_DISPLAY_NAME:
-                    row[i] = id.equals("root/cue") ? "disc.cue" : id.equals("root/track") ? "track.bin" : "root";
+                    row[i] = id.equals("root/cue") ? "disc.cue" : id.equals("root/track") ? "track.bin" : id.equals("root/archive") ? "fixture.zip" : "root";
                     break;
                 case DocumentsContract.Document.COLUMN_MIME_TYPE:
                     row[i] = id.equals("root") ? DocumentsContract.Document.MIME_TYPE_DIR : "application/octet-stream";
@@ -57,8 +57,13 @@ public final class TestGameDocumentsProvider extends ContentProvider {
     }
 
     @Override public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
-        if (!mode.equals("r")) throw new FileNotFoundException("Read-only fixture");
         String id = DocumentsContract.getDocumentId(uri);
+        if (id.equals("root/archive")) {
+            int flags = mode.equals("r") ? ParcelFileDescriptor.MODE_READ_ONLY :
+                ParcelFileDescriptor.MODE_WRITE_ONLY | ParcelFileDescriptor.MODE_CREATE | ParcelFileDescriptor.MODE_TRUNCATE;
+            return ParcelFileDescriptor.open(new File(getContext().getCacheDir(), "archive-game.fixture"), flags);
+        }
+        if (!mode.equals("r")) throw new FileNotFoundException("Read-only fixture");
         File file = new File(getContext().getCacheDir(), id.equals("root/cue") ? "swap-cue.fixture" : "swap-track.fixture");
         if (!file.exists()) {
             try (FileOutputStream output = new FileOutputStream(file)) {
@@ -71,13 +76,22 @@ public final class TestGameDocumentsProvider extends ContentProvider {
     }
 
     @Override public Bundle call(String method, String arg, Bundle extras) {
-        if (!method.equals("grantFixture") && !method.equals("grantSingleFixture")) return super.call(method, arg, extras);
+        if (method.equals("clearArchiveFixture")) {
+            if (!"com.sbro.emucorer".equals(arg)) throw new IllegalArgumentException("Test target only");
+            new File(getContext().getCacheDir(), "archive-game.fixture").delete();
+            return new Bundle();
+        }
+        if (!method.equals("grantFixture") && !method.equals("grantSingleFixture") && !method.equals("grantArchiveFixture")) return super.call(method, arg, extras);
         if (!"com.sbro.emucorer".equals(arg)) throw new IllegalArgumentException("Test target only");
-        Uri tree = method.equals("grantSingleFixture")
+        Uri tree = method.equals("grantArchiveFixture")
+            ? DocumentsContract.buildDocumentUri("com.sbro.emucorer.test.documents", "root/archive")
+            : method.equals("grantSingleFixture")
             ? DocumentsContract.buildDocumentUri("com.sbro.emucorer.test.documents", "root/track")
             : DocumentsContract.buildTreeDocumentUri("com.sbro.emucorer.test.documents", "root");
-        getContext().grantUriPermission(arg, tree, Intent.FLAG_GRANT_READ_URI_PERMISSION |
-            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        int flags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
+            Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
+        if (method.equals("grantArchiveFixture")) flags |= Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+        getContext().grantUriPermission(arg, tree, flags);
         return new Bundle();
     }
     @Override public String getType(Uri uri) { return "application/octet-stream"; }

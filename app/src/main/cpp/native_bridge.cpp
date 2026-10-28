@@ -41,6 +41,7 @@
 #include "libretro.h"
 #include "shader_chain.h"
 #include "vulkan_frontend.h"
+#include "archive_disc.h"
 
 #if defined(EMUCORER_HAVE_LIBRASHADER)
 #include <librashader.h>
@@ -1322,7 +1323,12 @@ bool EnvironmentCallback(unsigned cmd, void* data) {
         case RETRO_ENVIRONMENT_SET_MESSAGE_EXT:
             return true;
 
-        case RETRO_ENVIRONMENT_GET_VFS_INTERFACE:
+        case RETRO_ENVIRONMENT_GET_VFS_INTERFACE: {
+            auto* info = static_cast<retro_vfs_interface_info*>(data);
+            if (!info || info->required_interface_version > 3) return false;
+            info->iface = const_cast<retro_vfs_interface*>(emucorer::archive_disc::Interface());
+            return true;
+        }
         case RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION:
         default:
             return false;
@@ -1787,6 +1793,28 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_nativeInit(JNIEnv* env, jobject, js
     }
     LOGI("nativeInit system=%s save=%s assets=%s", g_frontend.system_dir.c_str(),
          g_frontend.save_dir.c_str(), g_frontend.core_assets_dir.c_str());
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_nativeMountArchive(JNIEnv* env, jobject, jint fd) {
+    const std::string path = emucorer::archive_disc::Mount(fd);
+    return path.empty() ? nullptr : env->NewStringUTF(path.c_str());
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_nativeUnmountArchive(JNIEnv* env, jobject, jstring path) {
+    if (!path) return;
+    const char* value = env->GetStringUTFChars(path, nullptr);
+    if (value) { emucorer::archive_disc::Unmount(value); env->ReleaseStringUTFChars(path, value); }
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_nativeSetCustomGpuDriver(JNIEnv* env, jobject, jstring path, jstring hookDir) {
+    const char* driver = path ? env->GetStringUTFChars(path, nullptr) : nullptr;
+    const char* hooks = hookDir ? env->GetStringUTFChars(hookDir, nullptr) : nullptr;
+    vulkan::SetCustomDriver(driver ? driver : "", hooks ? hooks : "");
+    if (driver) env->ReleaseStringUTFChars(path, driver);
+    if (hooks) env->ReleaseStringUTFChars(hookDir, hooks);
 }
 
 JNIEXPORT void JNICALL

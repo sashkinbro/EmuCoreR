@@ -144,7 +144,8 @@ extern "C" int64_t rfseek(RFILE* stream, int64_t offset, int origin)
          break;
    }
 
-   return filestream_seek(stream, offset, seek_position);
+   // rfseek follows fseek semantics; filestream_seek returns the new offset.
+   return filestream_seek(stream, offset, seek_position) < 0 ? -1 : 0;
 }
 
 extern "C" int64_t rfwrite(void const* buffer,

@@ -76,8 +76,11 @@ if(TARGET chdr-fuzz)
 endif()
 
 # JNI bridge that drives the core through the libretro API.
+add_subdirectory(third_party/libadrenotools)
+add_subdirectory(third_party/archive)
 add_library(emucorer_jni SHARED
     native_bridge.cpp
+    archive_disc.cpp
     achievements_bridge.cpp
     shader_chain.cpp
     vulkan_frontend.cpp
@@ -104,7 +107,8 @@ target_link_libraries(emucorer_jni PRIVATE
     aaudio
     EGL
     GLESv3
-    ${VULKAN_LIBRARY}
+    adrenotools
+    archive_static
 )
 
 if(TARGET librashader)

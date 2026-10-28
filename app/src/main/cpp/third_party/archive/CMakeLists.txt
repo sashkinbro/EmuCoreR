@@ -1,0 +1,28 @@
+# Pinned readers for ZIP, RAR and 7z; games stay in their source archives.
+include(FetchContent)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(XZ_TOOL_XZ OFF CACHE BOOL "" FORCE)
+set(XZ_TOOL_XZDEC OFF CACHE BOOL "" FORCE)
+set(XZ_TOOL_LZMADEC OFF CACHE BOOL "" FORCE)
+set(XZ_TOOL_LZMAINFO OFF CACHE BOOL "" FORCE)
+set(XZ_DOC OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(emucorer_xz URL "https://github.com/tukaani-project/xz/archive/refs/tags/v5.8.2.tar.gz" URL_HASH SHA256=f21fdf2c1ee004de30ca40377a273e3369186e6b7ab7b50a410eaa2e2bbefafb DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(emucorer_xz)
+foreach(feature LZMA OPENSSL LIBB2 LZ4 LZO ZSTD BZip2 LIBXML2 EXPAT TAR CPIO CAT UNZIP TEST INSTALL ACL XATTR ICONV)
+    set(ENABLE_${feature} OFF CACHE BOOL "" FORCE)
+endforeach()
+set(ENABLE_ZLIB ON CACHE BOOL "" FORCE)
+# STATIC_LIBRARY try-compiles cannot detect the absent Android libmd.
+set(LIBMD_FOUND FALSE CACHE INTERNAL "" FORCE)
+foreach(symbol CHFLAGS CLOSEFROM CLOSE_RANGE CYGWIN_CONV_PATH FCHFLAGS GETVFSBYNAME LCHFLAGS LCHMOD POSIX_SPAWNP READPASSPHRASE _FSEEKI64 _GET_TIMEZONE)
+    set(HAVE_${symbol} FALSE CACHE INTERNAL "" FORCE)
+endforeach()
+FetchContent_Declare(emucorer_libarchive URL "https://github.com/libarchive/libarchive/archive/refs/tags/v3.8.8.tar.gz" URL_HASH SHA256=528f9c91e11238cbb5ce6d79b20fa3bb48a5cd124008036af1913d84fc5ba420 DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(emucorer_libarchive)
+# Use our cross-compiled XZ target instead of CMake's host-library discovery.
+target_compile_definitions(archive_static PRIVATE HAVE_LZMA_H=1 HAVE_LIBLZMA=1)
+target_link_libraries(archive_static liblzma)
+
+target_include_directories(archive_static PRIVATE "${emucorer_xz_SOURCE_DIR}/src/liblzma/api")
+target_compile_options(archive_static PRIVATE -Wno-error=unused-variable)

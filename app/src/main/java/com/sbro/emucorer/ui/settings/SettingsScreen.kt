@@ -298,6 +298,7 @@ fun SettingsScreen(
     onOpenControlsLayoutEditor: (() -> Unit)? = null,
     onOpenThemeManager: (() -> Unit)? = null,
     onOpenTouchControlCreator: (() -> Unit)? = null,
+    onOpenGpuDriverManager: (() -> Unit)? = null,
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -641,6 +642,7 @@ fun SettingsScreen(
                     searchEnabled = false
                     searchQuery = ""
                 },
+                onOpenGpuDriverManager = onOpenGpuDriverManager,
                 onOpenMemoryCardManager = onOpenMemoryCardManager,
                 onOpenControlsLayoutEditor = onOpenControlsLayoutEditor,
                 onOpenThemeManager = onOpenThemeManager,
@@ -1313,7 +1315,8 @@ private fun SettingsContent(
     onOpenMemoryCardManager: (() -> Unit)? = null,
     onOpenControlsLayoutEditor: (() -> Unit)? = null,
     onOpenThemeManager: (() -> Unit)? = null,
-    onOpenTouchControlCreator: (() -> Unit)? = null
+    onOpenTouchControlCreator: (() -> Unit)? = null,
+    onOpenGpuDriverManager: (() -> Unit)? = null
 ) {
     val gamepadActions = remember { GamepadManager.mappableButtonActions() }
     val gamepadDeviceAssignments by GamepadManager.gamepadDeviceAssignmentsState.collectAsState()
@@ -2287,6 +2290,7 @@ private fun SettingsContent(
 
                 SettingsTab.Graphics -> {
                     SettingsSection(title = stringResource(R.string.settings_graphics_tab)) {
+                        SettingsItem(icon = Icons.Rounded.Memory, label = stringResource(R.string.settings_gpu_driver_manager_title), value = uiState.customDriverPath?.substringBeforeLast('/')?.substringAfterLast('/') ?: stringResource(R.string.settings_gpu_driver_system), onClick = onOpenGpuDriverManager ?: {})
                         ChoiceSection(
                             title = stringResource(R.string.settings_renderer),
                             options = listOf(

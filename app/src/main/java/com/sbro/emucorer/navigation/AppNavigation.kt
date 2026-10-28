@@ -102,6 +102,9 @@ object HomeRoute
 data class GameDetailRoute(val catalogGameId: Long)
 
 @Serializable
+data object GpuDriverSettingsRoute
+
+@Serializable
 data class EmulationRoute(
     val gamePath: String? = null,
     val saveSlot: Int? = null,
@@ -840,9 +843,14 @@ onNavigateAchievements = navigateAchievements,
                                 launchSingleTop = true
                             }
                         },
+                        onOpenGpuDriverManager = { navController.navigate(GpuDriverSettingsRoute) },
                         viewModel = settingsViewModel
                     )
                 }
+            }
+
+            composable<GpuDriverSettingsRoute> {
+                com.sbro.emucorer.ui.settings.GpuDriverScreen(onBackClick = { navController.popBackStack() }, viewModel = settingsViewModel)
             }
 
             composable<LanguageSettingsRoute> {
@@ -1120,5 +1128,5 @@ onNavigateAchievements = navigateAchievements,
 
 private fun isSupportedGameImage(fileName: String): Boolean {
     val extension = fileName.substringAfterLast('.', "").lowercase()
-    return extension in setOf("cue", "bin", "iso", "img", "chd", "pbp", "ecm", "mds", "exe", "psexe", "cpe")
+    return extension in setOf("cue", "bin", "iso", "img", "chd", "pbp", "ecm", "mds", "exe", "psexe", "cpe", "zip", "7z", "rar")
 }

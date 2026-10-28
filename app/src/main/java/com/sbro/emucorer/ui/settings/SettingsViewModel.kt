@@ -15,6 +15,12 @@ import com.sbro.emucorer.core.DocumentPathResolver
 import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.core.EmulatorDataLocation
 import com.sbro.emucorer.core.EmulatorStorage
+import com.sbro.emucorer.core.GpuDriverManager
+import com.sbro.emucorer.core.GpuDriverCatalogRepository
+import com.sbro.emucorer.core.InstalledGpuDriver
+import com.sbro.emucorer.core.RemoteGpuDriver
+import com.sbro.emucorer.core.vendor
+import com.sbro.emucorer.core.DeviceGpuInfoProvider
 import com.sbro.emucorer.core.GpuHardwareProfiles
 import com.sbro.emucorer.core.RendererDefaults
 import com.sbro.emucorer.core.GamepadManager
@@ -77,6 +83,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
+    val gpuDriverType: Int = 0,
+    val customDriverPath: String? = null,
+    val installedGpuDrivers: List<InstalledGpuDriver> = emptyList(),
+    val remoteGpuDrivers: List<RemoteGpuDriver> = emptyList(),
+    val gpuDriverCatalogLoading: Boolean = false,
+    val gpuDriverCatalogError: String? = null,
+    val gpuDriverDownloads: Map<String, Float> = emptyMap(),
     val isLoaded: Boolean = false,
     val showMediatekCompatibilityNotice: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -231,6 +244,9 @@ data class AppUpdateUiState(
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val gpuDriverManager = GpuDriverManager(application)
+    private val gpuDriverCatalogRepository = GpuDriverCatalogRepository(application)
+    private val driverPreferences = application.getSharedPreferences("gpu_driver_selection", 0)
     private val preferences = AppPreferences(application)
     private val customFontRepository = CustomFontRepository(application)
     private val homeBackgroundRepository = HomeBackgroundRepository(application)
@@ -254,6 +270,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private var mediatekCompatibilityNoticeChecked = false
 
     init {
+        val driverPath = driverPreferences.getString("global", null)
+        _uiState.value = _uiState.value.copy(customDriverPath = driverPath, gpuDriverType = if (driverPath.isNullOrBlank()) 0 else 1)
+        refreshInstalledGpuDrivers()
+        viewModelScope.launch(Dispatchers.IO) { DeviceGpuInfoProvider.preload(application); refreshInstalledGpuDrivers() }
         initializeAboutInfo()
         refreshShaderPresets()
         refreshPatchDatabaseState()
@@ -1320,4 +1340,60 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         const val CORE_NAME = "SwanStation"
         const val CORE_VERSION = "1.0.0"
     }
+    fun refreshInstalledGpuDrivers() {
+        _uiState.value = _uiState.value.copy(installedGpuDrivers = gpuDriverManager.listInstalledDrivers())
+    }
+    fun refreshGpuDriverCatalog() {
+        if (_uiState.value.gpuDriverCatalogLoading) return
+        _uiState.value = _uiState.value.copy(gpuDriverCatalogLoading = true, gpuDriverCatalogError = null)
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { gpuDriverCatalogRepository.loadCatalog() }.onSuccess {
+                _uiState.value = _uiState.value.copy(remoteGpuDrivers = it, gpuDriverCatalogLoading = false)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(gpuDriverCatalogLoading = false, gpuDriverCatalogError = it.message ?: "Catalog unavailable")
+            }
+        }
+    }
+    private fun selectDriverInternal(name: String) {
+        val path = gpuDriverManager.readMainLibraryPath(name) ?: error("Driver is not installed")
+        check(gpuDriverManager.isVendorCompatible(path)) { "Driver is not compatible with this GPU" }
+        driverPreferences.edit().putString("global", path).apply()
+        _uiState.value = _uiState.value.copy(customDriverPath = path, gpuDriverType = 1)
+    }
+    fun selectGpuDriver(name: String) { viewModelScope.launch(Dispatchers.IO) { selectDriverInternal(name); refreshInstalledGpuDrivers() } }
+    fun useSystemGpuDriver() {
+        driverPreferences.edit().remove("global").apply()
+        _uiState.value = _uiState.value.copy(customDriverPath = null, gpuDriverType = 0)
+    }
+    fun removeGpuDriver(name: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val path = gpuDriverManager.readMainLibraryPath(name)
+            gpuDriverManager.remove(name)
+            if (path == _uiState.value.customDriverPath) useSystemGpuDriver()
+            refreshInstalledGpuDrivers()
+        }
+    }
+    fun installGpuDriver(uri: Uri, activate: Boolean = true, onComplete: (Result<String>) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching { gpuDriverManager.installFromArchive(uri).also { if (activate) selectDriverInternal(it) } }
+            refreshInstalledGpuDrivers()
+            withContext(Dispatchers.Main) { onComplete(result) }
+        }
+    }
+    fun installRemoteGpuDriver(driver: RemoteGpuDriver, activate: Boolean = true, onComplete: (Result<String>) -> Unit) {
+        if (_uiState.value.gpuDriverDownloads.containsKey(driver.id)) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.value = _uiState.value.copy(gpuDriverDownloads = _uiState.value.gpuDriverDownloads + (driver.id to 0f))
+            val result = runCatching {
+                val archive = gpuDriverCatalogRepository.downloadDriver(driver) { progress ->
+                    _uiState.value = _uiState.value.copy(gpuDriverDownloads = _uiState.value.gpuDriverDownloads + (driver.id to progress))
+                }
+                gpuDriverManager.installFromArchive(archive, driver.vendor).also { if (activate) selectDriverInternal(it) }
+            }
+            _uiState.value = _uiState.value.copy(gpuDriverDownloads = _uiState.value.gpuDriverDownloads - driver.id)
+            refreshInstalledGpuDrivers()
+            withContext(Dispatchers.Main) { onComplete(result) }
+        }
+    }
+
 }
