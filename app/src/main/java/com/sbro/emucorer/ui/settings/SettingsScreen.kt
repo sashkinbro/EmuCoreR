@@ -382,6 +382,10 @@ fun SettingsScreen(
     }
     val patchUrlInvalidMessage = stringResource(R.string.settings_patches_custom_url_invalid)
 
+    LaunchedEffect(uiState.isLoaded) {
+        // Recovery path when the first snapshot was lost to a concurrent state write.
+        if (!uiState.isLoaded) viewModel.ensureSettingsLoaded()
+    }
     if (!uiState.isLoaded) {
         Box(
             modifier = Modifier
