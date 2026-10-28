@@ -247,7 +247,11 @@ private val DISC_SWAP_MIME_TYPES = arrayOf(
     "application/x-iso9660-image",
     "application/x-cd-image",
     "application/x-chd",
-    "application/gzip"
+    "application/gzip",
+    "application/zip",
+    "application/x-7z-compressed",
+    "application/vnd.rar",
+    "application/x-rar-compressed"
 )
 
 private object PadKey {
@@ -484,6 +488,10 @@ fun EmulationScreen(
     var showControlsEditor by remember { mutableStateOf(false) }
     var showGamepadMappingDialog by remember { mutableStateOf(false) }
     var showKeyboardMouseSettingsDialog by remember { mutableStateOf(false) }
+    var showGpuDriverManager by remember { mutableStateOf(false) }
+    val driverPreferences = remember(context) { context.getSharedPreferences("gpu_driver_selection", 0) }
+    val driverManager = remember(context) { com.sbro.emucorer.core.GpuDriverManager(context) }
+    var gameDriverPath by remember(gamePath) { mutableStateOf(gamePath?.let { driverPreferences.getString("game:$it", driverPreferences.getString("global", null)) }) }
     var pendingGamepadActionId by remember { mutableStateOf<String?>(null) }
     var pendingGamepadPadIndex by rememberSaveable { mutableIntStateOf(0) }
     var selectedGamepadPadIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -1667,6 +1675,7 @@ fun EmulationScreen(
                     onOpenControlsEditor = { showControlsEditor = true },
                     onOpenGamepadMapping = { showGamepadMappingDialog = true },
                     onOpenKeyboardMouseSettings = { showKeyboardMouseSettingsDialog = true },
+                    onOpenGpuDriverManager = { showGpuDriverManager = true },
                     onSetRenderer = { viewModel.setRenderer(it) },
                     onSetUpscale = { viewModel.setUpscale(it) },
                     onSetAspectRatio = { viewModel.setAspectRatio(it) },
@@ -1952,6 +1961,23 @@ fun EmulationScreen(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(vertical = 6.dp)
+                )
+            }
+        }
+    }
+
+    if (showGpuDriverManager && uiState.runtimeFailure == null) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showGpuDriverManager = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                com.sbro.emucorer.ui.settings.GpuDriverScreen(
+                    onBackClick = { showGpuDriverManager = false },
+                    selectedDriverPathOverride = gameDriverPath?.takeIf { it.isNotEmpty() },
+                    rendererOverride = uiState.renderer,
+                    onSelectDriverForGame = { name ->
+                        val path = name?.let(driverManager::readMainLibraryPath).orEmpty()
+                        if (gamePath != null) driverPreferences.edit().putString("game:$gamePath", path).apply()
+                        gameDriverPath = path
+                    }
                 )
             }
         }
@@ -3032,6 +3058,7 @@ private fun EmulationSidebarMenu(
     onOpenControlsEditor: () -> Unit,
     onOpenGamepadMapping: () -> Unit,
     onOpenKeyboardMouseSettings: () -> Unit,
+    onOpenGpuDriverManager: () -> Unit,
     onSetRenderer: (Int) -> Unit,
     onSetUpscale: (Float) -> Unit,
     onSetAspectRatio: (Int) -> Unit,
@@ -3984,6 +4011,8 @@ private fun EmulationSidebarMenu(
                             topPadding = sectionLabelTopPadding,
                             horizontalInset = sectionLabelInset
                         )
+
+                        MenuButton(icon = Icons.Rounded.Gamepad, text = stringResource(R.string.settings_gpu_driver_manager_title), onClick = onOpenGpuDriverManager, containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f))
 
                         LiveSelectionRow(
                             title = stringResource(R.string.settings_renderer),

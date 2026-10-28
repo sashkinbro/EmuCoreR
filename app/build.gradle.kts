@@ -176,7 +176,7 @@ android {
     }
     packaging {
         jniLibs {
-            useLegacyPackaging = false
+            useLegacyPackaging = true
             discordSdkDirectory?.let { pickFirsts += "**/libdiscord_partner_sdk.so" }
         }
     }
@@ -218,6 +218,8 @@ val generated16kJniDirectory = layout.buildDirectory.dir("generated/page-size-jn
 val configureEmucorer16k by tasks.registering(Exec::class) {
     group = "build"
     description = "Configures the secondary 16 KiB Android emulator core."
+    // Both configurations generate SwanStation version.h in the source tree.
+    mustRunAfter(tasks.matching { it.name.startsWith("configureCMake") })
     inputs.files(fileTree("src/main/cpp") {
         include("**/CMakeLists.txt", "**/*.cmake")
     })

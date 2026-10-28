@@ -75,6 +75,7 @@ internal object CoreRuntime {
     @Volatile private var performanceMetricsSnapshot: String? = null
     private var discDescriptor: ParcelFileDescriptor? = null
     private var discLink: File? = null
+    private var discArchive: String? = null
 
     private val pendingPadButtons = AtomicIntegerArray(IntArray(2) { -1 })
     private val pendingPadAnalog = AtomicIntegerArray(IntArray(2) { 0x80808080.toInt() })
@@ -280,6 +281,13 @@ internal object CoreRuntime {
         else listOf(requestedCore)
 
         shutdownSession()
+        context?.let { appContext ->
+            val prefs = appContext.getSharedPreferences("gpu_driver_selection", Context.MODE_PRIVATE)
+            val path = prefs.getString("game:$gamePath", prefs.getString("global", null))
+            val manager = GpuDriverManager(appContext)
+            val validPath = path?.takeIf { it.isNotBlank() && isValidDriverLibrary(File(it)) && manager.isVendorCompatible(it) }.orEmpty()
+            bridge.nativeSetCustomGpuDriver(validPath, appContext.applicationInfo.nativeLibraryDir)
+        }
         // The native audio ring is shared between sessions; clear it so the new
         // AAudio stream does not replay the tail of the previous game.
         bridge.resetAudioQueue()
@@ -1115,8 +1123,9 @@ internal object CoreRuntime {
     }
 
     private class PreparedDisc(val path: String, val descriptor: ParcelFileDescriptor? = null,
-                               val link: File? = null) {
+                               val link: File? = null, val archive: String? = null) {
         fun close() {
+            archive?.let { CoreRuntime.bridge.nativeUnmountArchive(it) }
             link?.let { runCatching { it.delete() } }
             descriptor?.let { runCatching { it.close() } }
         }
@@ -1126,9 +1135,19 @@ internal object CoreRuntime {
         releaseDiscDescriptor()
         discDescriptor = prepared.descriptor
         discLink = prepared.link
+        discArchive = prepared.archive
     }
 
     private fun prepareDisc(gamePath: String): PreparedDisc? {
+        val extension = discExtensionFor(gamePath)
+        if (extension in setOf("zip", "7z", "rar")) {
+            val descriptor = runCatching {
+                if (gamePath.startsWith("content://")) context?.contentResolver?.openFileDescriptor(Uri.parse(gamePath), "r")
+                else ParcelFileDescriptor.open(File(gamePath), ParcelFileDescriptor.MODE_READ_ONLY)
+            }.getOrNull() ?: return null
+            val mounted = try { bridge.nativeMountArchive(descriptor.fd) } finally { descriptor.close() }
+            return mounted?.let { PreparedDisc(it, archive = it) }
+        }
         if (!gamePath.startsWith("content://")) return PreparedDisc(gamePath)
         val appContext = context
         if (appContext != null) {
@@ -1154,7 +1173,6 @@ internal object CoreRuntime {
         // The core picks its disc container by file extension, so expose the
         // live SAF descriptor through a cache symlink that keeps the original
         // extension ("/proc/self/fd/N" alone would be rejected as unknown).
-        val extension = discExtensionFor(gamePath)
         val link = runCatching {
             val directory = File(appContext!!.cacheDir, "swanstation-disc").apply { mkdirs() }
             File.createTempFile("disc-", ".$extension", directory)
@@ -1184,6 +1202,8 @@ internal object CoreRuntime {
     }.getOrDefault(false)
 
     private fun releaseDiscDescriptor() {
+        discArchive?.let { bridge.nativeUnmountArchive(it) }
+        discArchive = null
         discLink?.let { link -> runCatching { link.delete() } }
         discLink = null
         discDescriptor?.let { descriptor -> runCatching { descriptor.close() } }
@@ -1241,7 +1261,8 @@ internal object CoreRuntime {
         return extension == "cue" || extension == "bin" || extension == "img" ||
             extension == "iso" || extension == "chd" || extension == "pbp" || extension == "m3u" ||
             extension == "ecm" || extension == "mds" || extension == "psf" ||
-            extension == "exe" || extension == "psexe" || extension == "cpe"
+            extension == "exe" || extension == "psexe" || extension == "cpe" ||
+            extension == "zip" || extension == "7z" || extension == "rar"
     }
 
     private fun fitRect(containerWidth: Int, containerHeight: Int, contentWidth: Int, contentHeight: Int): Rect {

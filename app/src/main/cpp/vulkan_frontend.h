@@ -5,6 +5,7 @@
 
 #include <android/native_window.h>
 #include <cstdint>
+#include <string>
 
 #ifndef VK_USE_PLATFORM_ANDROID_KHR
 #define VK_USE_PLATFORM_ANDROID_KHR
@@ -32,6 +33,7 @@ bool IsRequested();
 bool IsActive();
 
 void NotifyContextDestroy();
+void SetCustomDriver(const std::string& path, const std::string& hook_directory);
 void SetShaderEffect(int effect);
 void SetDisplayCrop(int left, int top, int right, int bottom);
 

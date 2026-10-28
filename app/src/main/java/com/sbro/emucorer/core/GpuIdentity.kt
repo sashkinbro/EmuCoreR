@@ -19,3 +19,7 @@ data class GpuModelInfo(
     val displayName: String,
     val adrenoFamily: AdrenoFamily? = null
 )
+
+enum class GpuTier { GREEN, YELLOW, RED, UNKNOWN }
+enum class GpuInfoSource { GL_RENDERER, SOC_CATALOG, UNKNOWN }
+data class DeviceGpuSnapshot(val model: GpuModelInfo?, val tier: GpuTier, val renderer: String?, val source: GpuInfoSource)
