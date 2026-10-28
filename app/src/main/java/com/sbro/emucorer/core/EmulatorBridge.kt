@@ -34,7 +34,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.FileOutputStream
 import java.lang.ref.WeakReference
-import java.util.Locale
 import kotlin.coroutines.resume
 
 object EmulatorBridge {
@@ -709,36 +708,7 @@ object EmulatorBridge {
             trimmed.contains("/storage/", ignoreCase = true)
     }
 
-    fun parseMetadataFromName(rawName: String): GameMetadata {
-        val ext = rawName.substringAfterLast('.', "").lowercase()
-        val cleanName = if (ext in setOf("iso", "bin", "cue", "img", "mdf", "gz", "cso", "zso", "chd", "elf")) {
-            rawName.substringBeforeLast('.').trim()
-        } else {
-            rawName.trim()
-        }
-        val serial = extractSerialFromName(cleanName)
-        val title = cleanName
-            .replace(Regex("""(?i)\b([A-Z]{4})[-_. ]?(\d{3})[-_. ]?(\d{2})\b"""), " ")
-            .replace(Regex("""(?i)\b([A-Z]{4})[-_. ]?(\d{5})\b"""), " ")
-            .replace(Regex("""\[[^]]*]|\([^)]*\)"""), " ")
-            .replace(Regex("""\b(disc|disk|cd|dvd)\s*\d+\b""", RegexOption.IGNORE_CASE), " ")
-            .replace('_', ' ')
-            .replace(Regex("""\s+"""), " ")
-            .trim()
-            .ifBlank { cleanName }
-        return GameMetadata(title = title, serial = serial, serialWithCrc = serial)
-    }
-
-    private fun extractSerialFromName(value: String): String? {
-        val normalized = value.uppercase(Locale.ROOT)
-        val fullPattern = Regex("""\b([A-Z]{4})[-_. ]?(\d{3})[-_. ]?(\d{2})\b""")
-        val compactPattern = Regex("""\b([A-Z]{4})[-_. ]?(\d{5})\b""")
-        return fullPattern.find(normalized)?.let { match ->
-            "${match.groupValues[1]}-${match.groupValues[2]}${match.groupValues[3]}"
-        } ?: compactPattern.find(normalized)?.let { match ->
-            "${match.groupValues[1]}-${match.groupValues[2]}"
-        }
-    }
+    fun parseMetadataFromName(rawName: String): GameMetadata = parsePs1MetadataFromName(rawName)
 
     suspend fun saveState(slot: Int): Boolean {
         if (!isNativeLoaded || !isVmActive) return false
