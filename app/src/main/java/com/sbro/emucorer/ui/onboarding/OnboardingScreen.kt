@@ -1571,10 +1571,14 @@ internal fun SupportedConsolesCard() {
                     1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
                 )
             ) {
-                Text(stringResource(R.string.formats_title))
+                Text(
+                    text = stringResource(R.string.formats_title),
+                    modifier = Modifier.weight(1f, fill = false)
+                )
                 Icon(
                     if (showFormats) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = null
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
                 )
             }
             AnimatedVisibility(visible = showFormats) {
