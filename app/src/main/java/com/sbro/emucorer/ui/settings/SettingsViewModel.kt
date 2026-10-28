@@ -427,6 +427,18 @@ class SettingsViewModel @JvmOverloads constructor(
         ) }
     }
 
+    /**
+     * Safety net for the settings destination: never leave the user on the loading
+     * spinner if a concurrent writer lost the first snapshot emission.
+     */
+    fun ensureSettingsLoaded() {
+        if (_uiState.value.isLoaded) return
+        viewModelScope.launch {
+            runCatching { preferences.settingsSnapshot.first() }
+                .onSuccess(::applySettingsSnapshot)
+        }
+    }
+
     fun checkMediatekCompatibilityNotice() {
         if (mediatekCompatibilityNoticeChecked) return
         mediatekCompatibilityNoticeChecked = true
@@ -464,29 +476,28 @@ class SettingsViewModel @JvmOverloads constructor(
         }
     }
     fun saveCustomThemeLibrary(library: CustomThemeLibrary, activate: Boolean) {
-        val current = _uiState.value
-        if (!current.isProUnlocked) return
+        if (!_uiState.value.isProUnlocked) return
 
         val safeLibrary = library.sanitized()
         val activeConfig = safeLibrary.activeTheme()?.config
-        val nextThemeMode = when {
-            activate && activeConfig != null -> ThemeMode.CUSTOM
-            current.themeMode == ThemeMode.CUSTOM && activeConfig == null -> ThemeMode.SYSTEM
-            else -> current.themeMode
+        _uiState.update { state ->
+            state.copy(
+                themeMode = when {
+                    activate && activeConfig != null -> ThemeMode.CUSTOM
+                    state.themeMode == ThemeMode.CUSTOM && activeConfig == null -> ThemeMode.SYSTEM
+                    else -> state.themeMode
+                },
+                customTheme = activeConfig ?: CustomThemeConfig.Default,
+                customThemeLibrary = safeLibrary
+            )
         }
-        _uiState.update { currentUiState -> currentUiState.copy(
-            themeMode = nextThemeMode,
-            customTheme = activeConfig ?: CustomThemeConfig.Default,
-            customThemeLibrary = safeLibrary
-        ) }
         viewModelScope.launch {
             preferences.setCustomThemeLibrary(safeLibrary, activate)
         }
     }
 
     fun saveCustomTouchControls(library: CustomTouchControlLibrary) {
-        val current = _uiState.value
-        if (!current.isProUnlocked) return
+        if (!_uiState.value.isProUnlocked) return
 
         val safeLibrary = library.sanitized()
         _uiState.update { currentUiState -> currentUiState.copy(customTouchControls = safeLibrary) }
