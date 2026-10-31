@@ -263,13 +263,16 @@ internal object CoreRuntime {
 
     private fun startSession(gamePath: String, biosOnly: Boolean, startPaused: Boolean = false): Boolean {
         val startupStartedAtNanos = System.nanoTime()
+        CrashLogger.stage("session start", "biosOnly=$biosOnly")
         if (!biosOnly && !isSupportedDiscPath(gamePath)) {
             Log.e(TAG, "Unsupported PS1 image: $gamePath")
+            CrashLogger.logError(TAG, "Unsupported PS1 image: ${File(gamePath).name}")
             return false
         }
         val biosPath = resolveConfiguredBiosPath()
             ?: run {
                 Log.e(TAG, "Cannot start: a valid PS1 BIOS was not configured")
+                CrashLogger.logError(TAG, "Cannot start: a valid PS1 BIOS was not configured")
                 return false
             }
         val stagedBios = stageBios(biosPath) ?: return false
@@ -281,19 +284,14 @@ internal object CoreRuntime {
         else listOf(requestedCore)
 
         shutdownSession()
-        context?.let { appContext ->
-            val prefs = appContext.getSharedPreferences("gpu_driver_selection", Context.MODE_PRIVATE)
-            val path = prefs.getString("game:$gamePath", prefs.getString("global", null))
-            val manager = GpuDriverManager(appContext)
-            val validPath = path?.takeIf { it.isNotBlank() && isValidDriverLibrary(File(it)) && manager.isVendorCompatible(it) }.orEmpty()
-            bridge.nativeSetCustomGpuDriver(validPath, appContext.applicationInfo.nativeLibraryDir)
-        }
+        applyCustomGpuDriver(gamePath)
         // The native audio ring is shared between sessions; clear it so the new
         // AAudio stream does not replay the tail of the previous game.
         bridge.resetAudioQueue()
         var coreRenderer = candidates.first()
         var created = false
         for (candidate in candidates) {
+            CrashLogger.stage("create session", RendererDefaults.coreRendererName(candidate))
             if (createSessionLocked(gamePath, biosOnly, stagedBios, candidate)) {
                 coreRenderer = candidate
                 created = true
@@ -302,9 +300,22 @@ internal object CoreRuntime {
             if (candidate != candidates.last()) {
                 Log.w(TAG, "${RendererDefaults.coreRendererName(candidate)} renderer unavailable; " +
                     "falling back to ${RendererDefaults.coreRendererName(candidates.last())}")
+                CrashLogger.stage(
+                    "renderer unavailable",
+                    "${RendererDefaults.coreRendererName(candidate)} -> " +
+                        RendererDefaults.coreRendererName(candidates.last())
+                )
             }
         }
-        if (!created) return false
+        if (!created) {
+            CrashLogger.logError(
+                TAG,
+                "Emulator session could not be created with any renderer " +
+                    "(requested=${RendererDefaults.coreRendererName(requestedCore)}, " +
+                    "biosOnly=$biosOnly, coreApi=${runCatching { bridge.apiVersion() }.getOrNull()})"
+            )
+            return false
+        }
 
         currentGamePath = gamePath
         currentBiosOnly = biosOnly
@@ -328,13 +339,45 @@ internal object CoreRuntime {
             }
             Log.i(TAG, String.format(Locale.US, "Startup setup %.1f ms",
                 (System.nanoTime() - startupStartedAtNanos) / 1_000_000.0))
+            CrashLogger.stage(
+                "frame worker running",
+                "${RendererDefaults.coreRendererName(coreRenderer)} " +
+                    String.format(Locale.US, "%.0f ms",
+                        (System.nanoTime() - startupStartedAtNanos) / 1_000_000.0)
+            )
+            CrashLogger.markSessionStart(
+                "renderer=${RendererDefaults.coreRendererName(coreRenderer)} biosOnly=$biosOnly " +
+                    "game=${File(gamePath).name}"
+            )
             started = true
             return true
         } catch (error: Exception) {
             Log.e(TAG, "Failed to start frame/audio runtime", error)
+            CrashLogger.logError(TAG, "Failed to start frame/audio runtime", error)
             return false
         } finally {
             if (!started) shutdownSession()
+        }
+    }
+
+    /**
+     * Applies the user's GPU driver selection for [gamePath] before a session is
+     * created. Any failure here must degrade to the system driver instead of
+     * aborting the launch, which is why the whole lookup is guarded.
+     */
+    private fun applyCustomGpuDriver(gamePath: String) {
+        val appContext = context ?: return
+        try {
+            val preferences = appContext.getSharedPreferences("gpu_driver_selection", Context.MODE_PRIVATE)
+            val selected = preferences.getString("game:$gamePath", preferences.getString("global", null))
+            val manager = GpuDriverManager(appContext)
+            val driverPath = manager.resolveUsableDriverPath(selected).orEmpty()
+            bridge.nativeSetCustomGpuDriver(driverPath, appContext.applicationInfo.nativeLibraryDir)
+            CrashLogger.stage("gpu driver", if (driverPath.isBlank()) "system" else File(driverPath).name)
+        } catch (error: Throwable) {
+            Log.w(TAG, "GPU driver selection failed; using the system driver", error)
+            CrashLogger.logError(TAG, "GPU driver selection failed; using the system driver", error)
+            runCatching { bridge.nativeSetCustomGpuDriver("", appContext.applicationInfo.nativeLibraryDir) }
         }
     }
 
@@ -343,16 +386,26 @@ internal object CoreRuntime {
         // Publish core options before retro_init so the core's initial settings
         // load already sees them.
         applyStartOptions(coreRenderer)
+        val attachedSurface = surface
         val handle = bridge.createSession()
-        if (handle == 0L) return@withLock false
+        if (handle == 0L) {
+            CrashLogger.logError(TAG, "createSession returned no handle")
+            return@withLock false
+        }
         // Attach the surface before loading content: SET_HW_RENDER fires inside
         // retro_load_game and needs a window to build the render context.
-        if (bridge.setSurface(handle, surface, coreRenderer) != 0) {
+        if (bridge.setSurface(handle, attachedSurface, coreRenderer) != 0) {
             Log.e(TAG, "Failed to initialize ${RendererDefaults.coreRendererName(coreRenderer)} renderer")
+            CrashLogger.logError(
+                TAG,
+                "Failed to initialize ${RendererDefaults.coreRendererName(coreRenderer)} renderer " +
+                    "(surface=${attachedSurface != null && attachedSurface.isValid})"
+            )
             bridge.destroySession(handle)
             return@withLock false
         }
         if (bridge.loadBios(handle, stagedBios) != 0) {
+            CrashLogger.logError(TAG, "loadBios(${File(stagedBios).name}) failed")
             bridge.destroySession(handle)
             return@withLock false
         }
@@ -360,10 +413,12 @@ internal object CoreRuntime {
             // Boot the core with no content so the GPU/display are created
             // before the frame worker calls retro_run().
             if (bridge.loadBiosOnly(handle) != 0) {
+                CrashLogger.logError(TAG, "retro_load_game (BIOS only) failed")
                 bridge.destroySession(handle)
                 return@withLock false
             }
         } else if (loadDisc(handle, gamePath) != 0) {
+            CrashLogger.logError(TAG, "retro_load_game failed for ${File(gamePath).name}")
             bridge.destroySession(handle)
             return@withLock false
         }
@@ -549,12 +604,20 @@ internal object CoreRuntime {
         val source = File(biosPath)
         if (!source.isFile || source.length() != BIOS_BYTES) {
             Log.e(TAG, "BIOS is missing or not 512 KiB: $biosPath")
+            CrashLogger.logError(
+                TAG,
+                "BIOS is missing or not 512 KiB: $biosPath (exists=${source.exists()} " +
+                    "size=${source.length()})"
+            )
             return null
         }
         val target = File(systemDirectory, source.name)
         if (target.absolutePath != source.absolutePath) {
             runCatching { source.copyTo(target, overwrite = true) }
-                .onFailure { Log.e(TAG, "Unable to stage BIOS into ${systemDirectory}", it) }
+                .onFailure {
+                    Log.e(TAG, "Unable to stage BIOS into ${systemDirectory}", it)
+                    CrashLogger.logError(TAG, "Unable to stage BIOS into $systemDirectory", it)
+                }
                 .getOrNull() ?: return null
         }
         return target.absolutePath
@@ -603,6 +666,7 @@ internal object CoreRuntime {
                     session = 0L
                 }
             }
+            CrashLogger.markSessionEnd()
             releaseDiscDescriptor()
             paused = false
             renderedFirstFrame = false

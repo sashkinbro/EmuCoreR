@@ -453,7 +453,9 @@ object NativeApp {
     @JvmStatic
     fun logCrashBreadcrumb(message: String) {
         Log.i(TAG, message)
-        CrashLogger.logInfo("Native", message)
+        // Release builds need this trail too: it is the only record of how far a
+        // launch got when the process is killed natively or by the OOM killer.
+        CrashLogger.stage("Native", message)
     }
 
     /** Root directory that stores native core data such as caches, settings and memory cards. */
