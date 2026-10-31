@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
@@ -121,10 +122,10 @@ fun ManagerGameSelector(
                     GameCoverArt(
                         coverPath = selectedGame.coverArtPath,
                         fallbackTitle = selectedGame.title,
-                        contentScale = gameCoverContentScale(selectedGame.coverArtPath, ContentScale.Crop),
+                        contentScale = ContentScale.Fit,
                         modifier = Modifier
-                            .size(width = 52.dp, height = 74.dp)
-                            .clip(gameCoverShape(selectedGame.coverArtPath, neonShape(10.dp)))
+                            .size(68.dp)
+                            .clip(RectangleShape)
                     )
                     Spacer(Modifier.width(12.dp))
                     Column(
