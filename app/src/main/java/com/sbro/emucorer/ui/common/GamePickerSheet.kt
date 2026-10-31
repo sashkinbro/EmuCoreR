@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -399,10 +400,10 @@ private fun GamePickerItem(
             GameCoverArt(
                 coverPath = game.coverArtPath,
                 fallbackTitle = game.title,
-                contentScale = gameCoverContentScale(game.coverArtPath, ContentScale.Crop),
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .size(width = 54.dp, height = 76.dp)
-                    .clip(gameCoverShape(game.coverArtPath, neonShape(12.dp)))
+                    .size(68.dp)
+                    .clip(RectangleShape)
             )
             Spacer(Modifier.width(14.dp))
             Column(
