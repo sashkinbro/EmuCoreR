@@ -2301,4 +2301,10 @@
     <string name="onboarding_supported_consoles">الأجهزة المدعومة</string>
 
 <string name="common_remove">إزالة</string>
+    <string name="game_picker_search_hint">بحث عن ألعاب…</string>
+    <string name="game_picker_no_results">لا توجد ألعاب تطابق بحثك</string>
+    <string name="game_picker_tap_to_select">انقر لاختيار لعبة</string>
+    <string name="game_picker_change_game">تغيير اللعبة</string>
+    <string name="game_picker_all_filter">الكل</string>
+    <string name="game_picker_clear_search">مسح البحث</string>
 </resources>

@@ -2314,4 +2314,10 @@
     <string name="onboarding_supported_consoles">Obsługiwane konsole</string>
 
 <string name="common_remove">Usuń</string>
+    <string name="game_picker_search_hint">Szukaj gier…</string>
+    <string name="game_picker_no_results">Brak gier pasujących do wyszukiwania</string>
+    <string name="game_picker_tap_to_select">Dotknij, aby wybrać grę</string>
+    <string name="game_picker_change_game">Zmień grę</string>
+    <string name="game_picker_all_filter">Wszystkie</string>
+    <string name="game_picker_clear_search">Wyczyść wyszukiwanie</string>
 </resources>

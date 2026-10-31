@@ -2295,4 +2295,10 @@
     <string name="onboarding_supported_consoles">Consoles prises en charge</string>
 
 <string name="common_remove">Supprimer</string>
+    <string name="game_picker_search_hint">Rechercher des jeux…</string>
+    <string name="game_picker_no_results">Aucun jeu ne correspond à votre recherche</string>
+    <string name="game_picker_tap_to_select">Appuyez pour sélectionner un jeu</string>
+    <string name="game_picker_change_game">Changer de jeu</string>
+    <string name="game_picker_all_filter">Tous</string>
+    <string name="game_picker_clear_search">Effacer la recherche</string>
 </resources>

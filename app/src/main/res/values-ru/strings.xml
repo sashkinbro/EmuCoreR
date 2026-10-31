@@ -2297,4 +2297,10 @@
     <string name="onboarding_supported_consoles">Поддерживаемые консоли</string>
 
 <string name="common_remove">Удалить</string>
+    <string name="game_picker_search_hint">Поиск игр…</string>
+    <string name="game_picker_no_results">Игр не найдено по вашему запросу</string>
+    <string name="game_picker_tap_to_select">Нажмите, чтобы выбрать игру</string>
+    <string name="game_picker_change_game">Сменить игру</string>
+    <string name="game_picker_all_filter">Все</string>
+    <string name="game_picker_clear_search">Очистить поиск</string>
 </resources>
