@@ -200,10 +200,15 @@ bool OpenVulkanLibrary() {
             for (const auto& entry : std::filesystem::directory_iterator(dir, directory_error)) {
                 if (entry.path().extension() == ".json") { setenv("VK_LAYER_PATH", dir.c_str(), 1); break; }
             }
-            crash::Mark("vulkan: loading custom driver %s", name.c_str());
+            struct stat hook_stat{};
+            const std::string hook_path = g_hook_directory + "/libmain_hook.so";
+            const bool hooks_present = stat(hook_path.c_str(), &hook_stat) == 0;
+            crash::Mark("vulkan: loading custom driver %s (adapter hooks=%s)", name.c_str(),
+                        hooks_present ? "ok" : "missing");
             g_vulkan_library = adrenotools_open_libvulkan(RTLD_NOW, ADRENOTOOLS_DRIVER_CUSTOM,
                 nullptr, g_hook_directory.c_str(), dir.c_str(), name.c_str(), nullptr, nullptr);
             g_custom_loader_requested = g_vulkan_library != nullptr;
+            crash::Mark("vulkan: custom driver %s", g_vulkan_library ? "loaded" : "rejected");
         }
         if (!g_vulkan_library) {
             VK_LOGW("Custom Vulkan loader failed; using system driver");
