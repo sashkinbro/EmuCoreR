@@ -1356,7 +1356,11 @@ private fun SettingsContent(
                             icon = Icons.Rounded.Language,
                             label = stringResource(R.string.settings_language),
                             value = languageLabel(uiState.languageTag),
-                            onClick = openLanguageSheet
+                            onClick = openLanguageSheet,
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
                         )
                         val systemTelevision = remember(context) {
                             TvUiPolicy.isSystemTelevision(context)
