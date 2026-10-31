@@ -52,6 +52,16 @@ set(SWANSTATION_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/swansta
 set(SWANSTATION_BIN_DIR "${CMAKE_BINARY_DIR}/swanstation")
 add_subdirectory("${SWANSTATION_DIR}" "${SWANSTATION_BIN_DIR}")
 
+# The host page size is compiled into the core itself, so the 16 KiB build needs
+# its own copy of the core library. Both copies are packaged together, which
+# means they must have distinct SONAMEs: libemucorer_jni_16k.so is linked
+# against libswanstation_libretro_android_16k.so, libemucorer_jni.so against the
+# 4 KiB libswanstation_libretro_android.so that AGP builds.
+if(EMUCORER_HOST_PAGE_SIZE STREQUAL "16384" AND TARGET swanstation_libretro)
+    set_target_properties(swanstation_libretro PROPERTIES
+        OUTPUT_NAME "swanstation_libretro_android_16k")
+endif()
+
 # RetroAchievements client (rcheevos), driven by the Android frontend.
 set(RCHEEVOS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/rcheevos")
 add_subdirectory("${RCHEEVOS_DIR}" "${CMAKE_BINARY_DIR}/rcheevos")

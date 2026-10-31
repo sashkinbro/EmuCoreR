@@ -12,8 +12,6 @@ import android.view.Surface
 import com.sbro.emucorer.BuildConfig
 import com.sbro.emucorer.data.AppPreferences
 import com.sbro.emucorer.data.swanStationCardTypeForPath
-import com.sbro.emucorer.network.NetPlaySession
-import com.sbro.emucorer.network.RemotePlaySession
 import com.sbro.emucorer.data.DisplayCrop
 import com.sbro.emucorer.ui.common.invalidateCoverImage
 import kotlinx.coroutines.CoroutineScope
@@ -909,9 +907,7 @@ object EmulatorBridge {
     fun setPadButton(padIndex: Int, index: Int, range: Int, pressed: Boolean) {
         if (!isNativeLoaded) return
         try {
-            if (RemotePlaySession.forwardGuestButton(index, range, pressed)) return
-            val mappedPadIndex = NetPlaySession.mapAndSendLocalButton(padIndex, index, range, pressed)
-            NativeApp.setPadButton(mappedPadIndex, index, range, pressed)
+            NativeApp.setPadButton(padIndex, index, range, pressed)
         } catch (_: Exception) { }
     }
 
@@ -924,9 +920,7 @@ object EmulatorBridge {
     ) {
         if (!isNativeLoaded) return
         try {
-            if (RemotePlaySession.forwardGuestButton(index, range, pressed)) return
-            val mappedPadIndex = NetPlaySession.mapAndSendLocalButton(padIndex, index, range, pressed)
-            NativeApp.setPadButtonFromSource(mappedPadIndex, index, range, pressed, source)
+            NativeApp.setPadButtonFromSource(padIndex, index, range, pressed, source)
         } catch (_: Exception) { }
     }
 

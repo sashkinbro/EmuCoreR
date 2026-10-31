@@ -1338,8 +1338,6 @@
     <string name="save_manager_import_confirm">インポート</string>
     <string name="save_manager_import_success">インポートしたステート: %1$d</string>
     <string name="save_manager_import_partial">インポート: %1$d、失敗: %2$d。</string>
-    <string name="network_remote_play_title">リモートプレイ</string>
-    <string name="network_remote_play_notification">ゲーム画面が共有されています</string>
     <string name="settings_theme_neon">ネオン</string>
 
     <!-- SwanStation core options -->

@@ -24,7 +24,6 @@ room = "2.8.5"
 ksp = "2.3.10"
 coil = "3.6.3"
 browser = "1.10.0"
-webrtc = "150.7871.04"
 credentials = "1.6.0"
 googleId = "1.2.1"
 googleAuth = "22.0.0"
@@ -73,7 +72,6 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
-webrtc-android = { group = "io.github.webrtc-sdk", name = "android", version.ref = "webrtc" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

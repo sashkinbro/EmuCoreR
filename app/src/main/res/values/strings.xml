@@ -1368,8 +1368,6 @@
     <string name="discord_presence_playing">Playing %1$s</string>
     <string name="discord_friends_title">Friends in EmuCoreR</string>
     <string name="discord_friends_empty">No Discord friends are using EmuCoreR right now.</string>
-    <string name="network_remote_play_title">Remote Play</string>
-    <string name="network_remote_play_notification">Your game screen is being shared</string>
     <string name="settings_theme_neon">Neon</string>
 
     <!-- SwanStation core options -->

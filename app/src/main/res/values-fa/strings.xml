@@ -1354,8 +1354,6 @@
     <string name="save_manager_import_confirm">درون‌ریزی</string>
     <string name="save_manager_import_success">ذخیره‌های درون‌ریزی‌شده: %1$d</string>
     <string name="save_manager_import_partial">درون‌ریزی: %1$d. ناموفق: %2$d.</string>
-    <string name="network_remote_play_title">پخش از راه دور</string>
-    <string name="network_remote_play_notification">صفحه بازی شما در حال اشتراک گذاری است</string>
     <string name="settings_theme_neon">نئون</string>
 
     <!-- SwanStation core options -->

@@ -371,8 +371,23 @@ internal object CoreRuntime {
             val preferences = appContext.getSharedPreferences("gpu_driver_selection", Context.MODE_PRIVATE)
             val selected = preferences.getString("game:$gamePath", preferences.getString("global", null))
             val manager = GpuDriverManager(appContext)
-            val driverPath = manager.resolveUsableDriverPath(selected).orEmpty()
-            bridge.nativeSetCustomGpuDriver(driverPath, appContext.applicationInfo.nativeLibraryDir)
+            val nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir.orEmpty()
+            // adrenotools loads libmain_hook.so/libhook_impl.so from this directory,
+            // so they have to exist as real files. With useLegacyPackaging = false
+            // the installer leaves the libraries inside the APK and the directory
+            // is empty; the custom driver then cannot be used at all.
+            val adapterAvailable = nativeLibraryDir.isNotBlank() &&
+                File(nativeLibraryDir, "libmain_hook.so").isFile
+            val selectedPath = manager.resolveUsableDriverPath(selected)
+            val driverPath = if (adapterAvailable) selectedPath.orEmpty() else ""
+            if (!selectedPath.isNullOrBlank() && !adapterAvailable) {
+                CrashLogger.logError(
+                    TAG,
+                    "Custom GPU driver '${File(selectedPath).name}' ignored: the adapter hooks are " +
+                        "not extracted into $nativeLibraryDir (useLegacyPackaging = false)"
+                )
+            }
+            bridge.nativeSetCustomGpuDriver(driverPath, nativeLibraryDir)
             CrashLogger.stage("gpu driver", if (driverPath.isBlank()) "system" else File(driverPath).name)
         } catch (error: Throwable) {
             Log.w(TAG, "GPU driver selection failed; using the system driver", error)

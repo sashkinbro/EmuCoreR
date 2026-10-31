@@ -1341,8 +1341,6 @@
     <string name="save_manager_import_confirm">Importieren</string>
     <string name="save_manager_import_success">Importierte Spielstände: %1$d</string>
     <string name="save_manager_import_partial">Importiert: %1$d. Fehlgeschlagen: %2$d.</string>
-    <string name="network_remote_play_title">Remote Play</string>
-    <string name="network_remote_play_notification">Ihr Spielbildschirm wird geteilt</string>
     <string name="settings_theme_neon">Neon</string>
 
     <!-- SwanStation core options -->

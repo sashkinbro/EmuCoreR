@@ -1339,8 +1339,6 @@
     <string name="save_manager_import_confirm">Importa</string>
     <string name="save_manager_import_success">Salvataggi importati: %1$d</string>
     <string name="save_manager_import_partial">Importati: %1$d. Non riusciti: %2$d.</string>
-    <string name="network_remote_play_title">Riproduzione remota</string>
-    <string name="network_remote_play_notification">La tua schermata di gioco è in fase di condivisione</string>
     <string name="settings_theme_neon">Neon</string>
 
     <!-- SwanStation core options -->

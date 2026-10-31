@@ -1345,8 +1345,6 @@
     <string name="discord_presence_playing">Грає в %1$s</string>
     <string name="discord_friends_title">Друзі в EmuCoreR</string>
     <string name="discord_friends_empty">Зараз ніхто з ваших друзів у Discord не користується EmuCoreR.</string>
-    <string name="network_remote_play_title">Remote Play</string>
-    <string name="network_remote_play_notification">Екран гри зараз транслюється</string>
     <string name="settings_theme_neon">Неон</string>
 
     <!-- SwanStation core options -->

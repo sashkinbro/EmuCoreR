@@ -1341,8 +1341,6 @@
     <string name="save_manager_import_confirm">Importer</string>
     <string name="save_manager_import_success">Sauvegardes importées : %1$d</string>
     <string name="save_manager_import_partial">Importées : %1$d. Échecs : %2$d.</string>
-    <string name="network_remote_play_title">Lecture à distance</string>
-    <string name="network_remote_play_notification">Votre écran de jeu est partagé</string>
     <string name="settings_theme_neon">Néon</string>
 
     <!-- SwanStation core options -->

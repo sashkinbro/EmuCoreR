@@ -1343,8 +1343,6 @@
     <string name="save_manager_import_confirm">Импортировать</string>
     <string name="save_manager_import_success">Импортировано сохранений: %1$d</string>
     <string name="save_manager_import_partial">Импортировано: %1$d. Ошибок: %2$d.</string>
-    <string name="network_remote_play_title">Дистанционное воспроизведение</string>
-    <string name="network_remote_play_notification">Ваш игровой экран доступен для общего доступа</string>
     <string name="settings_theme_neon">Неон</string>
 
     <!-- SwanStation core options -->

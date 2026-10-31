@@ -1362,8 +1362,6 @@
     <string name="save_manager_import_confirm">Importovat</string>
     <string name="save_manager_import_success">Importované pozice: %1$d</string>
     <string name="save_manager_import_partial">Importováno: %1$d. Selhalo: %2$d.</string>
-    <string name="network_remote_play_title">Vzdálená hra</string>
-    <string name="network_remote_play_notification">Vaše herní obrazovka se sdílí</string>
     <string name="settings_theme_neon">Neon</string>
 
     <!-- SwanStation core options -->

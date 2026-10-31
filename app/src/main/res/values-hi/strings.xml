@@ -1339,8 +1339,6 @@
     <string name="save_manager_import_confirm">आयात करें</string>
     <string name="save_manager_import_success">आयातित सेव स्टेट: %1$d</string>
     <string name="save_manager_import_partial">आयातित: %1$d। विफल: %2$d।</string>
-    <string name="network_remote_play_title">रिमोट प्ले</string>
-    <string name="network_remote_play_notification">आपकी गेम स्क्रीन साझा की जा रही है</string>
     <string name="settings_theme_neon">नियॉन</string>
 
     <!-- SwanStation core options -->
