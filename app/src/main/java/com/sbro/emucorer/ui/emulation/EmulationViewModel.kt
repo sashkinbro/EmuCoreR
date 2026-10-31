@@ -15,6 +15,7 @@ import com.sbro.emucorer.core.AndroidGamePerformance
 import com.sbro.emucorer.core.AndroidGamePhase
 import com.sbro.emucorer.core.AudioDefaults
 import com.sbro.emucorer.core.BiosValidator
+import com.sbro.emucorer.core.CrashLogger
 import com.sbro.emucorer.core.DocumentPathResolver
 import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.core.RendererDefaults
@@ -1101,13 +1102,21 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 )
                 delay(200.milliseconds)
 
-                val launchPath = when {
-                    bootToBios -> ""
-                    path.isNullOrBlank() -> null
-                    path.startsWith("content://") && DocumentPathResolver.getDisplayName(getApplication(), path)
-                        .substringAfterLast('.', "").equals("elf", ignoreCase = true) ->
-                            DocumentPathResolver.prepareElfLaunchPath(getApplication(), path)
-                    else -> DocumentPathResolver.prepareGameLaunchPath(getApplication(), path)
+                val launchPath = try {
+                    when {
+                        bootToBios -> ""
+                        path.isNullOrBlank() -> null
+                        path.startsWith("content://") && DocumentPathResolver.getDisplayName(getApplication(), path)
+                            .substringAfterLast('.', "").equals("elf", ignoreCase = true) ->
+                                DocumentPathResolver.prepareElfLaunchPath(getApplication(), path)
+                        else -> DocumentPathResolver.prepareGameLaunchPath(getApplication(), path)
+                    }
+                } catch (error: Exception) {
+                    // Provider quirks must surface as "launch path error", not as
+                    // an app crash on the coroutine worker.
+                    Log.e(TAG, "Unable to prepare the launch path for $path", error)
+                    CrashLogger.logError(TAG, "Unable to prepare the launch path", error)
+                    null
                 }
 
                 if (!bootToBios && launchPath.isNullOrBlank()) {

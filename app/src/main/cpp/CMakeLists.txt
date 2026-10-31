@@ -80,6 +80,7 @@ add_subdirectory(third_party/libadrenotools)
 add_subdirectory(third_party/archive)
 add_library(emucorer_jni SHARED
     native_bridge.cpp
+    native_crash_handler.cpp
     archive_disc.cpp
     achievements_bridge.cpp
     shader_chain.cpp

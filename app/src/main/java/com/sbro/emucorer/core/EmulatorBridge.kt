@@ -90,8 +90,14 @@ object EmulatorBridge {
         isNativeLoaded = NativeApp.hasNativeCore
         if (isNativeLoaded) {
             Log.i(TAG, "${NativeApp.loadedCoreLibraryName} is ready")
+            CrashLogger.stage("native core", NativeApp.loadedCoreLibraryName)
         } else {
             Log.e(TAG, "${NativeApp.loadedCoreLibraryName} is unavailable")
+            CrashLogger.logError(
+                TAG,
+                "${NativeApp.loadedCoreLibraryName} is unavailable; nothing can boot",
+                NativeCoreBridge.loadFailure
+            )
         }
     }
 
@@ -406,6 +412,11 @@ object EmulatorBridge {
     ): Boolean {
         if (!isNativeLoaded) {
             Log.e(TAG, "startEmulation skipped: native library is not loaded")
+            CrashLogger.logError(
+                TAG,
+                "startEmulation skipped: native library is not loaded",
+                NativeCoreBridge.loadFailure
+            )
             return false
         }
         if (path.isBlank() && !allowBiosBoot) {

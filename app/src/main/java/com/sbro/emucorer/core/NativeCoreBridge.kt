@@ -14,13 +14,27 @@ class NativeCoreBridge {
     companion object {
         private const val STANDARD_LIBRARY_NAME = "emucorer_jni"
 
+        /** Set when neither the page-size matched core nor the standard one loaded. */
+        @Volatile
+        internal var loadFailure: Throwable? = null
+            private set
+
         init {
-            val selected = AndroidNativeCoreSelector.selectedLibraryName()
-            val selectedLoaded = runCatching { System.loadLibrary(selected) }.isSuccess
-            if (!selectedLoaded && selected != STANDARD_LIBRARY_NAME) {
-                // The 16 KiB variant ships with release builds; debug builds on a
-                // 16 KiB device fall back to the standard core instead of failing.
-                System.loadLibrary(STANDARD_LIBRARY_NAME)
+            // A device that reports an unusual page size must not make the whole
+            // class unusable: fall back to the standard core and let nativeInit
+            // report the mismatch instead of dying in the class initializer.
+            val selected = runCatching { AndroidNativeCoreSelector.selectedLibraryName() }
+                .getOrDefault(STANDARD_LIBRARY_NAME)
+            val primary = runCatching { System.loadLibrary(selected) }
+            if (primary.isFailure) {
+                if (selected != STANDARD_LIBRARY_NAME) {
+                    // The 16 KiB variant ships with release builds; debug builds on a
+                    // 16 KiB device fall back to the standard core instead of failing.
+                    val fallback = runCatching { System.loadLibrary(STANDARD_LIBRARY_NAME) }
+                    if (fallback.isFailure) loadFailure = fallback.exceptionOrNull()
+                } else {
+                    loadFailure = primary.exceptionOrNull()
+                }
             }
         }
     }
@@ -31,6 +45,13 @@ class NativeCoreBridge {
     // Lifecycle / configuration.
     // ---------------------------------------------------------------------
     external fun nativeInit(systemDir: String, saveDir: String, coreAssetsDir: String)
+
+    /** Installs native fatal-signal handlers; reports land in `<logDirectory>/crash.log`. */
+    external fun nativeInstallCrashHandler(logDirectory: String)
+
+    /** Records a launch-stage breadcrumb in the native trail (release builds included). */
+    external fun nativeMarkStage(stage: String)
+
     external fun nativeSetSaveDirectory(saveDir: String)
     external fun nativeSetCustomGpuDriver(path: String, hookDirectory: String)
     external fun nativeMountArchive(fd: Int): String?

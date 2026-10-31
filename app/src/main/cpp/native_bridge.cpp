@@ -42,6 +42,7 @@
 #include "shader_chain.h"
 #include "vulkan_frontend.h"
 #include "archive_disc.h"
+#include "native_crash_handler.h"
 
 #if defined(EMUCORER_HAVE_LIBRASHADER)
 #include <librashader.h>
@@ -50,6 +51,7 @@ extern "C" void EmuCoreR_ResetGLProgramCache();
 #endif
 
 namespace vulkan = emucorer::vulkan;
+namespace crash = emucorer::crash;
 
 #define LOG_TAG "EmuCoreR"
 #ifndef NDEBUG
@@ -1775,6 +1777,27 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
 }
 
 JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_nativeInstallCrashHandler(JNIEnv* env, jobject,
+                                                                       jstring logDirectory) {
+    if (logDirectory == nullptr) return;
+    const char* chars = env->GetStringUTFChars(logDirectory, nullptr);
+    if (chars != nullptr) {
+        crash::Install(chars);
+        env->ReleaseStringUTFChars(logDirectory, chars);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_sbro_emucorer_core_NativeCoreBridge_nativeMarkStage(JNIEnv* env, jobject, jstring stage) {
+    if (stage == nullptr) return;
+    const char* chars = env->GetStringUTFChars(stage, nullptr);
+    if (chars != nullptr) {
+        crash::Mark("%s", chars);
+        env->ReleaseStringUTFChars(stage, chars);
+    }
+}
+
+JNIEXPORT void JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_nativeInit(JNIEnv* env, jobject, jstring systemDir,
                                                          jstring saveDir, jstring coreAssetsDir) {
     std::lock_guard<std::mutex> lock(g_frontend.mutex);
@@ -1793,6 +1816,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_nativeInit(JNIEnv* env, jobject, js
     }
     LOGI("nativeInit system=%s save=%s assets=%s", g_frontend.system_dir.c_str(),
          g_frontend.save_dir.c_str(), g_frontend.core_assets_dir.c_str());
+    crash::Mark("core paths configured");
 }
 
 JNIEXPORT jstring JNICALL
@@ -1837,6 +1861,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createSession(JNIEnv*, jobject) {
     {
         std::lock_guard<std::mutex> lock(g_frontend.core_mutex);
         if (!g_frontend.core_initialized) {
+            crash::Mark("retro_init start");
             retro_set_environment(EnvironmentCallback);
             retro_set_video_refresh(RetroVideoRefresh);
             retro_set_audio_sample(RetroAudioSample);
@@ -1845,6 +1870,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_createSession(JNIEnv*, jobject) {
             retro_set_input_state(RetroInputState);
             retro_init();
             g_frontend.core_initialized = true;
+            crash::Mark("retro_init done");
         }
     }
     // Default both controller ports to a DualShock. The core keeps it in
@@ -1865,6 +1891,8 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_destroySession(JNIEnv*, jobject, jl
         g_memory_card_events.clear();
     }
     std::lock_guard<std::mutex> lock(g_frontend.core_mutex);
+    crash::Mark("session destroy begin core=%d game=%d", g_frontend.core_initialized ? 1 : 0,
+                g_frontend.game_loaded ? 1 : 0);
     DestroyHardwareRendererContext();
     if (g_frontend.game_loaded) {
         retro_unload_game();
@@ -1874,8 +1902,10 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_destroySession(JNIEnv*, jobject, jl
         retro_deinit();
         g_frontend.core_initialized = false;
     }
+    crash::Mark("core shut down");
     DestroyHardwareContext();
     vulkan::Destroy();
+    crash::Mark("session destroy done");
 }
 
 // ---------------------------------------------------------------------------
@@ -1980,11 +2010,14 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_loadBiosOnly(JNIEnv*, jobject, jlon
     info.data = nullptr;
     info.size = 0;
     info.meta = nullptr;
+    crash::Mark("retro_load_game (BIOS only)");
     if (!retro_load_game(&info)) {
         LOGE("retro_load_game (BIOS only) failed");
+        crash::Mark("retro_load_game (BIOS only) returned false");
         return -3;
     }
     g_frontend.game_loaded = true;
+    crash::Mark("BIOS-only boot ok");
     LOGI("BIOS-only boot ok");
     return 0;
 }
@@ -2011,11 +2044,14 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_loadDisc(JNIEnv* env, jobject, jlon
     info.data = nullptr;
     info.size = 0;
     info.meta = nullptr;
+    crash::Mark("retro_load_game disc (%s)", game_path.rfind("archive://", 0) == 0 ? "archive" : "file");
     if (!retro_load_game(&info)) {
         LOGE("retro_load_game failed for %s", game_path.c_str());
+        crash::Mark("retro_load_game returned false");
         return -3;
     }
     g_frontend.game_loaded = true;
+    crash::Mark("disc boot ok");
     LOGI("retro_load_game ok: %s", game_path.c_str());
     return 0;
 }
@@ -2115,7 +2151,10 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_setSurface(JNIEnv* env, jobject, jl
     if (probe_window != nullptr && renderer == core_renderer::kVulkan &&
         !vulkan::Prepare(probe_window, generation)) {
         LOGE("Vulkan is unavailable for the requested surface");
+        crash::Mark("surface: Vulkan prepare failed");
         result = -2;
+    } else if (probe_window != nullptr) {
+        crash::Mark("surface attached renderer=%d", renderer);
     }
     if (probe_window != nullptr) ANativeWindow_release(probe_window);
     return result;

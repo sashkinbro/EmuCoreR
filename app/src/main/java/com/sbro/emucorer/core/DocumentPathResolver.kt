@@ -72,7 +72,8 @@ object DocumentPathResolver {
         val directPath = resolveExternalStoragePath(uri)
         if (directPath != null) return directPath
 
-        val fileName = DocumentFile.fromSingleUri(context, uri)?.name ?: return null
+        val fileName = runCatching { DocumentFile.fromSingleUri(context, uri)?.name }.getOrNull()
+            ?: return null
         return findFileInPersistedTree(context, uri, fileName)
     }
 
@@ -260,7 +261,7 @@ object DocumentPathResolver {
         if (!rawPath.startsWith("content://")) return File(rawPath).takeIf { it.isFile && it.canRead() }?.absolutePath ?: rawPath
 
         val uri = rawPath.toUri()
-        val single = DocumentFile.fromSingleUri(context, uri)
+        val single = runCatching { DocumentFile.fromSingleUri(context, uri) }.getOrNull()
         val displayName = single?.name ?: getDisplayName(context, rawPath)
         if (!displayName.substringAfterLast('.', "").equals("elf", ignoreCase = true)) {
             return rawPath
@@ -276,6 +277,20 @@ object DocumentPathResolver {
     }
 
     fun prepareGameLaunchPath(context: Context, rawPath: String): String? {
+        if (rawPath.isBlank()) return null
+        return try {
+            prepareGameLaunchPathOrThrow(context, rawPath)
+        } catch (error: Exception) {
+            // A launch must never die inside path resolution: the screen can
+            // report a recoverable "launch path" error, and the log keeps the
+            // provider-specific reason.
+            Log.e(TAG, "Unable to resolve a launch path for $rawPath", error)
+            CrashLogger.logError(TAG, "Unable to resolve a launch path", error)
+            null
+        }
+    }
+
+    private fun prepareGameLaunchPathOrThrow(context: Context, rawPath: String): String? {
         if (rawPath.isBlank()) return null
         if (!rawPath.startsWith("content://")) {
             val direct = File(rawPath)
@@ -674,12 +689,18 @@ object DocumentPathResolver {
     private fun findFileInPersistedTree(context: Context, targetUri: Uri, fileName: String): String? {
         // Persisted grants include individual documents selected with OpenDocument.
         // Those do not grant directory access, and fromTreeUri throws for them.
-        val persistedTrees = context.contentResolver.persistedUriPermissions
-            .filter { permission -> permission.isReadPermission && DocumentsContract.isTreeUri(permission.uri) }
-            .mapNotNull { permission -> DocumentFile.fromTreeUri(context, permission.uri) }
+        // Some OEM document providers also reject a URI that isTreeUri() accepted,
+        // which used to escape as an IllegalArgumentException and kill the launch.
+        val persistedTrees = runCatching {
+            context.contentResolver.persistedUriPermissions
+                .filter { permission -> permission.isReadPermission && DocumentsContract.isTreeUri(permission.uri) }
+                .mapNotNull { permission ->
+                    runCatching { DocumentFile.fromTreeUri(context, permission.uri) }.getOrNull()
+                }
+        }.getOrDefault(emptyList())
 
         for (tree in persistedTrees) {
-            val resolved = findFileRecursive(tree, targetUri, fileName)
+            val resolved = runCatching { findFileRecursive(tree, targetUri, fileName) }.getOrNull()
             if (resolved != null) return resolved
         }
 

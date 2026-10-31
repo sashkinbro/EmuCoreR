@@ -4,6 +4,7 @@
 #include "vulkan_frontend.h"
 #include "shader_chain.h"
 #include "shader_effects_spv.h"
+#include "native_crash_handler.h"
 
 #include <android/log.h>
 #include <vulkan/vulkan.h>
@@ -173,10 +174,21 @@ State g_vk;
 void* g_vulkan_library = nullptr;
 std::string g_custom_driver_path;
 std::string g_hook_directory;
+std::string g_loaded_driver_path;
 bool g_custom_loader_requested = false;
 
+namespace crash = emucorer::crash;
+
 bool OpenVulkanLibrary() {
-    if (g_vulkan_library) return true;
+    if (g_vulkan_library && g_loaded_driver_path == g_custom_driver_path) return true;
+    if (g_vulkan_library) {
+        // The requested driver changed. The previous library is intentionally
+        // left mapped: unloading libvulkan (or a vendor ICD) while the core or
+        // a driver thread still owns a function pointer derived from it is an
+        // instant SIGSEGV, and the handle is only a few pages.
+        g_vulkan_library = nullptr;
+        g_custom_loader_requested = false;
+    }
     if (!g_custom_driver_path.empty() && !g_hook_directory.empty()) {
         struct stat st{};
         const auto slash = g_custom_driver_path.find_last_of('/');
@@ -188,24 +200,36 @@ bool OpenVulkanLibrary() {
             for (const auto& entry : std::filesystem::directory_iterator(dir, directory_error)) {
                 if (entry.path().extension() == ".json") { setenv("VK_LAYER_PATH", dir.c_str(), 1); break; }
             }
+            crash::Mark("vulkan: loading custom driver %s", name.c_str());
             g_vulkan_library = adrenotools_open_libvulkan(RTLD_NOW, ADRENOTOOLS_DRIVER_CUSTOM,
                 nullptr, g_hook_directory.c_str(), dir.c_str(), name.c_str(), nullptr, nullptr);
             g_custom_loader_requested = g_vulkan_library != nullptr;
         }
-        if (!g_vulkan_library) VK_LOGW("Custom Vulkan loader failed; using system driver");
+        if (!g_vulkan_library) {
+            VK_LOGW("Custom Vulkan loader failed; using system driver");
+            crash::Mark("vulkan: custom driver failed, using system loader");
+        }
     }
     if (!g_vulkan_library) g_vulkan_library = dlopen("libvulkan.so", RTLD_NOW);
-    if (!g_vulkan_library) return false;
+    if (!g_vulkan_library) {
+        crash::Mark("vulkan: dlopen(libvulkan.so) failed");
+        return false;
+    }
+    g_loaded_driver_path = g_custom_driver_path;
     vkCreateInstance = reinterpret_cast<PFN_vkCreateInstance>(dlsym(g_vulkan_library, "vkCreateInstance"));
     vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(dlsym(g_vulkan_library, "vkGetInstanceProcAddr"));
     vkEnumerateInstanceExtensionProperties = reinterpret_cast<PFN_vkEnumerateInstanceExtensionProperties>(dlsym(g_vulkan_library, "vkEnumerateInstanceExtensionProperties"));
     if (!vkGetInstanceProcAddr || !vkCreateInstance || !vkEnumerateInstanceExtensionProperties) {
-        dlclose(g_vulkan_library); g_vulkan_library = nullptr; return false;
+        crash::Mark("vulkan: loader is missing core entry points");
+        g_vulkan_library = nullptr;
+        g_loaded_driver_path.clear();
+        return false;
     }
     return true;
 }
 
-void LoadInstanceDispatch(VkInstance instance) {
+bool LoadInstanceDispatch(VkInstance instance) {
+    if (instance == VK_NULL_HANDLE || vkGetInstanceProcAddr == nullptr) return false;
     vkGetDeviceProcAddr = reinterpret_cast<PFN_vkGetDeviceProcAddr>(vkGetInstanceProcAddr(instance, "vkGetDeviceProcAddr"));
     vkDestroyInstance = reinterpret_cast<PFN_vkDestroyInstance>(vkGetInstanceProcAddr(instance, "vkDestroyInstance"));
     vkEnumeratePhysicalDevices = reinterpret_cast<PFN_vkEnumeratePhysicalDevices>(vkGetInstanceProcAddr(instance, "vkEnumeratePhysicalDevices"));
@@ -213,9 +237,15 @@ void LoadInstanceDispatch(VkInstance instance) {
     vkGetPhysicalDeviceQueueFamilyProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceQueueFamilyProperties>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceQueueFamilyProperties"));
     vkGetPhysicalDeviceMemoryProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceMemoryProperties>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceMemoryProperties"));
     vkEnumerateDeviceExtensionProperties = reinterpret_cast<PFN_vkEnumerateDeviceExtensionProperties>(vkGetInstanceProcAddr(instance, "vkEnumerateDeviceExtensionProperties"));
+    // Every one of these is dereferenced unconditionally later; a driver that
+    // omits any of them has to be rejected here instead of crashing at use.
+    return vkGetDeviceProcAddr && vkDestroyInstance && vkEnumeratePhysicalDevices &&
+           vkGetPhysicalDeviceProperties && vkGetPhysicalDeviceQueueFamilyProperties &&
+           vkGetPhysicalDeviceMemoryProperties && vkEnumerateDeviceExtensionProperties;
 }
 
-void LoadDeviceDispatch(VkDevice device) {
+bool LoadDeviceDispatch(VkDevice device) {
+    if (device == VK_NULL_HANDLE || vkGetDeviceProcAddr == nullptr) return false;
     vkDestroyDevice = reinterpret_cast<PFN_vkDestroyDevice>(vkGetDeviceProcAddr(device, "vkDestroyDevice"));
     vkQueueSubmit = reinterpret_cast<PFN_vkQueueSubmit>(vkGetDeviceProcAddr(device, "vkQueueSubmit"));
     vkDeviceWaitIdle = reinterpret_cast<PFN_vkDeviceWaitIdle>(vkGetDeviceProcAddr(device, "vkDeviceWaitIdle"));
@@ -270,6 +300,21 @@ void LoadDeviceDispatch(VkDevice device) {
     vkCmdBeginRenderPass = reinterpret_cast<PFN_vkCmdBeginRenderPass>(vkGetDeviceProcAddr(device, "vkCmdBeginRenderPass"));
     vkCmdEndRenderPass = reinterpret_cast<PFN_vkCmdEndRenderPass>(vkGetDeviceProcAddr(device, "vkCmdEndRenderPass"));
     vkGetSwapchainImagesKHR = reinterpret_cast<PFN_vkGetSwapchainImagesKHR>(vkGetDeviceProcAddr(device, "vkGetSwapchainImagesKHR"));
+    return vkDestroyDevice && vkQueueSubmit && vkDeviceWaitIdle && vkAllocateMemory && vkFreeMemory &&
+           vkBindImageMemory && vkGetImageMemoryRequirements && vkCreateFence && vkDestroyFence &&
+           vkResetFences && vkWaitForFences && vkCreateSemaphore && vkDestroySemaphore &&
+           vkCreateImage && vkDestroyImage && vkCreateImageView && vkDestroyImageView &&
+           vkCreateShaderModule && vkDestroyShaderModule && vkCreateGraphicsPipelines &&
+           vkDestroyPipeline && vkCreatePipelineLayout && vkDestroyPipelineLayout &&
+           vkCreateSampler && vkDestroySampler && vkCreateDescriptorSetLayout &&
+           vkDestroyDescriptorSetLayout && vkCreateDescriptorPool && vkDestroyDescriptorPool &&
+           vkAllocateDescriptorSets && vkUpdateDescriptorSets && vkCreateFramebuffer &&
+           vkDestroyFramebuffer && vkCreateRenderPass && vkDestroyRenderPass &&
+           vkCreateCommandPool && vkDestroyCommandPool && vkAllocateCommandBuffers &&
+           vkBeginCommandBuffer && vkEndCommandBuffer && vkResetCommandBuffer && vkCmdBindPipeline &&
+           vkCmdSetViewport && vkCmdSetScissor && vkCmdBindDescriptorSets && vkCmdDraw &&
+           vkCmdCopyImage && vkCmdBlitImage && vkCmdClearColorImage && vkCmdPipelineBarrier &&
+           vkCmdPushConstants && vkCmdBeginRenderPass && vkCmdEndRenderPass && vkGetSwapchainImagesKHR;
 }
 
 std::mutex g_queue_mutex;
@@ -287,6 +332,34 @@ T LoadDeviceFunction(const char* name) {
 
 void ResetState() {
     g_vk = State{};
+}
+
+// Teardown must not drop the negotiation interface: the core sends it exactly
+// once per session, so losing it makes every later device creation (renderer
+// switch, surface recreation, Vulkan retry) fail for the rest of the session.
+void ResetRenderingState() {
+    const retro_hw_render_context_negotiation_interface_vulkan* negotiation = g_vk.negotiation;
+    ResetState();
+    g_vk.negotiation = negotiation;
+}
+
+// Releases a partially created instance. Without this an instance could stay
+// alive with no dispatch table, and the next Destroy() would call a null
+// pointer.
+bool FailInstance(const char* reason) {
+    VK_LOGE("Vulkan instance unavailable: %s", reason);
+    crash::Mark("vulkan instance failed: %s", reason);
+    if (g_vk.instance != VK_NULL_HANDLE) {
+        if (vkDestroyInstance != nullptr) {
+            vkDestroyInstance(g_vk.instance, nullptr);
+        } else {
+            VK_LOGW("Instance leaked: vkDestroyInstance is unavailable");
+        }
+        g_vk.instance = VK_NULL_HANDLE;
+        g_vk.surface = VK_NULL_HANDLE;
+        g_vk.physical_device = VK_NULL_HANDLE;
+    }
+    return false;
 }
 
 bool HasDeviceExtension(VkPhysicalDevice device, const char* name) {
@@ -326,7 +399,7 @@ bool EnsureInstance() {
     if (!HasInstanceExtension(VK_KHR_SURFACE_EXTENSION_NAME) ||
         !HasInstanceExtension(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME)) {
         VK_LOGE("Vulkan instance surface extensions are unavailable");
-        return false;
+        return FailInstance("surface extensions are unavailable");
     }
 
     VkApplicationInfo app_info{};
@@ -354,13 +427,16 @@ bool EnsureInstance() {
     const VkResult result = vkCreateInstance(&create_info, nullptr, &g_vk.instance);
     if (result != VK_SUCCESS) {
         VK_LOGE("vkCreateInstance failed (0x%x)", result);
-        return false;
+        return FailInstance("vkCreateInstance failed");
     }
 
     if (g_custom_loader_requested) {
         VK_LOGW("Custom Vulkan driver loaded: %s", adrenotools_custom_driver_library_loaded() ? "yes" : "no (system fallback)");
     }
-    LoadInstanceDispatch(g_vk.instance);
+    if (!LoadInstanceDispatch(g_vk.instance)) {
+        return FailInstance("instance dispatch table is incomplete");
+    }
+    crash::Mark("vulkan instance created");
     g_vk.pfn_create_android_surface =
         LoadInstanceFunction<PFN_vkCreateAndroidSurfaceKHR>("vkCreateAndroidSurfaceKHR");
     g_vk.pfn_destroy_surface = LoadInstanceFunction<PFN_vkDestroySurfaceKHR>("vkDestroySurfaceKHR");
@@ -376,7 +452,7 @@ bool EnsureInstance() {
         g_vk.pfn_surface_support == nullptr || g_vk.pfn_surface_caps == nullptr ||
         g_vk.pfn_surface_formats == nullptr || g_vk.pfn_surface_present_modes == nullptr) {
         VK_LOGE("Vulkan surface entry points are missing");
-        return false;
+        return FailInstance("surface entry points are missing");
     }
     VK_LOGI("Vulkan instance created");
     return true;
@@ -421,6 +497,7 @@ bool PickPhysicalDevice() {
     uint32_t count = 0;
     if (vkEnumeratePhysicalDevices(g_vk.instance, &count, nullptr) != VK_SUCCESS || count == 0) {
         VK_LOGE("No Vulkan physical devices found");
+        crash::Mark("vulkan: no physical devices");
         return false;
     }
     std::vector<VkPhysicalDevice> devices(count);
@@ -476,7 +553,11 @@ bool CreateDevice() {
     }
 
     g_vk.device = context.device;
-    LoadDeviceDispatch(g_vk.device);
+    if (!LoadDeviceDispatch(g_vk.device)) {
+        VK_LOGE("Vulkan device dispatch table is incomplete");
+        crash::Mark("vulkan device dispatch incomplete");
+        return false;
+    }
     g_vk.queue = context.queue;
     g_vk.queue_family = context.queue_family_index;
     g_vk.present_queue = context.presentation_queue != VK_NULL_HANDLE ? context.presentation_queue : context.queue;
@@ -1613,10 +1694,12 @@ bool Prepare(ANativeWindow* window, uint32_t window_generation) {
     if (window == nullptr) return false;
 
     if (!EnsureInstance() || !EnsureSurface(window, window_generation) || !PickPhysicalDevice()) {
+        crash::Mark("vulkan prepare failed (instance/surface/device)");
         Destroy();
         return false;
     }
     g_vk.window_generation = window_generation;
+    crash::Mark("vulkan prepared");
     return true;
 }
 
@@ -1661,6 +1744,16 @@ void NotifyContextDestroy() {
 }
 
 void SetCustomDriver(const std::string& path, const std::string& hook_directory) {
+    // The loader can only be chosen before the first instance exists: switching
+    // drivers under a live instance leaves the core with entry points from a
+    // different driver.
+    if (g_vk.instance != VK_NULL_HANDLE) {
+        VK_LOGW("Ignoring a Vulkan driver change while an instance is alive");
+        return;
+    }
+    if (path != g_custom_driver_path) {
+        crash::Mark("vulkan: driver selection %s", path.empty() ? "system" : "custom");
+    }
     g_custom_driver_path = path;
     g_hook_directory = hook_directory;
 }
@@ -1844,43 +1937,54 @@ bool Present(uint32_t source_width, uint32_t source_height, double display_aspec
 }
 
 void Destroy() {
+    crash::Mark("vulkan destroy begin (device=%d instance=%d)",
+                g_vk.device != VK_NULL_HANDLE ? 1 : 0, g_vk.instance != VK_NULL_HANDLE ? 1 : 0);
     if (g_vk.device != VK_NULL_HANDLE) {
-        vkDeviceWaitIdle(g_vk.device);
+        if (vkDeviceWaitIdle != nullptr) vkDeviceWaitIdle(g_vk.device);
         DestroySwapchain();
 #if defined(EMUCORER_HAVE_LIBRASHADER)
         DestroyShaderChain();
 #endif
-        if (g_vk.command_pool != VK_NULL_HANDLE) vkDestroyCommandPool(g_vk.device, g_vk.command_pool, nullptr);
-        if (g_vk.acquire_semaphore != VK_NULL_HANDLE)
+        if (g_vk.command_pool != VK_NULL_HANDLE && vkDestroyCommandPool != nullptr)
+            vkDestroyCommandPool(g_vk.device, g_vk.command_pool, nullptr);
+        if (g_vk.acquire_semaphore != VK_NULL_HANDLE && vkDestroySemaphore != nullptr)
             vkDestroySemaphore(g_vk.device, g_vk.acquire_semaphore, nullptr);
-        if (g_vk.present_semaphore != VK_NULL_HANDLE)
+        if (g_vk.present_semaphore != VK_NULL_HANDLE && vkDestroySemaphore != nullptr)
             vkDestroySemaphore(g_vk.device, g_vk.present_semaphore, nullptr);
-        if (g_vk.frame_fence != VK_NULL_HANDLE) vkDestroyFence(g_vk.device, g_vk.frame_fence, nullptr);
-        if (g_vk.effect_descriptor_pool != VK_NULL_HANDLE)
+        if (g_vk.frame_fence != VK_NULL_HANDLE && vkDestroyFence != nullptr)
+            vkDestroyFence(g_vk.device, g_vk.frame_fence, nullptr);
+        if (g_vk.effect_descriptor_pool != VK_NULL_HANDLE && vkDestroyDescriptorPool != nullptr)
             vkDestroyDescriptorPool(g_vk.device, g_vk.effect_descriptor_pool, nullptr);
-        if (g_vk.effect_pipeline_layout != VK_NULL_HANDLE)
+        if (g_vk.effect_pipeline_layout != VK_NULL_HANDLE && vkDestroyPipelineLayout != nullptr)
             vkDestroyPipelineLayout(g_vk.device, g_vk.effect_pipeline_layout, nullptr);
-        if (g_vk.effect_descriptor_layout != VK_NULL_HANDLE)
+        if (g_vk.effect_descriptor_layout != VK_NULL_HANDLE && vkDestroyDescriptorSetLayout != nullptr)
             vkDestroyDescriptorSetLayout(g_vk.device, g_vk.effect_descriptor_layout, nullptr);
-        if (g_vk.effect_vertex_module != VK_NULL_HANDLE)
+        if (g_vk.effect_vertex_module != VK_NULL_HANDLE && vkDestroyShaderModule != nullptr)
             vkDestroyShaderModule(g_vk.device, g_vk.effect_vertex_module, nullptr);
-        if (g_vk.effect_fragment_module != VK_NULL_HANDLE)
+        if (g_vk.effect_fragment_module != VK_NULL_HANDLE && vkDestroyShaderModule != nullptr)
             vkDestroyShaderModule(g_vk.device, g_vk.effect_fragment_module, nullptr);
-        if (g_vk.effect_point_sampler != VK_NULL_HANDLE)
+        if (g_vk.effect_point_sampler != VK_NULL_HANDLE && vkDestroySampler != nullptr)
             vkDestroySampler(g_vk.device, g_vk.effect_point_sampler, nullptr);
-        if (g_vk.effect_linear_sampler != VK_NULL_HANDLE)
+        if (g_vk.effect_linear_sampler != VK_NULL_HANDLE && vkDestroySampler != nullptr)
             vkDestroySampler(g_vk.device, g_vk.effect_linear_sampler, nullptr);
-        vkDestroyDevice(g_vk.device, nullptr);
+        if (vkDestroyDevice != nullptr) vkDestroyDevice(g_vk.device, nullptr);
         VK_LOGI("Vulkan render device destroyed");
     }
     if (g_vk.surface != VK_NULL_HANDLE && g_vk.instance != VK_NULL_HANDLE && g_vk.pfn_destroy_surface != nullptr) {
         g_vk.pfn_destroy_surface(g_vk.instance, g_vk.surface, nullptr);
     }
-    if (g_vk.instance != VK_NULL_HANDLE) vkDestroyInstance(g_vk.instance, nullptr);
-    ResetState();
-    if (g_vulkan_library) { dlclose(g_vulkan_library); g_vulkan_library = nullptr; }
-    unsetenv("VK_LAYER_PATH");
+    if (g_vk.instance != VK_NULL_HANDLE && vkDestroyInstance != nullptr) {
+        vkDestroyInstance(g_vk.instance, nullptr);
+    }
+    ResetRenderingState();
+    // libvulkan and any vendor ICD stay mapped for the lifetime of the process.
+    // dlclose() here unloaded them while the core's Vulkan::Context destructor
+    // (and vendor driver threads) still held device entry points, which is a
+    // SIGSEGV on exactly the devices that take the Vulkan bootstrap path. The
+    // handle is reused by the next session instead.
+    if (g_custom_loader_requested) unsetenv("VK_LAYER_PATH");
     g_custom_loader_requested = false;
+    crash::Mark("vulkan destroy done");
 }
 
 }  // namespace emucorer::vulkan
