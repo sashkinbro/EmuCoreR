@@ -489,10 +489,6 @@ fun EmulationScreen(
     var showControlsEditor by remember { mutableStateOf(false) }
     var showGamepadMappingDialog by remember { mutableStateOf(false) }
     var showKeyboardMouseSettingsDialog by remember { mutableStateOf(false) }
-    var showGpuDriverManager by remember { mutableStateOf(false) }
-    val driverPreferences = remember(context) { context.getSharedPreferences("gpu_driver_selection", 0) }
-    val driverManager = remember(context) { com.sbro.emucorer.core.GpuDriverManager(context) }
-    var gameDriverPath by remember(gamePath) { mutableStateOf(gamePath?.let { driverPreferences.getString("game:$it", driverPreferences.getString("global", null)) }) }
     var pendingGamepadActionId by remember { mutableStateOf<String?>(null) }
     var pendingGamepadPadIndex by rememberSaveable { mutableIntStateOf(0) }
     var selectedGamepadPadIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -620,7 +616,6 @@ fun EmulationScreen(
     val sessionRestoredUnavailableMessage = stringResource(R.string.emulation_session_restored_unavailable)
     val gamepadUiActive = uiState.showMenu ||
         showControlsEditor ||
-        showGpuDriverManager ||
         showExitDialog ||
         showQuickSaveDialog ||
         showQuickLoadDialog ||
@@ -637,16 +632,12 @@ fun EmulationScreen(
     }
 
     ProvideGamepadMenuAction(onMenu = {
-        if (showGpuDriverManager) showGpuDriverManager = false else toggleMenuClick()
+        toggleMenuClick()
     })
     ProvideGamepadUiNavigation(
         enabled = gamepadUiActive,
         onBack = {
             when {
-                showGpuDriverManager -> {
-                    showGpuDriverManager = false
-                    true
-                }
                 pendingGamepadActionId != null -> {
                     pendingGamepadActionId = null
                     true
@@ -1683,7 +1674,6 @@ fun EmulationScreen(
                     onOpenControlsEditor = { showControlsEditor = true },
                     onOpenGamepadMapping = { showGamepadMappingDialog = true },
                     onOpenKeyboardMouseSettings = { showKeyboardMouseSettingsDialog = true },
-                    onOpenGpuDriverManager = { showGpuDriverManager = true },
                     onSetRenderer = { viewModel.setRenderer(it) },
                     onSetUpscale = { viewModel.setUpscale(it) },
                     onSetAspectRatio = { viewModel.setAspectRatio(it) },
@@ -1705,22 +1695,6 @@ fun EmulationScreen(
                     NeonCrtOverlay()
                 }
             }
-        }
-
-        GpuDriverManagerOverlay(
-            visible = showGpuDriverManager && uiState.runtimeFailure == null,
-            onBack = { showGpuDriverManager = false }
-        ) {
-            com.sbro.emucorer.ui.settings.GpuDriverScreen(
-                onBackClick = { showGpuDriverManager = false },
-                selectedDriverPathOverride = gameDriverPath?.takeIf { it.isNotEmpty() },
-                rendererOverride = uiState.renderer,
-                onSelectDriverForGame = { name ->
-                    val path = name?.let(driverManager::readMainLibraryPath).orEmpty()
-                    if (gamePath != null) driverPreferences.edit().putString("game:$gamePath", path).apply()
-                    gameDriverPath = path
-                }
-            )
         }
     }
 
@@ -3065,7 +3039,6 @@ private fun EmulationSidebarMenu(
     onOpenControlsEditor: () -> Unit,
     onOpenGamepadMapping: () -> Unit,
     onOpenKeyboardMouseSettings: () -> Unit,
-    onOpenGpuDriverManager: () -> Unit,
     onSetRenderer: (Int) -> Unit,
     onSetUpscale: (Float) -> Unit,
     onSetAspectRatio: (Int) -> Unit,
@@ -4031,13 +4004,6 @@ private fun EmulationSidebarMenu(
                             allowWrap = false,
                             helpText = stringResource(R.string.settings_help_renderer),
                             onResetToDefault = { onSetRenderer(globalDefaults.renderer) }
-                        )
-                        MenuButton(
-                            icon = Icons.Rounded.Tune,
-                            text = stringResource(R.string.settings_gpu_driver_manage),
-                            onClick = onOpenGpuDriverManager,
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
                         )
 
                         // Internal resolution belongs to the app-level per-game

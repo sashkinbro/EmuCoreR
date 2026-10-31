@@ -54,9 +54,7 @@ add_subdirectory("${SWANSTATION_DIR}" "${SWANSTATION_BIN_DIR}")
 
 # The host page size is compiled into the core itself, so the 16 KiB build needs
 # its own copy of the core library. Both copies are packaged together, which
-# means they must have distinct SONAMEs: libemucorer_jni_16k.so is linked
-# against libswanstation_libretro_android_16k.so, libemucorer_jni.so against the
-# 4 KiB libswanstation_libretro_android.so that AGP builds.
+# means they must have distinct SONAMEs.
 if(EMUCORER_HOST_PAGE_SIZE STREQUAL "16384" AND TARGET swanstation_libretro)
     set_target_properties(swanstation_libretro PROPERTIES
         OUTPUT_NAME "swanstation_libretro_android_16k")
@@ -86,13 +84,12 @@ if(TARGET chdr-fuzz)
 endif()
 
 # JNI bridge that drives the core through the libretro API.
-add_subdirectory(third_party/libadrenotools)
 add_subdirectory(third_party/archive)
 add_library(emucorer_jni SHARED
     native_bridge.cpp
-    native_crash_handler.cpp
     archive_disc.cpp
     achievements_bridge.cpp
+    native_crash_handler.cpp
     shader_chain.cpp
     vulkan_frontend.cpp
 )
@@ -118,8 +115,8 @@ target_link_libraries(emucorer_jni PRIVATE
     aaudio
     EGL
     GLESv3
-    adrenotools
     archive_static
+    ${VULKAN_LIBRARY}
 )
 
 if(TARGET librashader)

@@ -284,7 +284,7 @@ internal object CoreRuntime {
         else listOf(requestedCore)
 
         shutdownSession()
-        applyCustomGpuDriver(gamePath)
+        applyArchiveDiskVfs(gamePath)
         // The native audio ring is shared between sessions; clear it so the new
         // AAudio stream does not replay the tail of the previous game.
         bridge.resetAudioQueue()
@@ -361,45 +361,15 @@ internal object CoreRuntime {
     }
 
     /**
-     * Applies the user's GPU driver selection for [gamePath] before a session is
-     * created. Any failure here must degrade to the system driver instead of
-     * aborting the launch, which is why the whole lookup is guarded.
+     * Exposes the libretro VFS only when [gamePath] is an archive. Every other
+     * session keeps the plain file access the core had before archive support.
      */
-    private fun applyCustomGpuDriver(gamePath: String) {
-        val appContext = context ?: return
-        try {
-            val preferences = appContext.getSharedPreferences("gpu_driver_selection", Context.MODE_PRIVATE)
-            val selected = preferences.getString("game:$gamePath", preferences.getString("global", null))
-            val manager = GpuDriverManager(appContext)
-            // adrenotools resolves libmain_hook.so/libhook_impl.so through a linker
-            // namespace rooted at a real directory. The APK keeps the libraries
-            // stored (useLegacyPackaging = false), so the adapter hooks are unpacked
-            // from the APK on first use instead of extracting every library at
-            // install time.
-            val hookDirectory = GpuDriverHooks.ensureAvailable(appContext).orEmpty()
-            val selectedPath = manager.resolveUsableDriverPath(selected)
-            val driverPath = if (hookDirectory.isBlank()) "" else selectedPath.orEmpty()
-            if (!selectedPath.isNullOrBlank() && hookDirectory.isBlank()) {
-                CrashLogger.logError(
-                    TAG,
-                    "Custom GPU driver '${File(selectedPath).name}' ignored: the adrenotools " +
-                        "hooks are unavailable"
-                )
-            }
-            bridge.nativeSetCustomGpuDriver(driverPath, hookDirectory)
-            CrashLogger.stage(
-                "gpu driver",
-                when {
-                    driverPath.isNotBlank() -> File(driverPath).name
-                    !selectedPath.isNullOrBlank() -> "system (hooks unavailable)"
-                    else -> "system"
-                }
-            )
-        } catch (error: Throwable) {
-            Log.w(TAG, "GPU driver selection failed; using the system driver", error)
-            CrashLogger.logError(TAG, "GPU driver selection failed; using the system driver", error)
-            runCatching { bridge.nativeSetCustomGpuDriver("", appContext.applicationInfo.nativeLibraryDir) }
-        }
+    private fun applyArchiveDiskVfs(gamePath: String) {
+        val extension = gamePath.substringAfterLast('.', "").lowercase(Locale.US)
+        val archive = extension == "zip" || extension == "7z" || extension == "rar"
+        runCatching { bridge.nativeSetArchiveDiskVfs(archive) }
+            .onFailure { Log.w(TAG, "Unable to configure archive disc VFS", it) }
+        CrashLogger.stage("disc vfs", if (archive) "archive" else "file")
     }
 
     private fun createSessionLocked(gamePath: String, biosOnly: Boolean, stagedBios: String,

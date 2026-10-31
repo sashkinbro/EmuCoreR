@@ -34,7 +34,6 @@ class RealGameBootInstrumentedTest {
         val save = File(root, "save").apply { mkdirs() }
         val assets = File(root, "assets").apply { mkdirs() }
         bridge.nativeInit(system.absolutePath, save.absolutePath, assets.absolutePath)
-        bridge.nativeSetCustomGpuDriver(args.getString("driverPath", ""), context.applicationInfo.nativeLibraryDir)
         mapOf("GPU_Renderer" to "Vulkan", "GPU_ResolutionScale" to "1", "GPU_UseThread" to "false",
             "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
             "BIOS_PatchFastBoot" to "true", "Main_ApplyGameSettings" to "false")
@@ -67,7 +66,6 @@ class RealGameBootInstrumentedTest {
         } finally {
             bridge.destroySession(session)
             mountedPath?.let(bridge::nativeUnmountArchive)
-            bridge.nativeSetCustomGpuDriver("", context.applicationInfo.nativeLibraryDir)
         }
     }
     @Test

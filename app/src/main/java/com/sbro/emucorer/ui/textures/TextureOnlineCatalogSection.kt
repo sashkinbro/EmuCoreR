@@ -549,7 +549,7 @@ private fun TextureCatalogCard(
                                     modifier = Modifier.weight(1f)
                                 )
                                 DownloadSecondaryAction(
-                                    text = stringResource(R.string.settings_gpu_driver_remove_short),
+                                    text = stringResource(R.string.common_remove),
                                     icon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null) },
                                     onClick = onRemove,
                                     modifier = Modifier.weight(1f)
@@ -661,7 +661,7 @@ private fun TextureDownloadQueue(
                                 modifier = Modifier.weight(1f)
                             )
                             DownloadSecondaryAction(
-                                text = stringResource(R.string.settings_gpu_driver_remove_short),
+                                text = stringResource(R.string.common_remove),
                                 icon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null) },
                                 onClick = { onRemove(task.key) },
                                 modifier = Modifier.weight(1f)
