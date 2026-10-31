@@ -255,6 +255,13 @@ struct FrontendState {
 
 FrontendState g_frontend;
 
+// The libretro VFS is exposed only to sessions that mount an archive disc.
+// Returning it for every session would route the core's regular file access
+// (BIOS, ISO, memory cards) through the archive layer as well, which is a code
+// path that did not exist before archive support and is only needed for games
+// that stay inside a .zip/.7z/.rar file.
+bool g_archive_disk_vfs = false;
+
 // ---------------------------------------------------------------------------
 // OpenGL ES hardware renderer state. Created and used exclusively on the frame
 // worker thread, because EGL contexts are thread-affine.
@@ -1326,6 +1333,7 @@ bool EnvironmentCallback(unsigned cmd, void* data) {
             return true;
 
         case RETRO_ENVIRONMENT_GET_VFS_INTERFACE: {
+            if (!g_archive_disk_vfs) return false;
             auto* info = static_cast<retro_vfs_interface_info*>(data);
             if (!info || info->required_interface_version > 3) return false;
             info->iface = const_cast<retro_vfs_interface*>(emucorer::archive_disc::Interface());
@@ -1833,12 +1841,10 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_nativeUnmountArchive(JNIEnv* env, j
 }
 
 JNIEXPORT void JNICALL
-Java_com_sbro_emucorer_core_NativeCoreBridge_nativeSetCustomGpuDriver(JNIEnv* env, jobject, jstring path, jstring hookDir) {
-    const char* driver = path ? env->GetStringUTFChars(path, nullptr) : nullptr;
-    const char* hooks = hookDir ? env->GetStringUTFChars(hookDir, nullptr) : nullptr;
-    vulkan::SetCustomDriver(driver ? driver : "", hooks ? hooks : "");
-    if (driver) env->ReleaseStringUTFChars(path, driver);
-    if (hooks) env->ReleaseStringUTFChars(hookDir, hooks);
+Java_com_sbro_emucorer_core_NativeCoreBridge_nativeSetArchiveDiskVfs(JNIEnv*, jobject,
+                                                                     jboolean enabled) {
+    g_archive_disk_vfs = enabled == JNI_TRUE;
+    crash::Mark("archive disc vfs=%s", g_archive_disk_vfs ? "on" : "off");
 }
 
 JNIEXPORT void JNICALL

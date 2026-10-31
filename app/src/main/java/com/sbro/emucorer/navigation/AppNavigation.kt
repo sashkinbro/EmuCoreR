@@ -102,9 +102,6 @@ object HomeRoute
 data class GameDetailRoute(val catalogGameId: Long)
 
 @Serializable
-data object GpuDriverSettingsRoute
-
-@Serializable
 data class EmulationRoute(
     val gamePath: String? = null,
     val saveSlot: Int? = null,
@@ -848,16 +845,9 @@ onNavigateAchievements = navigateAchievements,
                                 launchSingleTop = true
                             }
                         },
-                        onOpenGpuDriverManager = {
-                            navController.navigate(GpuDriverSettingsRoute) { launchSingleTop = true }
-                        },
                         viewModel = settingsViewModel
                     )
                 }
-            }
-
-            composable<GpuDriverSettingsRoute> {
-                com.sbro.emucorer.ui.settings.GpuDriverScreen(onBackClick = { navController.popBackStack() }, viewModel = settingsViewModel)
             }
 
             composable<LanguageSettingsRoute> {
