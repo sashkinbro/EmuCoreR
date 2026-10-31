@@ -1340,8 +1340,6 @@
     <string name="save_manager_import_confirm">导入</string>
     <string name="save_manager_import_success">已导入存档：%1$d</string>
     <string name="save_manager_import_partial">已导入：%1$d。失败：%2$d。</string>
-    <string name="network_remote_play_title">远程游戏</string>
-    <string name="network_remote_play_notification">您的游戏屏幕正在共享</string>
     <string name="settings_theme_neon">霓虹</string>
 
     <!-- SwanStation core options -->

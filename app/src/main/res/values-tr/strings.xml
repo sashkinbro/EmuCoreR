@@ -1339,8 +1339,6 @@
     <string name="save_manager_import_confirm">İçe aktar</string>
     <string name="save_manager_import_success">İçe aktarılan kayıt: %1$d</string>
     <string name="save_manager_import_partial">İçe aktarıldı: %1$d. Başarısız: %2$d.</string>
-    <string name="network_remote_play_title">Uzaktan Oynatma</string>
-    <string name="network_remote_play_notification">Oyun ekranınız paylaşılıyor</string>
     <string name="settings_theme_neon">Neon</string>
 
     <!-- SwanStation core options -->

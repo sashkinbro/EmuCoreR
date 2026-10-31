@@ -1360,8 +1360,6 @@
     <string name="save_manager_import_confirm">Importuj</string>
     <string name="save_manager_import_success">Zaimportowane zapisy: %1$d</string>
     <string name="save_manager_import_partial">Zaimportowano: %1$d. Błędy: %2$d.</string>
-    <string name="network_remote_play_title">Gra zdalna</string>
-    <string name="network_remote_play_notification">Twój ekran gry jest udostępniany</string>
     <string name="settings_theme_neon">Neon</string>
 
     <!-- SwanStation core options -->

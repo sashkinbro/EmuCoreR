@@ -2,8 +2,8 @@
 #
 # This app is a Compose/Kotlin frontend around the bundled PS1 core JNI
 # library (libemucorer_jni.so). Only runtime name lookups need explicit keeps:
-# JNI entry points, classes resolved by the Discord partner SDK, WebRTC's Java
-# peers, and kotlinx.serialization serializers used for persisted JSON and
+# JNI entry points, classes resolved by the Discord partner SDK, and
+# kotlinx.serialization serializers used for persisted JSON and
 # typed Navigation Compose routes. Everything else is shrunk normally.
 
 # Keep readable crash reports.
@@ -46,14 +46,6 @@
 # libdiscord_partner_sdk.so instantiates its Java models and activity classes
 # by name.
 -keep class com.discord.socialsdk.** { *; }
-
-# --- WebRTC -----------------------------------------------------------------
-# The WebRTC native library resolves Java peers and callbacks through JNI and
-# jni_zero, including classes that have no direct Kotlin references.
--keep class org.webrtc.** { *; }
--keep class org.jni_zero.** { *; }
-# JniZeroJni is provided by WebRTC's own native build, not by the Java AAR.
--dontwarn org.jni_zero.JniZeroJni
 
 # --- Persisted enums --------------------------------------------------------
 # Enum constant names are written to DataStore/JSON (drawer items, game menu

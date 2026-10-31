@@ -1338,8 +1338,6 @@
     <string name="save_manager_import_confirm">가져오기</string>
     <string name="save_manager_import_success">가져온 상태 저장: %1$d</string>
     <string name="save_manager_import_partial">가져옴: %1$d. 실패: %2$d.</string>
-    <string name="network_remote_play_title">리모트 플레이</string>
-    <string name="network_remote_play_notification">게임 화면이 공유되고 있습니다</string>
     <string name="settings_theme_neon">네온</string>
 
     <!-- SwanStation core options -->

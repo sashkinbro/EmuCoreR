@@ -186,7 +186,12 @@ android {
     }
     packaging {
         jniLibs {
-            useLegacyPackaging = true
+            // Keep the shared libraries stored uncompressed in the APK and load
+            // them directly from the archive. Compressing them shaves ~22 MB off
+            // the download but makes the installer unpack every library into
+            // /data/app/.../lib, which doubles the on-device footprint and adds
+            // install-time work for a handful of megabytes.
+            useLegacyPackaging = false
             discordSdkDirectory?.let { pickFirsts += "**/libdiscord_partner_sdk.so" }
         }
     }
@@ -223,6 +228,10 @@ val ninjaExecutable = androidSdkDirectory.resolve(
 val secondary16kBuildDirectory = layout.buildDirectory.dir("native-secondary/16k/arm64-v8a")
 val secondary16kObjectDirectory = layout.buildDirectory.dir("native-secondary/16k/obj/arm64-v8a")
 val secondary16kCore = secondary16kObjectDirectory.map { it.file("libemucorer_jni_16k.so") }
+// SwanStation forces its own output into the CMake binary dir; the 16 KiB build
+// renames the core library so both page-size variants can be packaged together.
+val secondary16kLibretroCore =
+    secondary16kBuildDirectory.map { it.file("swanstation_libretro_android_16k.so") }
 val generated16kJniDirectory = layout.buildDirectory.dir("generated/page-size-jni-libs/arm64-v8a")
 
 val configureEmucorer16k by tasks.registering(Exec::class) {
@@ -278,6 +287,7 @@ val buildEmucorer16k by tasks.registering(Exec::class) {
     description = "Builds the secondary 16 KiB Android emulator core."
     dependsOn(configureEmucorer16k)
     outputs.file(secondary16kCore)
+    outputs.file(secondary16kLibretroCore)
     outputs.upToDateWhen { false }
     commandLine(
         cmakeExecutable.absolutePath,
@@ -285,9 +295,11 @@ val buildEmucorer16k by tasks.registering(Exec::class) {
         "--target", "emucorer_jni"
     )
     doLast {
-        val coreFile = outputs.files.singleFile
-        check(coreFile.isFile) {
-            "The 16 KiB emulator core was not produced: $coreFile"
+        // Read through the task outputs so the action does not capture any build
+        // script objects (the configuration cache forbids that).
+        val missing = outputs.files.files.filterNot { it.isFile }
+        check(missing.isEmpty()) {
+            "The 16 KiB emulator outputs were not produced: $missing"
         }
     }
 }
@@ -296,7 +308,7 @@ val stageEmucorer16k by tasks.registering(Copy::class) {
     group = "build"
     description = "Stages the 16 KiB core for standard APK and AAB packaging."
     dependsOn(buildEmucorer16k)
-    from(secondary16kCore)
+    from(secondary16kCore, secondary16kLibretroCore)
     into(generated16kJniDirectory)
 }
 
@@ -334,7 +346,6 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.browser)
-    implementation(libs.webrtc.android)
     implementation(libs.android.youtube.player.core)
     ksp(libs.androidx.room.compiler)
     discordSdkDirectory?.let { sdkDir ->
