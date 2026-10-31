@@ -2292,4 +2292,10 @@
     <string name="onboarding_supported_consoles">対応コンソール</string>
 
 <string name="common_remove">削除</string>
+    <string name="game_picker_search_hint">ゲームを検索…</string>
+    <string name="game_picker_no_results">一致するゲームが見つかりません</string>
+    <string name="game_picker_tap_to_select">タップしてゲームを選択</string>
+    <string name="game_picker_change_game">ゲームを変更</string>
+    <string name="game_picker_all_filter">すべて</string>
+    <string name="game_picker_clear_search">検索をクリア</string>
 </resources>

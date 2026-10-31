@@ -2292,4 +2292,10 @@
     <string name="onboarding_supported_consoles">지원되는 콘솔</string>
 
 <string name="common_remove">제거</string>
+    <string name="game_picker_search_hint">게임 검색…</string>
+    <string name="game_picker_no_results">검색 결과와 일치하는 게임이 없습니다</string>
+    <string name="game_picker_tap_to_select">게임을 선택하려면 탭하세요</string>
+    <string name="game_picker_change_game">게임 변경</string>
+    <string name="game_picker_all_filter">전체</string>
+    <string name="game_picker_clear_search">검색 지우기</string>
 </resources>

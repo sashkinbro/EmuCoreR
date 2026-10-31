@@ -2293,4 +2293,10 @@
     <string name="onboarding_supported_consoles">Desteklenen konsollar</string>
 
 <string name="common_remove">Kaldır</string>
+    <string name="game_picker_search_hint">Oyun ara…</string>
+    <string name="game_picker_no_results">Aramanızla eşleşen oyun bulunamadı</string>
+    <string name="game_picker_tap_to_select">Oyun seçmek için dokunun</string>
+    <string name="game_picker_change_game">Oyunu değiştir</string>
+    <string name="game_picker_all_filter">Tümü</string>
+    <string name="game_picker_clear_search">Aramayı temizle</string>
 </resources>

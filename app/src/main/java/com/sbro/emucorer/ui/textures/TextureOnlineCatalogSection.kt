@@ -70,7 +70,7 @@ import com.sbro.emucorer.data.TextureDownloadStatus
 import com.sbro.emucorer.data.TextureDownloadTask
 import com.sbro.emucorer.data.formatDownloadBytes
 import com.sbro.emucorer.data.formatDownloadDuration
-import com.sbro.emucorer.ui.common.LibraryGamePicker
+import com.sbro.emucorer.ui.common.ManagerGameSelector
 import com.sbro.emucorer.ui.common.contentCatalogTitleKey
 import com.sbro.emucorer.ui.common.rememberRetainedState
 import java.util.Locale
@@ -274,7 +274,7 @@ internal fun TextureOnlineCatalogSection(
                 onCancel = downloadManager::cancel,
                 onRemove = downloadManager::remove
             )
-            LibraryGamePicker(
+            ManagerGameSelector(
                 games = games,
                 selectedPath = selectedPath,
                 onSelected = { game ->

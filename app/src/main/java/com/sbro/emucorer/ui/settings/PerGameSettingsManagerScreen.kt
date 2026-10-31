@@ -137,6 +137,7 @@ import com.sbro.emucorer.data.SettingsSnapshot
 import com.sbro.emucorer.data.TouchControlPressEffect
 import com.sbro.emucorer.data.TouchControlVisualStyle
 import com.sbro.emucorer.ui.common.GameCoverArt
+import com.sbro.emucorer.ui.common.ManagerGameSelector
 import com.sbro.emucorer.ui.common.GameCoverAspectRatio
 import com.sbro.emucorer.ui.common.ScreenTopBar
 import com.sbro.emucorer.ui.common.SettingsStyledDialog
@@ -223,6 +224,7 @@ fun PerGameSettingsManagerScreen(
     val importSuccess = stringResource(R.string.game_settings_manager_import_success)
     val importFailure = stringResource(R.string.game_settings_manager_import_failure)
     val controlsLayoutSaveFailure = stringResource(R.string.controls_editor_save_failed)
+    val profileBadge = stringResource(R.string.game_settings_manager_profile_active_short)
 
     fun refreshProfiles() {
         scope.launch {
@@ -510,26 +512,14 @@ fun PerGameSettingsManagerScreen(
 
         if (availableGames.isNotEmpty()) {
             item {
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .gameManagerFullBleed()
-                        .tvFocusGroup(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(
-                        start = ScreenHorizontalPadding,
-                        end = ScreenHorizontalPadding
-                    )
-                ) {
-                    items(availableGames, key = { it.path }) { game ->
-                        GamePickerCard(
-                            game = game,
-                            selected = game.path == selectedGamePath,
-                            hasProfile = game.path in profileGameKeys,
-                            onClick = { selectedGamePath = game.path }
-                        )
-                    }
-                }
+                ManagerGameSelector(
+                    games = availableGames,
+                    selectedPath = selectedGamePath,
+                    onSelected = { game -> selectedGamePath = game.path },
+                    horizontalContentPadding = ScreenHorizontalPadding,
+                    fullBleedPadding = ScreenHorizontalPadding,
+                    extraBadge = { game -> if (game.path in profileGameKeys) profileBadge else null }
+                )
             }
 
             stickyHeader(key = "game-settings-tabs") {
