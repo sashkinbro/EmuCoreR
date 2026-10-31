@@ -162,6 +162,16 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        unitTests {
+            // AGP 9.5 creates a Compose Preview runfiles task for every variant and
+            // refuses to do so while Android resources are excluded from unit tests.
+            // Previews need the merged resources to resolve layout XML and theme
+            // attributes, so keep them available; without this the whole build fails
+            // at configuration time instead of at any preview-specific task.
+            isIncludeAndroidResources = true
+        }
+    }
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
@@ -218,8 +228,12 @@ val generated16kJniDirectory = layout.buildDirectory.dir("generated/page-size-jn
 val configureEmucorer16k by tasks.registering(Exec::class) {
     group = "build"
     description = "Configures the secondary 16 KiB Android emulator core."
-    // Both configurations generate SwanStation version.h in the source tree.
-    mustRunAfter(tasks.matching { it.name.startsWith("configureCMake") })
+    // Both configurations generate SwanStation version.h in the source tree, so
+    // they must not overlap. Match AGP's CMake configure task by type instead of
+    // by name: `tasks.matching { it.name.startsWith("configureCMake") }` realizes
+    // every task in the project, and realizing AGP's Compose Preview task fails
+    // the build for variants whose unit tests are off.
+    mustRunAfter(tasks.withType(com.android.build.gradle.tasks.ExternalNativeBuildJsonTask::class.java))
     inputs.files(fileTree("src/main/cpp") {
         include("**/CMakeLists.txt", "**/*.cmake")
     })
