@@ -298,7 +298,6 @@ fun SettingsScreen(
     onOpenControlsLayoutEditor: (() -> Unit)? = null,
     onOpenThemeManager: (() -> Unit)? = null,
     onOpenTouchControlCreator: (() -> Unit)? = null,
-    onOpenGpuDriverManager: (() -> Unit)? = null,
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -646,7 +645,6 @@ fun SettingsScreen(
                     searchEnabled = false
                     searchQuery = ""
                 },
-                onOpenGpuDriverManager = onOpenGpuDriverManager,
                 onOpenMemoryCardManager = onOpenMemoryCardManager,
                 onOpenControlsLayoutEditor = onOpenControlsLayoutEditor,
                 onOpenThemeManager = onOpenThemeManager,
@@ -1319,8 +1317,7 @@ private fun SettingsContent(
     onOpenMemoryCardManager: (() -> Unit)? = null,
     onOpenControlsLayoutEditor: (() -> Unit)? = null,
     onOpenThemeManager: (() -> Unit)? = null,
-    onOpenTouchControlCreator: (() -> Unit)? = null,
-    onOpenGpuDriverManager: (() -> Unit)? = null
+    onOpenTouchControlCreator: (() -> Unit)? = null
 ) {
     val gamepadActions = remember { GamepadManager.mappableButtonActions() }
     val gamepadDeviceAssignments by GamepadManager.gamepadDeviceAssignmentsState.collectAsState()
@@ -2305,16 +2302,6 @@ private fun SettingsContent(
                             onSelect = viewModel::setRenderer,
                             helpText = stringResource(R.string.settings_help_renderer),
                             onResetToDefault = { viewModel.setRenderer(defaults.renderer) }
-                        )
-                        SettingsItem(
-                            icon = Icons.Rounded.Tune,
-                            label = stringResource(R.string.settings_gpu_driver_manager_title),
-                            value = uiState.customDriverPath
-                                ?.takeIf { uiState.gpuDriverType == 1 }
-                                ?.let { java.io.File(it).parentFile?.name ?: java.io.File(it).name }
-                                ?: stringResource(R.string.settings_gpu_driver_system),
-                            onClick = onOpenGpuDriverManager ?: {},
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
                         )
                         ChoiceSection(
                             title = stringResource(R.string.settings_aspect_ratio),
@@ -4742,7 +4729,6 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Library, R.string.settings_backup_export_title),
         entry(SettingsTab.Library, R.string.settings_backup_restore_title),
         entry(SettingsTab.Graphics, R.string.settings_renderer),
-        entry(SettingsTab.Graphics, R.string.settings_gpu_driver_manager_title),
         entry(SettingsTab.Graphics, R.string.settings_upscale),
         entry(SettingsTab.Graphics, R.string.settings_aspect_ratio),
         entry(SettingsTab.Patches, R.string.settings_patches_download),

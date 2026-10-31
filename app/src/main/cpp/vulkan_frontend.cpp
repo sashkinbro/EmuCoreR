@@ -8,12 +8,6 @@
 
 #include <android/log.h>
 #include <vulkan/vulkan.h>
-#include "vulkan_dispatch.h"
-#include <adrenotools/driver.h>
-#include <dlfcn.h>
-#include <sys/stat.h>
-#include <filesystem>
-#include <string>
 
 #if defined(EMUCORER_HAVE_LIBRASHADER)
 #include <librashader.h>
@@ -36,6 +30,7 @@
 #define VK_LOGE(...) __android_log_print(ANDROID_LOG_ERROR, VK_LOG_TAG, __VA_ARGS__)
 
 namespace emucorer::vulkan {
+namespace crash = emucorer::crash;
 namespace {
 
 constexpr uint32_t kPreferredQueueFamilyNone = UINT32_MAX;
@@ -171,157 +166,6 @@ struct State {
 };
 
 State g_vk;
-void* g_vulkan_library = nullptr;
-std::string g_custom_driver_path;
-std::string g_hook_directory;
-std::string g_loaded_driver_path;
-bool g_custom_loader_requested = false;
-
-namespace crash = emucorer::crash;
-
-bool OpenVulkanLibrary() {
-    if (g_vulkan_library && g_loaded_driver_path == g_custom_driver_path) return true;
-    if (g_vulkan_library) {
-        // The requested driver changed. The previous library is intentionally
-        // left mapped: unloading libvulkan (or a vendor ICD) while the core or
-        // a driver thread still owns a function pointer derived from it is an
-        // instant SIGSEGV, and the handle is only a few pages.
-        g_vulkan_library = nullptr;
-        g_custom_loader_requested = false;
-    }
-    if (!g_custom_driver_path.empty() && !g_hook_directory.empty()) {
-        struct stat st{};
-        const auto slash = g_custom_driver_path.find_last_of('/');
-        if (slash != std::string::npos && stat(g_custom_driver_path.c_str(), &st) == 0 &&
-            S_ISREG(st.st_mode) && st.st_size >= 256 * 1024) {
-            const std::string dir = g_custom_driver_path.substr(0, slash + 1);
-            const std::string name = g_custom_driver_path.substr(slash + 1);
-            std::error_code directory_error;
-            for (const auto& entry : std::filesystem::directory_iterator(dir, directory_error)) {
-                if (entry.path().extension() == ".json") { setenv("VK_LAYER_PATH", dir.c_str(), 1); break; }
-            }
-            struct stat hook_stat{};
-            const std::string hook_path = g_hook_directory + "/libmain_hook.so";
-            const bool hooks_present = stat(hook_path.c_str(), &hook_stat) == 0;
-            crash::Mark("vulkan: loading custom driver %s (adapter hooks=%s)", name.c_str(),
-                        hooks_present ? "ok" : "missing");
-            g_vulkan_library = adrenotools_open_libvulkan(RTLD_NOW, ADRENOTOOLS_DRIVER_CUSTOM,
-                nullptr, g_hook_directory.c_str(), dir.c_str(), name.c_str(), nullptr, nullptr);
-            g_custom_loader_requested = g_vulkan_library != nullptr;
-            crash::Mark("vulkan: custom driver %s", g_vulkan_library ? "loaded" : "rejected");
-        }
-        if (!g_vulkan_library) {
-            VK_LOGW("Custom Vulkan loader failed; using system driver");
-            crash::Mark("vulkan: custom driver failed, using system loader");
-        }
-    }
-    if (!g_vulkan_library) g_vulkan_library = dlopen("libvulkan.so", RTLD_NOW);
-    if (!g_vulkan_library) {
-        crash::Mark("vulkan: dlopen(libvulkan.so) failed");
-        return false;
-    }
-    g_loaded_driver_path = g_custom_driver_path;
-    vkCreateInstance = reinterpret_cast<PFN_vkCreateInstance>(dlsym(g_vulkan_library, "vkCreateInstance"));
-    vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(dlsym(g_vulkan_library, "vkGetInstanceProcAddr"));
-    vkEnumerateInstanceExtensionProperties = reinterpret_cast<PFN_vkEnumerateInstanceExtensionProperties>(dlsym(g_vulkan_library, "vkEnumerateInstanceExtensionProperties"));
-    if (!vkGetInstanceProcAddr || !vkCreateInstance || !vkEnumerateInstanceExtensionProperties) {
-        crash::Mark("vulkan: loader is missing core entry points");
-        g_vulkan_library = nullptr;
-        g_loaded_driver_path.clear();
-        return false;
-    }
-    return true;
-}
-
-bool LoadInstanceDispatch(VkInstance instance) {
-    if (instance == VK_NULL_HANDLE || vkGetInstanceProcAddr == nullptr) return false;
-    vkGetDeviceProcAddr = reinterpret_cast<PFN_vkGetDeviceProcAddr>(vkGetInstanceProcAddr(instance, "vkGetDeviceProcAddr"));
-    vkDestroyInstance = reinterpret_cast<PFN_vkDestroyInstance>(vkGetInstanceProcAddr(instance, "vkDestroyInstance"));
-    vkEnumeratePhysicalDevices = reinterpret_cast<PFN_vkEnumeratePhysicalDevices>(vkGetInstanceProcAddr(instance, "vkEnumeratePhysicalDevices"));
-    vkGetPhysicalDeviceProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceProperties>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceProperties"));
-    vkGetPhysicalDeviceQueueFamilyProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceQueueFamilyProperties>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceQueueFamilyProperties"));
-    vkGetPhysicalDeviceMemoryProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceMemoryProperties>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceMemoryProperties"));
-    vkEnumerateDeviceExtensionProperties = reinterpret_cast<PFN_vkEnumerateDeviceExtensionProperties>(vkGetInstanceProcAddr(instance, "vkEnumerateDeviceExtensionProperties"));
-    // Every one of these is dereferenced unconditionally later; a driver that
-    // omits any of them has to be rejected here instead of crashing at use.
-    return vkGetDeviceProcAddr && vkDestroyInstance && vkEnumeratePhysicalDevices &&
-           vkGetPhysicalDeviceProperties && vkGetPhysicalDeviceQueueFamilyProperties &&
-           vkGetPhysicalDeviceMemoryProperties && vkEnumerateDeviceExtensionProperties;
-}
-
-bool LoadDeviceDispatch(VkDevice device) {
-    if (device == VK_NULL_HANDLE || vkGetDeviceProcAddr == nullptr) return false;
-    vkDestroyDevice = reinterpret_cast<PFN_vkDestroyDevice>(vkGetDeviceProcAddr(device, "vkDestroyDevice"));
-    vkQueueSubmit = reinterpret_cast<PFN_vkQueueSubmit>(vkGetDeviceProcAddr(device, "vkQueueSubmit"));
-    vkDeviceWaitIdle = reinterpret_cast<PFN_vkDeviceWaitIdle>(vkGetDeviceProcAddr(device, "vkDeviceWaitIdle"));
-    vkAllocateMemory = reinterpret_cast<PFN_vkAllocateMemory>(vkGetDeviceProcAddr(device, "vkAllocateMemory"));
-    vkFreeMemory = reinterpret_cast<PFN_vkFreeMemory>(vkGetDeviceProcAddr(device, "vkFreeMemory"));
-    vkBindImageMemory = reinterpret_cast<PFN_vkBindImageMemory>(vkGetDeviceProcAddr(device, "vkBindImageMemory"));
-    vkGetImageMemoryRequirements = reinterpret_cast<PFN_vkGetImageMemoryRequirements>(vkGetDeviceProcAddr(device, "vkGetImageMemoryRequirements"));
-    vkCreateFence = reinterpret_cast<PFN_vkCreateFence>(vkGetDeviceProcAddr(device, "vkCreateFence"));
-    vkDestroyFence = reinterpret_cast<PFN_vkDestroyFence>(vkGetDeviceProcAddr(device, "vkDestroyFence"));
-    vkResetFences = reinterpret_cast<PFN_vkResetFences>(vkGetDeviceProcAddr(device, "vkResetFences"));
-    vkWaitForFences = reinterpret_cast<PFN_vkWaitForFences>(vkGetDeviceProcAddr(device, "vkWaitForFences"));
-    vkCreateSemaphore = reinterpret_cast<PFN_vkCreateSemaphore>(vkGetDeviceProcAddr(device, "vkCreateSemaphore"));
-    vkDestroySemaphore = reinterpret_cast<PFN_vkDestroySemaphore>(vkGetDeviceProcAddr(device, "vkDestroySemaphore"));
-    vkCreateImage = reinterpret_cast<PFN_vkCreateImage>(vkGetDeviceProcAddr(device, "vkCreateImage"));
-    vkDestroyImage = reinterpret_cast<PFN_vkDestroyImage>(vkGetDeviceProcAddr(device, "vkDestroyImage"));
-    vkCreateImageView = reinterpret_cast<PFN_vkCreateImageView>(vkGetDeviceProcAddr(device, "vkCreateImageView"));
-    vkDestroyImageView = reinterpret_cast<PFN_vkDestroyImageView>(vkGetDeviceProcAddr(device, "vkDestroyImageView"));
-    vkCreateShaderModule = reinterpret_cast<PFN_vkCreateShaderModule>(vkGetDeviceProcAddr(device, "vkCreateShaderModule"));
-    vkDestroyShaderModule = reinterpret_cast<PFN_vkDestroyShaderModule>(vkGetDeviceProcAddr(device, "vkDestroyShaderModule"));
-    vkCreateGraphicsPipelines = reinterpret_cast<PFN_vkCreateGraphicsPipelines>(vkGetDeviceProcAddr(device, "vkCreateGraphicsPipelines"));
-    vkDestroyPipeline = reinterpret_cast<PFN_vkDestroyPipeline>(vkGetDeviceProcAddr(device, "vkDestroyPipeline"));
-    vkCreatePipelineLayout = reinterpret_cast<PFN_vkCreatePipelineLayout>(vkGetDeviceProcAddr(device, "vkCreatePipelineLayout"));
-    vkDestroyPipelineLayout = reinterpret_cast<PFN_vkDestroyPipelineLayout>(vkGetDeviceProcAddr(device, "vkDestroyPipelineLayout"));
-    vkCreateSampler = reinterpret_cast<PFN_vkCreateSampler>(vkGetDeviceProcAddr(device, "vkCreateSampler"));
-    vkDestroySampler = reinterpret_cast<PFN_vkDestroySampler>(vkGetDeviceProcAddr(device, "vkDestroySampler"));
-    vkCreateDescriptorSetLayout = reinterpret_cast<PFN_vkCreateDescriptorSetLayout>(vkGetDeviceProcAddr(device, "vkCreateDescriptorSetLayout"));
-    vkDestroyDescriptorSetLayout = reinterpret_cast<PFN_vkDestroyDescriptorSetLayout>(vkGetDeviceProcAddr(device, "vkDestroyDescriptorSetLayout"));
-    vkCreateDescriptorPool = reinterpret_cast<PFN_vkCreateDescriptorPool>(vkGetDeviceProcAddr(device, "vkCreateDescriptorPool"));
-    vkDestroyDescriptorPool = reinterpret_cast<PFN_vkDestroyDescriptorPool>(vkGetDeviceProcAddr(device, "vkDestroyDescriptorPool"));
-    vkAllocateDescriptorSets = reinterpret_cast<PFN_vkAllocateDescriptorSets>(vkGetDeviceProcAddr(device, "vkAllocateDescriptorSets"));
-    vkUpdateDescriptorSets = reinterpret_cast<PFN_vkUpdateDescriptorSets>(vkGetDeviceProcAddr(device, "vkUpdateDescriptorSets"));
-    vkCreateFramebuffer = reinterpret_cast<PFN_vkCreateFramebuffer>(vkGetDeviceProcAddr(device, "vkCreateFramebuffer"));
-    vkDestroyFramebuffer = reinterpret_cast<PFN_vkDestroyFramebuffer>(vkGetDeviceProcAddr(device, "vkDestroyFramebuffer"));
-    vkCreateRenderPass = reinterpret_cast<PFN_vkCreateRenderPass>(vkGetDeviceProcAddr(device, "vkCreateRenderPass"));
-    vkDestroyRenderPass = reinterpret_cast<PFN_vkDestroyRenderPass>(vkGetDeviceProcAddr(device, "vkDestroyRenderPass"));
-    vkCreateCommandPool = reinterpret_cast<PFN_vkCreateCommandPool>(vkGetDeviceProcAddr(device, "vkCreateCommandPool"));
-    vkDestroyCommandPool = reinterpret_cast<PFN_vkDestroyCommandPool>(vkGetDeviceProcAddr(device, "vkDestroyCommandPool"));
-    vkAllocateCommandBuffers = reinterpret_cast<PFN_vkAllocateCommandBuffers>(vkGetDeviceProcAddr(device, "vkAllocateCommandBuffers"));
-    vkBeginCommandBuffer = reinterpret_cast<PFN_vkBeginCommandBuffer>(vkGetDeviceProcAddr(device, "vkBeginCommandBuffer"));
-    vkEndCommandBuffer = reinterpret_cast<PFN_vkEndCommandBuffer>(vkGetDeviceProcAddr(device, "vkEndCommandBuffer"));
-    vkResetCommandBuffer = reinterpret_cast<PFN_vkResetCommandBuffer>(vkGetDeviceProcAddr(device, "vkResetCommandBuffer"));
-    vkCmdBindPipeline = reinterpret_cast<PFN_vkCmdBindPipeline>(vkGetDeviceProcAddr(device, "vkCmdBindPipeline"));
-    vkCmdSetViewport = reinterpret_cast<PFN_vkCmdSetViewport>(vkGetDeviceProcAddr(device, "vkCmdSetViewport"));
-    vkCmdSetScissor = reinterpret_cast<PFN_vkCmdSetScissor>(vkGetDeviceProcAddr(device, "vkCmdSetScissor"));
-    vkCmdBindDescriptorSets = reinterpret_cast<PFN_vkCmdBindDescriptorSets>(vkGetDeviceProcAddr(device, "vkCmdBindDescriptorSets"));
-    vkCmdDraw = reinterpret_cast<PFN_vkCmdDraw>(vkGetDeviceProcAddr(device, "vkCmdDraw"));
-    vkCmdCopyImage = reinterpret_cast<PFN_vkCmdCopyImage>(vkGetDeviceProcAddr(device, "vkCmdCopyImage"));
-    vkCmdBlitImage = reinterpret_cast<PFN_vkCmdBlitImage>(vkGetDeviceProcAddr(device, "vkCmdBlitImage"));
-    vkCmdClearColorImage = reinterpret_cast<PFN_vkCmdClearColorImage>(vkGetDeviceProcAddr(device, "vkCmdClearColorImage"));
-    vkCmdPipelineBarrier = reinterpret_cast<PFN_vkCmdPipelineBarrier>(vkGetDeviceProcAddr(device, "vkCmdPipelineBarrier"));
-    vkCmdPushConstants = reinterpret_cast<PFN_vkCmdPushConstants>(vkGetDeviceProcAddr(device, "vkCmdPushConstants"));
-    vkCmdBeginRenderPass = reinterpret_cast<PFN_vkCmdBeginRenderPass>(vkGetDeviceProcAddr(device, "vkCmdBeginRenderPass"));
-    vkCmdEndRenderPass = reinterpret_cast<PFN_vkCmdEndRenderPass>(vkGetDeviceProcAddr(device, "vkCmdEndRenderPass"));
-    vkGetSwapchainImagesKHR = reinterpret_cast<PFN_vkGetSwapchainImagesKHR>(vkGetDeviceProcAddr(device, "vkGetSwapchainImagesKHR"));
-    return vkDestroyDevice && vkQueueSubmit && vkDeviceWaitIdle && vkAllocateMemory && vkFreeMemory &&
-           vkBindImageMemory && vkGetImageMemoryRequirements && vkCreateFence && vkDestroyFence &&
-           vkResetFences && vkWaitForFences && vkCreateSemaphore && vkDestroySemaphore &&
-           vkCreateImage && vkDestroyImage && vkCreateImageView && vkDestroyImageView &&
-           vkCreateShaderModule && vkDestroyShaderModule && vkCreateGraphicsPipelines &&
-           vkDestroyPipeline && vkCreatePipelineLayout && vkDestroyPipelineLayout &&
-           vkCreateSampler && vkDestroySampler && vkCreateDescriptorSetLayout &&
-           vkDestroyDescriptorSetLayout && vkCreateDescriptorPool && vkDestroyDescriptorPool &&
-           vkAllocateDescriptorSets && vkUpdateDescriptorSets && vkCreateFramebuffer &&
-           vkDestroyFramebuffer && vkCreateRenderPass && vkDestroyRenderPass &&
-           vkCreateCommandPool && vkDestroyCommandPool && vkAllocateCommandBuffers &&
-           vkBeginCommandBuffer && vkEndCommandBuffer && vkResetCommandBuffer && vkCmdBindPipeline &&
-           vkCmdSetViewport && vkCmdSetScissor && vkCmdBindDescriptorSets && vkCmdDraw &&
-           vkCmdCopyImage && vkCmdBlitImage && vkCmdClearColorImage && vkCmdPipelineBarrier &&
-           vkCmdPushConstants && vkCmdBeginRenderPass && vkCmdEndRenderPass && vkGetSwapchainImagesKHR;
-}
-
 std::mutex g_queue_mutex;
 std::atomic<int> g_shader_effect{0};
 
@@ -340,26 +184,21 @@ void ResetState() {
 }
 
 // Teardown must not drop the negotiation interface: the core sends it exactly
-// once per session, so losing it makes every later device creation (renderer
-// switch, surface recreation, Vulkan retry) fail for the rest of the session.
+// once per session, so losing it makes every later device creation (surface
+// recreation, Vulkan retry) fail for the rest of the session.
 void ResetRenderingState() {
     const retro_hw_render_context_negotiation_interface_vulkan* negotiation = g_vk.negotiation;
     ResetState();
     g_vk.negotiation = negotiation;
 }
 
-// Releases a partially created instance. Without this an instance could stay
-// alive with no dispatch table, and the next Destroy() would call a null
-// pointer.
+// Releases a partially created instance instead of leaving one behind with no
+// way to reach it.
 bool FailInstance(const char* reason) {
     VK_LOGE("Vulkan instance unavailable: %s", reason);
     crash::Mark("vulkan instance failed: %s", reason);
     if (g_vk.instance != VK_NULL_HANDLE) {
-        if (vkDestroyInstance != nullptr) {
-            vkDestroyInstance(g_vk.instance, nullptr);
-        } else {
-            VK_LOGW("Instance leaked: vkDestroyInstance is unavailable");
-        }
+        vkDestroyInstance(g_vk.instance, nullptr);
         g_vk.instance = VK_NULL_HANDLE;
         g_vk.surface = VK_NULL_HANDLE;
         g_vk.physical_device = VK_NULL_HANDLE;
@@ -399,7 +238,6 @@ bool HasInstanceExtension(const char* name) {
 
 bool EnsureInstance() {
     if (g_vk.instance != VK_NULL_HANDLE) return true;
-    if (!OpenVulkanLibrary()) return false;
 
     if (!HasInstanceExtension(VK_KHR_SURFACE_EXTENSION_NAME) ||
         !HasInstanceExtension(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME)) {
@@ -434,14 +272,8 @@ bool EnsureInstance() {
         VK_LOGE("vkCreateInstance failed (0x%x)", result);
         return FailInstance("vkCreateInstance failed");
     }
-
-    if (g_custom_loader_requested) {
-        VK_LOGW("Custom Vulkan driver loaded: %s", adrenotools_custom_driver_library_loaded() ? "yes" : "no (system fallback)");
-    }
-    if (!LoadInstanceDispatch(g_vk.instance)) {
-        return FailInstance("instance dispatch table is incomplete");
-    }
     crash::Mark("vulkan instance created");
+
     g_vk.pfn_create_android_surface =
         LoadInstanceFunction<PFN_vkCreateAndroidSurfaceKHR>("vkCreateAndroidSurfaceKHR");
     g_vk.pfn_destroy_surface = LoadInstanceFunction<PFN_vkDestroySurfaceKHR>("vkDestroySurfaceKHR");
@@ -551,18 +383,14 @@ bool CreateDevice() {
     const char* required_extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     const bool created =
         g_vk.negotiation->create_device(&context, g_vk.instance, g_vk.physical_device, g_vk.surface,
-                                        vkGetInstanceProcAddr, required_extensions, 1, nullptr, 0, nullptr);
+                                        &vkGetInstanceProcAddr, required_extensions, 1, nullptr, 0, nullptr);
     if (!created || context.device == VK_NULL_HANDLE) {
         VK_LOGE("Core failed to create the Vulkan device");
+        crash::Mark("vulkan: core failed to create the device");
         return false;
     }
 
     g_vk.device = context.device;
-    if (!LoadDeviceDispatch(g_vk.device)) {
-        VK_LOGE("Vulkan device dispatch table is incomplete");
-        crash::Mark("vulkan device dispatch incomplete");
-        return false;
-    }
     g_vk.queue = context.queue;
     g_vk.queue_family = context.queue_family_index;
     g_vk.present_queue = context.presentation_queue != VK_NULL_HANDLE ? context.presentation_queue : context.queue;
@@ -1048,7 +876,7 @@ bool EnsureShaderChain() {
     vk.instance = g_vk.instance;
     vk.device = g_vk.device;
     vk.queue = g_vk.queue;
-    vk.entry = vkGetInstanceProcAddr;
+    vk.entry = &vkGetInstanceProcAddr;
 
     libra_vk_filter_chain_t chain = nullptr;
     if (libra_error_t err = libra_vk_filter_chain_create(&preset, vk, nullptr, &chain)) {
@@ -1298,8 +1126,8 @@ void FillInterface() {
     g_vk.interface.instance = g_vk.instance;
     g_vk.interface.gpu = g_vk.physical_device;
     g_vk.interface.device = g_vk.device;
-    g_vk.interface.get_device_proc_addr = vkGetDeviceProcAddr;
-    g_vk.interface.get_instance_proc_addr = vkGetInstanceProcAddr;
+    g_vk.interface.get_device_proc_addr = &vkGetDeviceProcAddr;
+    g_vk.interface.get_instance_proc_addr = &vkGetInstanceProcAddr;
     g_vk.interface.queue = g_vk.queue;
     g_vk.interface.queue_index = g_vk.queue_family;
     g_vk.interface.set_image = &SetImage;
@@ -1748,21 +1576,6 @@ void NotifyContextDestroy() {
     }
 }
 
-void SetCustomDriver(const std::string& path, const std::string& hook_directory) {
-    // The loader can only be chosen before the first instance exists: switching
-    // drivers under a live instance leaves the core with entry points from a
-    // different driver.
-    if (g_vk.instance != VK_NULL_HANDLE) {
-        VK_LOGW("Ignoring a Vulkan driver change while an instance is alive");
-        return;
-    }
-    if (path != g_custom_driver_path) {
-        crash::Mark("vulkan: driver selection %s", path.empty() ? "system" : "custom");
-    }
-    g_custom_driver_path = path;
-    g_hook_directory = hook_directory;
-}
-
 void SetShaderEffect(int effect) {
     g_shader_effect.store(effect, std::memory_order_relaxed);
 }
@@ -1945,50 +1758,39 @@ void Destroy() {
     crash::Mark("vulkan destroy begin (device=%d instance=%d)",
                 g_vk.device != VK_NULL_HANDLE ? 1 : 0, g_vk.instance != VK_NULL_HANDLE ? 1 : 0);
     if (g_vk.device != VK_NULL_HANDLE) {
-        if (vkDeviceWaitIdle != nullptr) vkDeviceWaitIdle(g_vk.device);
+        vkDeviceWaitIdle(g_vk.device);
         DestroySwapchain();
 #if defined(EMUCORER_HAVE_LIBRASHADER)
         DestroyShaderChain();
 #endif
-        if (g_vk.command_pool != VK_NULL_HANDLE && vkDestroyCommandPool != nullptr)
-            vkDestroyCommandPool(g_vk.device, g_vk.command_pool, nullptr);
-        if (g_vk.acquire_semaphore != VK_NULL_HANDLE && vkDestroySemaphore != nullptr)
+        if (g_vk.command_pool != VK_NULL_HANDLE) vkDestroyCommandPool(g_vk.device, g_vk.command_pool, nullptr);
+        if (g_vk.acquire_semaphore != VK_NULL_HANDLE)
             vkDestroySemaphore(g_vk.device, g_vk.acquire_semaphore, nullptr);
-        if (g_vk.present_semaphore != VK_NULL_HANDLE && vkDestroySemaphore != nullptr)
+        if (g_vk.present_semaphore != VK_NULL_HANDLE)
             vkDestroySemaphore(g_vk.device, g_vk.present_semaphore, nullptr);
-        if (g_vk.frame_fence != VK_NULL_HANDLE && vkDestroyFence != nullptr)
-            vkDestroyFence(g_vk.device, g_vk.frame_fence, nullptr);
-        if (g_vk.effect_descriptor_pool != VK_NULL_HANDLE && vkDestroyDescriptorPool != nullptr)
+        if (g_vk.frame_fence != VK_NULL_HANDLE) vkDestroyFence(g_vk.device, g_vk.frame_fence, nullptr);
+        if (g_vk.effect_descriptor_pool != VK_NULL_HANDLE)
             vkDestroyDescriptorPool(g_vk.device, g_vk.effect_descriptor_pool, nullptr);
-        if (g_vk.effect_pipeline_layout != VK_NULL_HANDLE && vkDestroyPipelineLayout != nullptr)
+        if (g_vk.effect_pipeline_layout != VK_NULL_HANDLE)
             vkDestroyPipelineLayout(g_vk.device, g_vk.effect_pipeline_layout, nullptr);
-        if (g_vk.effect_descriptor_layout != VK_NULL_HANDLE && vkDestroyDescriptorSetLayout != nullptr)
+        if (g_vk.effect_descriptor_layout != VK_NULL_HANDLE)
             vkDestroyDescriptorSetLayout(g_vk.device, g_vk.effect_descriptor_layout, nullptr);
-        if (g_vk.effect_vertex_module != VK_NULL_HANDLE && vkDestroyShaderModule != nullptr)
+        if (g_vk.effect_vertex_module != VK_NULL_HANDLE)
             vkDestroyShaderModule(g_vk.device, g_vk.effect_vertex_module, nullptr);
-        if (g_vk.effect_fragment_module != VK_NULL_HANDLE && vkDestroyShaderModule != nullptr)
+        if (g_vk.effect_fragment_module != VK_NULL_HANDLE)
             vkDestroyShaderModule(g_vk.device, g_vk.effect_fragment_module, nullptr);
-        if (g_vk.effect_point_sampler != VK_NULL_HANDLE && vkDestroySampler != nullptr)
+        if (g_vk.effect_point_sampler != VK_NULL_HANDLE)
             vkDestroySampler(g_vk.device, g_vk.effect_point_sampler, nullptr);
-        if (g_vk.effect_linear_sampler != VK_NULL_HANDLE && vkDestroySampler != nullptr)
+        if (g_vk.effect_linear_sampler != VK_NULL_HANDLE)
             vkDestroySampler(g_vk.device, g_vk.effect_linear_sampler, nullptr);
-        if (vkDestroyDevice != nullptr) vkDestroyDevice(g_vk.device, nullptr);
+        vkDestroyDevice(g_vk.device, nullptr);
         VK_LOGI("Vulkan render device destroyed");
     }
     if (g_vk.surface != VK_NULL_HANDLE && g_vk.instance != VK_NULL_HANDLE && g_vk.pfn_destroy_surface != nullptr) {
         g_vk.pfn_destroy_surface(g_vk.instance, g_vk.surface, nullptr);
     }
-    if (g_vk.instance != VK_NULL_HANDLE && vkDestroyInstance != nullptr) {
-        vkDestroyInstance(g_vk.instance, nullptr);
-    }
+    if (g_vk.instance != VK_NULL_HANDLE) vkDestroyInstance(g_vk.instance, nullptr);
     ResetRenderingState();
-    // libvulkan and any vendor ICD stay mapped for the lifetime of the process.
-    // dlclose() here unloaded them while the core's Vulkan::Context destructor
-    // (and vendor driver threads) still held device entry points, which is a
-    // SIGSEGV on exactly the devices that take the Vulkan bootstrap path. The
-    // handle is reused by the next session instead.
-    if (g_custom_loader_requested) unsetenv("VK_LAYER_PATH");
-    g_custom_loader_requested = false;
     crash::Mark("vulkan destroy done");
 }
 
