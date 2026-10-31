@@ -53,7 +53,8 @@ class NativeCoreBridge {
     external fun nativeMarkStage(stage: String)
 
     external fun nativeSetSaveDirectory(saveDir: String)
-    external fun nativeSetCustomGpuDriver(path: String, hookDirectory: String)
+    /** Enables the libretro VFS that serves discs from inside zip/7z/rar archives. */
+    external fun nativeSetArchiveDiskVfs(enabled: Boolean)
     external fun nativeMountArchive(fd: Int): String?
     external fun nativeUnmountArchive(path: String)
     external fun createSession(): Long
