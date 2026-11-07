@@ -184,6 +184,7 @@ import com.sbro.emucorer.data.GamepadBindingRules
 import com.sbro.emucorer.data.OverlayControlLayout
 import com.sbro.emucorer.data.OverlayLayoutSnapshot
 import com.sbro.emucorer.data.PerformanceOverlayMetrics
+import com.sbro.emucorer.data.RemoteCheatPack
 import com.sbro.emucorer.data.SettingsSnapshot
 import com.sbro.emucorer.data.TouchControlVisualStyle
 import com.sbro.emucorer.data.TouchControlPressEffect
@@ -382,6 +383,7 @@ fun EmulationScreen(
     viewModel: EmulationViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val cheatPackBrowserState by viewModel.cheatPackBrowser.collectAsState()
     val activePatchNotice by viewModel.activePatchNotice.collectAsState()
     val presentationSurfaceGeneration by EmulatorBridge.presentationSurfaceGeneration.collectAsState()
     val context = LocalContext.current
@@ -1683,7 +1685,14 @@ fun EmulationScreen(
                     onSetWidescreenPatches = { viewModel.setEnableWidescreenPatches(it) },
                     onToggleCheat = { id, enabled -> viewModel.setCheatEnabled(id, enabled) },
                     onSetCheatGroupEnabled = { ids, enabled -> viewModel.setCheatGroupEnabled(ids, enabled) },
+                    onSetAllCheatsEnabled = { viewModel.setAllCheatsEnabled(it) },
                     onRefreshCheats = { viewModel.refreshAvailableCheats() },
+                    cheatPackBrowserState = cheatPackBrowserState,
+                    onLoadCheatPacks = { forceRefresh -> viewModel.loadCheatPacks(forceRefresh) },
+                    onInstallCheatPack = { pack -> viewModel.installCheatPack(pack) },
+                    onImportCheatPack = { contents, fallbackName ->
+                        viewModel.importCheatPackText(contents, fallbackName)
+                    },
                     onSetAudioVolume = { viewModel.setAudioVolume(it) },
                     onSetAudioMuted = { viewModel.setAudioMuted(it) },
                     onExit = requestExitClick,
@@ -3048,7 +3057,12 @@ private fun EmulationSidebarMenu(
     onSetWidescreenPatches: (Boolean) -> Unit,
     onToggleCheat: (String, Boolean) -> Unit,
     onSetCheatGroupEnabled: (List<String>, Boolean) -> Unit,
+    onSetAllCheatsEnabled: (Boolean) -> Unit,
     onRefreshCheats: () -> Unit,
+    cheatPackBrowserState: CheatPackBrowserState,
+    onLoadCheatPacks: (Boolean) -> Unit,
+    onInstallCheatPack: (RemoteCheatPack) -> Unit,
+    onImportCheatPack: (String, String?) -> Unit,
     onSetAudioVolume: (Int) -> Unit,
     onSetAudioMuted: (Boolean) -> Unit,
     onExit: () -> Unit,
@@ -3104,7 +3118,10 @@ private fun EmulationSidebarMenu(
     // Cheats can be toggled or installed from the cheat manager; re-read the
     // installed list every time the tab is opened so both stay in sync.
     LaunchedEffect(selectedMenuTab) {
-        if (selectedMenuTab == EmulationMenuTab.Cheats) onRefreshCheats()
+        if (selectedMenuTab == EmulationMenuTab.Cheats) {
+            onRefreshCheats()
+            onLoadCheatPacks(false)
+        }
     }
     val menuTabs = remember(uiState.gameMenuTabOrder, uiState.hiddenGameMenuTabs) {
         uiState.gameMenuTabOrder
@@ -3967,10 +3984,19 @@ private fun EmulationSidebarMenu(
                             onResetToDefault = { onSetEnableCheats(globalDefaults.enableCheats) }
                         )
 
+                        EmulationCheatPacksSection(
+                            state = cheatPackBrowserState,
+                            hasInstalledCheats = uiState.availableCheats.isNotEmpty(),
+                            onLoad = onLoadCheatPacks,
+                            onInstallPack = onInstallCheatPack,
+                            onImportText = onImportCheatPack
+                        )
+
                         EmulationCheatsSection(
                             blocks = uiState.availableCheats,
                             onCheatToggle = onToggleCheat,
-                            onGroupToggle = onSetCheatGroupEnabled
+                            onGroupToggle = onSetCheatGroupEnabled,
+                            onSetAllEnabled = onSetAllCheatsEnabled
                         )
                                     }
 

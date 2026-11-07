@@ -73,8 +73,8 @@ android {
         applicationId = "com.sbro.emucorer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 51
-        versionName = "0.1.7"
+        versionCode = 53
+        versionName = "0.1.8"
 
         buildConfigField("String", "FEEDBACK_ENDPOINT", buildConfigString(feedbackEndpoint))
         buildConfigField("String", "FEEDBACK_API_KEY", buildConfigString(feedbackApiKey))
@@ -356,6 +356,7 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
     // Real org.json on the JVM unit-test classpath; the android.jar stub would
     // throw "not mocked" for the per-game profile serialization tests.
     testImplementation(libs.json)
