@@ -482,8 +482,18 @@
     <string name="settings_help_fast_boot">Skips the PlayStation BIOS startup sequence and boots the disc directly. Disable it if a game hangs on a black screen at startup or relies on the BIOS animation.</string>
 
     <string name="emulation_cheats_title">Cheats</string>
-    <string name="emulation_cheats_empty">No cheats were found for this game.</string>
+    <string name="emulation_cheats_empty">No cheats are installed for this game yet.</string>
     <string name="emulation_cheats_group_enable">Enable all in group</string>
+    <string name="emulation_cheats_enable_all">Enable All</string>
+    <string name="emulation_cheats_disable_all">Disable All</string>
+    <string name="emulation_cheats_empty_hint">Install a cheat pack above or import a PNACH file, then enable the cheats you want.</string>
+    <string name="emulation_cheat_packs_title">Cheat packs</string>
+    <string name="emulation_cheat_packs_hint">Install a pack for this game, then enable the cheats you want below.</string>
+    <string name="emulation_cheat_packs_import">Import PNACH file</string>
+    <string name="emulation_cheat_packs_installing">Installing…</string>
+    <string name="emulation_cheat_packs_installed">Installed</string>
+    <string name="emulation_cheat_packs_show">Show cheat packs</string>
+    <string name="emulation_cheat_packs_hide">Hide cheat packs</string>
 
     <string name="settings_disabled_short">Disabled</string>
 
@@ -1010,6 +1020,8 @@
     <string name="cheat_manager_crc_unavailable">%1$s • CRC could not be detected. Available revisions are matched by serial and title.</string>
     <string name="cheat_manager_import_success">Cheat file imported. Choose which cheats to enable below.</string>
     <string name="cheat_manager_import_failed">The selected file does not contain supported cheat codes.</string>
+    <string name="cheat_manager_download_success">Cheats installed. Choose which ones to enable below.</string>
+    <string name="cheat_manager_download_failed">The cheat file could not be downloaded or did not contain supported PNACH blocks.</string>
     <string name="cheat_catalog_title">Online cheats</string>
     <string name="cheat_catalog_description">Download verified cheat packs for the selected game from the EmuCoreR catalog. Installed packs are merged with the cheats already stored for this game.</string>
     <string name="cheat_catalog_no_packs">No cheat packs are available for this game yet. Packs added to the EmuCoreR catalog appear here automatically.</string>
@@ -1017,6 +1029,11 @@
     <string name="cheat_catalog_install_success">Cheats installed. Enable the ones you want below.</string>
     <string name="cheat_catalog_install_failed">Unable to install the selected cheat pack.</string>
     <string name="cheat_manager_installed">Installed cheats</string>
+    <string name="cheat_manager_installed_packs">Installed packs</string>
+    <string name="cheat_manager_pack_meta">CRC %1$s • %2$d cheat blocks</string>
+    <string name="cheat_manager_pack_remove_failed">Could not remove this pack. Reinstall it and try again.</string>
+    <string name="cheat_manager_remove_pack_title">Remove “%1$s”?</string>
+    <string name="cheat_manager_remove_pack_body">Only this pack\'s cheats are removed. Other installed packs and your enabled cheats stay.</string>
     <string name="cheat_manager_delete">Delete cheats for this game</string>
     <string name="cheat_manager_delete_title">Delete installed cheats?</string>
     <string name="cheat_manager_delete_confirm">The imported cheat file and its enabled selections will be removed.</string>
