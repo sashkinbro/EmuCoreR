@@ -5921,16 +5921,19 @@ private fun SaveSlotPreview(
             )
     ) {
         if (previewPath != null) {
-            GameCoverArt(
-                coverPath = previewPath,
-                fallbackTitle = gameTitle,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                showTitleWhileLoading = false,
-                shimmerWhileLoading = false,
-                decodeWidth = 720,
-                decodeHeight = 405
-            )
+            // Saving overwrites the same path; reload the composable's remembered bitmap.
+            key(previewPath, lastModified) {
+                GameCoverArt(
+                    coverPath = previewPath,
+                    fallbackTitle = gameTitle,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    showTitleWhileLoading = false,
+                    shimmerWhileLoading = false,
+                    decodeWidth = 720,
+                    decodeHeight = 405
+                )
+            }
         } else {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -6018,16 +6021,18 @@ private fun SaveSlotThumbnail(
         contentAlignment = Alignment.Center
     ) {
         if (previewPath != null) {
-            GameCoverArt(
-                coverPath = previewPath,
-                fallbackTitle = contentDescription,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                showTitleWhileLoading = false,
-                shimmerWhileLoading = false,
-                decodeWidth = 240,
-                decodeHeight = 135
-            )
+            key(previewPath, lastModified) {
+                GameCoverArt(
+                    coverPath = previewPath,
+                    fallbackTitle = contentDescription,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    showTitleWhileLoading = false,
+                    shimmerWhileLoading = false,
+                    decodeWidth = 240,
+                    decodeHeight = 135
+                )
+            }
         } else {
             Icon(
                 imageVector = Icons.Rounded.Save,
