@@ -28,6 +28,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.sbro.emucorer.core.AppLocaleManager
 import com.sbro.emucorer.core.GamepadManager
 import com.sbro.emucorer.core.KeyboardMouseManager
@@ -128,6 +129,17 @@ open class MainActivity : ComponentActivity() {
                         applyOrientationLock(lock)
                     }
                 }
+        }
+
+        lifecycleScope.launch {
+            com.sbro.emucorer.core.AgeSignalsController.publishStored(preferences)
+            // Once per process, after the first frames, only while resumed (Play may show a consent prompt).
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+                delay(1500)
+                com.sbro.emucorer.core.AgeSignalsController.run(
+                    this@MainActivity, preferences, com.sbro.emucorer.BuildConfig.DEBUG
+                )
+            }
         }
 
         setContent {
