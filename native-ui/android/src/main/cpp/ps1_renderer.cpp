@@ -2560,7 +2560,9 @@ bool Ps1Renderer::SurfaceNormToVirtual(float normX, float normY, float& outVx, f
 void Ps1Renderer::SwitchScreen(int nextScreen) {
     if (screen_ == nextScreen) return;
     screen_ = nextScreen;
-    screen_fade_t_ = 0.0f;
+    // Keep screen_fade_t_ at 1.0f during intra-shell screen switches so the status bar,
+    // bottom bar, and opaque panels never flash transparent for 1-2 frames ("reload blink").
+    screen_fade_t_ = 1.0f;
     cursor_pos_init_ = false;
     overlay_ = OVERLAY_NONE;
 }
@@ -3390,9 +3392,9 @@ void Ps1Renderer::TriggerTransition(int kind) {
     boot_sfx_played_ = false;
 
     if (kind == 1 || settings_.bootAnimMode == 2) {
-        // Returned from a game OR Boot Animation Off: quick crisp fade straight to menu
+        // Returned from a game OR Boot Animation Off: show menu immediately without transparent blink
         boot_active_ = false;
-        screen_fade_t_ = 0.15f;
+        screen_fade_t_ = 1.0f;
     } else {
         boot_active_ = true;
         boot_t_ = 0.0f;
