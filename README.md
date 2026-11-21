@@ -127,7 +127,7 @@ This repository contains the Android application, its Compose UI, the C++17 Open
 
 ## Current App Scope
 
-EmuCoreR version `0.1.9` (`versionCode 56`) targets Android with:
+EmuCoreR version `0.1.9` (`versionCode 57`) targets Android with:
 
 - `minSdk 26` / `targetSdk 37` / `compileSdk 37` (minor API level 2)
 - ABI: `arm64-v8a` (both 4 KiB and 16 KiB ELF/fastmem page-size support)
