@@ -10,7 +10,6 @@ app/.externalNativeBuild/
 /core/build/
 core/.cxx/
 tools/build/
-tests/build/
 /.cxx/
 /.externalNativeBuild/
 /out/
@@ -46,7 +45,6 @@ local.properties
 /bios/
 *.bin
 *.rom
-!tests/fixtures/**/*.bin
 
 # Commercial game images — never commit
 *.iso
@@ -54,7 +52,6 @@ local.properties
 *.cue
 *.chd
 *.img
-!tests/fixtures/**/*.bin
 
 # Native build artifacts
 *.o
@@ -76,10 +73,6 @@ third_party/*/install/
 ehthumbs.db
 Desktop.ini
 
-# Fuzz corpus
-tests/fuzz/corpus/
-tests/fuzz/artifacts/
-
 # Deterministic snapshots (local debugging)
 *.snapshot
 
@@ -95,6 +88,10 @@ tests/fuzz/artifacts/
 
 # Local test workspace (crash logs and user reports)
 /test/
+
+# Local test suites and test game lists
+/testgames/
+/tests/
 
 # Local release tooling (parallel builds + apktool)
 /tools/
