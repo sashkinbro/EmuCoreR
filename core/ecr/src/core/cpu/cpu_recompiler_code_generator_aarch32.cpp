@@ -1075,8 +1075,10 @@ void CodeGenerator::EmitUpdateFastmemBase()
   }
 }
 
-void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, Value& result)
+void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, Value& result,
+                                            bool sign_extend /* = false */)
 {
+  (void)sign_extend;
   Value fastmem_base = GetFastmemLoadBase();
 
   HostReg address_reg;
@@ -1115,8 +1117,9 @@ void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, 
 }
 
 void CodeGenerator::EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size,
-                                               Value& result)
+                                               Value& result, bool sign_extend /* = false */)
 {
+  (void)sign_extend;
   // fastmem
   LoadStoreBackpatchInfo bpi;
   bpi.address_host_reg = HostReg_Invalid;
@@ -1196,8 +1199,9 @@ void CodeGenerator::EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, 
 }
 
 void CodeGenerator::EmitLoadGuestMemorySlowmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size,
-                                               Value& result, bool in_far_code)
+                                               Value& result, bool in_far_code, bool sign_extend /* = false */)
 {
+  (void)sign_extend;
   if (g_settings.cpu_recompiler_memory_exceptions)
   {
     // NOTE: This can leave junk in the upper bits

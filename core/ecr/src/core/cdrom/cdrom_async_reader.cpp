@@ -31,6 +31,8 @@ void CDROMAsyncReader::StopThread()
   {
     std::unique_lock<std::mutex> lock(m_mutex);
     m_shutdown_flag.store(true);
+    m_next_position_set.store(false);
+    m_can_readahead.store(false);
     m_do_read_cv.notify_one();
   }
 
@@ -42,7 +44,17 @@ void CDROMAsyncReader::StopThread()
 void CDROMAsyncReader::SetMedia(std::unique_ptr<CDImage> media)
 {
   if (IsUsingThread())
-    CancelReadahead();
+  {
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_next_position_set.store(false);
+    m_can_readahead.store(false);
+    m_notify_read_complete_cv.wait(lock, [this]() { return !m_is_reading.load(); });
+    m_next_position_set.store(false);
+    m_can_readahead.store(false);
+    EmptyBuffers();
+    m_media = std::move(media);
+    return;
+  }
 
   m_media = std::move(media);
 }
@@ -50,7 +62,16 @@ void CDROMAsyncReader::SetMedia(std::unique_ptr<CDImage> media)
 std::unique_ptr<CDImage> CDROMAsyncReader::RemoveMedia()
 {
   if (IsUsingThread())
-    CancelReadahead();
+  {
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_next_position_set.store(false);
+    m_can_readahead.store(false);
+    m_notify_read_complete_cv.wait(lock, [this]() { return !m_is_reading.load(); });
+    m_next_position_set.store(false);
+    m_can_readahead.store(false);
+    EmptyBuffers();
+    return std::move(m_media);
+  }
 
   return std::move(m_media);
 }
@@ -159,6 +180,9 @@ void CDROMAsyncReader::EmptyBuffers()
 
 bool CDROMAsyncReader::ReadSectorIntoBuffer(std::unique_lock<std::mutex>& lock)
 {
+  if (!m_media || m_shutdown_flag.load())
+    return false;
+
   const uint32_t slot = m_buffer_back.load();
   m_buffer_back.store((slot + 1) % static_cast<uint32_t>(m_buffers.size()));
 
@@ -200,10 +224,14 @@ void CDROMAsyncReader::CancelReadahead()
 {
   std::unique_lock lock(m_mutex);
 
+  m_next_position_set.store(false);
+  m_can_readahead.store(false);
+
   // wait until the read thread is idle
   m_notify_read_complete_cv.wait(lock, [this]() { return !m_is_reading.load(); });
 
   // prevent it from doing any more when it re-acquires the lock
+  m_next_position_set.store(false);
   m_can_readahead.store(false);
   EmptyBuffers();
 }
@@ -219,10 +247,24 @@ void CDROMAsyncReader::WorkerThreadEntryPoint()
     if (m_shutdown_flag.load())
       break;
 
+    if (!m_media)
+    {
+      m_next_position_set.store(false);
+      m_can_readahead.store(false);
+      continue;
+    }
+
     for (;;)
     {
       if (m_next_position_set.load())
       {
+        if (!m_media || m_shutdown_flag.load())
+        {
+          m_next_position_set.store(false);
+          m_can_readahead.store(false);
+          break;
+        }
+
         // discard buffers, we're seeking to a new location
         const CDImage::LBA seek_location = m_next_position.load();
         EmptyBuffers();
@@ -236,6 +278,14 @@ void CDROMAsyncReader::WorkerThreadEntryPoint()
 
         lock.lock();
         m_is_reading.store(false);
+        m_notify_read_complete_cv.notify_all();
+
+        if (m_shutdown_flag.load() || !m_media)
+        {
+          m_next_position_set.store(false);
+          m_can_readahead.store(false);
+          break;
+        }
 
         // did another request come in? abort if so
         if (m_next_position_set.load())
@@ -255,15 +305,15 @@ void CDROMAsyncReader::WorkerThreadEntryPoint()
         m_can_readahead.store(true);
       }
 
-      if (!m_can_readahead.load())
+      if (!m_can_readahead.load() || !m_media || m_shutdown_flag.load())
         break;
 
       // readahead time! read as many sectors as we have space for
       while (m_buffer_count.load() < static_cast<uint32_t>(m_buffers.size()))
       {
-        if (m_next_position_set.load())
+        if (m_shutdown_flag.load() || !m_can_readahead.load() || !m_media || m_next_position_set.load())
         {
-          // a seek request came in while we're reading, so bail out
+          // a seek request, media change, or shutdown came in while we were reading
           break;
         }
 
@@ -274,6 +324,7 @@ void CDROMAsyncReader::WorkerThreadEntryPoint()
 
       // readahead buffer is full or errored at this point
       m_can_readahead.store(false);
+      m_notify_read_complete_cv.notify_all();
       break;
     }
   }

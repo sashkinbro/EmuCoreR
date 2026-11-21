@@ -1651,7 +1651,7 @@ uint64_t ReadMemoryByte(uint32_t address)
     return static_cast<uint64_t>(-static_cast<int64_t>(Exception::DBE));
 
   g_state.pending_ticks += cycles;
-  return static_cast<uint64_t>(temp);
+  return static_cast<uint64_t>(temp & UINT32_C(0xFF));
 }
 
 uint64_t ReadMemoryHalfWord(uint32_t address)
@@ -1668,7 +1668,7 @@ uint64_t ReadMemoryHalfWord(uint32_t address)
     return static_cast<uint64_t>(-static_cast<int64_t>(Exception::DBE));
 
   g_state.pending_ticks += cycles;
-  return static_cast<uint64_t>(temp);
+  return static_cast<uint64_t>(temp & UINT32_C(0xFFFF));
 }
 
 uint64_t ReadMemoryWord(uint32_t address)
@@ -1731,14 +1731,14 @@ uint32_t UncheckedReadMemoryByte(uint32_t address)
 {
   uint32_t temp = 0;
   g_state.pending_ticks += DoMemoryAccess<MemoryAccessType::Read, MemoryAccessSize::Byte>(address, temp);
-  return temp;
+  return temp & UINT32_C(0xFF);
 }
 
 uint32_t UncheckedReadMemoryHalfWord(uint32_t address)
 {
   uint32_t temp = 0;
   g_state.pending_ticks += DoMemoryAccess<MemoryAccessType::Read, MemoryAccessSize::HalfWord>(address, temp);
-  return temp;
+  return temp & UINT32_C(0xFFFF);
 }
 
 uint32_t UncheckedReadMemoryWord(uint32_t address)

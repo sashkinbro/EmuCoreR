@@ -23,7 +23,8 @@ void CodeGenerator::EmitStoreInterpreterLoadDelay(Reg reg, const Value& value)
 }
 
 Value CodeGenerator::EmitLoadGuestMemory(const CodeBlockInstruction& cbi, const Value& address,
-                                         const SpeculativeValue& address_spec, RegSize size)
+                                         const SpeculativeValue& address_spec, RegSize size,
+                                         bool sign_extend /* = false */)
 {
   if (address.IsConstant() && !SpeculativeIsCacheIsolated())
   {
@@ -41,13 +42,21 @@ Value CodeGenerator::EmitLoadGuestMemory(const CodeBlockInstruction& cbi, const 
       {
         // have to mask away the high bits for mirrors, since we don't map them in fastmem
         EmitLoadGuestRAMFastmem(Value::FromConstantU32(static_cast<uint32_t>(address.constant_value) & Bus::g_ram_mask),
-                                size, result);
+                                size, result, sign_extend);
       }
       else
       {
         EmitLoadGlobal(result.GetHostRegister(), size, ptr);
+#if defined(CPU_AARCH64)
+        if (sign_extend && size < RegSize_32)
+          EmitSignExtend(result.GetHostRegister(), RegSize_32, result.GetHostRegister(), size);
+#endif
       }
 
+#if defined(CPU_AARCH64)
+      if (size < RegSize_32)
+        result.size = RegSize_32;
+#endif
       m_delayed_cycles_add += read_ticks;
       return result;
     }
@@ -60,16 +69,26 @@ Value CodeGenerator::EmitLoadGuestMemory(const CodeBlockInstruction& cbi, const 
 
   if (g_settings.IsUsingFastmem() && use_fastmem && g_settings.cpu_fastmem_rewrite)
   {
-    EmitLoadGuestMemoryFastmem(cbi, address, size, result);
+    EmitLoadGuestMemoryFastmem(cbi, address, size, result, sign_extend);
   }
   else
   {
     AddPendingCycles(true);
     m_register_cache.FlushCallerSavedGuestRegisters(true, true);
-    EmitLoadGuestMemorySlowmem(cbi, address, size, result, false);
+    EmitLoadGuestMemorySlowmem(cbi, address, size, result, false, sign_extend);
   }
 
   // Downcast to ignore upper 56/48/32 bits. This should be a noop.
+#if defined(CPU_AARCH64)
+  if (size <= RegSize_32)
+  {
+    result.size = RegSize_32;
+  }
+  else if (result.size != size)
+  {
+    ConvertValueSizeInPlace(&result, size, false);
+  }
+#else
   if (result.size != size)
   {
     switch (size)
@@ -90,6 +109,7 @@ Value CodeGenerator::EmitLoadGuestMemory(const CodeBlockInstruction& cbi, const 
         break;
     }
   }
+#endif
 
   return result;
 }

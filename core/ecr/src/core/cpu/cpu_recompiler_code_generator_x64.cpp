@@ -1660,8 +1660,10 @@ void CodeGenerator::EmitAddCPUStructField(uint32_t offset, const Value& value)
   }
 }
 
-void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, Value& result)
+void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, Value& result,
+                                            bool sign_extend /* = false */)
 {
+  (void)sign_extend;
   if (g_settings.cpu_fastmem_mode == CPUFastmemMode::MMap)
   {
     // can't store displacements > 0x80000000 in-line
@@ -1748,8 +1750,9 @@ void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, 
 }
 
 void CodeGenerator::EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size,
-                                               Value& result)
+                                               Value& result, bool sign_extend /* = false */)
 {
+  (void)sign_extend;
   // fastmem
   LoadStoreBackpatchInfo bpi;
   bpi.host_pc = GetCurrentNearCodePointer();
@@ -1881,8 +1884,9 @@ void CodeGenerator::EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, 
 }
 
 void CodeGenerator::EmitLoadGuestMemorySlowmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size,
-                                               Value& result, bool in_far_code)
+                                               Value& result, bool in_far_code, bool sign_extend /* = false */)
 {
+  (void)sign_extend;
   if (g_settings.cpu_recompiler_memory_exceptions)
   {
     // NOTE: This can leave junk in the upper bits

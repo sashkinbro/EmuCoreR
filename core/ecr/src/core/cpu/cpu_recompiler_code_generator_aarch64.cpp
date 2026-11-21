@@ -4,6 +4,7 @@
 #include "cpu_recompiler_thunks.h"
 #include "settings.h"
 #include "timing_event.h"
+#include <limits>
 
 namespace a64 = vixl::aarch64;
 
@@ -317,7 +318,8 @@ void CodeGenerator::EmitZeroExtend(HostReg to_reg, RegSize to_size, HostReg from
 
 void CodeGenerator::EmitCopyValue(HostReg to_reg, const Value& value)
 {
-  // TODO: mov x, 0 -> xor x, x
+  if (!value.IsConstant() && to_reg == value.host_reg)
+    return;
 
   switch (value.size)
   {
@@ -390,6 +392,26 @@ void CodeGenerator::EmitAdd(HostReg to_reg, HostReg from_reg, const Value& value
 
     return;
   }
+  else if (constant_value < 0 && constant_value > std::numeric_limits<int64_t>::min() &&
+           a64::Assembler::IsImmAddSub(-constant_value))
+  {
+    if (value.size < RegSize_64)
+    {
+      if (set_flags)
+        m_emit->subs(GetHostReg32(to_reg), GetHostReg32(from_reg), -constant_value);
+      else
+        m_emit->sub(GetHostReg32(to_reg), GetHostReg32(from_reg), -constant_value);
+    }
+    else
+    {
+      if (set_flags)
+        m_emit->subs(GetHostReg64(to_reg), GetHostReg64(from_reg), -constant_value);
+      else
+        m_emit->sub(GetHostReg64(to_reg), GetHostReg64(from_reg), -constant_value);
+    }
+
+    return;
+  }
 
   // need a temporary
   Value temp_value(Value::FromHostReg(&m_register_cache, RSCRATCH, value.size));
@@ -440,6 +462,26 @@ void CodeGenerator::EmitSub(HostReg to_reg, HostReg from_reg, const Value& value
         m_emit->subs(GetHostReg64(to_reg), GetHostReg64(from_reg), constant_value);
       else
         m_emit->sub(GetHostReg64(to_reg), GetHostReg64(from_reg), constant_value);
+    }
+
+    return;
+  }
+  else if (constant_value < 0 && constant_value > std::numeric_limits<int64_t>::min() &&
+           a64::Assembler::IsImmAddSub(-constant_value))
+  {
+    if (value.size < RegSize_64)
+    {
+      if (set_flags)
+        m_emit->adds(GetHostReg32(to_reg), GetHostReg32(from_reg), -constant_value);
+      else
+        m_emit->add(GetHostReg32(to_reg), GetHostReg32(from_reg), -constant_value);
+    }
+    else
+    {
+      if (set_flags)
+        m_emit->adds(GetHostReg64(to_reg), GetHostReg64(from_reg), -constant_value);
+      else
+        m_emit->add(GetHostReg64(to_reg), GetHostReg64(from_reg), -constant_value);
     }
 
     return;
@@ -817,6 +859,12 @@ void CodeGenerator::EmitNot(HostReg to_reg, RegSize size)
   }
 }
 
+void CodeGenerator::EmitCountLeadingSignBits(HostReg to_reg, HostReg from_reg)
+{
+  m_emit->cls(GetHostReg32(to_reg), GetHostReg32(from_reg));
+  m_emit->add(GetHostReg32(to_reg), GetHostReg32(to_reg), 1);
+}
+
 void CodeGenerator::EmitSetConditionResult(HostReg to_reg, RegSize to_size, Condition condition)
 {
   if (condition == Condition::Always)
@@ -1143,7 +1191,11 @@ void CodeGenerator::EmitAddCPUStructField(uint32_t offset, const Value& value)
   {
     // do we need temporary storage for the constant, if it won't fit in an immediate?
     const int64_t constant_value = value.GetS64ConstantValue();
-    if (!a64::Assembler::IsImmAddSub(constant_value))
+    const bool can_imm_add = a64::Assembler::IsImmAddSub(constant_value);
+    const bool can_imm_sub = !can_imm_add && constant_value < 0 &&
+                             constant_value > std::numeric_limits<int64_t>::min() &&
+                             a64::Assembler::IsImmAddSub(-constant_value);
+    if (!can_imm_add && !can_imm_sub)
     {
       real_value.SetHostReg(&m_register_cache, RARG4, value.size);
       EmitCopyValue(real_value.host_reg, value);
@@ -1161,9 +1213,17 @@ void CodeGenerator::EmitAddCPUStructField(uint32_t offset, const Value& value)
     {
       m_emit->Ldrb(GetHostReg8(RSCRATCH), o_offset);
       if (real_value.IsConstant())
-        m_emit->Add(GetHostReg8(RSCRATCH), GetHostReg8(RSCRATCH), real_value.GetS64ConstantValue());
+      {
+        const int64_t cv = real_value.GetS64ConstantValue();
+        if (cv < 0)
+          m_emit->Sub(GetHostReg8(RSCRATCH), GetHostReg8(RSCRATCH), -cv);
+        else
+          m_emit->Add(GetHostReg8(RSCRATCH), GetHostReg8(RSCRATCH), cv);
+      }
       else
+      {
         m_emit->Add(GetHostReg8(RSCRATCH), GetHostReg8(RSCRATCH), GetHostReg8(real_value));
+      }
       m_emit->Strb(GetHostReg8(RSCRATCH), o_offset);
     }
     break;
@@ -1172,9 +1232,17 @@ void CodeGenerator::EmitAddCPUStructField(uint32_t offset, const Value& value)
     {
       m_emit->Ldrh(GetHostReg16(RSCRATCH), o_offset);
       if (real_value.IsConstant())
-        m_emit->Add(GetHostReg16(RSCRATCH), GetHostReg16(RSCRATCH), real_value.GetS64ConstantValue());
+      {
+        const int64_t cv = real_value.GetS64ConstantValue();
+        if (cv < 0)
+          m_emit->Sub(GetHostReg16(RSCRATCH), GetHostReg16(RSCRATCH), -cv);
+        else
+          m_emit->Add(GetHostReg16(RSCRATCH), GetHostReg16(RSCRATCH), cv);
+      }
       else
+      {
         m_emit->Add(GetHostReg16(RSCRATCH), GetHostReg16(RSCRATCH), GetHostReg16(real_value));
+      }
       m_emit->Strh(GetHostReg16(RSCRATCH), o_offset);
     }
     break;
@@ -1183,9 +1251,17 @@ void CodeGenerator::EmitAddCPUStructField(uint32_t offset, const Value& value)
     {
       m_emit->Ldr(GetHostReg32(RSCRATCH), o_offset);
       if (real_value.IsConstant())
-        m_emit->Add(GetHostReg32(RSCRATCH), GetHostReg32(RSCRATCH), real_value.GetS64ConstantValue());
+      {
+        const int64_t cv = real_value.GetS64ConstantValue();
+        if (cv < 0)
+          m_emit->Sub(GetHostReg32(RSCRATCH), GetHostReg32(RSCRATCH), -cv);
+        else
+          m_emit->Add(GetHostReg32(RSCRATCH), GetHostReg32(RSCRATCH), cv);
+      }
       else
+      {
         m_emit->Add(GetHostReg32(RSCRATCH), GetHostReg32(RSCRATCH), GetHostReg32(real_value));
+      }
       m_emit->Str(GetHostReg32(RSCRATCH), o_offset);
     }
     break;
@@ -1194,9 +1270,17 @@ void CodeGenerator::EmitAddCPUStructField(uint32_t offset, const Value& value)
     {
       m_emit->Ldr(GetHostReg64(RSCRATCH), o_offset);
       if (real_value.IsConstant())
-        m_emit->Add(GetHostReg64(RSCRATCH), GetHostReg64(RSCRATCH), int64_t(real_value.constant_value));
+      {
+        const int64_t cv = real_value.GetS64ConstantValue();
+        if (cv < 0 && cv > std::numeric_limits<int64_t>::min())
+          m_emit->Sub(GetHostReg64(RSCRATCH), GetHostReg64(RSCRATCH), -cv);
+        else
+          m_emit->Add(GetHostReg64(RSCRATCH), GetHostReg64(RSCRATCH), cv);
+      }
       else
+      {
         m_emit->Add(GetHostReg64(RSCRATCH), GetHostReg64(RSCRATCH), GetHostReg64(real_value));
+      }
       m_emit->Str(GetHostReg64(RSCRATCH), o_offset);
     }
     break;
@@ -1206,7 +1290,8 @@ void CodeGenerator::EmitAddCPUStructField(uint32_t offset, const Value& value)
   }
 }
 
-void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, Value& result)
+void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, Value& result,
+                                            bool sign_extend /* = false */)
 {
   HostReg address_reg;
   a64::MemOperand actual_address;
@@ -1225,11 +1310,17 @@ void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, 
     switch (size)
     {
       case RegSize_8:
-        m_emit->ldrb(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
+        if (sign_extend)
+          m_emit->ldrsb(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
+        else
+          m_emit->ldrb(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
         break;
 
       case RegSize_16:
-        m_emit->ldrh(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
+        if (sign_extend)
+          m_emit->ldrsh(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
+        else
+          m_emit->ldrh(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
         break;
 
       case RegSize_32:
@@ -1249,11 +1340,17 @@ void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, 
     switch (size)
     {
       case RegSize_8:
-        m_emit->ldrb(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
+        if (sign_extend)
+          m_emit->ldrsb(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
+        else
+          m_emit->ldrb(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
         break;
 
       case RegSize_16:
-        m_emit->ldrh(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
+        if (sign_extend)
+          m_emit->ldrsh(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
+        else
+          m_emit->ldrh(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
         break;
 
       case RegSize_32:
@@ -1267,7 +1364,7 @@ void CodeGenerator::EmitLoadGuestRAMFastmem(const Value& address, RegSize size, 
 }
 
 void CodeGenerator::EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size,
-                                               Value& result)
+                                               Value& result, bool sign_extend /* = false */)
 {
   // fastmem
   LoadStoreBackpatchInfo bpi;
@@ -1296,11 +1393,17 @@ void CodeGenerator::EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, 
     switch (size)
     {
       case RegSize_8:
-        m_emit->ldrb(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
+        if (sign_extend)
+          m_emit->ldrsb(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
+        else
+          m_emit->ldrb(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
         break;
 
       case RegSize_16:
-        m_emit->ldrh(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
+        if (sign_extend)
+          m_emit->ldrsh(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
+        else
+          m_emit->ldrh(GetHostReg32(result.host_reg), a64::MemOperand(GetFastmemBasePtrReg(), GetHostReg32(address_reg)));
         break;
 
       case RegSize_32:
@@ -1322,11 +1425,17 @@ void CodeGenerator::EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, 
     switch (size)
     {
       case RegSize_8:
-        m_emit->ldrb(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
+        if (sign_extend)
+          m_emit->ldrsb(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
+        else
+          m_emit->ldrb(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
         break;
 
       case RegSize_16:
-        m_emit->ldrh(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
+        if (sign_extend)
+          m_emit->ldrsh(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
+        else
+          m_emit->ldrh(GetHostReg32(result.host_reg), a64::MemOperand(GetHostReg64(RARG1), GetHostReg32(RARG2)));
         break;
 
       case RegSize_32:
@@ -1349,7 +1458,7 @@ void CodeGenerator::EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, 
   EmitAddCPUStructField(offsetof(State, pending_ticks), Value::FromConstantU32(static_cast<uint32_t>(m_delayed_cycles_add)));
   m_delayed_cycles_add += Bus::RAM_READ_TICKS;
 
-  EmitLoadGuestMemorySlowmem(cbi, address, size, result, true);
+  EmitLoadGuestMemorySlowmem(cbi, address, size, result, true, sign_extend);
 
   EmitAddCPUStructField(offsetof(State, pending_ticks),
                         Value::FromConstantU32(static_cast<uint32_t>(-m_delayed_cycles_add)));
@@ -1364,11 +1473,10 @@ void CodeGenerator::EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, 
 }
 
 void CodeGenerator::EmitLoadGuestMemorySlowmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size,
-                                               Value& result, bool in_far_code)
+                                               Value& result, bool in_far_code, bool sign_extend /* = false */)
 {
   if (g_settings.cpu_recompiler_memory_exceptions)
   {
-    // NOTE: This can leave junk in the upper bits
     switch (size)
     {
       case RegSize_8:
@@ -1391,12 +1499,12 @@ void CodeGenerator::EmitLoadGuestMemorySlowmem(const CodeBlockInstruction& cbi, 
 
     a64::Label load_okay;
     m_emit->Tbz(GetHostReg64(result.host_reg), 63, &load_okay);
-    EmitBranch(GetCurrentFarCodePointer());
-    m_emit->Bind(&load_okay);
-
-    // load exception path
     if (!in_far_code)
+    {
+      EmitBranch(GetCurrentFarCodePointer());
+      m_emit->Bind(&load_okay);
       SwitchToFarCode();
+    }
 
     // cause_bits = (-result << 2) | BD | cop_n
     m_emit->neg(GetHostReg32(result.host_reg), GetHostReg32(result.host_reg));
@@ -1408,7 +1516,9 @@ void CodeGenerator::EmitLoadGuestMemorySlowmem(const CodeBlockInstruction& cbi, 
 
     EmitExceptionExit();
 
-    if (!in_far_code)
+    if (in_far_code)
+      m_emit->Bind(&load_okay);
+    else
       SwitchToNearCode();
 
     m_register_cache.PopState();
@@ -1433,6 +1543,9 @@ void CodeGenerator::EmitLoadGuestMemorySlowmem(const CodeBlockInstruction& cbi, 
         break;
     }
   }
+
+  if (sign_extend && (size == RegSize_8 || size == RegSize_16))
+    EmitSignExtend(result.host_reg, RegSize_32, result.host_reg, size);
 }
 
 void CodeGenerator::EmitStoreGuestMemoryFastmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size,

@@ -62,6 +62,7 @@ public:
   void EmitXor(HostReg to_reg, HostReg from_reg, const Value& value);
   void EmitTest(HostReg to_reg, const Value& value);
   void EmitNot(HostReg to_reg, RegSize size);
+  void EmitCountLeadingSignBits(HostReg to_reg, HostReg from_reg);
   void EmitSetConditionResult(HostReg to_reg, RegSize to_size, Condition condition);
 
   void EmitLoadGuestRegister(HostReg host_reg, Reg guest_reg);
@@ -84,11 +85,12 @@ public:
   Value GetFastmemLoadBase();
   Value GetFastmemStoreBase();
   Value EmitLoadGuestMemory(const CodeBlockInstruction& cbi, const Value& address, const SpeculativeValue& address_spec,
-                            RegSize size);
-  void EmitLoadGuestRAMFastmem(const Value& address, RegSize size, Value& result);
-  void EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size, Value& result);
+                            RegSize size, bool sign_extend = false);
+  void EmitLoadGuestRAMFastmem(const Value& address, RegSize size, Value& result, bool sign_extend = false);
+  void EmitLoadGuestMemoryFastmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size, Value& result,
+                                  bool sign_extend = false);
   void EmitLoadGuestMemorySlowmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size, Value& result,
-                                  bool in_far_code);
+                                  bool in_far_code, bool sign_extend = false);
   void EmitStoreGuestMemory(const CodeBlockInstruction& cbi, const Value& address, const SpeculativeValue& address_spec,
                             RegSize size, const Value& value);
   void EmitStoreGuestMemoryFastmem(const CodeBlockInstruction& cbi, const Value& address, RegSize size,

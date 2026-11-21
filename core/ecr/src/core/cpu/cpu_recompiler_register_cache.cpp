@@ -219,8 +219,27 @@ uint32_t RegisterCache::PushCallerSavedRegisters() const
     if ((m_state.host_reg_state[i] & (HostRegState::CallerSaved | HostRegState::InUse | HostRegState::Discarded)) ==
         (HostRegState::CallerSaved | HostRegState::InUse))
     {
-      m_code_generator.EmitPushHostReg(static_cast<HostReg>(i), position + count);
-      count++;
+      bool paired = false;
+      for (uint32_t reg_pair = i + 1; reg_pair < HostReg_Count; reg_pair++)
+      {
+        if ((m_state.host_reg_state[reg_pair] &
+             (HostRegState::CallerSaved | HostRegState::InUse | HostRegState::Discarded)) ==
+            (HostRegState::CallerSaved | HostRegState::InUse))
+        {
+          m_code_generator.EmitPushHostRegPair(static_cast<HostReg>(i), static_cast<HostReg>(reg_pair),
+                                                position + count);
+          count += 2;
+          i = reg_pair;
+          paired = true;
+          break;
+        }
+      }
+
+      if (!paired)
+      {
+        m_code_generator.EmitPushHostReg(static_cast<HostReg>(i), position + count);
+        count++;
+      }
     }
   }
 

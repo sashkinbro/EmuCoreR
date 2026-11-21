@@ -1,4 +1,5 @@
 #include "cpu_recompiler_code_generator.h"
+#include "common/bitutils.h"
 #include "common/log.h"
 #include "cpu_core.h"
 #include "cpu_core_private.h"
@@ -359,6 +360,10 @@ Value CodeGenerator::AddValues(const Value& lhs, const Value& rhs, bool set_flag
     {
       EmitAdd(res.host_reg, lhs.host_reg, rhs, set_flags);
     }
+    else if (rhs.IsInHostRegister())
+    {
+      EmitAdd(res.host_reg, rhs.host_reg, lhs, set_flags);
+    }
     else
     {
       EmitCopyValue(res.host_reg, lhs);
@@ -659,6 +664,10 @@ Value CodeGenerator::OrValues(const Value& lhs, const Value& rhs)
   {
     EmitOr(res.host_reg, lhs.host_reg, rhs);
   }
+  else if (rhs.IsInHostRegister())
+  {
+    EmitOr(res.host_reg, rhs.host_reg, lhs);
+  }
   else
   {
     EmitCopyValue(res.host_reg, lhs);
@@ -767,6 +776,10 @@ Value CodeGenerator::AndValues(const Value& lhs, const Value& rhs)
   {
     EmitAnd(res.host_reg, lhs.host_reg, rhs);
   }
+  else if (rhs.IsInHostRegister())
+  {
+    EmitAnd(res.host_reg, rhs.host_reg, lhs);
+  }
   else
   {
     EmitCopyValue(res.host_reg, lhs);
@@ -874,6 +887,10 @@ Value CodeGenerator::XorValues(const Value& lhs, const Value& rhs)
   if (lhs.IsInHostRegister())
   {
     EmitXor(res.host_reg, lhs.host_reg, rhs);
+  }
+  else if (rhs.IsInHostRegister())
+  {
+    EmitXor(res.host_reg, rhs.host_reg, lhs);
   }
   else
   {
@@ -1531,8 +1548,10 @@ bool CodeGenerator::Compile_Load(const CodeBlockInstruction& cbi)
     case InstructionOp::lb:
     case InstructionOp::lbu:
     {
-      result = EmitLoadGuestMemory(cbi, address, address_spec, RegSize_8);
-      ConvertValueSizeInPlace(&result, RegSize_32, (cbi.instruction.op == InstructionOp::lb));
+      const bool sign_extend = (cbi.instruction.op == InstructionOp::lb);
+      result = EmitLoadGuestMemory(cbi, address, address_spec, RegSize_8, sign_extend);
+      if (result.size != RegSize_32)
+        ConvertValueSizeInPlace(&result, RegSize_32, sign_extend);
       if (g_settings.gpu_pgxp_enable)
         EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), result, address);
 
@@ -1548,8 +1567,10 @@ bool CodeGenerator::Compile_Load(const CodeBlockInstruction& cbi)
     case InstructionOp::lh:
     case InstructionOp::lhu:
     {
-      result = EmitLoadGuestMemory(cbi, address, address_spec, RegSize_16);
-      ConvertValueSizeInPlace(&result, RegSize_32, (cbi.instruction.op == InstructionOp::lh));
+      const bool sign_extend = (cbi.instruction.op == InstructionOp::lh);
+      result = EmitLoadGuestMemory(cbi, address, address_spec, RegSize_16, sign_extend);
+      if (result.size != RegSize_32)
+        ConvertValueSizeInPlace(&result, RegSize_32, sign_extend);
 
       if (g_settings.gpu_pgxp_enable)
         EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), result, address);
@@ -3014,10 +3035,66 @@ void CodeGenerator::DoGTERegisterWrite(uint32_t index, const Value& value)
     break;
 
     case 28: // IRGB
+    {
+      const Value masked = AndValues(value, Value::FromConstantU32(UINT32_C(0x7FFF)));
+      EmitStoreCPUStructField(State::GTERegisterOffset(28), masked);
+      EmitStoreCPUStructField(
+        State::GTERegisterOffset(9),
+        ShlValues(AndValues(masked, Value::FromConstantU32(UINT32_C(0x1F))), Value::FromConstantU8(7)));
+      EmitStoreCPUStructField(
+        State::GTERegisterOffset(10),
+        ShlValues(AndValues(ShrValues(masked, Value::FromConstantU8(5)), Value::FromConstantU32(UINT32_C(0x1F))),
+                  Value::FromConstantU8(7)));
+      EmitStoreCPUStructField(
+        State::GTERegisterOffset(11),
+        ShlValues(AndValues(ShrValues(masked, Value::FromConstantU8(10)), Value::FromConstantU32(UINT32_C(0x1F))),
+                  Value::FromConstantU8(7)));
+      return;
+    }
+
     case 30: // LZCS
+    {
+#if defined(CPU_AARCH64)
+      EmitStoreCPUStructField(State::GTERegisterOffset(30), value);
+      if (value.IsConstant())
+      {
+        uint32_t v = static_cast<uint32_t>(value.constant_value);
+        if (v & UINT32_C(0x80000000))
+          v = ~v;
+        const uint32_t lzcr = (v == 0u) ? 32u : CountLeadingZeros(v);
+        EmitStoreCPUStructField(State::GTERegisterOffset(31), Value::FromConstantU32(lzcr));
+      }
+      else
+      {
+        Value lzcr = m_register_cache.AllocateScratch(RegSize_32);
+        EmitCountLeadingSignBits(lzcr.host_reg, value.host_reg);
+        EmitStoreCPUStructField(State::GTERegisterOffset(31), lzcr);
+      }
+#else
+      EmitFunctionCall(nullptr, &GTE::WriteRegister, Value::FromConstantU32(index), value);
+#endif
+      return;
+    }
+
     case 63: // FLAG
     {
-      EmitFunctionCall(nullptr, &GTE::WriteRegister, Value::FromConstantU32(index), value);
+      if (value.IsConstant())
+      {
+        uint32_t bits = static_cast<uint32_t>(value.constant_value) & UINT32_C(0x7FFFF000);
+        if ((bits & UINT32_C(0x7F87E000)) != 0)
+          bits |= UINT32_C(0x80000000);
+        EmitStoreCPUStructField(State::GTERegisterOffset(63), Value::FromConstantU32(bits));
+      }
+      else
+      {
+        Value masked = AndValues(value, Value::FromConstantU32(UINT32_C(0x7FFFF000)));
+        LabelType no_error;
+        EmitTest(masked.host_reg, Value::FromConstantU32(UINT32_C(0x7F87E000)));
+        EmitConditionalBranch(Condition::Zero, false, &no_error);
+        OrValueInPlace(masked, Value::FromConstantU32(UINT32_C(0x80000000)));
+        EmitBindLabel(&no_error);
+        EmitStoreCPUStructField(State::GTERegisterOffset(63), masked);
+      }
       return;
     }
 
