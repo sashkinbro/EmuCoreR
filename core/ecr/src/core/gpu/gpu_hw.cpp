@@ -1781,46 +1781,33 @@ void GPU_HW::FlushRender()
   if (vertex_count == 0)
     return;
 
-  // Single-pass: stamp u_render_mode with the per-batch enum value
-  // before the (possibly cached) UBO upload below.
-  // Two-pass: leave m_batch_ubo_data untouched here - the per-draw
-  // re-upload happens between the OnlyOpaque and OnlyTransparent
-  // DrawBatchVertices calls.
-  if (!NeedsTwoPassRendering())
-  {
-    const uint32_t new_render_mode = static_cast<uint32_t>(m_batch.GetRenderMode());
-    m_batch_ubo_dirty |= (m_batch_ubo_data.u_render_mode != new_render_mode);
-    m_batch_ubo_data.u_render_mode = new_render_mode;
-  }
-
-  if (m_batch_ubo_dirty)
-  {
-    UploadUniformBuffer(&m_batch_ubo_data, sizeof(m_batch_ubo_data));
-    m_batch_ubo_dirty = false;
-  }
-
   if (NeedsTwoPassRendering())
   {
-    // Two-pass: re-upload the UBO between the OnlyOpaque and
-    // OnlyTransparent draws so the FS sees the matching
-    // u_render_mode value. Was a no-op pre-routing - both passes
-    // shared one UBO upload because the per-pass discard logic was
-    // baked into the FS bytecode via TRANSPARENCY_ONLY_OPAQUE /
-    // TRANSPARENCY_ONLY_TRANSPARENT macros that produced 2 DIFFERENT
-    // FS variants. Post-routing the FS bytecode is invariant across
-    // the flip; the cost is +1 ~64-byte cbuffer write per
-    // NeedsTwoPassRendering() FlushRender. Worth it: routing
-    // collapses the FS variant matrix by 4x on the D3D12 pre-bake
-    // side and matches the prior cbuffer-routing arc's shape.
+    // Two-pass: upload once for OnlyOpaque and once for OnlyTransparent so
+    // each pass sees its matching u_render_mode value without an extra upload.
     m_batch_ubo_data.u_render_mode = static_cast<uint32_t>(BatchRenderMode::OnlyOpaque);
     UploadUniformBuffer(&m_batch_ubo_data, sizeof(m_batch_ubo_data));
     DrawBatchVertices(BatchRenderMode::OnlyOpaque, m_batch_base_vertex, vertex_count);
     m_batch_ubo_data.u_render_mode = static_cast<uint32_t>(BatchRenderMode::OnlyTransparent);
     UploadUniformBuffer(&m_batch_ubo_data, sizeof(m_batch_ubo_data));
     DrawBatchVertices(BatchRenderMode::OnlyTransparent, m_batch_base_vertex, vertex_count);
+    m_batch_ubo_dirty = false;
   }
   else
-    DrawBatchVertices(m_batch.GetRenderMode(), m_batch_base_vertex, vertex_count);
+  {
+    const BatchRenderMode render_mode = m_batch.GetRenderMode();
+    const uint32_t new_render_mode = static_cast<uint32_t>(render_mode);
+    m_batch_ubo_dirty |= (m_batch_ubo_data.u_render_mode != new_render_mode);
+    m_batch_ubo_data.u_render_mode = new_render_mode;
+
+    if (m_batch_ubo_dirty)
+    {
+      UploadUniformBuffer(&m_batch_ubo_data, sizeof(m_batch_ubo_data));
+      m_batch_ubo_dirty = false;
+    }
+
+    DrawBatchVertices(render_mode, m_batch_base_vertex, vertex_count);
+  }
 }
 
 GPU_HW::ShaderCompileProgressTracker::ShaderCompileProgressTracker(std::string title, uint32_t total)

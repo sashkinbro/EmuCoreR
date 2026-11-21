@@ -1171,7 +1171,7 @@ float4 SampleFromVRAM(uint4 texpage, float2 coords)
       #if !RAW_TEXTURE
         icolor = (icolor * vertcol) >> 7;
         if (u_dithering != 0u)
-          icolor = ApplyDithering(uint2(v_pos.xy), icolor);
+          icolor = ApplyDithering(uint2(uint(v_pos.x), fixYCoord(uint(v_pos.y))), icolor);
         else
           icolor = min(icolor, uint3(255u, 255u, 255u));
       #endif
@@ -1182,7 +1182,7 @@ float4 SampleFromVRAM(uint4 texpage, float2 coords)
       #if !RAW_TEXTURE
         icolor = (icolor * vertcol) >> 4;
         if (u_dithering != 0u)
-          icolor = ApplyDithering(uint2(v_pos.xy), icolor);
+          icolor = ApplyDithering(uint2(uint(v_pos.x), fixYCoord(uint(v_pos.y))), icolor);
         else
           icolor = min(icolor >> 3, uint3(31u, 31u, 31u));
       #endif
@@ -1198,7 +1198,7 @@ float4 SampleFromVRAM(uint4 texpage, float2 coords)
 
     if (u_dithering != 0u)
     {
-      icolor = ApplyDithering(uint2(v_pos.xy), icolor);
+      icolor = ApplyDithering(uint2(uint(v_pos.x), fixYCoord(uint(v_pos.y))), icolor);
     }
     else
     {

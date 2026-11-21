@@ -182,13 +182,26 @@ uint64_t GPUTexturePageCache::HashVRAMRegionWrapped(const uint16_t* vram_ptr, ui
                                                     uint32_t word_height)
 {
   uint64_t hash = FNV_OFFSET_BASIS;
+  const bool no_x_wrap = (x + word_width) <= VRAM_WIDTH;
   for (uint32_t row = 0; row < word_height; row++)
   {
     const uint16_t* src = &vram_ptr[((y + row) % VRAM_HEIGHT) * VRAM_WIDTH];
-    for (uint32_t col = 0; col < word_width; col++)
+    if (no_x_wrap)
     {
-      hash ^= static_cast<uint64_t>(src[(x + col) % VRAM_WIDTH]);
-      hash *= FNV_PRIME;
+      const uint16_t* row_src = src + x;
+      for (uint32_t col = 0; col < word_width; col++)
+      {
+        hash ^= static_cast<uint64_t>(row_src[col]);
+        hash *= FNV_PRIME;
+      }
+    }
+    else
+    {
+      for (uint32_t col = 0; col < word_width; col++)
+      {
+        hash ^= static_cast<uint64_t>(src[(x + col) % VRAM_WIDTH]);
+        hash *= FNV_PRIME;
+      }
     }
   }
   return hash;
@@ -235,126 +248,132 @@ uint32_t GPUTexturePageCache::VRAM16ToRGBA8(uint16_t pixel)
   return r8 | (g8 << 8) | (b8 << 16) | (a8 << 24);
 }
 
-void GPUTexturePageCache::DecodePage(const SourceKey& key, const uint16_t* vram_ptr,
-                                     uint32_t* rgba_out)
+template<typename OutPixel, typename ConvFn>
+static void DecodePageImpl(const GPUTexturePageCache::SourceKey& key, const uint16_t* vram_ptr, OutPixel* out,
+                           ConvFn&& convert)
 {
   const uint32_t base_x = key.page_x;
   const uint32_t base_y = key.page_y;
 
   if (key.mode == GPUTextureMode::Direct16Bit)
   {
-    for (uint32_t y = 0; y < PAGE_TEXELS; y++)
+    const bool no_x_wrap = (base_x + GPUTexturePageCache::PAGE_TEXELS) <= VRAM_WIDTH;
+    for (uint32_t y = 0; y < GPUTexturePageCache::PAGE_TEXELS; y++)
     {
-      const uint32_t vram_y = (base_y + y) % VRAM_HEIGHT;
-      const uint16_t* src_row = &vram_ptr[vram_y * VRAM_WIDTH];
-      uint32_t* dst_row = &rgba_out[y * PAGE_TEXELS];
-      for (uint32_t x = 0; x < PAGE_TEXELS; x++)
-        dst_row[x] = VRAM16ToRGBA8(src_row[(base_x + x) % VRAM_WIDTH]);
+      const uint16_t* src_row = &vram_ptr[((base_y + y) % VRAM_HEIGHT) * VRAM_WIDTH];
+      OutPixel* dst_row = &out[y * GPUTexturePageCache::PAGE_TEXELS];
+      if (no_x_wrap)
+      {
+        const uint16_t* row_src = src_row + base_x;
+        for (uint32_t x = 0; x < GPUTexturePageCache::PAGE_TEXELS; x++)
+          dst_row[x] = convert(row_src[x]);
+      }
+      else
+      {
+        for (uint32_t x = 0; x < GPUTexturePageCache::PAGE_TEXELS; x++)
+          dst_row[x] = convert(src_row[(base_x + x) % VRAM_WIDTH]);
+      }
     }
   }
   else if (key.mode == GPUTextureMode::Palette8Bit)
   {
-    const uint32_t pal_y = key.palette_y % VRAM_HEIGHT;
-    const uint16_t* pal_row = &vram_ptr[pal_y * VRAM_WIDTH];
-
-    uint32_t palette_rgba[256];
-    for (uint32_t i = 0; i < 256u; i++)
-      palette_rgba[i] = VRAM16ToRGBA8(pal_row[(key.palette_x + i) % VRAM_WIDTH]);
-
-    for (uint32_t y = 0; y < PAGE_TEXELS; y++)
+    const uint16_t* pal_row = &vram_ptr[(key.palette_y % VRAM_HEIGHT) * VRAM_WIDTH];
+    OutPixel palette[256];
+    if (key.palette_x + 256u <= VRAM_WIDTH)
     {
-      const uint32_t vram_y = (base_y + y) % VRAM_HEIGHT;
-      const uint16_t* src_row = &vram_ptr[vram_y * VRAM_WIDTH];
-      uint32_t* dst_row = &rgba_out[y * PAGE_TEXELS];
-      for (uint32_t x = 0; x < PAGE_TEXELS; x += 2u)
+      const uint16_t* pal_src = pal_row + key.palette_x;
+      for (uint32_t i = 0; i < 256u; i++)
+        palette[i] = convert(pal_src[i]);
+    }
+    else
+    {
+      for (uint32_t i = 0; i < 256u; i++)
+        palette[i] = convert(pal_row[(key.palette_x + i) % VRAM_WIDTH]);
+    }
+
+    const bool no_x_wrap = (base_x + (GPUTexturePageCache::PAGE_TEXELS / 2u)) <= VRAM_WIDTH;
+    for (uint32_t y = 0; y < GPUTexturePageCache::PAGE_TEXELS; y++)
+    {
+      const uint16_t* src_row = &vram_ptr[((base_y + y) % VRAM_HEIGHT) * VRAM_WIDTH];
+      OutPixel* dst_row = &out[y * GPUTexturePageCache::PAGE_TEXELS];
+      if (no_x_wrap)
       {
-        const uint16_t packed = src_row[(base_x + x / 2u) % VRAM_WIDTH];
-        dst_row[x + 0] = palette_rgba[packed & 0xFFu];
-        dst_row[x + 1] = palette_rgba[(packed >> 8) & 0xFFu];
+        const uint16_t* row_src = src_row + base_x;
+        for (uint32_t x = 0; x < GPUTexturePageCache::PAGE_TEXELS; x += 2u)
+        {
+          const uint16_t packed = row_src[x >> 1];
+          dst_row[x + 0] = palette[packed & 0xFFu];
+          dst_row[x + 1] = palette[(packed >> 8) & 0xFFu];
+        }
+      }
+      else
+      {
+        for (uint32_t x = 0; x < GPUTexturePageCache::PAGE_TEXELS; x += 2u)
+        {
+          const uint16_t packed = src_row[(base_x + x / 2u) % VRAM_WIDTH];
+          dst_row[x + 0] = palette[packed & 0xFFu];
+          dst_row[x + 1] = palette[(packed >> 8) & 0xFFu];
+        }
       }
     }
   }
   else // Palette4Bit
   {
-    const uint32_t pal_y = key.palette_y % VRAM_HEIGHT;
-    const uint16_t* pal_row = &vram_ptr[pal_y * VRAM_WIDTH];
-
-    uint32_t palette_rgba[16];
-    for (uint32_t i = 0; i < 16u; i++)
-      palette_rgba[i] = VRAM16ToRGBA8(pal_row[(key.palette_x + i) % VRAM_WIDTH]);
-
-    for (uint32_t y = 0; y < PAGE_TEXELS; y++)
+    const uint16_t* pal_row = &vram_ptr[(key.palette_y % VRAM_HEIGHT) * VRAM_WIDTH];
+    OutPixel palette[16];
+    if (key.palette_x + 16u <= VRAM_WIDTH)
     {
-      const uint32_t vram_y = (base_y + y) % VRAM_HEIGHT;
-      const uint16_t* src_row = &vram_ptr[vram_y * VRAM_WIDTH];
-      uint32_t* dst_row = &rgba_out[y * PAGE_TEXELS];
-      for (uint32_t x = 0; x < PAGE_TEXELS; x += 4u)
+      const uint16_t* pal_src = pal_row + key.palette_x;
+      for (uint32_t i = 0; i < 16u; i++)
+        palette[i] = convert(pal_src[i]);
+    }
+    else
+    {
+      for (uint32_t i = 0; i < 16u; i++)
+        palette[i] = convert(pal_row[(key.palette_x + i) % VRAM_WIDTH]);
+    }
+
+    const bool no_x_wrap = (base_x + (GPUTexturePageCache::PAGE_TEXELS / 4u)) <= VRAM_WIDTH;
+    for (uint32_t y = 0; y < GPUTexturePageCache::PAGE_TEXELS; y++)
+    {
+      const uint16_t* src_row = &vram_ptr[((base_y + y) % VRAM_HEIGHT) * VRAM_WIDTH];
+      OutPixel* dst_row = &out[y * GPUTexturePageCache::PAGE_TEXELS];
+      if (no_x_wrap)
       {
-        const uint16_t packed = src_row[(base_x + x / 4u) % VRAM_WIDTH];
-        dst_row[x + 0] = palette_rgba[(packed >> 0) & 0x0Fu];
-        dst_row[x + 1] = palette_rgba[(packed >> 4) & 0x0Fu];
-        dst_row[x + 2] = palette_rgba[(packed >> 8) & 0x0Fu];
-        dst_row[x + 3] = palette_rgba[(packed >> 12) & 0x0Fu];
+        const uint16_t* row_src = src_row + base_x;
+        for (uint32_t x = 0; x < GPUTexturePageCache::PAGE_TEXELS; x += 4u)
+        {
+          const uint16_t packed = row_src[x >> 2];
+          dst_row[x + 0] = palette[(packed >> 0) & 0x0Fu];
+          dst_row[x + 1] = palette[(packed >> 4) & 0x0Fu];
+          dst_row[x + 2] = palette[(packed >> 8) & 0x0Fu];
+          dst_row[x + 3] = palette[(packed >> 12) & 0x0Fu];
+        }
+      }
+      else
+      {
+        for (uint32_t x = 0; x < GPUTexturePageCache::PAGE_TEXELS; x += 4u)
+        {
+          const uint16_t packed = src_row[(base_x + x / 4u) % VRAM_WIDTH];
+          dst_row[x + 0] = palette[(packed >> 0) & 0x0Fu];
+          dst_row[x + 1] = palette[(packed >> 4) & 0x0Fu];
+          dst_row[x + 2] = palette[(packed >> 8) & 0x0Fu];
+          dst_row[x + 3] = palette[(packed >> 12) & 0x0Fu];
+        }
       }
     }
   }
 }
 
+void GPUTexturePageCache::DecodePage(const SourceKey& key, const uint16_t* vram_ptr,
+                                     uint32_t* rgba_out)
+{
+  DecodePageImpl(key, vram_ptr, rgba_out, [](uint16_t p) { return VRAM16ToRGBA8(p); });
+}
+
 void GPUTexturePageCache::DecodePage16(const SourceKey& key, const uint16_t* vram_ptr, uint16_t* out)
 {
-  const uint32_t base_x = key.page_x;
-  const uint32_t base_y = key.page_y;
-
-  if (key.mode == GPUTextureMode::Direct16Bit)
-  {
-    for (uint32_t y = 0; y < PAGE_TEXELS; y++)
-    {
-      const uint16_t* src_row = &vram_ptr[((base_y + y) % VRAM_HEIGHT) * VRAM_WIDTH];
-      uint16_t* dst_row = &out[y * PAGE_TEXELS];
-      for (uint32_t x = 0; x < PAGE_TEXELS; x++)
-        dst_row[x] = SwapRedBlue5551(src_row[(base_x + x) % VRAM_WIDTH]);
-    }
-  }
-  else if (key.mode == GPUTextureMode::Palette8Bit)
-  {
-    const uint16_t* pal_row = &vram_ptr[(key.palette_y % VRAM_HEIGHT) * VRAM_WIDTH];
-    uint16_t palette[256];
-    for (uint32_t i = 0; i < 256u; i++)
-      palette[i] = SwapRedBlue5551(pal_row[(key.palette_x + i) % VRAM_WIDTH]);
-
-    for (uint32_t y = 0; y < PAGE_TEXELS; y++)
-    {
-      const uint16_t* src_row = &vram_ptr[((base_y + y) % VRAM_HEIGHT) * VRAM_WIDTH];
-      uint16_t* dst_row = &out[y * PAGE_TEXELS];
-      for (uint32_t x = 0; x < PAGE_TEXELS; x += 2u)
-      {
-        const uint16_t packed = src_row[(base_x + x / 2u) % VRAM_WIDTH];
-        dst_row[x + 0] = palette[packed & 0xFFu];
-        dst_row[x + 1] = palette[(packed >> 8) & 0xFFu];
-      }
-    }
-  }
-  else // Palette4Bit
-  {
-    const uint16_t* pal_row = &vram_ptr[(key.palette_y % VRAM_HEIGHT) * VRAM_WIDTH];
-    uint16_t palette[16];
-    for (uint32_t i = 0; i < 16u; i++)
-      palette[i] = SwapRedBlue5551(pal_row[(key.palette_x + i) % VRAM_WIDTH]);
-
-    for (uint32_t y = 0; y < PAGE_TEXELS; y++)
-    {
-      const uint16_t* src_row = &vram_ptr[((base_y + y) % VRAM_HEIGHT) * VRAM_WIDTH];
-      uint16_t* dst_row = &out[y * PAGE_TEXELS];
-      for (uint32_t x = 0; x < PAGE_TEXELS; x += 4u)
-      {
-        const uint16_t packed = src_row[(base_x + x / 4u) % VRAM_WIDTH];
-        dst_row[x + 0] = palette[(packed >> 0) & 0x0Fu];
-        dst_row[x + 1] = palette[(packed >> 4) & 0x0Fu];
-        dst_row[x + 2] = palette[(packed >> 8) & 0x0Fu];
-        dst_row[x + 3] = palette[(packed >> 12) & 0x0Fu];
-      }
-    }
-  }
+  DecodePageImpl(key, vram_ptr, out, [](uint16_t p) { return SwapRedBlue5551(p); });
 }
 
 GPUTexturePageCache::LookupResult GPUTexturePageCache::Lookup(const SourceKey& key,

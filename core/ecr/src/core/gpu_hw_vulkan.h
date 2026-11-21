@@ -132,6 +132,13 @@ private:
   void DestroyResources();
 
   ALWAYS_INLINE bool InRenderPass() const { return (m_current_render_pass != VK_NULL_HANDLE); }
+  ALWAYS_INLINE void InvalidateBatchState()
+  {
+    m_current_batch_pipeline = VK_NULL_HANDLE;
+    m_current_batch_descriptor_set = VK_NULL_HANDLE;
+    m_current_batch_descriptor_offset = UINT32_MAX;
+    m_current_scissor_valid = false;
+  }
   void BeginRenderPass(VkRenderPass render_pass, VkFramebuffer framebuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height,
                        const VkClearValue* clear_value = nullptr);
   void BeginVRAMRenderPass();
@@ -575,4 +582,10 @@ private:
   bool m_adaptive_downsample_unavailable = false;
   VkPipeline m_downsample_blur_pass_pipeline = VK_NULL_HANDLE;
   VkPipeline m_downsample_composite_pass_pipeline = VK_NULL_HANDLE;
+
+  VkPipeline m_current_batch_pipeline = VK_NULL_HANDLE;
+  VkDescriptorSet m_current_batch_descriptor_set = VK_NULL_HANDLE;
+  uint32_t m_current_batch_descriptor_offset = UINT32_MAX;
+  VkRect2D m_current_scissor = {};
+  bool m_current_scissor_valid = false;
 };

@@ -343,6 +343,11 @@ private:
   GLenum m_current_depth_test = 0;
   GPUTransparencyMode m_current_transparency_mode = GPUTransparencyMode::Disabled;
   BatchRenderMode m_current_render_mode = BatchRenderMode::TransparencyDisabled;
+  int m_current_scissor_x = 0;
+  int m_current_scissor_y = 0;
+  int m_current_scissor_width = 0;
+  int m_current_scissor_height = 0;
+  bool m_current_scissor_valid = false;
 
   GL::Texture m_downsample_texture;
   GL::Program m_downsample_program;

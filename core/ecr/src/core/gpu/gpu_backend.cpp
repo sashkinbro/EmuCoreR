@@ -97,15 +97,15 @@ void* GPUBackend::AllocateCommand(GPUBackendCommandType command, uint32_t size)
 
   for (;;)
   {
-    uint32_t read_ptr = m_command_fifo_read_ptr.load();
-    uint32_t write_ptr = m_command_fifo_write_ptr.load();
+    uint32_t read_ptr = m_command_fifo_read_ptr.load(std::memory_order_acquire);
+    uint32_t write_ptr = m_command_fifo_write_ptr.load(std::memory_order_relaxed);
     if (read_ptr > write_ptr)
     {
       uint32_t available_size = read_ptr - write_ptr;
       while (available_size < (size + sizeof(GPUBackendCommandType)))
       {
         WakeGPUThread();
-        read_ptr = m_command_fifo_read_ptr.load();
+        read_ptr = m_command_fifo_read_ptr.load(std::memory_order_acquire);
         available_size = (read_ptr > write_ptr) ? (read_ptr - write_ptr) : (COMMAND_QUEUE_SIZE - write_ptr);
       }
     }
@@ -119,7 +119,7 @@ void* GPUBackend::AllocateCommand(GPUBackendCommandType command, uint32_t size)
         dummy_cmd->type = GPUBackendCommandType::Wraparound;
         dummy_cmd->size = available_size;
         dummy_cmd->params.bits = 0;
-        m_command_fifo_write_ptr.store(0);
+        m_command_fifo_write_ptr.store(0, std::memory_order_seq_cst);
         continue;
       }
     }
@@ -133,8 +133,8 @@ void* GPUBackend::AllocateCommand(GPUBackendCommandType command, uint32_t size)
 
 uint32_t GPUBackend::GetPendingCommandSize() const
 {
-  const uint32_t read_ptr = m_command_fifo_read_ptr.load();
-  const uint32_t write_ptr = m_command_fifo_write_ptr.load();
+  const uint32_t read_ptr = m_command_fifo_read_ptr.load(std::memory_order_seq_cst);
+  const uint32_t write_ptr = m_command_fifo_write_ptr.load(std::memory_order_seq_cst);
   return (write_ptr >= read_ptr) ? (write_ptr - read_ptr) : (COMMAND_QUEUE_SIZE - read_ptr + write_ptr);
 }
 
@@ -148,17 +148,20 @@ void GPUBackend::PushCommand(GPUBackendCommand* cmd)
   }
   else
   {
-    const uint32_t new_write_ptr = m_command_fifo_write_ptr.fetch_add(cmd->size) + cmd->size;
-    (void)new_write_ptr;
-    if (GetPendingCommandSize() >= THRESHOLD_TO_WAKE_GPU)
+    const uint32_t new_write_ptr = m_command_fifo_write_ptr.load(std::memory_order_relaxed) + cmd->size;
+    m_command_fifo_write_ptr.store(new_write_ptr, std::memory_order_seq_cst);
+    if (m_gpu_thread_sleeping.load(std::memory_order_seq_cst) && GetPendingCommandSize() >= THRESHOLD_TO_WAKE_GPU)
       WakeGPUThread();
   }
 }
 
 void GPUBackend::WakeGPUThread()
 {
+  if (!m_gpu_thread_sleeping.load(std::memory_order_seq_cst))
+    return;
+
   std::unique_lock<std::mutex> lock(m_sync_mutex);
-  if (!m_gpu_thread_sleeping.load())
+  if (!m_gpu_thread_sleeping.load(std::memory_order_relaxed))
     return;
 
   m_wake_gpu_thread_cv.notify_one();
@@ -205,21 +208,31 @@ void GPUBackend::RunGPULoop()
   // through floating-point nanoseconds.
   const Common::Timer::Value spin_time = Common::Timer::ConvertSecondsToValue(0.001);
   Common::Timer::Value last_command_time = 0;
+  uint32_t spin_iters = 0;
 
   for (;;)
   {
-    uint32_t write_ptr = m_command_fifo_write_ptr.load();
-    uint32_t read_ptr = m_command_fifo_read_ptr.load();
+    uint32_t write_ptr = m_command_fifo_write_ptr.load(std::memory_order_acquire);
+    uint32_t read_ptr = m_command_fifo_read_ptr.load(std::memory_order_relaxed);
     if (read_ptr == write_ptr)
     {
+      if ((spin_iters++ & 63u) != 0u)
+      {
+#if defined(__aarch64__)
+        asm volatile("yield" ::: "memory");
+#endif
+        continue;
+      }
+
       const Common::Timer::Value current_time = Common::Timer::GetValue();
       if ((current_time - last_command_time) < spin_time)
         continue;
 
       std::unique_lock<std::mutex> lock(m_sync_mutex);
-      m_gpu_thread_sleeping.store(true);
+      m_gpu_thread_sleeping.store(true, std::memory_order_seq_cst);
       m_wake_gpu_thread_cv.wait(lock, [this]() { return m_gpu_loop_done.load() || GetPendingCommandSize() > 0; });
-      m_gpu_thread_sleeping.store(false);
+      m_gpu_thread_sleeping.store(false, std::memory_order_relaxed);
+      spin_iters = 0;
 
       if (!m_gpu_loop_done.load())
         continue;
@@ -239,7 +252,7 @@ void GPUBackend::RunGPULoop()
       {
         case GPUBackendCommandType::Wraparound:
         {
-          write_ptr = m_command_fifo_write_ptr.load();
+          write_ptr = m_command_fifo_write_ptr.load(std::memory_order_acquire);
           read_ptr = 0;
         }
         break;
@@ -257,8 +270,9 @@ void GPUBackend::RunGPULoop()
       }
     }
 
+    spin_iters = 0;
     last_command_time = allow_sleep ? 0 : Common::Timer::GetValue();
-    m_command_fifo_read_ptr.store(read_ptr);
+    m_command_fifo_read_ptr.store(read_ptr, std::memory_order_release);
   }
 }
 

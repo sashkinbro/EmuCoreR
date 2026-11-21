@@ -798,6 +798,7 @@ void GPU_HW_Vulkan::ResetGraphicsAPIState()
   GPU_HW::ResetGraphicsAPIState();
 
   EndRenderPass();
+  InvalidateBatchState();
 
   if (m_host_display->GetDisplayTextureHandle() == &m_vram_texture)
   {
@@ -811,6 +812,7 @@ void GPU_HW_Vulkan::ResetGraphicsAPIState()
 
 void GPU_HW_Vulkan::RestoreGraphicsAPIState()
 {
+  InvalidateBatchState();
   VkCommandBuffer cmdbuf = g_vulkan_context->GetCurrentCommandBuffer();
   m_vram_texture.TransitionToLayout(cmdbuf, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -821,6 +823,8 @@ void GPU_HW_Vulkan::RestoreGraphicsAPIState()
     (m_current_replacement_descriptor_set != VK_NULL_HANDLE) ? m_current_replacement_descriptor_set : m_batch_descriptor_set;
   vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_batch_pipeline_layout, 0, 1,
                           &batch_set, 1, &m_current_uniform_buffer_offset);
+  m_current_batch_descriptor_set = batch_set;
+  m_current_batch_descriptor_offset = m_current_uniform_buffer_offset;
   SetScissorFromDrawingArea();
 }
 
@@ -1185,6 +1189,7 @@ void GPU_HW_Vulkan::BeginRenderPass(VkRenderPass render_pass, VkFramebuffer fram
                                     clear_value};
   vkCmdBeginRenderPass(g_vulkan_context->GetCurrentCommandBuffer(), &bi, VK_SUBPASS_CONTENTS_INLINE);
   m_current_render_pass = render_pass;
+  InvalidateBatchState();
 }
 
 void GPU_HW_Vulkan::BeginVRAMRenderPass()
@@ -1203,12 +1208,14 @@ void GPU_HW_Vulkan::EndRenderPass()
 
   vkCmdEndRenderPass(g_vulkan_context->GetCurrentCommandBuffer());
   m_current_render_pass = VK_NULL_HANDLE;
+  InvalidateBatchState();
 }
 
 void GPU_HW_Vulkan::ExecuteCommandBuffer(bool wait_for_completion, bool restore_state)
 {
   EndRenderPass();
   g_vulkan_context->ExecuteCommandBuffer(wait_for_completion);
+  InvalidateBatchState();
   m_batch_ubo_dirty = true;
   if (restore_state)
     RestoreGraphicsAPIState();
@@ -3444,6 +3451,7 @@ void GPU_HW_Vulkan::DestroyPipelines()
   }
 
   m_display_pipelines.enumerate(Vulkan::Util::SafeDestroyPipeline);
+  InvalidateBatchState();
 }
 
 void GPU_HW_Vulkan::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base_vertex, uint32_t num_vertices)
@@ -3521,7 +3529,11 @@ void GPU_HW_Vulkan::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base
                      used_page_cache, g_vulkan_shader_cache->GetPipelineCache(),
                      &g_vulkan_shader_cache->PipelineCacheMutex());
 
-  vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+  if (m_current_batch_pipeline != pipeline)
+  {
+    vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    m_current_batch_pipeline = pipeline;
+  }
 
   // Bind the descriptor set for this batch. The batch UBO is uploaded lazily
   // (only when its contents change), but the slot-1 sampler changes whenever
@@ -3534,8 +3546,14 @@ void GPU_HW_Vulkan::DrawBatchVertices(BatchRenderMode render_mode, uint32_t base
     used_page_cache ? page_descriptor_set :
     (m_current_replacement_descriptor_set != VK_NULL_HANDLE) ? m_current_replacement_descriptor_set :
                                                                m_batch_descriptor_set;
-  vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_batch_pipeline_layout, 0, 1, &batch_set, 1,
-                          &m_current_uniform_buffer_offset);
+  if (m_current_batch_descriptor_set != batch_set ||
+      m_current_batch_descriptor_offset != m_current_uniform_buffer_offset)
+  {
+    vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_batch_pipeline_layout, 0, 1, &batch_set, 1,
+                            &m_current_uniform_buffer_offset);
+    m_current_batch_descriptor_set = batch_set;
+    m_current_batch_descriptor_offset = m_current_uniform_buffer_offset;
+  }
 
   vkCmdDraw(cmdbuf, num_vertices, 1, base_vertex, 0);
 }
@@ -3544,7 +3562,20 @@ void GPU_HW_Vulkan::SetScissorFromDrawingArea()
 {
   int left, top, right, bottom;
   CalcScissorRect(&left, &top, &right, &bottom);
-  Vulkan::Util::SetScissor(g_vulkan_context->GetCurrentCommandBuffer(), left, top, right - left, bottom - top);
+
+  const int32_t sx = static_cast<int32_t>(left);
+  const int32_t sy = static_cast<int32_t>(top);
+  const uint32_t sw = static_cast<uint32_t>(right - left);
+  const uint32_t sh = static_cast<uint32_t>(bottom - top);
+  if (m_current_scissor_valid && m_current_scissor.offset.x == sx && m_current_scissor.offset.y == sy &&
+      m_current_scissor.extent.width == sw && m_current_scissor.extent.height == sh)
+  {
+    return;
+  }
+
+  Vulkan::Util::SetScissor(g_vulkan_context->GetCurrentCommandBuffer(), sx, sy, sw, sh);
+  m_current_scissor = {{sx, sy}, {sw, sh}};
+  m_current_scissor_valid = true;
 }
 
 void GPU_HW_Vulkan::ClearDisplay()

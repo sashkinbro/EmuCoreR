@@ -804,12 +804,14 @@ void GPU_HW_OpenGL::ResetGraphicsAPIState()
   glDisable(GL_BLEND);
   glBindVertexArray(0);
   m_uniform_stream_buffer->Unbind();
+  m_current_scissor_valid = false;
 }
 
 void GPU_HW_OpenGL::RestoreGraphicsAPIState()
 {
   glActiveTexture(GL_TEXTURE0);
   m_bound_replacement_texture_gl_id = UINT32_MAX;
+  m_current_scissor_valid = false;
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_vram_fbo_id);
   glViewport(0, 0, m_vram_texture.GetWidth(), m_vram_texture.GetHeight());
 
@@ -2285,7 +2287,18 @@ void GPU_HW_OpenGL::SetScissorFromDrawingArea()
   const int height = bottom - top;
   const int x = left;
   const int y = m_vram_texture.GetHeight() - bottom;
+  if (m_current_scissor_valid && m_current_scissor_x == x && m_current_scissor_y == y &&
+      m_current_scissor_width == width && m_current_scissor_height == height)
+  {
+    return;
+  }
+
   glScissor(x, y, width, height);
+  m_current_scissor_x = x;
+  m_current_scissor_y = y;
+  m_current_scissor_width = width;
+  m_current_scissor_height = height;
+  m_current_scissor_valid = true;
 }
 
 void GPU_HW_OpenGL::UploadUniformBuffer(const void* data, uint32_t data_size)
@@ -2598,6 +2611,7 @@ void GPU_HW_OpenGL::FillVRAM(uint32_t x, uint32_t y, uint32_t width, uint32_t he
   glScissor(bounds.left * m_resolution_scale,
             m_vram_texture.GetHeight() - (bounds.top * m_resolution_scale) - (height * m_resolution_scale),
             width * m_resolution_scale, height * m_resolution_scale);
+  m_current_scissor_valid = false;
 
   // fast path when not using interlaced rendering
   const bool wrapped = IsVRAMFillOversized(x, y, width, height);

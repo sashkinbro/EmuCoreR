@@ -128,31 +128,46 @@ void ALWAYS_INLINE_RELEASE GPU_SW_Backend::ShadePixel(const GPUBackendDrawComman
     {
       color.bits = texture_color.bits;
     }
+    else if constexpr (dithering_enable)
+    {
+      const auto& dither_row = s_dither_lut[y & 3u][x & 3u];
+      color.bits = (static_cast<uint16_t>(dither_row[(uint16_t(texture_color.r) * uint16_t(color_r)) >> 4]) << 0) |
+                   (static_cast<uint16_t>(dither_row[(uint16_t(texture_color.g) * uint16_t(color_g)) >> 4]) << 5) |
+                   (static_cast<uint16_t>(dither_row[(uint16_t(texture_color.b) * uint16_t(color_b)) >> 4]) << 10) |
+                   (texture_color.bits & 0x8000u);
+    }
     else
     {
-      const uint32_t dither_y = (dithering_enable) ? (y & 3u) : 2u;
-      const uint32_t dither_x = (dithering_enable) ? (x & 3u) : 3u;
-
-      color.bits = (static_cast<uint16_t>(s_dither_lut[dither_y][dither_x][(uint16_t(texture_color.r) * uint16_t(color_r)) >> 4]) << 0) |
-                   (static_cast<uint16_t>(s_dither_lut[dither_y][dither_x][(uint16_t(texture_color.g) * uint16_t(color_g)) >> 4]) << 5) |
-                   (static_cast<uint16_t>(s_dither_lut[dither_y][dither_x][(uint16_t(texture_color.b) * uint16_t(color_b)) >> 4]) << 10) |
-                   (texture_color.bits & 0x8000u);
+      const uint32_t dr = std::min<uint32_t>((uint32_t(texture_color.r) * uint32_t(color_r)) >> 7, 31u);
+      const uint32_t dg = std::min<uint32_t>((uint32_t(texture_color.g) * uint32_t(color_g)) >> 7, 31u);
+      const uint32_t db = std::min<uint32_t>((uint32_t(texture_color.b) * uint32_t(color_b)) >> 7, 31u);
+      color.bits = static_cast<uint16_t>(dr | (dg << 5) | (db << 10)) | (texture_color.bits & 0x8000u);
     }
   }
   else
   {
-    const uint32_t dither_y = (dithering_enable) ? (y & 3u) : 2u;
-    const uint32_t dither_x = (dithering_enable) ? (x & 3u) : 3u;
-
-    // Non-textured transparent polygons don't set bit 15, but are treated as transparent.
-    color.bits = (static_cast<uint16_t>(s_dither_lut[dither_y][dither_x][color_r]) << 0) |
-                 (static_cast<uint16_t>(s_dither_lut[dither_y][dither_x][color_g]) << 5) |
-                 (static_cast<uint16_t>(s_dither_lut[dither_y][dither_x][color_b]) << 10) | (transparency_enable ? 0x8000u : 0);
+    if constexpr (dithering_enable)
+    {
+      const auto& dither_row = s_dither_lut[y & 3u][x & 3u];
+      // Non-textured transparent polygons don't set bit 15, but are treated as transparent.
+      color.bits = (static_cast<uint16_t>(dither_row[color_r]) << 0) |
+                   (static_cast<uint16_t>(dither_row[color_g]) << 5) |
+                   (static_cast<uint16_t>(dither_row[color_b]) << 10) | (transparency_enable ? 0x8000u : 0);
+    }
+    else
+    {
+      color.bits = static_cast<uint16_t>(color_r >> 3) | (static_cast<uint16_t>(color_g >> 3) << 5) |
+                   (static_cast<uint16_t>(color_b >> 3) << 10) | (transparency_enable ? 0x8000u : 0);
+    }
   }
 
-  const VRAMPixel bg_color{GetPixel(static_cast<uint32_t>(x), static_cast<uint32_t>(y))};
+  const uint16_t mask_and = cmd->params.GetMaskAND();
   if constexpr (transparency_enable)
   {
+    const VRAMPixel bg_color{GetPixel(static_cast<uint32_t>(x), static_cast<uint32_t>(y))};
+    if ((bg_color.bits & mask_and) != 0)
+      return;
+
     if (color.bits & 0x8000u || !texture_enable)
     {
       // Based on blargg's efficient 15bpp pixel math.
@@ -208,10 +223,11 @@ void ALWAYS_INLINE_RELEASE GPU_SW_Backend::ShadePixel(const GPUBackendDrawComman
         color.bits &= ~0x8000u;
     }
   }
-
-  const uint16_t mask_and = cmd->params.GetMaskAND();
-  if ((bg_color.bits & mask_and) != 0)
-    return;
+  else
+  {
+    if (mask_and != 0 && (GetPixel(static_cast<uint32_t>(x), static_cast<uint32_t>(y)) & mask_and) != 0)
+      return;
+  }
 
   SetPixel(static_cast<uint32_t>(x), static_cast<uint32_t>(y), color.bits | cmd->params.GetMaskOR());
 }
@@ -221,28 +237,62 @@ void GPU_SW_Backend::DrawRectangle(const GPUBackendDrawRectangleCommand* cmd)
 {
   const int32_t origin_x = cmd->x;
   const int32_t origin_y = cmd->y;
+  const int32_t clip_left = std::max(origin_x, static_cast<int32_t>(m_drawing_area.left));
+  const int32_t clip_top = std::max(origin_y, static_cast<int32_t>(m_drawing_area.top));
+  const int32_t clip_right =
+    std::min(origin_x + static_cast<int32_t>(cmd->width), static_cast<int32_t>(m_drawing_area.right) + 1);
+  const int32_t clip_bottom =
+    std::min(origin_y + static_cast<int32_t>(cmd->height), static_cast<int32_t>(m_drawing_area.bottom) + 1);
+  if (clip_left >= clip_right || clip_top >= clip_bottom)
+    return;
+
   const auto [r, g, b] = UnpackColorRGB24(cmd->color);
-  const auto [origin_texcoord_x, origin_texcoord_y] = UnpackTexcoord(cmd->texcoord);
 
-  for (uint32_t offset_y = 0; offset_y < cmd->height; offset_y++)
+  if constexpr (!texture_enable && !transparency_enable)
   {
-    const int32_t y = origin_y + static_cast<int32_t>(offset_y);
-    if (y < static_cast<int32_t>(m_drawing_area.top) || y > static_cast<int32_t>(m_drawing_area.bottom) ||
-        (cmd->params.interlaced_rendering && cmd->params.active_line_lsb == (y & 1)))
-    {
-      continue;
-    }
+    const uint16_t solid_color = static_cast<uint16_t>(r >> 3) | (static_cast<uint16_t>(g >> 3) << 5) |
+                                 (static_cast<uint16_t>(b >> 3) << 10) | cmd->params.GetMaskOR();
+    const uint16_t mask_and = cmd->params.GetMaskAND();
+    const uint32_t row_width = static_cast<uint32_t>(clip_right - clip_left);
+    const uint32_t x_start = static_cast<uint32_t>(clip_left);
 
-    const uint8_t texcoord_y = static_cast<uint8_t>(origin_texcoord_y + offset_y);
-
-    for (uint32_t offset_x = 0; offset_x < cmd->width; offset_x++)
+    for (int32_t y = clip_top; y < clip_bottom; y++)
     {
-      const int32_t x = origin_x + static_cast<int32_t>(offset_x);
-      if (x < static_cast<int32_t>(m_drawing_area.left) || x > static_cast<int32_t>(m_drawing_area.right))
+      if (cmd->params.interlaced_rendering && cmd->params.active_line_lsb == (y & 1))
         continue;
 
-      const uint8_t texcoord_x = static_cast<uint8_t>(origin_texcoord_x + offset_x);
+      uint16_t* row_ptr = &m_vram[VRAM_WIDTH * static_cast<uint32_t>(y) + x_start];
+      if (mask_and == 0)
+      {
+        std::fill_n(row_ptr, row_width, solid_color);
+      }
+      else
+      {
+        for (uint32_t col = 0; col < row_width; col++)
+        {
+          if ((row_ptr[col] & mask_and) == 0)
+            row_ptr[col] = solid_color;
+        }
+      }
+    }
+    return;
+  }
 
+  const auto [origin_texcoord_x, origin_texcoord_y] = UnpackTexcoord(cmd->texcoord);
+  const uint32_t start_offset_x = static_cast<uint32_t>(clip_left - origin_x);
+  const uint32_t start_offset_y = static_cast<uint32_t>(clip_top - origin_y);
+  const uint8_t start_texcoord_x = static_cast<uint8_t>(origin_texcoord_x + start_offset_x);
+
+  for (int32_t y = clip_top; y < clip_bottom; y++)
+  {
+    if (cmd->params.interlaced_rendering && cmd->params.active_line_lsb == (y & 1))
+      continue;
+
+    const uint8_t texcoord_y = static_cast<uint8_t>(origin_texcoord_y + start_offset_y + static_cast<uint32_t>(y - clip_top));
+    uint8_t texcoord_x = start_texcoord_x;
+
+    for (int32_t x = clip_left; x < clip_right; x++, texcoord_x++)
+    {
       ShadePixel<texture_enable, raw_texture_enable, transparency_enable, false>(
         cmd, static_cast<uint32_t>(x), static_cast<uint32_t>(y), r, g, b, texcoord_x, texcoord_y);
     }
@@ -383,6 +433,20 @@ void GPU_SW_Backend::DrawSpan(const GPUBackendDrawPolygonCommand* cmd, int32_t y
 
   AddIDeltas_DX<shading_enable, texture_enable>(ig, idl, x_ig_adjust);
   AddIDeltas_DY<shading_enable, texture_enable>(ig, idl, y);
+
+  if constexpr (!shading_enable && !texture_enable && !transparency_enable && !dithering_enable)
+  {
+    if (cmd->params.GetMaskAND() == 0)
+    {
+      const uint8_t r = static_cast<uint8_t>(ig.r >> (COORD_FBS + COORD_POST_PADDING));
+      const uint8_t g = static_cast<uint8_t>(ig.g >> (COORD_FBS + COORD_POST_PADDING));
+      const uint8_t b = static_cast<uint8_t>(ig.b >> (COORD_FBS + COORD_POST_PADDING));
+      const uint16_t solid_color = static_cast<uint16_t>(r >> 3) | (static_cast<uint16_t>(g >> 3) << 5) |
+                                   (static_cast<uint16_t>(b >> 3) << 10) | cmd->params.GetMaskOR();
+      std::fill_n(&m_vram[VRAM_WIDTH * static_cast<uint32_t>(y) + static_cast<uint32_t>(x)], w, solid_color);
+      return;
+    }
+  }
 
   do
   {
