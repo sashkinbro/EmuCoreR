@@ -156,6 +156,8 @@ private val PS1_STRING_BINDINGS: List<Pair<String, Int>> = listOf(
     "ps1ui_theme_classic" to R.string.ps1ui_theme_classic,
     "ps1ui_theme_psone" to R.string.ps1ui_theme_psone,
     "ps1ui_theme_slate" to R.string.ps1ui_theme_slate,
+    "ps1ui_theme_yaroze" to R.string.ps1ui_theme_yaroze,
+    "ps1ui_theme_crimson" to R.string.ps1ui_theme_crimson,
     "ps1ui_aspect_auto" to R.string.ps1ui_aspect_auto,
     "ps1ui_aspect_16_9" to R.string.ps1ui_aspect_16_9,
     "ps1ui_aspect_4_3" to R.string.ps1ui_aspect_4_3,

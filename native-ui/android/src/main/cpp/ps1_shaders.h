@@ -136,7 +136,7 @@ void main() {
         sphereBase = vec3(0.52, 0.62, 0.88);
         sphereRim = vec3(0.78, 0.88, 1.0);
         sphereSpec = vec3(1.0, 1.0, 1.0);
-    } else {
+    } else if (u_theme == 2) {
         // Theme 2: Original Slate (SCPH-1001) with subtle 1994 diagonal diamond grid
         vec3 outerDark = vec3(0.035, 0.045, 0.085);
         vec3 innerSlate = vec3(0.11, 0.15, 0.25);
@@ -148,6 +148,28 @@ void main() {
         sphereBase = vec3(0.16, 0.42, 0.64);
         sphereRim = vec3(0.32, 0.78, 0.95);
         sphereSpec = vec3(0.82, 0.95, 1.0);
+    } else if (u_theme == 3) {
+        // Theme 3: Net Yaroze Black (matte stealth carbon obsidian + icy platinum-cyan glow)
+        vec3 outerPitch = vec3(0.008, 0.010, 0.015);
+        vec3 innerCarbon = vec3(0.055, 0.072, 0.105);
+        bg = mix(outerPitch, innerCarbon, pow(softBloom, 1.45) * 0.92);
+        bg += vec3(0.020, 0.045, 0.075) * pow(glow, 2.0);
+        // Ultra-subtle carbon weave micro-texture
+        vec2 weave = fract(px * 0.25);
+        float carbonPat = step(0.5, weave.x) * step(0.5, weave.y);
+        bg += vec3(0.006, 0.008, 0.012) * carbonPat * softBloom;
+        sphereBase = vec3(0.13, 0.16, 0.21);
+        sphereRim = vec3(0.44, 0.86, 1.0);
+        sphereSpec = vec3(0.95, 0.98, 1.0);
+    } else {
+        // Theme 4: Crimson Obsidian (pitch-black void + smoked ruby devkit glow)
+        vec3 outerVoid = vec3(0.014, 0.004, 0.008);
+        vec3 innerRuby = vec3(0.125, 0.022, 0.052);
+        bg = mix(outerVoid, innerRuby, pow(softBloom, 1.35) * 0.92);
+        bg += vec3(0.075, 0.012, 0.030) * pow(glow, 1.9);
+        sphereBase = vec3(0.20, 0.07, 0.11);
+        sphereRim = vec3(1.0, 0.28, 0.44);
+        sphereSpec = vec3(1.0, 0.90, 0.92);
     }
 
     float t = u_time * u_motion_scale;
@@ -281,12 +303,19 @@ void main() {
     // Vibrant PS1 rainbow color stops with subtle focus shimmer
     float flow = sin(u_time * 1.6 + v_uv.x * 4.5) * 0.03 * u_focus;
     float hueBase = v_uv.x * 0.85 + (nSmooth - 0.5) * 0.34 + u_seed * 0.29 + flow;
-    float sat = (u_theme == 1) ? 0.84 : 0.92;
+    float sat = (u_theme == 1) ? 0.84 : (u_theme >= 3 ? 0.88 : 0.92);
     float val = mix(0.76, 1.0, u_focus) * mix(0.85, 1.0, nSmooth);
     vec3 col = hsv2rgb(vec3(fract(hueBase), sat, val));
 
     // Extra vibrant warm orange/magenta/cyan punch typical of PS1 BIOS splashes
     col = pow(col, vec3(0.92));
+    if (u_theme == 3) {
+        // Net Yaroze cool electric-cyan / violet / silver-amber accent shift
+        col = mix(col, vec3(0.28, 0.78, 1.0) * val, 0.22);
+    } else if (u_theme == 4) {
+        // Crimson Obsidian warm ruby / magenta / amber shift
+        col = mix(col, vec3(0.98, 0.24, 0.42) * val, 0.26);
+    }
     if (u_focus > 0.01) {
         float sweep = exp(-pow((v_uv.x - fract(u_time * 0.35 + u_seed * 0.2)) * 5.0, 2.0));
         col += vec3(0.18, 0.20, 0.25) * sweep * u_focus;

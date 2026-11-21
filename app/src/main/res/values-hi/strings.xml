@@ -2372,7 +2372,7 @@
     <string name="ps1ui_bios_ready">कॉन्फ़िगर किया गया</string>
     <string name="ps1ui_boot_fast">तेज़</string>
     <string name="ps1ui_boot_full">पूर्ण</string>
-    <string name="ps1ui_boot_subtitle">नेटिव सिस्टम शेल</string>
+    <string name="ps1ui_boot_subtitle">PlayStation 1</string>
     <string name="ps1ui_btn_circle">○ सर्कल</string>
     <string name="ps1ui_btn_continue">जारी रखें</string>
     <string name="ps1ui_btn_cross">✕ क्रॉस</string>
@@ -2463,6 +2463,8 @@
     <string name="ps1ui_theme_classic">क्लासिक नीला</string>
     <string name="ps1ui_theme_psone">PSone सिल्वर</string>
     <string name="ps1ui_theme_slate">ओरिजिनल स्लेट</string>
+    <string name="ps1ui_theme_yaroze">नेट यारोज़ काला</string>
+    <string name="ps1ui_theme_crimson">क्रिमसन ऑब्सीडियन</string>
     <string name="ps1ui_time_12h">12-घंटे</string>
     <string name="ps1ui_time_24h">24-घंटे</string>
     <string name="ps1ui_touch_guide_title">टच नियंत्रण</string>

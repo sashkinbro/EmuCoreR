@@ -2387,7 +2387,7 @@
     <string name="ps1ui_bios_ready">پیکربندی شده</string>
     <string name="ps1ui_boot_fast">سریع</string>
     <string name="ps1ui_boot_full">کامل</string>
-    <string name="ps1ui_boot_subtitle">پوسته بومی سیستم</string>
+    <string name="ps1ui_boot_subtitle">PlayStation 1</string>
     <string name="ps1ui_btn_circle">○ دایره</string>
     <string name="ps1ui_btn_continue">ادامه</string>
     <string name="ps1ui_btn_cross">✕ ضربدر</string>
@@ -2478,6 +2478,8 @@
     <string name="ps1ui_theme_classic">آبی کلاسیک</string>
     <string name="ps1ui_theme_psone">نقره‌ای PSone</string>
     <string name="ps1ui_theme_slate">سنگ لوح اصلی</string>
+    <string name="ps1ui_theme_yaroze">مشکی Net Yaroze</string>
+    <string name="ps1ui_theme_crimson">ابسیدین زرشکی</string>
     <string name="ps1ui_time_12h">۱۲ ساعته</string>
     <string name="ps1ui_time_24h">۲۴ ساعته</string>
     <string name="ps1ui_touch_guide_title">کنترل لمسی</string>

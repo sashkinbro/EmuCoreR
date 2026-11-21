@@ -2371,7 +2371,7 @@
     <string name="ps1ui_bios_ready">구성됨</string>
     <string name="ps1ui_boot_fast">빠르게</string>
     <string name="ps1ui_boot_full">전체</string>
-    <string name="ps1ui_boot_subtitle">네이티브 시스템 셸</string>
+    <string name="ps1ui_boot_subtitle">PlayStation 1</string>
     <string name="ps1ui_btn_circle">○ 서클</string>
     <string name="ps1ui_btn_continue">이어하기</string>
     <string name="ps1ui_btn_cross">✕ 크로스</string>
@@ -2462,6 +2462,8 @@
     <string name="ps1ui_theme_classic">클래식 블루</string>
     <string name="ps1ui_theme_psone">PSone 실버</string>
     <string name="ps1ui_theme_slate">오리지널 슬레이트</string>
+    <string name="ps1ui_theme_yaroze">넷 야로제 블랙</string>
+    <string name="ps1ui_theme_crimson">크림슨 옵시디언</string>
     <string name="ps1ui_time_12h">12시간</string>
     <string name="ps1ui_time_24h">24시간</string>
     <string name="ps1ui_touch_guide_title">터치 컨트롤</string>

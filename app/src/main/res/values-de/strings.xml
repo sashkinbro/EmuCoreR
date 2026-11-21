@@ -2374,7 +2374,7 @@
     <string name="ps1ui_bios_ready">Konfiguriert</string>
     <string name="ps1ui_boot_fast">Schnell</string>
     <string name="ps1ui_boot_full">Voll</string>
-    <string name="ps1ui_boot_subtitle">NATIVE SYSTEMOBERFLÄCHE</string>
+    <string name="ps1ui_boot_subtitle">PlayStation 1</string>
     <string name="ps1ui_btn_circle">○ Kreis</string>
     <string name="ps1ui_btn_continue">Fortsetzen</string>
     <string name="ps1ui_btn_cross">✕ Kreuz</string>
@@ -2465,6 +2465,8 @@
     <string name="ps1ui_theme_classic">Klassisch Blau</string>
     <string name="ps1ui_theme_psone">PSone Silber</string>
     <string name="ps1ui_theme_slate">Original Schiefer</string>
+    <string name="ps1ui_theme_yaroze">Net Yaroze Schwarz</string>
+    <string name="ps1ui_theme_crimson">Karmesin-Obsidian</string>
     <string name="ps1ui_time_12h">12-Stunden</string>
     <string name="ps1ui_time_24h">24-Stunden</string>
     <string name="ps1ui_touch_guide_title">TOUCH-STEUERUNG</string>

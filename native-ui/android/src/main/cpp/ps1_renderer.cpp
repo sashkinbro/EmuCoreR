@@ -584,6 +584,16 @@ void Ps1Renderer::DrawTriangleCursor(float cx, float cy, float size, float alpha
         bright = {1.0f, 0.88f, 0.42f, alpha};
         mid = {0.92f, 0.62f, 0.14f, alpha};
         dark = {0.58f, 0.32f, 0.06f, alpha};
+    } else if (settings_.theme == 3) {
+        // Net Yaroze Black: electric ice-cyan & platinum crystal cursor
+        bright = {0.74f, 0.96f, 1.0f, alpha};
+        mid = {0.20f, 0.72f, 0.98f, alpha};
+        dark = {0.07f, 0.34f, 0.68f, alpha};
+    } else if (settings_.theme == 4) {
+        // Crimson Obsidian: vivid ruby-ember 3D cursor
+        bright = {1.0f, 0.70f, 0.56f, alpha};
+        mid = {0.94f, 0.20f, 0.38f, alpha};
+        dark = {0.48f, 0.05f, 0.16f, alpha};
     } else {
         // Classic SCPH-7001 vibrant magenta-pink faceted cursor
         bright = {1.0f, 0.64f, 0.94f, alpha};
@@ -634,24 +644,32 @@ void Ps1Renderer::DrawImageAspectFit(
 RgbaColor Ps1Renderer::PanelTopColor(float alpha) const {
     if (settings_.theme == 1) return {0.90f, 0.93f, 0.98f, alpha};
     if (settings_.theme == 2) return {0.07f, 0.11f, 0.21f, alpha};
+    if (settings_.theme == 3) return {0.055f, 0.068f, 0.098f, alpha};
+    if (settings_.theme == 4) return {0.095f, 0.026f, 0.044f, alpha};
     return {0.04f, 0.07f, 0.27f, alpha};
 }
 
 RgbaColor Ps1Renderer::PanelBotColor(float alpha) const {
     if (settings_.theme == 1) return {0.78f, 0.84f, 0.94f, alpha};
     if (settings_.theme == 2) return {0.03f, 0.06f, 0.13f, alpha};
+    if (settings_.theme == 3) return {0.022f, 0.028f, 0.045f, alpha};
+    if (settings_.theme == 4) return {0.038f, 0.010f, 0.020f, alpha};
     return {0.015f, 0.03f, 0.16f, alpha};
 }
 
 RgbaColor Ps1Renderer::PanelBorderColor(float alpha) const {
     if (settings_.theme == 1) return {0.26f, 0.44f, 0.84f, alpha};
     if (settings_.theme == 2) return {0.26f, 0.68f, 0.82f, alpha};
+    if (settings_.theme == 3) return {0.42f, 0.82f, 0.98f, alpha};
+    if (settings_.theme == 4) return {0.92f, 0.28f, 0.44f, alpha};
     return {0.32f, 0.46f, 1.0f, alpha};
 }
 
 RgbaColor Ps1Renderer::AccentColor(float alpha) const {
     if (settings_.theme == 1) return {0.14f, 0.40f, 0.92f, alpha};
     if (settings_.theme == 2) return {0.18f, 0.66f, 0.84f, alpha};
+    if (settings_.theme == 3) return {0.14f, 0.56f, 0.86f, alpha};
+    if (settings_.theme == 4) return {0.76f, 0.14f, 0.28f, alpha};
     return {0.22f, 0.44f, 1.0f, alpha};
 }
 
@@ -662,6 +680,8 @@ RgbaColor Ps1Renderer::PrimaryTextColor(float alpha) const {
 
 RgbaColor Ps1Renderer::SecondaryTextColor(float alpha) const {
     if (settings_.theme == 1) return {0.24f, 0.34f, 0.56f, alpha};
+    if (settings_.theme == 3) return {0.76f, 0.86f, 0.96f, alpha};
+    if (settings_.theme == 4) return {0.95f, 0.76f, 0.82f, alpha};
     return {0.74f, 0.82f, 1.0f, alpha};
 }
 
@@ -708,6 +728,20 @@ void Ps1Renderer::DrawHeaderPlaque(const std::string& title, float alpha) {
             {0.08f, 0.22f, 0.62f, 0.98f * alpha},
             {1.0f, 1.0f, 1.0f, 0.92f * alpha},
             {0.34f, 0.64f, 1.0f, 0.55f});
+    } else if (settings_.theme == 3) {
+        DrawPanel(
+            bx, by, boxW, boxH, 4.0f, 2.0f,
+            {0.04f, 0.055f, 0.085f, 0.96f * alpha},
+            {0.015f, 0.020f, 0.035f, 0.98f * alpha},
+            {0.46f, 0.86f, 1.0f, 0.96f * alpha},
+            {0.14f, 0.48f, 0.78f, 0.65f});
+    } else if (settings_.theme == 4) {
+        DrawPanel(
+            bx, by, boxW, boxH, 4.0f, 2.0f,
+            {0.08f, 0.02f, 0.04f, 0.96f * alpha},
+            {0.03f, 0.008f, 0.016f, 0.98f * alpha},
+            {0.94f, 0.30f, 0.44f, 0.96f * alpha},
+            {0.68f, 0.12f, 0.26f, 0.72f});
     } else {
         DrawPanel(
             bx, by, boxW, boxH, 4.0f, 2.0f,
@@ -893,63 +927,197 @@ void Ps1Renderer::DrawBottomBar(float alpha) {
 }
 
 void Ps1Renderer::DrawBootIntro(float alpha) {
-    // Crisp high-res pearl canvas fading cleanly into the midnight BIOS backdrop
-    const float fadeOut = (boot_t_ > 0.76f) ? SmoothStep(0.76f, 1.0f, boot_t_) : 0.0f;
-    const float bgAlpha = (1.0f - fadeOut) * alpha;
-    if (bgAlpha <= 0.01f) return;
-
-    PushQuad(white_tex_, 0.0f, 0.0f, screen_width_, kScreenHeight,
-             {0.96f, 0.96f, 0.985f, bgAlpha},
-             {0.89f, 0.91f, 0.96f, bgAlpha});
+    // 2-Act PlayStation 1 style startup animation:
+    //   Act 1 (0.00..0.56): Luminous pearl diamond stage -> golden crystal lock-in
+    //   Act 2 (0.54..1.00): Deep obsidian PlayStation 1 prism emblem -> smooth fade into BIOS orbs
+    const float t = Clamp01(boot_t_);
+    const float masterAlpha = alpha;
+    if (masterAlpha <= 0.01f) return;
 
     const float cx = screen_width_ * 0.5f;
-    const float cy = kScreenHeight * 0.41f;
-    const float scaleIn = 0.72f + 0.28f * EaseOutCubic(std::min(1.0f, boot_t_ * 2.4f));
-    const float prismR = 96.0f * scaleIn;
 
-    // 3D faceted amber-vermilion twin diamond emblem
-    const float split = (1.0f - EaseOutCubic(std::min(1.0f, boot_t_ * 2.6f))) * 26.0f;
-    const RgbaColor amberTop{0.98f, 0.74f, 0.14f, bgAlpha};
-    const RgbaColor orangeMid{0.96f, 0.42f, 0.08f, bgAlpha};
-    const RgbaColor redDeep{0.78f, 0.10f, 0.10f, bgAlpha};
-    const RgbaColor lightEdge{1.0f, 0.92f, 0.48f, bgAlpha};
+    // Act 1 visibility envelope (0.00 -> 0.57)
+    if (t < 0.58f) {
+        const float fadeIn = SmoothStep(0.0f, 0.10f, t);
+        const float toDark = SmoothStep(0.46f, 0.57f, t);
+        const float act1Vis = (1.0f - toDark) * masterAlpha;
 
-    // Upper-left diamond half
-    PushTriangle(cx, cy - prismR - split, amberTop,
-                 cx - prismR * 0.85f, cy - split * 0.3f, orangeMid,
-                 cx, cy - split * 0.2f, lightEdge);
-    PushTriangle(cx - prismR * 0.85f, cy - split * 0.3f, orangeMid,
-                 cx, cy + prismR * 0.85f - split * 0.2f, redDeep,
-                 cx, cy - split * 0.2f, orangeMid);
+        // Smooth fade from deep console black into luminous pearl stage
+        PushQuad(white_tex_, 0.0f, 0.0f, screen_width_, kScreenHeight,
+                 {0.015f, 0.02f, 0.04f, masterAlpha * (1.0f - fadeIn * (1.0f - toDark))});
 
-    // Lower-right diamond half
-    PushTriangle(cx, cy - prismR * 0.85f + split * 0.2f, orangeMid,
-                 cx + prismR * 0.85f, cy + split * 0.3f, amberTop,
-                 cx, cy + split * 0.2f, lightEdge);
-    PushTriangle(cx + prismR * 0.85f, cy + split * 0.3f, orangeMid,
-                 cx, cy + prismR + split, redDeep,
-                 cx, cy + split * 0.2f, orangeMid);
+        if (act1Vis > 0.01f) {
+            const float bgA = fadeIn * act1Vis;
+            PushQuad(white_tex_, 0.0f, 0.0f, screen_width_, kScreenHeight,
+                     {0.97f, 0.975f, 0.995f, bgA},
+                     {0.89f, 0.91f, 0.965f, bgA});
 
-    // Inner bright diamond cutout
-    const float ir = prismR * 0.40f;
-    PushTriangle(cx, cy - ir, {0.96f, 0.96f, 0.99f, bgAlpha},
-                 cx - ir * 0.86f, cy, {0.93f, 0.94f, 0.98f, bgAlpha},
-                 cx + ir * 0.86f, cy, {0.93f, 0.94f, 0.98f, bgAlpha});
-    PushTriangle(cx - ir * 0.86f, cy, {0.93f, 0.94f, 0.98f, bgAlpha},
-                 cx, cy + ir, {0.90f, 0.92f, 0.97f, bgAlpha},
-                 cx + ir * 0.86f, cy, {0.93f, 0.94f, 0.98f, bgAlpha});
+            const float cy = kScreenHeight * 0.40f;
+            const float animIn = EaseOutCubic(Clamp01((t - 0.04f) / 0.25f));
+            const float R = 82.0f * (0.78f + 0.22f * animIn);
+            const float W = R * 0.88f;
+            const float H = R;
+            const float iR = R * 0.36f;
+            const float iW = iR * 0.88f;
+            const float iH = iR;
+            const float slide = (1.0f - animIn) * 20.0f;
 
-    const float textReveal = SmoothStep(0.18f, 0.48f, boot_t_) * bgAlpha;
-    if (textReveal > 0.01f) {
-        const std::string brand = "EMUCORE R";
-        const std::string sub = TextOr("ps1ui_boot_subtitle", "NATIVE SYSTEM SHELL");
-        float bw = 0, bh = 0, sw = 0, sh = 0;
-        MeasureText(brand, 38.0f, STYLE_HEADER, 520.0f, 1, bw, bh);
-        MeasureText(sub, 18.0f, STYLE_MONO, 520.0f, 1, sw, sh);
-        DrawText(brand, cx - bw * 0.5f, cy + prismR + 28.0f, 38.0f, STYLE_HEADER,
-                 {0.12f, 0.14f, 0.24f, textReveal}, 520.0f, 1, 0);
-        DrawText(sub, cx - sw * 0.5f, cy + prismR + 76.0f, 18.0f, STYLE_MONO,
-                 {0.30f, 0.34f, 0.52f, textReveal}, 520.0f, 1, 0);
+            // Lock-in diamond light flash burst right when halves meet
+            const float pulseP = Clamp01((t - 0.26f) / 0.18f);
+            if (pulseP > 0.0f && pulseP < 1.0f) {
+                const float haloR = R * (1.02f + 0.55f * pulseP);
+                const float haloW = haloR * 0.88f;
+                const float haloA = (1.0f - pulseP) * 0.36f * bgA;
+                const RgbaColor glowCenter{1.0f, 0.92f, 0.56f, haloA};
+                const RgbaColor glowEdge{1.0f, 0.85f, 0.35f, 0.0f};
+                PushTriangle(cx, cy - haloR, glowEdge, cx - haloW, cy, glowEdge, cx, cy, glowCenter);
+                PushTriangle(cx, cy - haloR, glowEdge, cx, cy, glowCenter, cx + haloW, cy, glowEdge);
+                PushTriangle(cx - haloW, cy, glowEdge, cx, cy + haloR, glowEdge, cx, cy, glowCenter);
+                PushTriangle(cx, cy, glowCenter, cx, cy + haloR, glowEdge, cx + haloW, cy, glowEdge);
+            }
+
+            const RgbaColor goldBright{1.00f, 0.83f, 0.24f, bgA};
+            const RgbaColor amberRich{0.97f, 0.56f, 0.08f, bgA};
+            const RgbaColor vermilion{0.92f, 0.24f, 0.07f, bgA};
+            const RgbaColor rubyDeep{0.72f, 0.08f, 0.08f, bgA};
+            const RgbaColor sheen{1.00f, 0.95f, 0.62f, bgA};
+
+            // Mathematically symmetric left beveled diamond half
+            {
+                const float ox = cx - slide * 0.65f;
+                const float oy = cy - slide * 0.65f;
+                PushTriangle(ox, oy - H, goldBright, ox - W, oy, amberRich, ox - iW, oy, sheen);
+                PushTriangle(ox, oy - H, goldBright, ox - iW, oy, sheen, ox, oy - iH, sheen);
+                PushTriangle(ox - W, oy, amberRich, ox, oy + H, rubyDeep, ox, oy + iH, vermilion);
+                PushTriangle(ox - W, oy, amberRich, ox, oy + iH, vermilion, ox - iW, oy, amberRich);
+            }
+
+            // Mathematically symmetric right beveled diamond half
+            {
+                const float ox = cx + slide * 0.65f;
+                const float oy = cy + slide * 0.65f;
+                PushTriangle(ox, oy - H, sheen, ox, oy - iH, amberRich, ox + iW, oy, goldBright);
+                PushTriangle(ox, oy - H, amberRich, ox + iW, oy, goldBright, ox + W, oy, amberRich);
+                PushTriangle(ox + W, oy, vermilion, ox + iW, oy, amberRich, ox, oy + iH, vermilion);
+                PushTriangle(ox + W, oy, vermilion, ox, oy + iH, rubyDeep, ox, oy + H, rubyDeep);
+            }
+
+            const float textP = EaseOutCubic(Clamp01((t - 0.16f) / 0.16f));
+            const float textA = textP * act1Vis;
+            if (textA > 0.01f) {
+                const float slideY = (1.0f - textP) * 10.0f;
+                const std::string brand = "EMUCORE R";
+                const std::string sub = TextOr("ps1ui_boot_subtitle", "PlayStation 1");
+                float bw = 0, bh = 0, sw = 0, sh = 0;
+                MeasureText(brand, 34.0f, STYLE_HEADER, 520.0f, 1, bw, bh);
+                MeasureText(sub, 20.0f, STYLE_HEADER, 520.0f, 1, sw, sh);
+                DrawText(brand, cx - bw * 0.5f, cy + R + 22.0f + slideY, 34.0f, STYLE_HEADER,
+                         {0.10f, 0.13f, 0.26f, textA}, 520.0f, 1, 0);
+
+                // Expanding gold-to-indigo accent hairline divider
+                const float lineW = std::max(140.0f, std::max(bw, sw) + 32.0f) * textP;
+                PushQuad(white_tex_, cx - lineW * 0.5f, cy + R + 65.0f + slideY, lineW, 2.0f,
+                         {0.92f, 0.50f, 0.10f, textA}, {0.24f, 0.36f, 0.85f, textA});
+
+                DrawText(sub, cx - sw * 0.5f, cy + R + 76.0f + slideY, 20.0f, STYLE_HEADER,
+                         {0.24f, 0.30f, 0.54f, textA}, 520.0f, 1, 0);
+            }
+        }
+        return;
+    }
+
+    // Act 2 (0.58..1.00): Classic dark console PlayStation 1 stage gliding smoothly into BIOS orbs
+    const float act2In = SmoothStep(0.58f, 0.68f, t);
+    const float act2Out = (t > 0.85f) ? SmoothStep(0.85f, 1.0f, t) : 0.0f;
+    const float bgA = (1.0f - act2Out) * masterAlpha;
+    if (bgA <= 0.01f) return;
+
+    PushQuad(white_tex_, 0.0f, 0.0f, screen_width_, kScreenHeight,
+             {0.012f, 0.016f, 0.045f, bgA},
+             {0.032f, 0.048f, 0.125f, bgA});
+
+    const float cy = kScreenHeight * 0.40f;
+    const float crestP = EaseOutCubic(Clamp01((t - 0.60f) / 0.18f));
+    const float crestA = act2In * bgA;
+    const float S = 68.0f * (0.86f + 0.14f * crestP);
+
+    if (crestA > 0.01f) {
+        const float rise = (1.0f - crestP) * 14.0f;
+        const float py = cy + rise;
+
+        // Smooth elliptical ambient aura beneath emblem (zero rectangular edge artifacts)
+        const float auraCx = cx;
+        const float auraCy = py + S * 0.68f;
+        const float auraRx = S * 1.55f;
+        const float auraRy = S * 0.42f;
+        const RgbaColor auraMid{0.18f, 0.42f, 1.00f, 0.28f * crestA};
+        const RgbaColor auraEdge{0.08f, 0.22f, 0.78f, 0.0f};
+        constexpr int kGlowSegs = 20;
+        constexpr float kTwoPi = 6.283185307f;
+        for (int s = 0; s < kGlowSegs; ++s) {
+            const float a0 = (static_cast<float>(s) / kGlowSegs) * kTwoPi;
+            const float a1 = (static_cast<float>(s + 1) / kGlowSegs) * kTwoPi;
+            PushTriangle(
+                auraCx, auraCy, auraMid,
+                auraCx + std::cos(a0) * auraRx, auraCy + std::sin(a0) * auraRy, auraEdge,
+                auraCx + std::cos(a1) * auraRx, auraCy + std::sin(a1) * auraRy, auraEdge);
+        }
+
+        // 4-color sculpted geometric PS1 crest: vermilion pillar + gold/teal/cobalt folded ribbons
+
+        // Vertical crimson/vermilion spine
+        const RgbaColor redHi{0.99f, 0.34f, 0.28f, crestA};
+        const RgbaColor redLo{0.80f, 0.10f, 0.14f, crestA};
+        PushTriangle(cx - S * 0.14f, py - S * 0.88f, redHi,
+                     cx + S * 0.10f, py - S * 0.78f, redHi,
+                     cx - S * 0.14f, py + S * 0.66f, redLo);
+        PushTriangle(cx + S * 0.10f, py - S * 0.78f, redHi,
+                     cx + S * 0.10f, py + S * 0.78f, redLo,
+                     cx - S * 0.14f, py + S * 0.66f, redLo);
+
+        // Top right sculpted P-curve wing (crimson -> amber-gold gradient)
+        const RgbaColor ylwHi{1.00f, 0.86f, 0.18f, crestA};
+        const RgbaColor ylwLo{0.92f, 0.62f, 0.04f, crestA};
+        PushTriangle(cx + S * 0.10f, py - S * 0.78f, redHi,
+                     cx + S * 0.64f, py - S * 0.56f, ylwHi,
+                     cx + S * 0.10f, py - S * 0.14f, redLo);
+        PushTriangle(cx + S * 0.64f, py - S * 0.56f, ylwHi,
+                     cx + S * 0.70f, py - S * 0.30f, ylwLo,
+                     cx + S * 0.10f, py - S * 0.14f, redLo);
+        PushTriangle(cx + S * 0.70f, py - S * 0.30f, ylwLo,
+                     cx + S * 0.44f, py - S * 0.04f, ylwLo,
+                     cx + S * 0.10f, py - S * 0.14f, redLo);
+
+        // Perspective floor wing right: emerald-teal ribbon
+        const RgbaColor tealHi{0.10f, 0.88f, 0.76f, crestA};
+        const RgbaColor tealLo{0.02f, 0.58f, 0.54f, crestA};
+        PushTriangle(cx + S * 0.10f, py + S * 0.24f, tealHi,
+                     cx + S * 0.88f, py + S * 0.14f, ylwHi,
+                     cx + S * 0.94f, py + S * 0.44f, tealHi);
+        PushTriangle(cx + S * 0.10f, py + S * 0.24f, tealHi,
+                     cx + S * 0.94f, py + S * 0.44f, tealHi,
+                     cx + S * 0.10f, py + S * 0.70f, tealLo);
+
+        // Perspective floor wing left: signature PlayStation cobalt blue ribbon
+        const RgbaColor blueHi{0.24f, 0.56f, 1.00f, crestA};
+        const RgbaColor blueLo{0.10f, 0.28f, 0.86f, crestA};
+        PushTriangle(cx - S * 0.14f, py + S * 0.24f, blueHi,
+                     cx - S * 0.92f, py + S * 0.42f, tealHi,
+                     cx - S * 0.14f, py + S * 0.66f, blueLo);
+        PushTriangle(cx - S * 0.92f, py + S * 0.42f, tealHi,
+                     cx - S * 0.64f, py + S * 0.76f, blueLo,
+                     cx - S * 0.14f, py + S * 0.66f, blueLo);
+
+        // Luminous PlayStation 1 wordmark + EmuCoreR badge
+        const std::string psTitle = TextOr("ps1ui_boot_subtitle", "PlayStation 1");
+        const std::string subBrand = "EMUCORE R";
+        float tw = 0, th = 0, sw = 0, sh = 0;
+        MeasureText(psTitle, 38.0f, STYLE_HEADER, 600.0f, 1, tw, th);
+        MeasureText(subBrand, 14.5f, STYLE_MONO, 400.0f, 1, sw, sh);
+        DrawText(psTitle, cx - tw * 0.5f, py + S + 22.0f, 38.0f, STYLE_HEADER,
+                 {1.0f, 1.0f, 1.0f, crestA}, 600.0f, 1, 0);
+        DrawText(subBrand, cx - sw * 0.5f, py + S + 72.0f, 14.5f, STYLE_MONO,
+                 {0.58f, 0.74f, 1.0f, 0.86f * crestA}, 400.0f, 1, 0);
     }
 }
 
@@ -1718,6 +1886,8 @@ void Ps1Renderer::DrawSettingsScreen(float alpha) {
     auto themeStr = [&]() -> std::string {
         if (settings_.theme == 1) return TextOr("ps1ui_theme_psone", "PSone Silver");
         if (settings_.theme == 2) return TextOr("ps1ui_theme_slate", "Original Slate");
+        if (settings_.theme == 3) return TextOr("ps1ui_theme_yaroze", "Net Yaroze Black");
+        if (settings_.theme == 4) return TextOr("ps1ui_theme_crimson", "Crimson Obsidian");
         return TextOr("ps1ui_theme_classic", "Classic Blue");
     };
     auto aspectStr = [&]() -> std::string {
@@ -2425,7 +2595,7 @@ void Ps1Renderer::CycleSetting(int row, int delta) {
     bool changed = true;
     switch (row) {
         case 0: settings_.aspectMode = wrap(settings_.aspectMode, 3); break;
-        case 1: settings_.theme = wrap(settings_.theme, 3); break;
+        case 1: settings_.theme = wrap(settings_.theme, 5); break;
         case 2: settings_.orbsMode = wrap(settings_.orbsMode, 3); break;
         case 3: settings_.scanlinesMode = wrap(settings_.scanlinesMode, 3); break;
         case 4: settings_.bootAnimMode = wrap(settings_.bootAnimMode, 3); break;
@@ -3118,7 +3288,7 @@ void Ps1Renderer::SetMemoryCards(
 
 void Ps1Renderer::SetSettings(const ShellSettings& settings) {
     settings_ = settings;
-    settings_.theme = std::clamp(settings_.theme, 0, 2);
+    settings_.theme = std::clamp(settings_.theme, 0, 4);
     settings_.aspectMode = std::clamp(settings_.aspectMode, 0, 2);
     settings_.orbsMode = std::clamp(settings_.orbsMode, 0, 2);
     settings_.scanlinesMode = std::clamp(settings_.scanlinesMode, 0, 2);
@@ -3158,7 +3328,7 @@ void Ps1Renderer::TriggerTransition(int kind) {
     } else {
         boot_active_ = true;
         boot_t_ = 0.0f;
-        boot_duration_ = (settings_.bootAnimMode == 1) ? 0.85f : 1.85f;
+        boot_duration_ = (settings_.bootAnimMode == 1) ? 1.15f : 2.65f;
         screen_fade_t_ = 1.0f;
     }
 }

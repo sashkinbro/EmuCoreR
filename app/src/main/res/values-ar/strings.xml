@@ -2380,7 +2380,7 @@
     <string name="ps1ui_bios_ready">مُعدّ</string>
     <string name="ps1ui_boot_fast">سريع</string>
     <string name="ps1ui_boot_full">كامل</string>
-    <string name="ps1ui_boot_subtitle">واجهة النظام الأصلية</string>
+    <string name="ps1ui_boot_subtitle">PlayStation 1</string>
     <string name="ps1ui_btn_circle">○ دائرة</string>
     <string name="ps1ui_btn_continue">متابعة</string>
     <string name="ps1ui_btn_cross">✕ تقاطع</string>
@@ -2471,6 +2471,8 @@
     <string name="ps1ui_theme_classic">أزرق كلاسيكي</string>
     <string name="ps1ui_theme_psone">فضي PSone</string>
     <string name="ps1ui_theme_slate">رمادي أصلي</string>
+    <string name="ps1ui_theme_yaroze">أسود Net Yaroze</string>
+    <string name="ps1ui_theme_crimson">أوبسيديان قرمزي</string>
     <string name="ps1ui_time_12h">12 ساعة</string>
     <string name="ps1ui_time_24h">24 ساعة</string>
     <string name="ps1ui_touch_guide_title">التحكم باللمس</string>

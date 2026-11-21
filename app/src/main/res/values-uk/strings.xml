@@ -2378,7 +2378,7 @@
     <string name="ps1ui_bios_ready">Налаштовано</string>
     <string name="ps1ui_boot_fast">Швидка</string>
     <string name="ps1ui_boot_full">Повна</string>
-    <string name="ps1ui_boot_subtitle">НАТИВНА СИСТЕМНА ОБОЛОНКА</string>
+    <string name="ps1ui_boot_subtitle">PlayStation 1</string>
     <string name="ps1ui_btn_circle">○ Коло</string>
     <string name="ps1ui_btn_continue">Продовжити</string>
     <string name="ps1ui_btn_cross">✕ Хрест</string>
@@ -2469,6 +2469,8 @@
     <string name="ps1ui_theme_classic">Класичний синій</string>
     <string name="ps1ui_theme_psone">PSone Срібло</string>
     <string name="ps1ui_theme_slate">Оригінальний сланець</string>
+    <string name="ps1ui_theme_yaroze">Чорна Net Yaroze</string>
+    <string name="ps1ui_theme_crimson">Багряний обсидіан</string>
     <string name="ps1ui_time_12h">12-год.</string>
     <string name="ps1ui_time_24h">24-год.</string>
     <string name="ps1ui_touch_guide_title">СЕНСОРНЕ КЕРУВАННЯ</string>

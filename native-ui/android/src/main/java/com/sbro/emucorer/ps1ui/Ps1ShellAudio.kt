@@ -60,7 +60,7 @@ object Ps1ShellAudio {
     fun initialize(context: Context) {
         synchronized(lock) {
             if (initialized) return
-            val sfxDir = File(context.cacheDir, "ps1ui_sfx_v1").apply { mkdirs() }
+            val sfxDir = File(context.cacheDir, "ps1ui_sfx_v2").apply { mkdirs() }
             val attrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -284,21 +284,38 @@ object Ps1ShellAudio {
     }
 
     private fun synthBootIntroSfx(): ShortArray {
-        val dur = 1.65
+        val dur = 2.45
         val len = (SAMPLE_RATE * dur).toInt()
-        val chord = doubleArrayOf(110.0, 164.81, 220.0, 329.63, 440.0, 523.25, 659.25)
-        val weights = doubleArrayOf(0.45, 0.34, 0.30, 0.24, 0.18, 0.14, 0.12)
+        // Act 1 deep warm console wash -> Act 2 bright crystalline resolve chime
+        val chord1 = doubleArrayOf(98.0, 146.83, 196.0, 293.66, 392.0)
+        val w1 = doubleArrayOf(0.45, 0.34, 0.28, 0.22, 0.15)
+        val chord2 = doubleArrayOf(130.81, 196.0, 261.63, 392.0, 523.25, 659.25, 783.99)
+        val w2 = doubleArrayOf(0.32, 0.26, 0.24, 0.20, 0.16, 0.12, 0.09)
         return ShortArray(len) { i ->
             val t = i.toDouble() / SAMPLE_RATE
-            val swell = (1.0 - exp(-t * 3.8)) * exp(-((t - 0.45).coerceAtLeast(0.0)) * 2.1)
-            val chimeGate = if (t > 0.38) exp(-(t - 0.38) * 3.2) * (1.0 - exp(-(t - 0.38) * 28.0)) else 0.0
-            var pad = 0.0
-            for (k in chord.indices) {
-                val detune = 1.0 + 0.002 * sin(2.0 * PI * 0.4 * t + k)
-                pad += weights[k] * sin(2.0 * PI * chord[k] * detune * t)
+            val env1 = (1.0 - exp(-t * 3.5)) * exp(-((t - 0.55).coerceAtLeast(0.0)) * 1.45)
+            var s1 = 0.0
+            for (k in chord1.indices) {
+                val detune = 1.0 + 0.0022 * sin(2.0 * PI * 0.35 * t + k)
+                s1 += w1[k] * sin(2.0 * PI * chord1[k] * detune * t)
             }
-            val shimmer = 0.22 * sin(2.0 * PI * 880.0 * t) + 0.16 * sin(2.0 * PI * 1318.5 * t)
-            val mixed = tanh((pad * swell + shimmer * chimeGate) * 0.55)
+            val t2 = (t - 1.18).coerceAtLeast(0.0)
+            val env2 = if (t > 1.18) (1.0 - exp(-t2 * 14.0)) * exp(-t2 * 1.85) else 0.0
+            var s2 = 0.0
+            if (env2 > 0.0005) {
+                for (k in chord2.indices) {
+                    val detune = 1.0 + 0.0016 * sin(2.0 * PI * 0.55 * t2 + k * 0.9)
+                    s2 += w2[k] * sin(2.0 * PI * chord2[k] * detune * t2)
+                }
+            }
+            val shimmer = if (t > 1.24) {
+                val ts = t - 1.24
+                (0.20 * sin(2.0 * PI * 1046.5 * ts) + 0.14 * sin(2.0 * PI * 1567.98 * ts)) *
+                    (1.0 - exp(-ts * 32.0)) * exp(-ts * 2.8)
+            } else {
+                0.0
+            }
+            val mixed = tanh((s1 * env1 + s2 * env2 + shimmer) * 0.52)
             (mixed * 32767.0).roundToInt().coerceIn(-32767, 32767).toShort()
         }
     }

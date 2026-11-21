@@ -2371,7 +2371,7 @@
     <string name="ps1ui_bios_ready">設定済み</string>
     <string name="ps1ui_boot_fast">高速</string>
     <string name="ps1ui_boot_full">フル</string>
-    <string name="ps1ui_boot_subtitle">ネイティブシステムシェル</string>
+    <string name="ps1ui_boot_subtitle">PlayStation 1</string>
     <string name="ps1ui_btn_circle">○ マル</string>
     <string name="ps1ui_btn_continue">続きから</string>
     <string name="ps1ui_btn_cross">✕ バツ</string>
@@ -2462,6 +2462,8 @@
     <string name="ps1ui_theme_classic">クラシックブルー</string>
     <string name="ps1ui_theme_psone">PSoneシルバー</string>
     <string name="ps1ui_theme_slate">オリジナルスレート</string>
+    <string name="ps1ui_theme_yaroze">やろうぜブラック</string>
+    <string name="ps1ui_theme_crimson">クリムゾン・オブシディアン</string>
     <string name="ps1ui_time_12h">12時間</string>
     <string name="ps1ui_time_24h">24時間</string>
     <string name="ps1ui_touch_guide_title">タッチ操作ガイド</string>

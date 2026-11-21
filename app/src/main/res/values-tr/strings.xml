@@ -2372,7 +2372,7 @@
     <string name="ps1ui_bios_ready">Yapılandırıldı</string>
     <string name="ps1ui_boot_fast">Hızlı</string>
     <string name="ps1ui_boot_full">Tam</string>
-    <string name="ps1ui_boot_subtitle">YEREL SİSTEM ARAYÜZÜ</string>
+    <string name="ps1ui_boot_subtitle">PlayStation 1</string>
     <string name="ps1ui_btn_circle">○ Daire</string>
     <string name="ps1ui_btn_continue">Devam Et</string>
     <string name="ps1ui_btn_cross">✕ Çarpı</string>
@@ -2463,6 +2463,8 @@
     <string name="ps1ui_theme_classic">Klasik Mavi</string>
     <string name="ps1ui_theme_psone">PSone Gümüş</string>
     <string name="ps1ui_theme_slate">Orijinal Arduvaz</string>
+    <string name="ps1ui_theme_yaroze">Net Yaroze Siyah</string>
+    <string name="ps1ui_theme_crimson">Kızıl Obsidyen</string>
     <string name="ps1ui_time_12h">12 Saat</string>
     <string name="ps1ui_time_24h">24 Saat</string>
     <string name="ps1ui_touch_guide_title">DOKUNMATİK KONTROLLER</string>

@@ -2395,7 +2395,7 @@
     <string name="ps1ui_bios_ready">Nastaveno</string>
     <string name="ps1ui_boot_fast">Rychlá</string>
     <string name="ps1ui_boot_full">Plná</string>
-    <string name="ps1ui_boot_subtitle">NATIVNÍ ROZHRANÍ SYSTÉMU</string>
+    <string name="ps1ui_boot_subtitle">PlayStation 1</string>
     <string name="ps1ui_btn_circle">○ Kolečko</string>
     <string name="ps1ui_btn_continue">Pokračovat</string>
     <string name="ps1ui_btn_cross">✕ Křížek</string>
@@ -2486,6 +2486,8 @@
     <string name="ps1ui_theme_classic">Klasická modrá</string>
     <string name="ps1ui_theme_psone">PSone Stříbrná</string>
     <string name="ps1ui_theme_slate">Původní břidlice</string>
+    <string name="ps1ui_theme_yaroze">Černá Net Yaroze</string>
+    <string name="ps1ui_theme_crimson">Karmínový obsidián</string>
     <string name="ps1ui_time_12h">12 hodin</string>
     <string name="ps1ui_time_24h">24 hodin</string>
     <string name="ps1ui_touch_guide_title">DOTYKOVÉ OVLÁDÁNÍ</string>
