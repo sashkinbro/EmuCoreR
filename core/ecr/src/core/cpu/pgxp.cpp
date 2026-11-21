@@ -1226,6 +1226,73 @@ void CPU_LHx(uint32_t instr, uint32_t rtVal, uint32_t addr)
   ValidateAndCopyMem16(&CPU_reg[rt(instr)], addr, rtVal);
 }
 
+static ALWAYS_INLINE_RELEASE void StageLoadDelaySlot(DelayedLoad& dst, uint32_t instr, uint32_t value, uint32_t addr,
+                                                     uint32_t target, uint32_t opcode)
+{
+  dst.reg = target;
+  switch (opcode)
+  {
+    case 0x20u:
+    case 0x24u:
+      dst.value = PGXP_value_invalid;
+      break;
+    case 0x21u:
+    case 0x25u:
+      ValidateAndCopyMem16(&dst.value, addr, value);
+      break;
+    case 0x23u:
+      ValidateAndCopyMem(&dst.value, addr, value);
+      break;
+    case 0x10u:
+      if (g_settings.UsingPGXPCPUMode())
+      {
+        const uint32_t src = rd(instr);
+        Validate(&CP0_reg[src], value);
+        dst.value = CP0_reg[src];
+        dst.value.value = value;
+      }
+      else
+      {
+        dst.value = PGXP_value_invalid;
+      }
+      break;
+    case 0x12u:
+    {
+      const uint32_t src = rd(instr);
+      if (rs(instr) == 2u)
+      {
+        if (src == 31u)
+        {
+          dst.value = IntegerValue(value);
+        }
+        else
+        {
+          Validate(&GTE_ctrl_reg[src], value);
+          dst.value = GTE_ctrl_reg[src];
+          dst.value.value = value;
+        }
+      }
+      else
+      {
+        if (src == 28u || src == 29u || src == 31u)
+        {
+          dst.value = IntegerValue(value);
+        }
+        else
+        {
+          Validate(&GTE_data_reg[src], value);
+          dst.value = GTE_data_reg[src];
+          dst.value.value = value;
+        }
+      }
+      break;
+    }
+    default:
+      dst.value = PGXP_value_invalid;
+      break;
+  }
+}
+
 void CPU_LoadDelay(uint32_t instr, uint32_t value, uint32_t addr)
 {
   const uint32_t target = rt(instr);
@@ -1246,68 +1313,37 @@ void CPU_LoadDelay(uint32_t instr, uint32_t value, uint32_t addr)
     return;
   }
 
-  s_next_load_delay.reg = target;
-  switch (opcode)
+  StageLoadDelaySlot(s_next_load_delay, instr, value, addr, target, opcode);
+}
+
+void CPU_LoadDelayAndUpdate(uint32_t instr, uint32_t value, uint32_t addr)
+{
+  const uint32_t target = rt(instr);
+  const uint32_t opcode = op(instr);
+  if (opcode == 0x22u || opcode == 0x26u)
   {
-    case 0x20u:
-    case 0x24u:
-      s_next_load_delay.value = PGXP_value_invalid;
-      break;
-    case 0x21u:
-    case 0x25u:
-      ValidateAndCopyMem16(&s_next_load_delay.value, addr, value);
-      break;
-    case 0x23u:
-      ValidateAndCopyMem(&s_next_load_delay.value, addr, value);
-      break;
-    case 0x10u:
-      if (g_settings.UsingPGXPCPUMode())
-      {
-        const uint32_t src = rd(instr);
-        Validate(&CP0_reg[src], value);
-        s_next_load_delay.value = CP0_reg[src];
-        s_next_load_delay.value.value = value;
-      }
-      else
-      {
-        s_next_load_delay.value = PGXP_value_invalid;
-      }
-      break;
-    case 0x12u:
+    if (target != 0)
     {
-      const uint32_t src = rd(instr);
-      if (rs(instr) == 2u)
-      {
-        if (src == 31u)
-        {
-          s_next_load_delay.value = IntegerValue(value);
-        }
-        else
-        {
-          Validate(&GTE_ctrl_reg[src], value);
-          s_next_load_delay.value = GTE_ctrl_reg[src];
-          s_next_load_delay.value.value = value;
-        }
-      }
-      else
-      {
-        if (src == 28u || src == 29u || src == 31u)
-        {
-          s_next_load_delay.value = IntegerValue(value);
-        }
-        else
-        {
-          Validate(&GTE_data_reg[src], value);
-          s_next_load_delay.value = GTE_data_reg[src];
-          s_next_load_delay.value.value = value;
-        }
-      }
-      break;
+      CPU_LoadDelay(instr, value, addr);
+      if (s_load_delay.reg == target)
+        s_load_delay.reg = NO_LOAD_DELAY;
     }
-    default:
-      s_next_load_delay.value = PGXP_value_invalid;
-      break;
+    CPU_UpdateLoadDelay();
+    return;
   }
+
+  const uint32_t commit_reg = s_load_delay.reg;
+  if (commit_reg < 32 && commit_reg != target)
+    CPU_reg[commit_reg] = s_load_delay.value;
+
+  s_next_load_delay.reg = NO_LOAD_DELAY;
+  if (target == 0)
+  {
+    s_load_delay.reg = NO_LOAD_DELAY;
+    return;
+  }
+
+  StageLoadDelaySlot(s_load_delay, instr, value, addr, target, opcode);
 }
 
 void CPU_CommitLoadDelay()

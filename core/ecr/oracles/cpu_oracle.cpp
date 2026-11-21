@@ -254,6 +254,18 @@ std::vector<SyntheticTest> BuildSuite() {
     b.Sltiu(V0, T3, 1);  SaveV0();
     b.Sltiu(V0, T3, -1); SaveV0();
 
+    // Regression check for SLTI/SLTIU speculative-constant destination tracking:
+    // imm=-1 (0xFFFF) has bits [15:11]=31 (RA), which must not clobber RA's speculative address
+    // or leave V0's previous speculative constant alive.
+    b.Li32(RA, 0x800101E0u);
+    b.Li32(V0, 0x800101E4u);
+    b.Li32(T4, 0xCAFE7788u);
+    b.Sw(T4, 0, RA);
+    b.Sltiu(V0, T3, -1);
+    SaveV0();
+    b.Lw(V0, 0, RA);
+    SaveV0();
+
     // Negative immediates (tests AArch64 negative immediate folding too)
     b.Li32(V0, 100);
     b.Addiu(V0, V0, -1);     SaveV0();

@@ -70,6 +70,7 @@ void CPU_LHx(uint32_t instr, uint32_t rtVal, uint32_t addr);
 void CPU_LBx(uint32_t instr, uint32_t rtVal, uint32_t addr);
 // Stage a successful CPU load without replacing the value visible in its slot.
 void CPU_LoadDelay(uint32_t instr, uint32_t value, uint32_t addr);
+void CPU_LoadDelayAndUpdate(uint32_t instr, uint32_t value, uint32_t addr);
 void CPU_UpdateLoadDelay();
 void CPU_CommitLoadDelay();
 void CPU_FlushLoadDelay();

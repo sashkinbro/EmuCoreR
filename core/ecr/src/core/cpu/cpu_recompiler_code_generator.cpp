@@ -1165,7 +1165,7 @@ void CodeGenerator::EmitPGXPRegisterInvalidation(Reg reg)
 
 void CodeGenerator::EmitPGXPLoadDelayCancellation(Reg reg)
 {
-  if (!g_settings.gpu_pgxp_enable || reg == Reg::zero || reg == Reg::count)
+  if (!g_settings.gpu_pgxp_enable || m_pgxp_load_delay_updated || reg == Reg::zero || reg == Reg::count)
     return;
   uint32_t* pending = PGXP::CPU_GetLoadDelayRegister();
   if (m_register_cache.GetLoadDelayRegister() == reg)
@@ -1186,9 +1186,11 @@ void CodeGenerator::EmitPGXPLoadDelayCancellation(Reg reg)
 
 void CodeGenerator::InstructionEpilogue(const CodeBlockInstruction& cbi)
 {
-  if (g_settings.gpu_pgxp_enable &&
-      (m_load_delay_dirty || m_register_cache.HasLoadDelay() || cbi.has_load_delay))
+  if (g_settings.gpu_pgxp_enable && !m_pgxp_load_delay_updated &&
+      (m_load_delay_dirty || m_register_cache.HasLoadDelay() ||
+       (cbi.has_load_delay && cbi.instruction.i.rt != Reg::zero)))
     EmitFunctionCall(nullptr, PGXP::CPU_UpdateLoadDelay);
+  m_pgxp_load_delay_updated = false;
 
   m_register_cache.UpdateLoadDelay();
 
@@ -1490,6 +1492,12 @@ bool CodeGenerator::Compile_Shift(const CodeBlockInstruction& cbi)
   }
 
   const bool pgxp_cpu = g_settings.UsingPGXPCPUMode() && cbi.instruction.r.rd != Reg::zero;
+  const auto emit_pgxp_shift_move = [&]() {
+    EmitFunctionCall(nullptr, &PGXP::CPU_MOVE,
+                     Value::FromConstantU32((static_cast<uint32_t>(cbi.instruction.r.rd.GetValue()) << 8) |
+                                            static_cast<uint32_t>(cbi.instruction.r.rt.GetValue())),
+                     rt);
+  };
   Value result;
   SpeculativeValue result_spec;
   switch (cbi.instruction.r.funct)
@@ -1500,7 +1508,12 @@ bool CodeGenerator::Compile_Shift(const CodeBlockInstruction& cbi)
       if (pgxp_cpu)
       {
         if (cbi.instruction.r.funct == InstructionFunct::sll)
-          EmitFunctionCall(nullptr, &PGXP::CPU_SLL, Value::FromConstantU32(cbi.instruction.bits), rt);
+        {
+          if (cbi.instruction.r.shamt == 0)
+            emit_pgxp_shift_move();
+          else
+            EmitFunctionCall(nullptr, &PGXP::CPU_SLL, Value::FromConstantU32(cbi.instruction.bits), rt);
+        }
         else // if (cbi.instruction.r.funct == InstructionFunct::sllv)
           EmitFunctionCall(nullptr, &PGXP::CPU_SLLV, Value::FromConstantU32(cbi.instruction.bits), rt, shamt);
       }
@@ -1517,7 +1530,12 @@ bool CodeGenerator::Compile_Shift(const CodeBlockInstruction& cbi)
       if (pgxp_cpu)
       {
         if (cbi.instruction.r.funct == InstructionFunct::srl)
-          EmitFunctionCall(nullptr, &PGXP::CPU_SRL, Value::FromConstantU32(cbi.instruction.bits), rt);
+        {
+          if (cbi.instruction.r.shamt == 0)
+            emit_pgxp_shift_move();
+          else
+            EmitFunctionCall(nullptr, &PGXP::CPU_SRL, Value::FromConstantU32(cbi.instruction.bits), rt);
+        }
         else // if (cbi.instruction.r.funct == InstructionFunct::srlv)
           EmitFunctionCall(nullptr, &PGXP::CPU_SRLV, Value::FromConstantU32(cbi.instruction.bits), rt, shamt);
       }
@@ -1534,7 +1552,12 @@ bool CodeGenerator::Compile_Shift(const CodeBlockInstruction& cbi)
       if (pgxp_cpu)
       {
         if (cbi.instruction.r.funct == InstructionFunct::sra)
-          EmitFunctionCall(nullptr, &PGXP::CPU_SRA, Value::FromConstantU32(cbi.instruction.bits), rt);
+        {
+          if (cbi.instruction.r.shamt == 0)
+            emit_pgxp_shift_move();
+          else
+            EmitFunctionCall(nullptr, &PGXP::CPU_SRA, Value::FromConstantU32(cbi.instruction.bits), rt);
+        }
         else // if (cbi.instruction.r.funct == InstructionFunct::srav)
           EmitFunctionCall(nullptr, &PGXP::CPU_SRAV, Value::FromConstantU32(cbi.instruction.bits), rt, shamt);
       }
@@ -1583,7 +1606,11 @@ bool CodeGenerator::Compile_Load(const CodeBlockInstruction& cbi)
       if (result.size != RegSize_32)
         ConvertValueSizeInPlace(&result, RegSize_32, sign_extend);
       if (pgxp_load)
-        EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), result, address);
+      {
+        EmitFunctionCall(nullptr, PGXP::CPU_LoadDelayAndUpdate, Value::FromConstantU32(cbi.instruction.bits),
+                         Value::FromConstantU32(0), Value::FromConstantU32(0));
+        m_pgxp_load_delay_updated = true;
+      }
 
       if (address_spec)
       {
@@ -1603,7 +1630,11 @@ bool CodeGenerator::Compile_Load(const CodeBlockInstruction& cbi)
         ConvertValueSizeInPlace(&result, RegSize_32, sign_extend);
 
       if (pgxp_load)
-        EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), result, address);
+      {
+        EmitFunctionCall(nullptr, PGXP::CPU_LoadDelayAndUpdate, Value::FromConstantU32(cbi.instruction.bits), result,
+                         address);
+        m_pgxp_load_delay_updated = true;
+      }
 
       if (address_spec)
       {
@@ -1618,7 +1649,11 @@ bool CodeGenerator::Compile_Load(const CodeBlockInstruction& cbi)
     {
       result = EmitLoadGuestMemory(cbi, address, address_spec, RegSize_32);
       if (pgxp_load)
-        EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), result, address);
+      {
+        EmitFunctionCall(nullptr, PGXP::CPU_LoadDelayAndUpdate, Value::FromConstantU32(cbi.instruction.bits), result,
+                         address);
+        m_pgxp_load_delay_updated = true;
+      }
 
       if (address_spec)
         value_spec = SpeculativeReadMemory(*address_spec);
@@ -1833,8 +1868,12 @@ bool CodeGenerator::Compile_LoadLeftRight(const CodeBlockInstruction& cbi)
 
   shift.ReleaseAndClear();
 
-  if (g_settings.gpu_pgxp_enable)
-    EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), mem, pgxp_address);
+  if (g_settings.gpu_pgxp_enable && cbi.instruction.i.rt != Reg::zero)
+  {
+    EmitFunctionCall(nullptr, PGXP::CPU_LoadDelayAndUpdate, Value::FromConstantU32(cbi.instruction.bits), mem,
+                     pgxp_address);
+    m_pgxp_load_delay_updated = true;
+  }
 
   m_register_cache.WriteGuestRegisterDelayed(cbi.instruction.i.rt, std::move(mem));
 
@@ -2076,7 +2115,19 @@ bool CodeGenerator::Compile_Subtract(const CodeBlockInstruction& cbi)
   SpeculativeValue rhs_spec = SpeculativeReadReg(cbi.instruction.r.rt);
 
   if (g_settings.UsingPGXPCPUMode() && cbi.instruction.r.rd != Reg::zero)
-    EmitFunctionCall(nullptr, &PGXP::CPU_SUB, Value::FromConstantU32(cbi.instruction.bits), lhs, rhs);
+  {
+    if (rhs.HasConstantValue(0))
+    {
+      EmitFunctionCall(nullptr, &PGXP::CPU_MOVE,
+                       Value::FromConstantU32((static_cast<uint32_t>(cbi.instruction.r.rd.GetValue()) << 8) |
+                                              static_cast<uint32_t>(cbi.instruction.r.rs.GetValue())),
+                       lhs);
+    }
+    else
+    {
+      EmitFunctionCall(nullptr, &PGXP::CPU_SUB, Value::FromConstantU32(cbi.instruction.bits), lhs, rhs);
+    }
+  }
 
   Value result = SubValues(lhs, rhs, check_overflow);
   if (check_overflow)
@@ -2370,7 +2421,7 @@ bool CodeGenerator::Compile_SetLess(const CodeBlockInstruction& cbi)
     value_spec = static_cast<uint32_t>(signed_comparison ? (static_cast<int32_t>(*lhs_spec) < static_cast<int32_t>(*rhs_spec)) :
                                                   (*lhs_spec < *rhs_spec));
   }
-  SpeculativeWriteReg(cbi.instruction.r.rd, value_spec);
+  SpeculativeWriteReg(dest, value_spec);
 
   InstructionEpilogue(cbi);
   return true;
@@ -2460,6 +2511,8 @@ bool CodeGenerator::Compile_Branch(const CodeBlockInstruction& cbi)
 
       // now invalidate lr because it was possibly written in the branch
       m_register_cache.InvalidateGuestRegister(lr_reg);
+      SpeculativeWriteReg(lr_reg, next_pc.IsConstant() ? SpeculativeValue(static_cast<uint32_t>(next_pc.constant_value)) :
+                                                         std::nullopt);
     }
 
     // we don't need to test the address of constant branches unless they're definitely misaligned, which would be
@@ -2703,8 +2756,12 @@ bool CodeGenerator::Compile_Branch(const CodeBlockInstruction& cbi)
       // The return address is always written if link is set, regardless of whether the branch is taken.
       if (link)
       {
+        Value return_pc = CalculatePC(4);
+        const SpeculativeValue return_pc_spec =
+          return_pc.IsConstant() ? SpeculativeValue(static_cast<uint32_t>(return_pc.constant_value)) : std::nullopt;
         EmitPGXPRegisterInvalidation(Reg::ra);
-        m_register_cache.WriteGuestRegister(Reg::ra, CalculatePC(4));
+        m_register_cache.WriteGuestRegister(Reg::ra, std::move(return_pc));
+        SpeculativeWriteReg(Reg::ra, return_pc_spec);
       }
 
       return DoBranch(condition, lhs, Value(), Reg::count, std::move(branch_target));
@@ -2816,9 +2873,12 @@ bool CodeGenerator::Compile_cop0(const CodeBlockInstruction& cbi)
           Value value = m_register_cache.AllocateScratch(RegSize_32);
           EmitLoadCPUStructField(value.host_reg, value.size, offset);
 
-          if (g_settings.gpu_pgxp_enable)
-            EmitFunctionCall(nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), value,
+          if (g_settings.gpu_pgxp_enable && cbi.instruction.r.rt != Reg::zero)
+          {
+            EmitFunctionCall(nullptr, PGXP::CPU_LoadDelayAndUpdate, Value::FromConstantU32(cbi.instruction.bits), value,
                              Value::FromConstantU32(0));
+            m_pgxp_load_delay_updated = true;
+          }
 
           m_register_cache.WriteGuestRegisterDelayed(cbi.instruction.r.rt, std::move(value));
 
@@ -3231,10 +3291,11 @@ bool CodeGenerator::Compile_cop2(const CodeBlockInstruction& cbi)
         Value value = DoGTERegisterRead(reg);
 
         // PGXP done first here before ownership is transferred.
-        if (g_settings.gpu_pgxp_enable)
+        if (g_settings.gpu_pgxp_enable && cbi.instruction.r.rt != Reg::zero)
         {
-          EmitFunctionCall(
-            nullptr, PGXP::CPU_LoadDelay, Value::FromConstantU32(cbi.instruction.bits), value, Value::FromConstantU32(0));
+          EmitFunctionCall(nullptr, PGXP::CPU_LoadDelayAndUpdate, Value::FromConstantU32(cbi.instruction.bits), value,
+                           Value::FromConstantU32(0));
+          m_pgxp_load_delay_updated = true;
         }
 
         m_register_cache.WriteGuestRegisterDelayed(cbi.instruction.r.rt, std::move(value));

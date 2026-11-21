@@ -32,11 +32,29 @@ static double s_custom_aspect_ratio_d = 1.0;
 
 #define REGS CPU::g_state.gte_regs
 
+template<bool pgxp_check = true>
 ALWAYS_INLINE static void SetDataRegister(uint32_t index, uint32_t value)
 {
   REGS.dr32[index] = value;
-  if (g_settings.gpu_pgxp_enable)
-    PGXP::GTE_SetDataRegister(index, value);
+  if constexpr (pgxp_check)
+  {
+    if (g_settings.gpu_pgxp_enable)
+      PGXP::GTE_SetDataRegister(index, value);
+  }
+}
+
+template<bool pgxp_known_enabled = false>
+ALWAYS_INLINE static void SyncPGXPArithmeticRegisters()
+{
+  if (pgxp_known_enabled || g_settings.gpu_pgxp_enable)
+  {
+    PGXP::GTE_SetDataRegister(9, REGS.dr32[9]);
+    PGXP::GTE_SetDataRegister(10, REGS.dr32[10]);
+    PGXP::GTE_SetDataRegister(11, REGS.dr32[11]);
+    PGXP::GTE_SetDataRegister(25, REGS.dr32[25]);
+    PGXP::GTE_SetDataRegister(26, REGS.dr32[26]);
+    PGXP::GTE_SetDataRegister(27, REGS.dr32[27]);
+  }
 }
 
 ALWAYS_INLINE static uint32_t CountLeadingBits(uint32_t value)
@@ -88,7 +106,7 @@ ALWAYS_INLINE static int64_t SignExtendMACResult(int64_t value)
   return static_cast<int64_t>(static_cast<uint64_t>(value) << shift) >> shift;
 }
 
-template<uint32_t index>
+template<uint32_t index, bool pgxp_check = true>
 ALWAYS_INLINE static void TruncateAndSetMAC(int64_t value, uint8_t shift)
 {
   CheckMACOverflow<index>(value);
@@ -96,10 +114,14 @@ ALWAYS_INLINE static void TruncateAndSetMAC(int64_t value, uint8_t shift)
   // shift should be done before storing to avoid losing precision
   value >>= shift;
 
-  SetDataRegister(24 + index, static_cast<uint32_t>(static_cast<uint64_t>(value)));
+  const uint32_t value32 = static_cast<uint32_t>(static_cast<uint64_t>(value));
+  if constexpr (index == 0)
+    SetDataRegister<pgxp_check>(24, value32);
+  else
+    REGS.dr32[24 + index] = value32;
 }
 
-template<uint32_t index>
+template<uint32_t index, bool pgxp_check = true>
 ALWAYS_INLINE static void TruncateAndSetIR(int32_t value, bool lm)
 {
   constexpr int32_t MIN_VALUE = (index == 0) ? IR0_MIN_VALUE : IR123_MIN_VALUE;
@@ -131,7 +153,10 @@ ALWAYS_INLINE static void TruncateAndSetIR(int32_t value, bool lm)
   }
 
   // store sign-extended 16-bit value as 32-bit
-  SetDataRegister(8 + index, value);
+  if constexpr (index == 0)
+    SetDataRegister<pgxp_check>(8, value);
+  else
+    REGS.dr32[8 + index] = value;
 }
 
 template<uint32_t index>
@@ -144,7 +169,10 @@ ALWAYS_INLINE static void TruncateAndSetMACAndIR(int64_t value, uint8_t shift, b
 
   // set MAC
   const int32_t value32 = static_cast<int32_t>(value);
-  SetDataRegister(24 + index, value32);
+  if constexpr (index == 0)
+    SetDataRegister(24, value32);
+  else
+    REGS.dr32[24 + index] = value32;
 
   // set IR
   TruncateAndSetIR<index>(value32, lm);
@@ -606,6 +634,7 @@ static void Execute_MVMVA(Instruction inst)
       break;
   }
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -615,15 +644,16 @@ static void Execute_SQR(Instruction inst)
 
   // 32-bit multiply for speed - 16x16 isn't >32bit, and we know it won't overflow/underflow.
   const uint8_t shift = inst.GetShift();
-  SetDataRegister(25, (int32_t(REGS.IR1) * int32_t(REGS.IR1)) >> shift);
-  SetDataRegister(26, (int32_t(REGS.IR2) * int32_t(REGS.IR2)) >> shift);
-  SetDataRegister(27, (int32_t(REGS.IR3) * int32_t(REGS.IR3)) >> shift);
+  REGS.dr32[25] = static_cast<uint32_t>((int32_t(REGS.IR1) * int32_t(REGS.IR1)) >> shift);
+  REGS.dr32[26] = static_cast<uint32_t>((int32_t(REGS.IR2) * int32_t(REGS.IR2)) >> shift);
+  REGS.dr32[27] = static_cast<uint32_t>((int32_t(REGS.IR3) * int32_t(REGS.IR3)) >> shift);
 
   const bool lm = inst.lm;
   TruncateAndSetIR<1>(REGS.MAC1, lm);
   TruncateAndSetIR<2>(REGS.MAC2, lm);
   TruncateAndSetIR<3>(REGS.MAC3, lm);
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -647,6 +677,7 @@ static void Execute_OP(Instruction inst)
   TruncateAndSetMACAndIR<2>(int64_t(IR1 * D3) - int64_t(IR3 * D1), shift, lm);
   TruncateAndSetMACAndIR<3>(int64_t(IR2 * D1) - int64_t(IR1 * D2), shift, lm);
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -673,8 +704,10 @@ static void RTPS(const int16_t V[3], uint8_t shift, bool lm, bool last)
   // The command does saturate IR1,IR2,IR3 to -8000h..+7FFFh (regardless of lm bit). When using RTP with sf=0, then the
   // IR3 saturation flag (FLAG.22) gets set <only> if "MAC3 SAR 12" exceeds -8000h..+7FFFh (although IR3 is saturated
   // when "MAC3" exceeds -8000h..+7FFFh).
-  TruncateAndSetIR<3>(int32_t(z >> 12), false);
-  SetDataRegister(11, std::clamp(REGS.MAC3, lm ? 0 : IR123_MIN_VALUE, IR123_MAX_VALUE));
+  const int32_t ir3_unshifted = int32_t(z >> 12);
+  if (ir3_unshifted < IR123_MIN_VALUE || ir3_unshifted > IR123_MAX_VALUE)
+    REGS.FLAG.ir3_saturated = true;
+  REGS.dr32[11] = static_cast<uint32_t>(std::clamp(REGS.MAC3, lm ? 0 : IR123_MIN_VALUE, IR123_MAX_VALUE));
 #undef dot3
 
   // SZ3 = MAC3 SAR ((1-sf)*12)                           ;ScreenZ FIFO 0..+FFFFh
@@ -788,8 +821,10 @@ static void RTPS(const int16_t V[3], uint8_t shift, bool lm, bool last)
   {
     // MAC0=(((H*20000h/SZ3)+1)/2)*DQA+DQB, IR0=MAC0/1000h  ;Depth cueing 0..+1000h
     const int64_t Sz = result * int64_t(REGS.DQA) + int64_t(REGS.DQB);
-    TruncateAndSetMAC<0>(Sz, 0);
-    TruncateAndSetIR<0>(int32_t(Sz >> 12), true);
+    TruncateAndSetMAC<0, pgxp_enable>(Sz, 0);
+    TruncateAndSetIR<0, pgxp_enable>(int32_t(Sz >> 12), true);
+    if constexpr (pgxp_enable)
+      SyncPGXPArithmeticRegisters<true>();
   }
 }
 
@@ -911,6 +946,7 @@ static void Execute_NCS(Instruction inst)
 
   NCS(REGS.V0, inst.GetShift(), inst.lm);
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -925,6 +961,7 @@ static void Execute_NCT(Instruction inst)
   NCS(REGS.V1, shift, lm);
   NCS(REGS.V2, shift, lm);
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -952,6 +989,7 @@ static void Execute_NCCS(Instruction inst)
 
   NCCS(REGS.V0, inst.GetShift(), inst.lm);
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -966,6 +1004,7 @@ static void Execute_NCCT(Instruction inst)
   NCCS(REGS.V1, shift, lm);
   NCCS(REGS.V2, shift, lm);
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -996,6 +1035,7 @@ static void Execute_NCDS(Instruction inst)
 
   NCDS(REGS.V0, inst.GetShift(), inst.lm);
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -1010,6 +1050,7 @@ static void Execute_NCDT(Instruction inst)
   NCDS(REGS.V1, shift, lm);
   NCDS(REGS.V2, shift, lm);
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -1032,6 +1073,7 @@ static void Execute_CC(Instruction inst)
   // Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE], [IR1,IR2,IR3] = [MAC1,MAC2,MAC3]
   PushRGBFromMAC();
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -1058,6 +1100,7 @@ static void Execute_CDP(Instruction inst)
   // Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE], [IR1,IR2,IR3] = [MAC1,MAC2,MAC3]
   PushRGBFromMAC();
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -1082,6 +1125,7 @@ static void Execute_DPCS(Instruction inst)
 
   DPCS(REGS.RGBC, inst.GetShift(), inst.lm);
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -1095,6 +1139,7 @@ static void Execute_DPCT(Instruction inst)
   for (uint32_t i = 0; i < 3; i++)
     DPCS(REGS.RGB0, shift, lm);
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -1117,6 +1162,7 @@ static void Execute_DCPL(Instruction inst)
   // Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE], [IR1,IR2,IR3] = [MAC1,MAC2,MAC3]
   PushRGBFromMAC();
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -1135,6 +1181,7 @@ static void Execute_INTPL(Instruction inst)
   // Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE], [IR1,IR2,IR3] = [MAC1,MAC2,MAC3]
   PushRGBFromMAC();
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -1154,6 +1201,7 @@ static void Execute_GPL(Instruction inst)
   // Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE], [IR1,IR2,IR3] = [MAC1,MAC2,MAC3]
   PushRGBFromMAC();
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 
@@ -1173,6 +1221,7 @@ static void Execute_GPF(Instruction inst)
   // Color FIFO = [MAC1/16,MAC2/16,MAC3/16,CODE], [IR1,IR2,IR3] = [MAC1,MAC2,MAC3]
   PushRGBFromMAC();
 
+  SyncPGXPArithmeticRegisters();
   REGS.FLAG.UpdateError();
 }
 

@@ -264,6 +264,7 @@ private:
   bool m_current_instruction_was_branch_taken_dirty = false;
   bool m_load_delay_dirty = false;
   bool m_next_load_delay_dirty = false;
+  bool m_pgxp_load_delay_updated = false;
   bool m_gte_busy_cycles_dirty = false;
 
   bool m_fastmem_load_base_in_register = false;
