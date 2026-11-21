@@ -667,11 +667,11 @@ RgbaColor Ps1Renderer::SecondaryTextColor(float alpha) const {
 
 Ps1Renderer::LayoutMetrics Ps1Renderer::ComputeMetrics() const {
     LayoutMetrics m;
-    m.padX = std::clamp(screen_width_ * 0.036f, 24.0f, 64.0f);
+    m.padX = std::clamp(screen_width_ * 0.032f, 22.0f, 54.0f);
     m.topBarH = 44.0f;
-    m.bottomBarH = 38.0f;
-    m.bodyTop = 68.0f;
-    m.bodyBot = kScreenHeight - 52.0f;
+    m.bottomBarH = 40.0f;
+    m.bodyTop = 66.0f;
+    m.bodyBot = kScreenHeight - 58.0f;
     m.bodyH = m.bodyBot - m.bodyTop;
     return m;
 }
@@ -687,11 +687,11 @@ std::string Ps1Renderer::TextOr(const std::string& key, const char* fallback) co
 void Ps1Renderer::DrawHeaderPlaque(const std::string& title, float alpha) {
     const LayoutMetrics m = ComputeMetrics();
     float tw = 0.0f, th = 0.0f;
-    MeasureText(title, 22.0f, STYLE_HEADER, 360.0f, 1, tw, th);
-    const float boxW = std::clamp(tw + 48.0f, 200.0f, 380.0f);
-    const float boxH = 40.0f;
+    MeasureText(title, 24.0f, STYLE_HEADER, 400.0f, 1, tw, th);
+    const float boxW = std::clamp(tw + 52.0f, 210.0f, 420.0f);
+    const float boxH = 42.0f;
     const float bx = screen_width_ - m.padX - boxW;
-    const float by = 14.0f;
+    const float by = 12.0f;
 
     if (settings_.theme == 0) {
         // Authentic SCPH-7001 framed navy header with concentric cobalt glow
@@ -719,9 +719,9 @@ void Ps1Renderer::DrawHeaderPlaque(const std::string& title, float alpha) {
     DrawText(
         title,
         bx, by + (boxH - th) * 0.5f,
-        22.0f, STYLE_HEADER,
+        24.0f, STYLE_HEADER,
         {1.0f, 1.0f, 1.0f, alpha},
-        boxW - 12.0f, 1, 1, boxW);
+        boxW - 14.0f, 1, 1, boxW);
 }
 
 std::string Ps1Renderer::FormatClockText() const {
@@ -772,14 +772,14 @@ void Ps1Renderer::DrawStatusBar(float alpha) {
         std::clamp(status_.batteryLevel, 0, 100));
 
     float tw = 0.0f, th = 0.0f;
-    MeasureText(statusBuf, 13.5f, STYLE_MONO, 400.0f, 1, tw, th);
-    const float pillW = std::clamp(tw + 26.0f, 160.0f, 360.0f);
-    const float pillH = 28.0f;
+    MeasureText(statusBuf, 16.0f, STYLE_MONO, 440.0f, 1, tw, th);
+    const float pillW = std::clamp(tw + 30.0f, 190.0f, 410.0f);
+    const float pillH = 34.0f;
     const float px = m.padX;
-    const float py = 18.0f;
+    const float py = 16.0f;
 
     DrawPanel(
-        px, py, pillW, pillH, 6.0f, 1.2f,
+        px, py, pillW, pillH, 7.0f, 1.2f,
         PanelTopColor(0.68f * alpha),
         PanelBotColor(0.76f * alpha),
         PanelBorderColor(0.55f * alpha));
@@ -787,21 +787,21 @@ void Ps1Renderer::DrawStatusBar(float alpha) {
     RgbaColor fg = (settings_.theme == 1)
         ? RgbaColor{0.10f, 0.16f, 0.34f, alpha}
         : RgbaColor{0.92f, 0.95f, 1.0f, alpha};
-    DrawText(statusBuf, px + 13.0f, py + (pillH - th) * 0.5f, 13.5f, STYLE_MONO, fg, pillW - 22.0f, 1, 0);
+    DrawText(statusBuf, px + 15.0f, py + (pillH - th) * 0.5f, 16.0f, STYLE_MONO, fg, pillW - 24.0f, 1, 0);
 
     // Compact wireless / audio dot indicators to the right of the pill
     float dotX = px + pillW + 10.0f;
     const float dotY = py + pillH * 0.5f;
     auto drawDot = [&](bool active, const RgbaColor& onCol, const char* lbl) {
         if (!active) return;
-        DrawPanel(dotX, dotY - 9.0f, 44.0f, 18.0f, 5.0f, 1.0f,
+        DrawPanel(dotX, dotY - 11.0f, 48.0f, 22.0f, 5.0f, 1.0f,
                   {onCol.r * 0.35f, onCol.g * 0.35f, onCol.b * 0.45f, 0.80f * alpha},
                   {onCol.r * 0.25f, onCol.g * 0.25f, onCol.b * 0.35f, 0.86f * alpha},
                   {onCol.r, onCol.g, onCol.b, 0.78f * alpha});
         float lw = 0, lh = 0;
-        MeasureText(lbl, 10.5f, STYLE_MONO, 40.0f, 1, lw, lh);
-        DrawText(lbl, dotX, dotY - lh * 0.5f, 10.5f, STYLE_MONO, {1, 1, 1, alpha}, 40.0f, 1, 1, 44.0f);
-        dotX += 50.0f;
+        MeasureText(lbl, 12.5f, STYLE_MONO, 44.0f, 1, lw, lh);
+        DrawText(lbl, dotX, dotY - lh * 0.5f, 12.5f, STYLE_MONO, {1, 1, 1, alpha}, 44.0f, 1, 1, 48.0f);
+        dotX += 54.0f;
     };
     drawDot(status_.wifiConnected, {0.35f, 0.72f, 1.0f, 1.0f}, "NET");
     drawDot(status_.bluetoothConnected, {0.42f, 0.54f, 1.0f, 1.0f}, "BT");
@@ -810,8 +810,8 @@ void Ps1Renderer::DrawStatusBar(float alpha) {
 
 void Ps1Renderer::DrawBottomBar(float alpha) {
     const LayoutMetrics m = ComputeMetrics();
-    const float barH = 34.0f;
-    const float barY = kScreenHeight - barH - 12.0f;
+    const float barH = 38.0f;
+    const float barY = kScreenHeight - barH - 10.0f;
 
     struct HintBtn {
         std::string badge;
@@ -856,9 +856,9 @@ void Ps1Renderer::DrawBottomBar(float alpha) {
     float totalW = 0.0f;
     for (const auto& b : btns) {
         float bw = 0, bh = 0, lw = 0, lh = 0;
-        MeasureText(b.badge, 13.0f, STYLE_MONO, 80.0f, 1, bw, bh);
-        MeasureText(b.label, 13.5f, STYLE_BODY_BOLD, 160.0f, 1, lw, lh);
-        float w = bw + lw + 34.0f;
+        MeasureText(b.badge, 15.0f, STYLE_MONO, 90.0f, 1, bw, bh);
+        MeasureText(b.label, 15.5f, STYLE_BODY_BOLD, 180.0f, 1, lw, lh);
+        float w = bw + lw + 38.0f;
         widths.push_back(w);
         totalW += w;
     }
@@ -877,13 +877,13 @@ void Ps1Renderer::DrawBottomBar(float alpha) {
             PanelBorderColor((touchInteractive ? 0.78f : 0.45f) * alpha));
 
         float bw = 0, bh = 0, lw = 0, lh = 0;
-        MeasureText(btns[i].badge, 13.0f, STYLE_MONO, 80.0f, 1, bw, bh);
-        MeasureText(btns[i].label, 13.5f, STYLE_BODY_BOLD, 160.0f, 1, lw, lh);
+        MeasureText(btns[i].badge, 15.0f, STYLE_MONO, 90.0f, 1, bw, bh);
+        MeasureText(btns[i].label, 15.5f, STYLE_BODY_BOLD, 180.0f, 1, lw, lh);
         RgbaColor badgeFg = btns[i].badgeCol;
         badgeFg.a *= alpha;
-        DrawText(btns[i].badge, curX + 12.0f, barY + (barH - bh) * 0.5f, 13.0f, STYLE_MONO, badgeFg, 80.0f, 1, 0);
-        DrawText(btns[i].label, curX + 18.0f + bw, barY + (barH - lh) * 0.5f, 13.5f, STYLE_BODY_BOLD,
-                 PrimaryTextColor(alpha), 160.0f, 1, 0);
+        DrawText(btns[i].badge, curX + 13.0f, barY + (barH - bh) * 0.5f, 15.0f, STYLE_MONO, badgeFg, 90.0f, 1, 0);
+        DrawText(btns[i].label, curX + 20.0f + bw, barY + (barH - lh) * 0.5f, 15.5f, STYLE_BODY_BOLD,
+                 PrimaryTextColor(alpha), 180.0f, 1, 0);
 
         if (touchInteractive && overlay_ == OVERLAY_NONE) {
             RegisterHit(curX, barY, w, barH, HIT_BOTTOM_ACTION, btns[i].key);
@@ -903,9 +903,9 @@ void Ps1Renderer::DrawBootIntro(float alpha) {
              {0.89f, 0.91f, 0.96f, bgAlpha});
 
     const float cx = screen_width_ * 0.5f;
-    const float cy = kScreenHeight * 0.42f;
+    const float cy = kScreenHeight * 0.41f;
     const float scaleIn = 0.72f + 0.28f * EaseOutCubic(std::min(1.0f, boot_t_ * 2.4f));
-    const float prismR = 88.0f * scaleIn;
+    const float prismR = 96.0f * scaleIn;
 
     // 3D faceted amber-vermilion twin diamond emblem
     const float split = (1.0f - EaseOutCubic(std::min(1.0f, boot_t_ * 2.6f))) * 26.0f;
@@ -944,12 +944,12 @@ void Ps1Renderer::DrawBootIntro(float alpha) {
         const std::string brand = "EMUCORE R";
         const std::string sub = TextOr("ps1ui_boot_subtitle", "NATIVE SYSTEM SHELL");
         float bw = 0, bh = 0, sw = 0, sh = 0;
-        MeasureText(brand, 34.0f, STYLE_HEADER, 480.0f, 1, bw, bh);
-        MeasureText(sub, 16.0f, STYLE_MONO, 480.0f, 1, sw, sh);
-        DrawText(brand, cx - bw * 0.5f, cy + prismR + 28.0f, 34.0f, STYLE_HEADER,
-                 {0.12f, 0.14f, 0.24f, textReveal}, 480.0f, 1, 0);
-        DrawText(sub, cx - sw * 0.5f, cy + prismR + 72.0f, 16.0f, STYLE_MONO,
-                 {0.30f, 0.34f, 0.52f, textReveal}, 480.0f, 1, 0);
+        MeasureText(brand, 38.0f, STYLE_HEADER, 520.0f, 1, bw, bh);
+        MeasureText(sub, 18.0f, STYLE_MONO, 520.0f, 1, sw, sh);
+        DrawText(brand, cx - bw * 0.5f, cy + prismR + 28.0f, 38.0f, STYLE_HEADER,
+                 {0.12f, 0.14f, 0.24f, textReveal}, 520.0f, 1, 0);
+        DrawText(sub, cx - sw * 0.5f, cy + prismR + 76.0f, 18.0f, STYLE_MONO,
+                 {0.30f, 0.34f, 0.52f, textReveal}, 520.0f, 1, 0);
     }
 }
 
@@ -971,13 +971,13 @@ void Ps1Renderer::DrawMainMenu(float alpha) {
 
     std::vector<MainMenuItem> items = {
         {TextOr("ps1ui_menu_games", "GAMES"), games_.empty() ? "" : std::string(gamesBadge), 1.37f, 0.0f},
-        {TextOr("ps1ui_menu_memory_card", "MEMORY CARD"), saves_.empty() ? "" : std::string(savesBadge), 4.91f, 38.0f},
-        {TextOr("ps1ui_menu_settings", "SETTINGS"), "", 8.23f, 76.0f},
+        {TextOr("ps1ui_menu_memory_card", "MEMORY CARD"), saves_.empty() ? "" : std::string(savesBadge), 4.91f, 40.0f},
+        {TextOr("ps1ui_menu_settings", "SETTINGS"), "", 8.23f, 80.0f},
     };
 
-    const float baseX = m.padX + 26.0f;
-    const float rowSpacing = 104.0f;
-    const float firstY = 166.0f;
+    const float baseX = m.padX + 58.0f;
+    const float rowSpacing = 112.0f;
+    const float firstY = 124.0f;
 
     float targetCurX = 0.0f;
     float targetCurY = 0.0f;
@@ -989,42 +989,44 @@ void Ps1Renderer::DrawMainMenu(float alpha) {
         const float y = firstY + static_cast<float>(i) * rowSpacing;
 
         float lw = 0.0f, lh = 0.0f;
-        const float fontSize = selected ? 34.0f : 31.0f;
-        MeasureText(items[i].label, fontSize, STYLE_GRAFFITI, screen_width_ * 0.62f, 1, lw, lh);
+        const float fontSize = selected ? 40.0f : 35.0f;
+        const bool hasBadge = !items[i].badge.empty();
+        const float maxLblW = std::max(180.0f, screen_width_ - x - m.padX - (hasBadge ? 72.0f : 18.0f));
+        MeasureText(items[i].label, fontSize, STYLE_GRAFFITI, maxLblW, 1, lw, lh);
 
-        const float splashW = std::max(300.0f, lw + 104.0f);
-        const float splashH = 82.0f;
-        DrawGraffitiSplash(x - 36.0f, y - 16.0f, splashW, splashH, items[i].seed, focus, alpha);
+        const float splashW = std::max(340.0f, lw + 114.0f);
+        const float splashH = 88.0f;
+        DrawGraffitiSplash(x - 38.0f, y - 16.0f, splashW, splashH, items[i].seed, focus, alpha);
 
         const RgbaColor txtCol = (settings_.theme == 1 && !selected)
             ? RgbaColor{0.96f, 0.98f, 1.0f, 0.94f * alpha}
             : RgbaColor{1.0f, 1.0f, 1.0f, (selected ? 1.0f : 0.88f) * alpha};
-        DrawText(items[i].label, x, y + (48.0f - lh) * 0.5f, fontSize, STYLE_GRAFFITI,
-                 txtCol, screen_width_ * 0.62f, 1, 0);
+        DrawText(items[i].label, x, y + (54.0f - lh) * 0.5f, fontSize, STYLE_GRAFFITI,
+                 txtCol, maxLblW, 1, 0);
 
-        if (!items[i].badge.empty()) {
+        if (hasBadge) {
             float bw = 0.0f, bh = 0.0f;
-            MeasureText(items[i].badge, 14.0f, STYLE_MONO, 80.0f, 1, bw, bh);
-            const float pillW = std::max(34.0f, bw + 18.0f);
-            const float pillH = 24.0f;
-            const float bx = x + lw + 16.0f;
-            const float by = y + 12.0f;
+            MeasureText(items[i].badge, 16.0f, STYLE_MONO, 80.0f, 1, bw, bh);
+            const float pillW = std::max(40.0f, bw + 20.0f);
+            const float pillH = 28.0f;
+            const float bx = x + lw + 18.0f;
+            const float by = y + 13.0f;
             DrawPanel(
-                bx, by, pillW, pillH, 12.0f, 1.2f,
+                bx, by, pillW, pillH, 14.0f, 1.2f,
                 PanelTopColor(0.84f * alpha),
                 PanelBotColor(0.92f * alpha),
                 PanelBorderColor(selected ? alpha : 0.65f * alpha));
-            DrawText(items[i].badge, bx, by + (pillH - bh) * 0.5f, 14.0f, STYLE_MONO,
+            DrawText(items[i].badge, bx, by + (pillH - bh) * 0.5f, 16.0f, STYLE_MONO,
                      PrimaryTextColor(alpha), pillW, 1, 1, pillW);
         }
 
         if (selected) {
-            targetCurX = x + std::min(lw * 0.56f, 170.0f);
-            targetCurY = y + 28.0f;
+            targetCurX = x - 28.0f;
+            targetCurY = y + 27.0f;
         }
 
         if (overlay_ == OVERLAY_NONE) {
-            RegisterHit(x - 34.0f, y - 14.0f, splashW + 20.0f, 76.0f, HIT_MAIN_ROW, i);
+            RegisterHit(x - 42.0f, y - 14.0f, splashW + 24.0f, 84.0f, HIT_MAIN_ROW, i);
         }
     }
 
@@ -1037,7 +1039,7 @@ void Ps1Renderer::DrawMainMenu(float alpha) {
         cursor_y_ += (targetCurY - cursor_y_) * 0.28f;
     }
     if (overlay_ == OVERLAY_NONE) {
-        DrawTriangleCursor(cursor_x_, cursor_y_, 22.0f, alpha);
+        DrawTriangleCursor(cursor_x_, cursor_y_, 21.0f, alpha);
     }
 }
 
@@ -1075,13 +1077,13 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
     // List header strip
     char countBuf[48];
     std::snprintf(countBuf, sizeof(countBuf), "%d / %zu", game_index_ + 1, games_.size());
-    DrawText(countBuf, leftX + 16.0f, topY + 10.0f, 13.0f, STYLE_MONO,
+    DrawText(countBuf, leftX + 16.0f, topY + 9.0f, 15.0f, STYLE_MONO,
              SecondaryTextColor(alpha), leftW - 32.0f, 1, 2, leftW - 32.0f);
 
     const float listTop = topY + 34.0f;
     const float listH = paneH - 44.0f;
-    const float rowH = 44.0f;
-    const float rowGap = 4.0f;
+    const float rowH = 54.0f;
+    const float rowGap = 5.0f;
     const float rowStep = rowH + rowGap;
 
     const float totalContentH = static_cast<float>(games_.size()) * rowStep - rowGap;
@@ -1112,21 +1114,21 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
         const float rw = leftW - 26.0f;
         if (selected) {
             DrawPanel(
-                rx, ry, rw, rowH, 6.0f, 1.5f,
+                rx, ry, rw, rowH, 7.0f, 1.6f,
                 AccentColor(0.90f * alpha),
                 {AccentColor(1.0f).r * 0.65f, AccentColor(1.0f).g * 0.68f, AccentColor(1.0f).b * 0.85f, 0.94f * alpha},
                 {0.82f, 0.90f, 1.0f, 0.96f * alpha});
         } else {
             DrawPanel(
-                rx, ry, rw, rowH, 6.0f, 0.0f,
+                rx, ry, rw, rowH, 7.0f, 0.0f,
                 PanelTopColor(0.32f * alpha),
                 PanelBotColor(0.36f * alpha),
                 {0, 0, 0, 0});
         }
 
-        // Micro cover thumbnail or disc glyph on row left
-        const float thumbS = 30.0f;
-        const float tx = rx + 8.0f;
+        // Dedicated left cursor gutter so cover art thumbnail stays completely unobstructed
+        const float thumbS = 40.0f;
+        const float tx = rx + 30.0f;
         const float ty = ry + (rowH - thumbS) * 0.5f;
         const auto& cov = GetOrCreateImage(games_[i].coverPath, 160);
         if (cov.tex) {
@@ -1137,52 +1139,52 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
         }
 
         // Badges on right side of row
-        float rightAvail = rw - 50.0f;
-        float badgeRightX = rx + rw - 8.0f;
+        const float textStartX = tx + thumbS + 10.0f;
+        float badgeRightX = rx + rw - 10.0f;
         if (games_[i].saveCount > 0) {
             char sb[16];
             std::snprintf(sb, sizeof(sb), "★%d", games_[i].saveCount);
             float bw = 0, bh = 0;
-            MeasureText(sb, 11.5f, STYLE_MONO, 60.0f, 1, bw, bh);
-            const float pw = bw + 12.0f;
+            MeasureText(sb, 13.5f, STYLE_MONO, 70.0f, 1, bw, bh);
+            const float pw = bw + 14.0f;
             badgeRightX -= pw;
-            DrawPanel(badgeRightX, ry + 11.0f, pw, 22.0f, 6.0f, 1.0f,
+            DrawPanel(badgeRightX, ry + (rowH - 24.0f) * 0.5f, pw, 24.0f, 6.0f, 1.0f,
                       {0.18f, 0.46f, 0.92f, 0.88f * alpha},
                       {0.10f, 0.28f, 0.68f, 0.92f * alpha},
                       {0.58f, 0.82f, 1.0f, 0.90f * alpha});
-            DrawText(sb, badgeRightX, ry + (rowH - bh) * 0.5f, 11.5f, STYLE_MONO,
+            DrawText(sb, badgeRightX, ry + (rowH - bh) * 0.5f, 13.5f, STYLE_MONO,
                      {1, 1, 1, alpha}, pw, 1, 1, pw);
             badgeRightX -= 6.0f;
-            rightAvail -= (pw + 8.0f);
         }
         if (games_[i].discCount > 1) {
             char db[16];
             std::snprintf(db, sizeof(db), "%dD", games_[i].discCount);
             float bw = 0, bh = 0;
-            MeasureText(db, 11.5f, STYLE_MONO, 50.0f, 1, bw, bh);
-            const float pw = bw + 12.0f;
+            MeasureText(db, 13.5f, STYLE_MONO, 60.0f, 1, bw, bh);
+            const float pw = bw + 14.0f;
             badgeRightX -= pw;
-            DrawPanel(badgeRightX, ry + 11.0f, pw, 22.0f, 6.0f, 1.0f,
+            DrawPanel(badgeRightX, ry + (rowH - 24.0f) * 0.5f, pw, 24.0f, 6.0f, 1.0f,
                       {0.34f, 0.26f, 0.68f, 0.88f * alpha},
                       {0.20f, 0.14f, 0.48f, 0.92f * alpha},
                       {0.76f, 0.68f, 1.0f, 0.90f * alpha});
-            DrawText(db, badgeRightX, ry + (rowH - bh) * 0.5f, 11.5f, STYLE_MONO,
+            DrawText(db, badgeRightX, ry + (rowH - bh) * 0.5f, 13.5f, STYLE_MONO,
                      {1, 1, 1, alpha}, pw, 1, 1, pw);
-            rightAvail -= (pw + 8.0f);
+            badgeRightX -= 6.0f;
         }
 
+        const float rightAvail = std::max(60.0f, badgeRightX - textStartX - 6.0f);
         const RgbaColor rowTextCol = (selected && settings_.theme == 1)
             ? RgbaColor{1.0f, 1.0f, 1.0f, alpha}
             : PrimaryTextColor(alpha);
         float tw = 0, th = 0;
-        MeasureText(games_[i].title, 15.5f, selected ? STYLE_BODY_BOLD : STYLE_BODY,
-                    std::max(60.0f, rightAvail), 1, tw, th);
-        DrawText(games_[i].title, tx + thumbS + 10.0f, ry + (rowH - th) * 0.5f,
-                 15.5f, selected ? STYLE_BODY_BOLD : STYLE_BODY, rowTextCol,
-                 std::max(60.0f, rightAvail), 1, 0);
+        MeasureText(games_[i].title, 18.5f, selected ? STYLE_BODY_BOLD : STYLE_BODY,
+                    rightAvail, 1, tw, th);
+        DrawText(games_[i].title, textStartX, ry + (rowH - th) * 0.5f,
+                 18.5f, selected ? STYLE_BODY_BOLD : STYLE_BODY, rowTextCol,
+                 rightAvail, 1, 0);
 
         if (selected && overlay_ == OVERLAY_NONE) {
-            DrawTriangleCursor(rx + 6.0f, ry + rowH * 0.5f, 10.0f, alpha);
+            DrawTriangleCursor(rx + 15.0f, ry + rowH * 0.5f, 12.5f, alpha);
         }
 
         if (overlay_ == OVERLAY_NONE) {
@@ -1217,9 +1219,9 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
         PanelBotColor(0.90f * alpha),
         PanelBorderColor(0.85f * alpha));
 
-    const float caseSize = std::min(rightW * 0.56f, paneH * 0.50f);
+    const float caseSize = std::min(rightW * 0.52f, 182.0f);
     const float caseX = rightX + (rightW - caseSize * 1.24f) * 0.5f;
-    const float caseY = topY + 18.0f;
+    const float caseY = topY + 14.0f;
 
     // Peeking spinning PS1 black-bottom optical disc on the right of the jewel case
     const float discRadius = caseSize * 0.44f;
@@ -1250,19 +1252,22 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
                   {0.09f, 0.14f, 0.36f, 0.95f * alpha},
                   {0.03f, 0.05f, 0.18f, 0.98f * alpha}, {0, 0, 0, 0});
         DrawOpticalDisc(artX + artW * 0.5f, artY + artH * 0.44f, artW * 0.34f, disc_spin_angle_, alpha * 0.95f);
-        DrawText(g.title, artX + 8.0f, artY + artH - 42.0f, 13.0f, STYLE_BODY_BOLD,
+        DrawText(g.title, artX + 8.0f, artY + artH - 44.0f, 15.0f, STYLE_BODY_BOLD,
                  {1, 1, 1, 0.92f * alpha}, artW - 16.0f, 2, 1, artW - 16.0f);
     }
     // Glossy diagonal sheen across jewel case
     PushQuad(white_tex_, artX, artY, artW, artH * 0.32f,
              {1.0f, 1.0f, 1.0f, 0.12f * alpha}, {1.0f, 1.0f, 1.0f, 0.0f});
 
-    // Metadata box below jewel case
-    const float metaY = caseY + caseSize + 14.0f;
+    // Metadata box below jewel case (dynamically flows below 1- or 2-line title)
+    const float metaY = caseY + caseSize + 12.0f;
     const float metaX = rightX + 16.0f;
     const float metaW = rightW - 32.0f;
-    DrawText(g.title, metaX, metaY, 17.5f, STYLE_BODY_BOLD, PrimaryTextColor(alpha), metaW, 2, 0);
+    float titleW = 0.0f, titleH = 0.0f;
+    MeasureText(g.title, 19.5f, STYLE_BODY_BOLD, metaW, 2, titleW, titleH);
+    DrawText(g.title, metaX, metaY, 19.5f, STYLE_BODY_BOLD, PrimaryTextColor(alpha), metaW, 2, 0);
 
+    const float subY = metaY + std::min(52.0f, titleH + 6.0f);
     char subBuf[128];
     std::snprintf(
         subBuf, sizeof(subBuf), "%s  •  %s  •  %d %s",
@@ -1270,23 +1275,27 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
         g.sizeStr.empty() ? "-" : g.sizeStr.c_str(),
         g.discCount,
         g.discCount > 1 ? TextOr("ps1ui_discs", "Discs").c_str() : TextOr("ps1ui_disc", "Disc").c_str());
-    DrawText(subBuf, metaX, metaY + 42.0f, 13.0f, STYLE_MONO, SecondaryTextColor(alpha), metaW, 1, 0);
+    DrawText(subBuf, metaX, subY, 14.5f, STYLE_MONO, SecondaryTextColor(alpha), metaW, 1, 0);
 
+    const float line3Y = subY + 23.0f;
     if (g.saveCount > 0) {
         char svBuf[64];
         std::snprintf(svBuf, sizeof(svBuf), "%s: %d",
                       TextOr("ps1ui_quick_saves_lbl", "Quick Saves").c_str(), g.saveCount);
-        DrawText(svBuf, metaX, metaY + 64.0f, 13.0f, STYLE_BODY_BOLD,
-                 {0.46f, 0.88f, 1.0f, alpha}, metaW, 1, 0);
+        const RgbaColor qsCol = (settings_.theme == 1)
+            ? RgbaColor{0.08f, 0.36f, 0.78f, alpha}
+            : RgbaColor{0.46f, 0.88f, 1.0f, alpha};
+        DrawText(svBuf, metaX, line3Y, 14.5f, STYLE_BODY_BOLD,
+                 qsCol, metaW, 1, 0);
     } else if (!g.dateStr.empty()) {
-        DrawText(g.dateStr, metaX, metaY + 64.0f, 12.5f, STYLE_BODY, SecondaryTextColor(0.75f * alpha), metaW, 1, 0);
+        DrawText(g.dateStr, metaX, line3Y, 14.0f, STYLE_BODY, SecondaryTextColor(0.75f * alpha), metaW, 1, 0);
     }
 
     // Action Buttons at bottom of Right Pane
-    const float btnH = 38.0f;
-    const float btnY = topY + paneH - btnH - 14.0f;
+    const float btnH = 42.0f;
+    const float btnY = topY + paneH - btnH - 12.0f;
     const bool hasQuickContinue = (g.latestSaveSlot >= 0);
-    const float optW = 44.0f;
+    const float optW = 48.0f;
     const float btnGap = 8.0f;
     const float availBtnW = metaW - optW - btnGap;
 
@@ -1300,8 +1309,8 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
                   {0.82f, 0.92f, 1.0f, alpha});
         float sw = 0, sh = 0;
         const std::string startLbl = TextOr("ps1ui_btn_start", "Start");
-        MeasureText(startLbl, 14.5f, STYLE_BODY_BOLD, startW - 10.0f, 1, sw, sh);
-        DrawText(startLbl, metaX, btnY + (btnH - sh) * 0.5f, 14.5f, STYLE_BODY_BOLD,
+        MeasureText(startLbl, 16.5f, STYLE_BODY_BOLD, startW - 10.0f, 1, sw, sh);
+        DrawText(startLbl, metaX, btnY + (btnH - sh) * 0.5f, 16.5f, STYLE_BODY_BOLD,
                  {1, 1, 1, alpha}, startW - 10.0f, 1, 1, startW);
 
         // CONTINUE
@@ -1311,8 +1320,8 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
                   {0.08f, 0.36f, 0.30f, 0.98f * alpha},
                   {0.58f, 1.0f, 0.84f, alpha});
         const std::string contLbl = TextOr("ps1ui_btn_continue", "Continue");
-        MeasureText(contLbl, 14.5f, STYLE_BODY_BOLD, contW - 10.0f, 1, sw, sh);
-        DrawText(contLbl, contX, btnY + (btnH - sh) * 0.5f, 14.5f, STYLE_BODY_BOLD,
+        MeasureText(contLbl, 16.5f, STYLE_BODY_BOLD, contW - 10.0f, 1, sw, sh);
+        DrawText(contLbl, contX, btnY + (btnH - sh) * 0.5f, 16.5f, STYLE_BODY_BOLD,
                  {1, 1, 1, alpha}, contW - 10.0f, 1, 1, contW);
 
         if (overlay_ == OVERLAY_NONE) {
@@ -1326,8 +1335,8 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
                   {0.82f, 0.92f, 1.0f, alpha});
         float sw = 0, sh = 0;
         const std::string startLbl = TextOr("ps1ui_btn_start", "Start");
-        MeasureText(startLbl, 15.0f, STYLE_BODY_BOLD, availBtnW - 12.0f, 1, sw, sh);
-        DrawText(startLbl, metaX, btnY + (btnH - sh) * 0.5f, 15.0f, STYLE_BODY_BOLD,
+        MeasureText(startLbl, 17.0f, STYLE_BODY_BOLD, availBtnW - 12.0f, 1, sw, sh);
+        DrawText(startLbl, metaX, btnY + (btnH - sh) * 0.5f, 17.0f, STYLE_BODY_BOLD,
                  {1, 1, 1, alpha}, availBtnW - 12.0f, 1, 1, availBtnW);
         if (overlay_ == OVERLAY_NONE) {
             RegisterHit(metaX, btnY, availBtnW, btnH, HIT_GAME_START, game_index_);
@@ -1339,8 +1348,8 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
     DrawPanel(optX, btnY, optW, btnH, 7.0f, 1.3f,
               PanelTopColor(0.90f * alpha), PanelBotColor(0.96f * alpha), PanelBorderColor(0.90f * alpha));
     float ow = 0, oh = 0;
-    MeasureText("△", 16.0f, STYLE_MONO, optW, 1, ow, oh);
-    DrawText("△", optX, btnY + (btnH - oh) * 0.5f, 16.0f, STYLE_MONO,
+    MeasureText("△", 18.0f, STYLE_MONO, optW, 1, ow, oh);
+    DrawText("△", optX, btnY + (btnH - oh) * 0.5f, 18.0f, STYLE_MONO,
              {0.34f, 0.90f, 0.62f, alpha}, optW, 1, 1, optW);
 
     if (overlay_ == OVERLAY_NONE) {
@@ -1369,11 +1378,11 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
     DrawHeaderPlaque(TextOr("ps1ui_menu_memory_card", "MEMORY CARD"), alpha);
 
     // Top 3 Sub-Tabs
-    const float tabY = m.bodyTop - 4.0f;
-    const float tabH = 32.0f;
+    const float tabY = m.bodyTop;
+    const float tabH = 36.0f;
     const float tabGap = 10.0f;
     const float usableW = screen_width_ - 2.0f * m.padX;
-    const float tabW = std::min(195.0f, (usableW - 2.0f * tabGap) / 3.0f);
+    const float tabW = std::min(220.0f, (usableW - 2.0f * tabGap) / 3.0f);
 
     std::string tabNames[3] = {
         TextOr("ps1ui_mc_tab_all", "ALL SAVES"),
@@ -1389,11 +1398,11 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
             active ? PanelBotColor(0.95f * alpha) : PanelBotColor(0.75f * alpha),
             active ? RgbaColor{0.84f, 0.92f, 1.0f, alpha} : PanelBorderColor(0.55f * alpha));
         float tw = 0, th = 0;
-        MeasureText(tabNames[t], 13.0f, STYLE_BODY_BOLD, tabW - 14.0f, 1, tw, th);
+        MeasureText(tabNames[t], 15.5f, STYLE_BODY_BOLD, tabW - 14.0f, 1, tw, th);
         const RgbaColor fg = (active && settings_.theme == 1)
             ? RgbaColor{1, 1, 1, alpha}
             : PrimaryTextColor(alpha);
-        DrawText(tabNames[t], tx, tabY + (tabH - th) * 0.5f, 13.0f, STYLE_BODY_BOLD,
+        DrawText(tabNames[t], tx, tabY + (tabH - th) * 0.5f, 15.5f, STYLE_BODY_BOLD,
                  fg, tabW - 14.0f, 1, 1, tabW);
         if (overlay_ == OVERLAY_NONE) {
             RegisterHit(tx, tabY, tabW, tabH, HIT_MC_TAB, t);
@@ -1437,26 +1446,28 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
                 focused ? RgbaColor{0.85f, 0.94f, 1.0f, alpha} : PanelBorderColor(0.75f * alpha));
 
             // Stylized PS1 Memory Card notch detail on left
-            DrawPanel(sx + 16.0f, paneTop + 18.0f, 64.0f, 78.0f, 6.0f, 1.4f,
+            DrawPanel(sx + 16.0f, paneTop + 18.0f, 64.0f, 82.0f, 6.0f, 1.4f,
                       {0.26f, 0.30f, 0.44f, alpha}, {0.16f, 0.19f, 0.30f, alpha},
                       {0.62f, 0.70f, 0.88f, alpha});
-            DrawPanel(sx + 24.0f, paneTop + 26.0f, 48.0f, 36.0f, 3.0f, 0.8f,
+            DrawPanel(sx + 23.0f, paneTop + 26.0f, 50.0f, 38.0f, 3.0f, 0.8f,
                       {0.88f, 0.90f, 0.96f, alpha}, {0.72f, 0.76f, 0.86f, alpha}, {0.3f, 0.36f, 0.5f, alpha});
-            DrawText("128K", sx + 24.0f, paneTop + 36.0f, 12.0f, STYLE_MONO,
-                     {0.10f, 0.16f, 0.38f, alpha}, 48.0f, 1, 1, 48.0f);
+            float k128W = 0.0f, k128H = 0.0f;
+            MeasureText("128K", 14.0f, STYLE_MONO, 48.0f, 1, k128W, k128H);
+            DrawText("128K", sx + 23.0f, paneTop + 26.0f + (38.0f - k128H) * 0.5f, 14.0f, STYLE_MONO,
+                     {0.10f, 0.16f, 0.38f, alpha}, 50.0f, 1, 1, 50.0f);
 
             const float infoX = sx + 96.0f;
             const float infoW = slotW - 112.0f;
-            DrawText(slots[s].title, infoX, paneTop + 18.0f, 13.0f, STYLE_MONO, SecondaryTextColor(alpha), infoW, 1, 0);
-            DrawText(slots[s].name, infoX, paneTop + 44.0f, 17.5f, STYLE_BODY_BOLD, PrimaryTextColor(alpha), infoW, 2, 0);
+            DrawText(slots[s].title, infoX, paneTop + 18.0f, 14.5f, STYLE_MONO, SecondaryTextColor(alpha), infoW, 1, 0);
+            DrawText(slots[s].name, infoX, paneTop + 44.0f, 19.5f, STYLE_BODY_BOLD, PrimaryTextColor(alpha), infoW, 2, 0);
             DrawText(slots[s].size + (slots[s].status.empty() ? "" : ("  •  " + slots[s].status)),
-                     infoX, paneTop + 98.0f, 13.0f, STYLE_BODY, SecondaryTextColor(alpha), infoW, 1, 0);
+                     infoX, paneTop + 102.0f, 14.5f, STYLE_BODY, SecondaryTextColor(alpha), infoW, 1, 0);
             if (overlay_ == OVERLAY_NONE) {
                 RegisterHit(sx, paneTop, slotW, slotH, HIT_CARD_SLOT, s);
             }
         }
 
-        const float listY = paneTop + slotH + 14.0f;
+        const float listY = paneTop + slotH + 12.0f;
         const float listH = m.bodyBot - listY;
         DrawPanel(m.padX, listY, usableW, listH, 8.0f, 1.4f,
                   PanelTopColor(0.84f * alpha), PanelBotColor(0.90f * alpha), PanelBorderColor(0.75f * alpha));
@@ -1464,15 +1475,15 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
         std::snprintf(hdr, sizeof(hdr), "%s (%zu)",
                       TextOr("ps1ui_mc_available_cards", "Available PS1 Memory Cards").c_str(),
                       memcards_.size());
-        DrawText(hdr, m.padX + 16.0f, listY + 12.0f, 14.5f, STYLE_BODY_BOLD, PrimaryTextColor(alpha), usableW - 32.0f, 1, 0);
+        DrawText(hdr, m.padX + 16.0f, listY + 12.0f, 16.5f, STYLE_BODY_BOLD, PrimaryTextColor(alpha), usableW - 32.0f, 1, 0);
 
-        const int maxShow = std::min(5, static_cast<int>(memcards_.size()));
+        const int maxShow = std::min(4, static_cast<int>(memcards_.size()));
         for (int i = 0; i < maxShow; ++i) {
-            const float ry = listY + 42.0f + static_cast<float>(i) * 32.0f;
-            if (ry + 28.0f > listY + listH) break;
-            DrawText(memcards_[i].name, m.padX + 18.0f, ry, 14.0f, STYLE_BODY, PrimaryTextColor(alpha), usableW * 0.55f, 1, 0);
+            const float ry = listY + 44.0f + static_cast<float>(i) * 36.0f;
+            if (ry + 30.0f > listY + listH) break;
+            DrawText(memcards_[i].name, m.padX + 18.0f, ry, 16.0f, STYLE_BODY, PrimaryTextColor(alpha), usableW * 0.54f, 1, 0);
             DrawText(memcards_[i].sizeStr + "  •  " + memcards_[i].dateStr,
-                     m.padX + usableW * 0.56f, ry, 13.0f, STYLE_MONO, SecondaryTextColor(alpha), usableW * 0.40f, 1, 2, usableW * 0.40f);
+                     m.padX + usableW * 0.56f, ry, 14.5f, STYLE_MONO, SecondaryTextColor(alpha), usableW * 0.40f, 1, 2, usableW * 0.40f);
         }
         return;
     }
@@ -1504,15 +1515,15 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
                       TextOr("ps1ui_saves_word", "Saves").c_str(),
                       mc_page_ + 1, totalPages);
     }
-    DrawText(mcHdr, leftX + 16.0f, paneTop + 12.0f, 13.5f, STYLE_MONO, PrimaryTextColor(alpha), leftW - 32.0f, 1, 0);
+    DrawText(mcHdr, leftX + 16.0f, paneTop + 10.0f, 15.5f, STYLE_MONO, PrimaryTextColor(alpha), leftW - 32.0f, 1, 0);
 
     // 5 cols x 3 rows on wide screens, 3 cols x 5 rows on narrow 4:3
     const int cols = (screen_width_ >= 780.0f) ? 5 : 3;
     const int rows = 15 / cols;
     const float gridX = leftX + 14.0f;
-    const float gridY = paneTop + 40.0f;
+    const float gridY = paneTop + 38.0f;
     const float gridW = leftW - 28.0f;
-    const float gridH = paneH - (totalPages > 1 ? 82.0f : 52.0f);
+    const float gridH = paneH - (totalPages > 1 ? 82.0f : 50.0f);
     const float cellGap = 8.0f;
     const float cellW = (gridW - cellGap * static_cast<float>(cols - 1)) / static_cast<float>(cols);
     const float cellH = (gridH - cellGap * static_cast<float>(rows - 1)) / static_cast<float>(rows);
@@ -1542,31 +1553,31 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
             } else {
                 DrawOpticalDisc(bx + cellW * 0.5f, by + cellH * 0.48f, std::min(cellW, cellH) * 0.30f, 0.3f, alpha * 0.85f);
             }
-            // Corner slot badge (A or S1..S10)
+            // Corner slot badge (AUTO or S1..S10)
             char slotTag[16];
             if (sv.slotNum == 0) std::snprintf(slotTag, sizeof(slotTag), "AUTO");
             else std::snprintf(slotTag, sizeof(slotTag), "S%d", sv.slotNum);
 
             float sw = 0, sh = 0;
-            MeasureText(slotTag, 10.5f, STYLE_MONO, cellW - 8.0f, 1, sw, sh);
-            const float tagW = sw + 8.0f;
-            const float tagH = 16.0f;
+            MeasureText(slotTag, 12.5f, STYLE_MONO, cellW - 8.0f, 1, sw, sh);
+            const float tagW = sw + 10.0f;
+            const float tagH = 19.0f;
             DrawPanel(bx + cellW - tagW - 4.0f, by + cellH - tagH - 4.0f, tagW, tagH, 4.0f, 0.8f,
                       {0.02f, 0.05f, 0.16f, 0.88f * alpha}, {0.02f, 0.05f, 0.16f, 0.94f * alpha},
                       {0.58f, 0.76f, 1.0f, 0.9f * alpha});
             DrawText(slotTag, bx + cellW - tagW - 4.0f, by + cellH - tagH - 4.0f + (tagH - sh) * 0.5f,
-                     10.5f, STYLE_MONO, {1, 1, 1, alpha}, tagW, 1, 1, tagW);
+                     12.5f, STYLE_MONO, {1, 1, 1, alpha}, tagW, 1, 1, tagW);
         } else {
             const std::string freeStr = TextOr("ps1ui_mc_free_block", "FREE");
             float fw = 0, fh = 0;
-            MeasureText(freeStr, 11.0f, STYLE_MONO, cellW - 8.0f, 1, fw, fh);
-            DrawText(freeStr, bx, by + (cellH - fh) * 0.5f, 11.0f, STYLE_MONO,
+            MeasureText(freeStr, 13.0f, STYLE_MONO, cellW - 8.0f, 1, fw, fh);
+            DrawText(freeStr, bx, by + (cellH - fh) * 0.5f, 13.0f, STYLE_MONO,
                      SecondaryTextColor(0.45f * alpha), cellW - 8.0f, 1, 1, cellW);
         }
 
         if (focused) {
-            selCx = bx + cellW * 0.22f;
-            selCy = by + cellH * 0.28f;
+            selCx = bx + 12.0f;
+            selCy = by + 13.0f;
         }
         if (overlay_ == OVERLAY_NONE) {
             RegisterHit(bx, by, cellW, cellH, HIT_MC_BLOCK, slot);
@@ -1574,17 +1585,17 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
     }
 
     if (totalPages > 1) {
-        const float pgY = paneTop + paneH - 34.0f;
-        const float pgW = 86.0f;
-        DrawPanel(leftX + 14.0f, pgY, pgW, 26.0f, 5.0f, 1.0f,
+        const float pgY = paneTop + paneH - 36.0f;
+        const float pgW = 72.0f;
+        DrawPanel(leftX + 14.0f, pgY, pgW, 28.0f, 5.0f, 1.0f,
                   PanelTopColor(0.8f * alpha), PanelBotColor(0.9f * alpha), PanelBorderColor(0.75f * alpha));
-        DrawText("◀ PREV", leftX + 14.0f, pgY + 5.0f, 12.0f, STYLE_MONO, PrimaryTextColor(alpha), pgW, 1, 1, pgW);
-        DrawPanel(leftX + leftW - pgW - 14.0f, pgY, pgW, 26.0f, 5.0f, 1.0f,
+        DrawText("◀", leftX + 14.0f, pgY + 4.0f, 15.0f, STYLE_MONO, PrimaryTextColor(alpha), pgW, 1, 1, pgW);
+        DrawPanel(leftX + leftW - pgW - 14.0f, pgY, pgW, 28.0f, 5.0f, 1.0f,
                   PanelTopColor(0.8f * alpha), PanelBotColor(0.9f * alpha), PanelBorderColor(0.75f * alpha));
-        DrawText("NEXT ▶", leftX + leftW - pgW - 14.0f, pgY + 5.0f, 12.0f, STYLE_MONO, PrimaryTextColor(alpha), pgW, 1, 1, pgW);
+        DrawText("▶", leftX + leftW - pgW - 14.0f, pgY + 4.0f, 15.0f, STYLE_MONO, PrimaryTextColor(alpha), pgW, 1, 1, pgW);
         if (overlay_ == OVERLAY_NONE) {
-            RegisterHit(leftX + 14.0f, pgY, pgW, 26.0f, HIT_MC_PAGE_PREV, 0);
-            RegisterHit(leftX + leftW - pgW - 14.0f, pgY, pgW, 26.0f, HIT_MC_PAGE_NEXT, 0);
+            RegisterHit(leftX + 14.0f, pgY, pgW, 28.0f, HIT_MC_PAGE_PREV, 0);
+            RegisterHit(leftX + leftW - pgW - 14.0f, pgY, pgW, 28.0f, HIT_MC_PAGE_NEXT, 0);
         }
     }
 
@@ -1593,9 +1604,9 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
               PanelTopColor(0.86f * alpha), PanelBotColor(0.92f * alpha), PanelBorderColor(0.90f * alpha));
 
     const float monW = rightW - 32.0f;
-    const float monH = std::min(paneH * 0.50f, monW * 0.66f);
+    const float monH = std::min(paneH * 0.48f, monW * 0.62f);
     const float monX = rightX + 16.0f;
-    const float monY = paneTop + 14.0f;
+    const float monY = paneTop + 12.0f;
 
     // Beveled CRT Preview Frame
     DrawPanel(monX, monY, monW, monH, 8.0f, 2.0f,
@@ -1617,14 +1628,20 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
         PushQuad(white_tex_, monX + 4.0f, monY + 4.0f, monW - 8.0f, monH * 0.25f,
                  {1, 1, 1, 0.08f * alpha}, {1, 1, 1, 0.0f});
 
-        const float infoY = monY + monH + 12.0f;
-        DrawText(activeSave->title, monX, infoY, 17.0f, STYLE_BODY_BOLD, PrimaryTextColor(alpha), monW, 2, 0);
+        const float infoY = monY + monH + 10.0f;
+        float itw = 0.0f, ith = 0.0f;
+        MeasureText(activeSave->title, 18.5f, STYLE_BODY_BOLD, monW, 2, itw, ith);
+        DrawText(activeSave->title, monX, infoY, 18.5f, STYLE_BODY_BOLD, PrimaryTextColor(alpha), monW, 2, 0);
+        const float line2Y = infoY + std::min(46.0f, ith + 5.0f);
         const std::string line2 = activeSave->slotLabel +
             (activeSave->serial.empty() ? "" : ("  •  " + activeSave->serial));
-        DrawText(line2, monX, infoY + 40.0f, 13.0f, STYLE_MONO, {0.48f, 0.86f, 1.0f, alpha}, monW, 1, 0);
+        const RgbaColor slotCol = (settings_.theme == 1)
+            ? RgbaColor{0.08f, 0.36f, 0.78f, alpha}
+            : RgbaColor{0.48f, 0.86f, 1.0f, alpha};
+        DrawText(line2, monX, line2Y, 14.5f, STYLE_MONO, slotCol, monW, 1, 0);
         const std::string line3 = activeSave->dateStr +
             (activeSave->sizeStr.empty() ? "" : ("  •  " + activeSave->sizeStr));
-        DrawText(line3, monX, infoY + 60.0f, 12.5f, STYLE_BODY, SecondaryTextColor(alpha), monW, 1, 0);
+        DrawText(line3, monX, line2Y + 22.0f, 14.0f, STYLE_BODY, SecondaryTextColor(alpha), monW, 1, 0);
     } else {
         const std::string emptyMsg = saves_loading_
             ? TextOr("ps1ui_loading_saves", "Loading quick saves...")
@@ -1632,14 +1649,14 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
                 ? TextOr("ps1ui_mc_no_saves", "No quick saves found")
                 : TextOr("ps1ui_mc_empty_block", "Empty memory block"));
         float ew = 0, eh = 0;
-        MeasureText(emptyMsg, 15.0f, STYLE_BODY_BOLD, monW - 24.0f, 2, ew, eh);
-        DrawText(emptyMsg, monX + 12.0f, monY + (monH - eh) * 0.5f, 15.0f, STYLE_BODY_BOLD,
+        MeasureText(emptyMsg, 17.5f, STYLE_BODY_BOLD, monW - 24.0f, 2, ew, eh);
+        DrawText(emptyMsg, monX + 12.0f, monY + (monH - eh) * 0.5f, 17.5f, STYLE_BODY_BOLD,
                  SecondaryTextColor(alpha), monW - 24.0f, 2, 1, monW - 24.0f);
     }
 
     // 3 Authentic PS1 Memory Card Action Buttons: LOAD | DELETE | EXIT
-    const float actY = paneTop + paneH - 50.0f;
-    const float actH = 36.0f;
+    const float actH = 40.0f;
+    const float actY = paneTop + paneH - actH - 12.0f;
     const float actGap = 8.0f;
     const float actW = (monW - 2.0f * actGap) / 3.0f;
     const std::string actLabels[3] = {
@@ -1662,11 +1679,12 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
             topC, botC,
             focused ? RgbaColor{1.0f, 1.0f, 1.0f, effAlpha} : PanelBorderColor(0.72f * effAlpha));
         float aw = 0, ah = 0;
-        MeasureText(actLabels[a], 13.5f, STYLE_BODY_BOLD, actW - 8.0f, 1, aw, ah);
-        DrawText(actLabels[a], ax, actY + (actH - ah) * 0.5f, 13.5f, STYLE_BODY_BOLD,
-                 {1, 1, 1, effAlpha}, actW - 8.0f, 1, 1, actW);
+        MeasureText(actLabels[a], 15.5f, STYLE_BODY_BOLD, actW - 10.0f, 1, aw, ah);
+        const RgbaColor btnTxtCol = (a == 2) ? PrimaryTextColor(effAlpha) : RgbaColor{1, 1, 1, effAlpha};
+        DrawText(actLabels[a], ax, actY + (actH - ah) * 0.5f, 15.5f, STYLE_BODY_BOLD,
+                 btnTxtCol, actW - 10.0f, 1, 1, actW);
         if (focused) {
-            selCx = ax + 8.0f;
+            selCx = ax + 12.0f;
             selCy = actY + actH * 0.5f;
         }
         if (overlay_ == OVERLAY_NONE && enabled) {
@@ -1751,10 +1769,10 @@ void Ps1Renderer::DrawSettingsScreen(float alpha) {
         {TextOr("ps1ui_set_restore", "Restore Defaults"), TextOr("ps1ui_reset", "Reset"), false},
     };
 
-    const float listTop = py + 12.0f;
-    const float listH = ph - 24.0f;
-    const float rowH = 42.0f;
-    const float rowGap = 4.0f;
+    const float listTop = py + 10.0f;
+    const float listH = ph - 20.0f;
+    const float rowH = 48.0f;
+    const float rowGap = 5.0f;
     const float rowStep = rowH + rowGap;
 
     const float totalH = static_cast<float>(rows.size()) * rowStep - rowGap;
@@ -1765,9 +1783,9 @@ void Ps1Renderer::DrawSettingsScreen(float alpha) {
     FlushQuadBatch();
     const float sxScale = static_cast<float>(view_width_) / screen_width_;
     const float syScale = static_cast<float>(view_height_) / kScreenHeight;
-    const int scX = view_x_ + static_cast<int>(std::floor((px + 4.0f) * sxScale));
+    const int scX = view_x_ + static_cast<int>(std::floor((px + 6.0f) * sxScale));
     const int scY = view_y_ + static_cast<int>(std::floor((kScreenHeight - (listTop + listH)) * syScale));
-    const int scW = std::max(1, static_cast<int>(std::ceil((pw - 14.0f) * sxScale)));
+    const int scW = std::max(1, static_cast<int>(std::ceil((pw - 18.0f) * sxScale)));
     const int scH = std::max(1, static_cast<int>(std::ceil(listH * syScale)));
     glEnable(GL_SCISSOR_TEST);
     glScissor(scX, scY, scW, scH);
@@ -1781,38 +1799,42 @@ void Ps1Renderer::DrawSettingsScreen(float alpha) {
         const float rw = pw - 34.0f;
 
         if (selected) {
-            DrawPanel(rx, ry, rw, rowH, 6.0f, 1.5f,
+            DrawPanel(rx, ry, rw, rowH, 7.0f, 1.6f,
                       AccentColor(0.90f * alpha),
                       {AccentColor(1.0f).r * 0.62f, AccentColor(1.0f).g * 0.65f, AccentColor(1.0f).b * 0.84f, 0.94f * alpha},
                       {0.84f, 0.92f, 1.0f, alpha});
         } else {
-            DrawPanel(rx, ry, rw, rowH, 6.0f, 0.0f,
+            DrawPanel(rx, ry, rw, rowH, 7.0f, 0.0f,
                       PanelTopColor(0.30f * alpha), PanelBotColor(0.36f * alpha), {0, 0, 0, 0});
         }
 
+        const float valAreaW = std::min(280.0f, rw * 0.40f);
+        const float valAreaX = rx + rw - valAreaW - 10.0f;
+        const float lblMaxW = std::max(140.0f, valAreaX - (rx + 32.0f) - 10.0f);
         const RgbaColor lblCol = (selected && settings_.theme == 1)
             ? RgbaColor{1, 1, 1, alpha} : PrimaryTextColor(alpha);
         float tw = 0, th = 0;
-        MeasureText(rows[i].label, 15.5f, selected ? STYLE_BODY_BOLD : STYLE_BODY, rw * 0.56f, 1, tw, th);
-        DrawText(rows[i].label, rx + 24.0f, ry + (rowH - th) * 0.5f, 15.5f,
-                 selected ? STYLE_BODY_BOLD : STYLE_BODY, lblCol, rw * 0.54f, 1, 0);
+        MeasureText(rows[i].label, 18.0f, selected ? STYLE_BODY_BOLD : STYLE_BODY, lblMaxW, 1, tw, th);
+        DrawText(rows[i].label, rx + 32.0f, ry + (rowH - th) * 0.5f, 18.0f,
+                 selected ? STYLE_BODY_BOLD : STYLE_BODY, lblCol, lblMaxW, 1, 0);
 
-        const float valAreaW = std::min(250.0f, rw * 0.38f);
-        const float valAreaX = rx + rw - valAreaW - 10.0f;
         float vw = 0, vh = 0;
-        MeasureText(rows[i].value, 15.0f, STYLE_BODY_BOLD, valAreaW - 56.0f, 1, vw, vh);
-        DrawText(rows[i].value, valAreaX + 28.0f, ry + (rowH - vh) * 0.5f, 15.0f, STYLE_BODY_BOLD,
+        MeasureText(rows[i].value, 17.0f, STYLE_BODY_BOLD, valAreaW - 60.0f, 1, vw, vh);
+        DrawText(rows[i].value, valAreaX + 30.0f, ry + (rowH - vh) * 0.5f, 17.0f, STYLE_BODY_BOLD,
                  selected ? RgbaColor{0.92f, 0.98f, 1.0f, alpha} : SecondaryTextColor(alpha),
-                 valAreaW - 56.0f, 1, 1, valAreaW - 56.0f);
+                 valAreaW - 60.0f, 1, 1, valAreaW - 60.0f);
 
         if (rows[i].isArrowSelector) {
-            DrawText("◀", valAreaX, ry + 11.0f, 14.0f, STYLE_MONO, SecondaryTextColor(alpha), 24.0f, 1, 1, 24.0f);
-            DrawText("▶", valAreaX + valAreaW - 24.0f, ry + 11.0f, 14.0f, STYLE_MONO,
-                     SecondaryTextColor(alpha), 24.0f, 1, 1, 24.0f);
+            float aw = 0, ah = 0;
+            MeasureText("◀", 15.5f, STYLE_MONO, 26.0f, 1, aw, ah);
+            const float arrowY = ry + (rowH - ah) * 0.5f;
+            DrawText("◀", valAreaX, arrowY, 15.5f, STYLE_MONO, SecondaryTextColor(alpha), 26.0f, 1, 1, 26.0f);
+            DrawText("▶", valAreaX + valAreaW - 26.0f, arrowY, 15.5f, STYLE_MONO,
+                     SecondaryTextColor(alpha), 26.0f, 1, 1, 26.0f);
         }
 
         if (selected && overlay_ == OVERLAY_NONE) {
-            DrawTriangleCursor(rx + 8.0f, ry + rowH * 0.5f, 10.0f, alpha);
+            DrawTriangleCursor(rx + 15.0f, ry + rowH * 0.5f, 12.0f, alpha);
         }
 
         if (overlay_ == OVERLAY_NONE) {
@@ -1820,8 +1842,8 @@ void Ps1Renderer::DrawSettingsScreen(float alpha) {
             const float hb = std::min(listTop + listH, ry + rowH);
             if (hb > ht + 4.0f) {
                 if (rows[i].isArrowSelector) {
-                    RegisterHit(valAreaX - 6.0f, ht, 34.0f, hb - ht, HIT_SETTING_LEFT, i);
-                    RegisterHit(valAreaX + valAreaW - 28.0f, ht, 34.0f, hb - ht, HIT_SETTING_RIGHT, i);
+                    RegisterHit(valAreaX - 6.0f, ht, 36.0f, hb - ht, HIT_SETTING_LEFT, i);
+                    RegisterHit(valAreaX + valAreaW - 30.0f, ht, 36.0f, hb - ht, HIT_SETTING_RIGHT, i);
                 }
                 RegisterHit(rx, ht, rw, hb - ht, HIT_SETTING_ROW, i);
             }
@@ -1906,18 +1928,18 @@ void Ps1Renderer::DrawConfirmDialog(
     PushQuad(white_tex_, 0, 0, screen_width_, kScreenHeight, {0.0f, 0.0f, 0.04f, 0.62f});
     RegisterHit(0, 0, screen_width_, kScreenHeight, HIT_OVERLAY_BACKDROP, 0);
 
-    const float dw = std::min(460.0f, screen_width_ - 64.0f);
-    const float dh = 200.0f;
+    const float dw = std::min(490.0f, screen_width_ - 52.0f);
+    const float dh = 224.0f;
     const float dx = (screen_width_ - dw) * 0.5f;
     const float dy = (kScreenHeight - dh) * 0.5f;
 
     DrawPanel(dx, dy, dw, dh, 10.0f, 2.0f,
               PanelTopColor(0.96f), PanelBotColor(0.98f), PanelBorderColor(1.0f));
-    DrawText(title, dx + 24.0f, dy + 22.0f, 20.0f, STYLE_HEADER, PrimaryTextColor(1.0f), dw - 48.0f, 1, 1, dw - 48.0f);
-    DrawText(message, dx + 26.0f, dy + 64.0f, 15.0f, STYLE_BODY, SecondaryTextColor(1.0f), dw - 52.0f, 3, 1, dw - 52.0f);
+    DrawText(title, dx + 24.0f, dy + 22.0f, 21.5f, STYLE_HEADER, PrimaryTextColor(1.0f), dw - 48.0f, 1, 1, dw - 48.0f);
+    DrawText(message, dx + 26.0f, dy + 68.0f, 16.5f, STYLE_BODY, SecondaryTextColor(1.0f), dw - 52.0f, 3, 1, dw - 52.0f);
 
     const float bw = (dw - 68.0f) * 0.5f;
-    const float bh = 40.0f;
+    const float bh = 44.0f;
     const float by = dy + dh - bh - 20.0f;
     const std::string labels[2] = {yesText, noText};
     for (int i = 0; i < 2; ++i) {
@@ -1928,12 +1950,12 @@ void Ps1Renderer::DrawConfirmDialog(
                   foc ? PanelBotColor(0.98f) : PanelBotColor(0.92f),
                   foc ? RgbaColor{1, 1, 1, 1} : PanelBorderColor(0.75f));
         float tw = 0, th = 0;
-        MeasureText(labels[i], 15.0f, STYLE_BODY_BOLD, bw - 12.0f, 1, tw, th);
+        MeasureText(labels[i], 17.0f, STYLE_BODY_BOLD, bw - 16.0f, 1, tw, th);
         const RgbaColor tc = (foc && settings_.theme == 1) ? RgbaColor{1, 1, 1, 1} : PrimaryTextColor(1.0f);
-        DrawText(labels[i], bx, by + (bh - th) * 0.5f, 15.0f, STYLE_BODY_BOLD, tc, bw - 12.0f, 1, 1, bw);
+        DrawText(labels[i], bx, by + (bh - th) * 0.5f, 17.0f, STYLE_BODY_BOLD, tc, bw - 16.0f, 1, 1, bw);
         RegisterHit(bx, by, bw, bh, HIT_OVERLAY_ITEM, i);
         if (foc) {
-            DrawTriangleCursor(bx + 10.0f, by + bh * 0.5f, 11.0f, 1.0f);
+            DrawTriangleCursor(bx + 15.0f, by + bh * 0.5f, 12.0f, 1.0f);
         }
     }
 }
@@ -1983,29 +2005,31 @@ void Ps1Renderer::DrawOverlay() {
         opts.push_back(TextOr("ps1ui_opt_info", "Game Information"));
         opts.push_back(TextOr("ps1ui_opt_settings", "Game Settings"));
 
-        const float dw = std::min(380.0f, screen_width_ - 64.0f);
-        const float dh = 74.0f + static_cast<float>(opts.size()) * 46.0f;
+        const float dw = std::min(440.0f, screen_width_ - 56.0f);
+        const float rowH = 46.0f;
+        const float rowStep = 52.0f;
+        const float dh = 78.0f + static_cast<float>(opts.size()) * rowStep;
         const float dx = (screen_width_ - dw) * 0.5f;
         const float dy = (kScreenHeight - dh) * 0.5f;
 
         DrawPanel(dx, dy, dw, dh, 10.0f, 2.0f,
                   PanelTopColor(0.96f), PanelBotColor(0.98f), PanelBorderColor(1.0f));
-        DrawText(g.title, dx + 20.0f, dy + 16.0f, 17.0f, STYLE_HEADER, PrimaryTextColor(1.0f), dw - 40.0f, 1, 1, dw - 40.0f);
+        DrawText(g.title, dx + 20.0f, dy + 16.0f, 20.0f, STYLE_HEADER, PrimaryTextColor(1.0f), dw - 40.0f, 1, 1, dw - 40.0f);
 
         options_index_ = std::clamp(options_index_, 0, static_cast<int>(opts.size()) - 1);
         for (int i = 0; i < static_cast<int>(opts.size()); ++i) {
-            const float oy = dy + 56.0f + static_cast<float>(i) * 46.0f;
+            const float oy = dy + 58.0f + static_cast<float>(i) * rowStep;
             const bool foc = (i == options_index_);
-            DrawPanel(dx + 18.0f, oy, dw - 36.0f, 40.0f, 7.0f, foc ? 1.8f : 1.0f,
+            DrawPanel(dx + 18.0f, oy, dw - 36.0f, rowH, 7.0f, foc ? 1.8f : 1.0f,
                       foc ? AccentColor(0.94f) : PanelTopColor(0.65f),
                       foc ? PanelBotColor(0.96f) : PanelBotColor(0.75f),
                       foc ? RgbaColor{1, 1, 1, 1} : PanelBorderColor(0.55f));
             float ow = 0, oh = 0;
-            MeasureText(opts[i], 15.0f, STYLE_BODY_BOLD, dw - 60.0f, 1, ow, oh);
+            MeasureText(opts[i], 17.5f, STYLE_BODY_BOLD, dw - 76.0f, 1, ow, oh);
             const RgbaColor tc = (foc && settings_.theme == 1) ? RgbaColor{1, 1, 1, 1} : PrimaryTextColor(1.0f);
-            DrawText(opts[i], dx + 36.0f, oy + (40.0f - oh) * 0.5f, 15.0f, STYLE_BODY_BOLD, tc, dw - 60.0f, 1, 0);
-            RegisterHit(dx + 18.0f, oy, dw - 36.0f, 40.0f, HIT_OVERLAY_ITEM, i);
-            if (foc) DrawTriangleCursor(dx + 22.0f, oy + 20.0f, 10.0f, 1.0f);
+            DrawText(opts[i], dx + 50.0f, oy + (rowH - oh) * 0.5f, 17.5f, STYLE_BODY_BOLD, tc, dw - 76.0f, 1, 0);
+            RegisterHit(dx + 18.0f, oy, dw - 36.0f, rowH, HIT_OVERLAY_ITEM, i);
+            if (foc) DrawTriangleCursor(dx + 32.0f, oy + rowH * 0.5f, 12.0f, 1.0f);
         }
         return;
     }
@@ -2013,107 +2037,115 @@ void Ps1Renderer::DrawOverlay() {
     if (overlay_ == OVERLAY_DISC_PICKER && game_index_ < static_cast<int>(games_.size())) {
         const GameEntry& g = games_[game_index_];
         const int count = static_cast<int>(g.discPaths.size());
-        const float dw = std::min(400.0f, screen_width_ - 64.0f);
-        const float dh = 74.0f + static_cast<float>(std::min(count, 6)) * 46.0f;
+        const float dw = std::min(440.0f, screen_width_ - 56.0f);
+        const float rowH = 46.0f;
+        const float rowStep = 52.0f;
+        const float dh = 78.0f + static_cast<float>(std::min(count, 6)) * rowStep;
         const float dx = (screen_width_ - dw) * 0.5f;
         const float dy = (kScreenHeight - dh) * 0.5f;
 
         DrawPanel(dx, dy, dw, dh, 10.0f, 2.0f,
                   PanelTopColor(0.96f), PanelBotColor(0.98f), PanelBorderColor(1.0f));
-        DrawText(TextOr("ps1ui_select_disc", "SELECT DISC"), dx + 20.0f, dy + 16.0f, 18.0f, STYLE_HEADER,
+        DrawText(TextOr("ps1ui_select_disc", "SELECT DISC"), dx + 20.0f, dy + 16.0f, 20.5f, STYLE_HEADER,
                  PrimaryTextColor(1.0f), dw - 40.0f, 1, 1, dw - 40.0f);
 
         disc_picker_index_ = std::clamp(disc_picker_index_, 0, std::max(0, count - 1));
         for (int i = 0; i < std::min(count, 6); ++i) {
-            const float oy = dy + 56.0f + static_cast<float>(i) * 46.0f;
+            const float oy = dy + 58.0f + static_cast<float>(i) * rowStep;
             const bool foc = (i == disc_picker_index_);
             const std::string lbl = (i < static_cast<int>(g.discLabels.size()))
-                ? g.discLabels[i] : ("Disc " + std::to_string(i + 1));
-            DrawPanel(dx + 18.0f, oy, dw - 36.0f, 40.0f, 7.0f, foc ? 1.8f : 1.0f,
+                ? g.discLabels[i] : (TextOr("ps1ui_disc", "Disc") + " " + std::to_string(i + 1));
+            DrawPanel(dx + 18.0f, oy, dw - 36.0f, rowH, 7.0f, foc ? 1.8f : 1.0f,
                       foc ? AccentColor(0.94f) : PanelTopColor(0.65f),
                       foc ? PanelBotColor(0.96f) : PanelBotColor(0.75f),
                       foc ? RgbaColor{1, 1, 1, 1} : PanelBorderColor(0.55f));
             float lw = 0, lh = 0;
-            MeasureText(lbl, 15.0f, STYLE_BODY_BOLD, dw - 60.0f, 1, lw, lh);
+            MeasureText(lbl, 17.5f, STYLE_BODY_BOLD, dw - 76.0f, 1, lw, lh);
             const RgbaColor tc = (foc && settings_.theme == 1) ? RgbaColor{1, 1, 1, 1} : PrimaryTextColor(1.0f);
-            DrawText(lbl, dx + 36.0f, oy + (40.0f - lh) * 0.5f, 15.0f, STYLE_BODY_BOLD, tc, dw - 60.0f, 1, 0);
-            RegisterHit(dx + 18.0f, oy, dw - 36.0f, 40.0f, HIT_OVERLAY_ITEM, i);
-            if (foc) DrawTriangleCursor(dx + 22.0f, oy + 20.0f, 10.0f, 1.0f);
+            DrawText(lbl, dx + 50.0f, oy + (rowH - lh) * 0.5f, 17.5f, STYLE_BODY_BOLD, tc, dw - 76.0f, 1, 0);
+            RegisterHit(dx + 18.0f, oy, dw - 36.0f, rowH, HIT_OVERLAY_ITEM, i);
+            if (foc) DrawTriangleCursor(dx + 32.0f, oy + rowH * 0.5f, 12.0f, 1.0f);
         }
         return;
     }
 
     if (overlay_ == OVERLAY_GAME_INFO && game_index_ < static_cast<int>(games_.size())) {
         const GameEntry& g = games_[game_index_];
-        const float dw = std::min(480.0f, screen_width_ - 56.0f);
-        const float dh = 276.0f;
+        const float dw = std::min(540.0f, screen_width_ - 48.0f);
+        const float dh = 304.0f;
         const float dx = (screen_width_ - dw) * 0.5f;
         const float dy = (kScreenHeight - dh) * 0.5f;
 
         DrawPanel(dx, dy, dw, dh, 10.0f, 2.0f,
                   PanelTopColor(0.96f), PanelBotColor(0.98f), PanelBorderColor(1.0f));
-        DrawText(TextOr("ps1ui_opt_info", "Game Information"), dx + 22.0f, dy + 18.0f, 19.0f, STYLE_HEADER,
+        DrawText(TextOr("ps1ui_opt_info", "Game Information"), dx + 22.0f, dy + 18.0f, 21.5f, STYLE_HEADER,
                  PrimaryTextColor(1.0f), dw - 44.0f, 1, 1, dw - 44.0f);
 
         auto drawKV = [&](float rowY, const std::string& k, const std::string& v) {
-            DrawText(k, dx + 24.0f, rowY, 13.5f, STYLE_BODY_BOLD, SecondaryTextColor(1.0f), 150.0f, 1, 0);
-            DrawText(v.empty() ? "-" : v, dx + 178.0f, rowY, 13.5f, STYLE_BODY, PrimaryTextColor(1.0f), dw - 204.0f, 1, 0);
+            DrawText(k, dx + 24.0f, rowY, 16.0f, STYLE_BODY_BOLD, SecondaryTextColor(1.0f), 170.0f, 1, 0);
+            DrawText(v.empty() ? "-" : v, dx + 198.0f, rowY, 16.0f, STYLE_BODY, PrimaryTextColor(1.0f), dw - 222.0f, 1, 0);
         };
-        drawKV(dy + 64.0f, TextOr("ps1ui_info_title", "Title"), g.title);
-        drawKV(dy + 94.0f, TextOr("ps1ui_info_serial", "Serial"), g.serial);
-        drawKV(dy + 124.0f, TextOr("ps1ui_info_size", "File Size"), g.sizeStr);
-        drawKV(dy + 154.0f, TextOr("ps1ui_info_discs", "Discs"), std::to_string(g.discCount));
-        drawKV(dy + 184.0f, TextOr("ps1ui_quick_saves_lbl", "Quick Saves"), std::to_string(g.saveCount));
+        drawKV(dy + 68.0f, TextOr("ps1ui_info_title", "Title"), g.title);
+        drawKV(dy + 102.0f, TextOr("ps1ui_info_serial", "Serial"), g.serial);
+        drawKV(dy + 136.0f, TextOr("ps1ui_info_size", "File Size"), g.sizeStr);
+        drawKV(dy + 170.0f, TextOr("ps1ui_info_discs", "Discs"), std::to_string(g.discCount));
+        drawKV(dy + 204.0f, TextOr("ps1ui_quick_saves_lbl", "Quick Saves"), std::to_string(g.saveCount));
 
-        const float bw = 150.0f;
+        const float bw = 166.0f;
         const float bx = dx + (dw - bw) * 0.5f;
-        const float by = dy + dh - 54.0f;
-        DrawPanel(bx, by, bw, 36.0f, 7.0f, 1.5f, AccentColor(0.95f), PanelBotColor(0.98f), {1, 1, 1, 1});
-        DrawText(TextOr("ps1ui_close", "Close"), bx, by + 9.0f, 14.5f, STYLE_BODY_BOLD,
+        const float by = dy + dh - 56.0f;
+        DrawPanel(bx, by, bw, 40.0f, 7.0f, 1.5f, AccentColor(0.95f), PanelBotColor(0.98f), {1, 1, 1, 1});
+        float cw = 0, ch = 0;
+        const std::string closeLbl = TextOr("ps1ui_close", "Close");
+        MeasureText(closeLbl, 16.5f, STYLE_BODY_BOLD, bw, 1, cw, ch);
+        DrawText(closeLbl, bx, by + (40.0f - ch) * 0.5f, 16.5f, STYLE_BODY_BOLD,
                  {1, 1, 1, 1}, bw, 1, 1, bw);
-        RegisterHit(bx, by, bw, 36.0f, HIT_OVERLAY_ITEM, 0);
+        RegisterHit(bx, by, bw, 40.0f, HIT_OVERLAY_ITEM, 0);
         return;
     }
 
     if (overlay_ == OVERLAY_SYSTEM_INFO) {
-        const float dw = std::min(500.0f, screen_width_ - 56.0f);
-        const float dh = 296.0f;
+        const float dw = std::min(550.0f, screen_width_ - 48.0f);
+        const float dh = 334.0f;
         const float dx = (screen_width_ - dw) * 0.5f;
         const float dy = (kScreenHeight - dh) * 0.5f;
         DrawPanel(dx, dy, dw, dh, 10.0f, 2.0f,
                   PanelTopColor(0.96f), PanelBotColor(0.98f), PanelBorderColor(1.0f));
-        DrawText(TextOr("ps1ui_set_sysinfo", "System Information"), dx + 22.0f, dy + 18.0f, 19.0f, STYLE_HEADER,
+        DrawText(TextOr("ps1ui_set_sysinfo", "System Information"), dx + 22.0f, dy + 18.0f, 21.5f, STYLE_HEADER,
                  PrimaryTextColor(1.0f), dw - 44.0f, 1, 1, dw - 44.0f);
 
         auto drawKV = [&](float rowY, const std::string& k, const std::string& v) {
-            DrawText(k, dx + 24.0f, rowY, 13.5f, STYLE_BODY_BOLD, SecondaryTextColor(1.0f), 170.0f, 1, 0);
-            DrawText(v.empty() ? "-" : v, dx + 198.0f, rowY, 13.5f, STYLE_MONO, PrimaryTextColor(1.0f), dw - 222.0f, 1, 0);
+            DrawText(k, dx + 24.0f, rowY, 15.5f, STYLE_BODY_BOLD, SecondaryTextColor(1.0f), 186.0f, 1, 0);
+            DrawText(v.empty() ? "-" : v, dx + 214.0f, rowY, 15.5f, STYLE_MONO, PrimaryTextColor(1.0f), dw - 238.0f, 1, 0);
         };
-        drawKV(dy + 64.0f, TextOr("ps1ui_sys_app", "Version"), "EmuCoreR " + status_.appVersion);
-        drawKV(dy + 94.0f, TextOr("ps1ui_sys_device", "Device"), status_.deviceName);
-        drawKV(dy + 124.0f, TextOr("ps1ui_sys_bios", "BIOS"), status_.biosStatus);
-        drawKV(dy + 154.0f, TextOr("ps1ui_sys_storage", "Free Storage"), status_.freeStorage);
-        drawKV(dy + 184.0f, TextOr("ps1ui_menu_games", "Games"), std::to_string(games_.size()));
-        drawKV(dy + 214.0f, TextOr("ps1ui_quick_saves_lbl", "Quick Saves"), std::to_string(saves_.size()));
+        drawKV(dy + 68.0f, TextOr("ps1ui_sys_app", "Version"), "EmuCoreR " + status_.appVersion);
+        drawKV(dy + 102.0f, TextOr("ps1ui_sys_device", "Device"), status_.deviceName);
+        drawKV(dy + 136.0f, TextOr("ps1ui_sys_bios", "BIOS"), status_.biosStatus);
+        drawKV(dy + 170.0f, TextOr("ps1ui_sys_storage", "Free Storage"), status_.freeStorage);
+        drawKV(dy + 204.0f, TextOr("ps1ui_menu_games", "Games"), std::to_string(games_.size()));
+        drawKV(dy + 238.0f, TextOr("ps1ui_quick_saves_lbl", "Quick Saves"), std::to_string(saves_.size()));
 
-        const float bw = 150.0f;
+        const float bw = 166.0f;
         const float bx = dx + (dw - bw) * 0.5f;
-        const float by = dy + dh - 52.0f;
-        DrawPanel(bx, by, bw, 36.0f, 7.0f, 1.5f, AccentColor(0.95f), PanelBotColor(0.98f), {1, 1, 1, 1});
-        DrawText(TextOr("ps1ui_close", "Close"), bx, by + 9.0f, 14.5f, STYLE_BODY_BOLD,
+        const float by = dy + dh - 56.0f;
+        DrawPanel(bx, by, bw, 40.0f, 7.0f, 1.5f, AccentColor(0.95f), PanelBotColor(0.98f), {1, 1, 1, 1});
+        float cw = 0, ch = 0;
+        const std::string closeLbl = TextOr("ps1ui_close", "Close");
+        MeasureText(closeLbl, 16.5f, STYLE_BODY_BOLD, bw, 1, cw, ch);
+        DrawText(closeLbl, bx, by + (40.0f - ch) * 0.5f, 16.5f, STYLE_BODY_BOLD,
                  {1, 1, 1, 1}, bw, 1, 1, bw);
-        RegisterHit(bx, by, bw, 36.0f, HIT_OVERLAY_ITEM, 0);
+        RegisterHit(bx, by, bw, 40.0f, HIT_OVERLAY_ITEM, 0);
         return;
     }
 
     if (overlay_ == OVERLAY_TOUCH_GUIDE) {
-        const float dw = std::min(510.0f, screen_width_ - 56.0f);
-        const float dh = 276.0f;
+        const float dw = std::min(560.0f, screen_width_ - 44.0f);
+        const float dh = 318.0f;
         const float dx = (screen_width_ - dw) * 0.5f;
         const float dy = (kScreenHeight - dh) * 0.5f;
         DrawPanel(dx, dy, dw, dh, 10.0f, 2.0f,
                   PanelTopColor(0.96f), PanelBotColor(0.98f), PanelBorderColor(1.0f));
-        DrawText(TextOr("ps1ui_touch_guide_title", "TOUCH CONTROLS"), dx + 22.0f, dy + 18.0f, 19.0f, STYLE_HEADER,
+        DrawText(TextOr("ps1ui_touch_guide_title", "TOUCH CONTROLS"), dx + 22.0f, dy + 18.0f, 21.5f, STYLE_HEADER,
                  PrimaryTextColor(1.0f), dw - 44.0f, 1, 1, dw - 44.0f);
 
         const std::string tips[4] = {
@@ -2123,16 +2155,19 @@ void Ps1Renderer::DrawOverlay() {
             TextOr("ps1ui_touch_tip_4", "• Tap with two fingers anywhere to go Back."),
         };
         for (int i = 0; i < 4; ++i) {
-            DrawText(tips[i], dx + 26.0f, dy + 62.0f + static_cast<float>(i) * 38.0f,
-                     14.0f, STYLE_BODY, PrimaryTextColor(1.0f), dw - 52.0f, 2, 0);
+            DrawText(tips[i], dx + 26.0f, dy + 66.0f + static_cast<float>(i) * 46.0f,
+                     16.0f, STYLE_BODY, PrimaryTextColor(1.0f), dw - 52.0f, 2, 0);
         }
-        const float bw = 180.0f;
+        const float bw = 196.0f;
         const float bx = dx + (dw - bw) * 0.5f;
-        const float by = dy + dh - 52.0f;
-        DrawPanel(bx, by, bw, 36.0f, 7.0f, 1.5f, AccentColor(0.95f), PanelBotColor(0.98f), {1, 1, 1, 1});
-        DrawText(TextOr("ps1ui_got_it", "Got It"), bx, by + 9.0f, 14.5f, STYLE_BODY_BOLD,
+        const float by = dy + dh - 56.0f;
+        DrawPanel(bx, by, bw, 40.0f, 7.0f, 1.5f, AccentColor(0.95f), PanelBotColor(0.98f), {1, 1, 1, 1});
+        float gw = 0, gh = 0;
+        const std::string gotItLbl = TextOr("ps1ui_got_it", "Got It");
+        MeasureText(gotItLbl, 16.5f, STYLE_BODY_BOLD, bw, 1, gw, gh);
+        DrawText(gotItLbl, bx, by + (40.0f - gh) * 0.5f, 16.5f, STYLE_BODY_BOLD,
                  {1, 1, 1, 1}, bw, 1, 1, bw);
-        RegisterHit(bx, by, bw, 36.0f, HIT_OVERLAY_ITEM, 0);
+        RegisterHit(bx, by, bw, 40.0f, HIT_OVERLAY_ITEM, 0);
     }
 }
 
@@ -2201,23 +2236,14 @@ void Ps1Renderer::Draw() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Draw background shader + 3D spheres
+    // Draw background shader + 3D spheres (pure smooth continuous float, independent of cursor/screen)
     const float motionScale = (settings_.orbsMode == 2) ? 0.0f : (settings_.orbsMode == 1 ? 0.35f : 1.0f);
-    float parX = 0.0f, parY = 0.0f;
-    if (screen_ == SCREEN_MAIN_MENU) {
-        parX = -0.3f;
-        parY = (static_cast<float>(main_index_) - 1.0f) * 0.45f;
-    } else if (screen_ == SCREEN_GAMES) {
-        parX = 0.25f;
-    } else if (screen_ == SCREEN_MEMORY_CARD) {
-        parY = -0.25f;
-    }
     glUseProgram(prog_bg_);
     glUniform2f(bg_u_screen_, screen_width_, kScreenHeight);
     glUniform1f(bg_u_time_, time_sec_);
     glUniform1f(bg_u_motion_, motionScale);
     glUniform1i(bg_u_theme_, settings_.theme);
-    glUniform2f(bg_u_parallax_, parX, parY);
+    glUniform2f(bg_u_parallax_, 0.0f, 0.0f);
     glBindVertexArray(fs_vao_);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -2620,10 +2646,10 @@ void Ps1Renderer::OnKey(int key) {
         if (games_.empty()) return;
         const int n = static_cast<int>(games_.size());
         auto ensureGameVisible = [&]() {
-            const float rowStep = 48.0f;
+            const float rowStep = 59.0f;
             const float viewH = ComputeMetrics().bodyH - 44.0f;
             const float itemTop = static_cast<float>(game_index_) * rowStep;
-            const float itemBot = itemTop + 44.0f;
+            const float itemBot = itemTop + 54.0f;
             if (itemTop < game_scroll_target_y_) {
                 game_scroll_target_y_ = itemTop;
             } else if (itemBot > game_scroll_target_y_ + viewH) {
@@ -2797,10 +2823,10 @@ void Ps1Renderer::OnKey(int key) {
             return;
         }
         auto ensureSettingVisible = [&]() {
-            const float rowStep = 46.0f;
-            const float viewH = ComputeMetrics().bodyH - 24.0f;
+            const float rowStep = 53.0f;
+            const float viewH = ComputeMetrics().bodyH - 20.0f;
             const float top = static_cast<float>(settings_index_) * rowStep;
-            const float bot = top + 42.0f;
+            const float bot = top + 48.0f;
             if (top < settings_scroll_target_y_) settings_scroll_target_y_ = top;
             else if (bot > settings_scroll_target_y_ + viewH) settings_scroll_target_y_ = bot - viewH;
         };

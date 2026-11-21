@@ -478,74 +478,24 @@ fun HomeScreen(
                 },
                 topInset = topInset
             )
-        } else {
-            AnimatedContent(
-                targetState = isShelfView,
-                transitionSpec = {
-                    if (targetState) {
-                        (
-                            slideInHorizontally(
-                                initialOffsetX = { it / 5 },
-                                animationSpec = tween(440, easing = EaseOut)
-                            ) +
-                                fadeIn(animationSpec = tween(360, easing = EaseOut)) +
-                                scaleIn(
-                                    initialScale = 0.97f,
-                                    animationSpec = tween(440, easing = EaseOut)
-                                )
-                            ) togetherWith
-                            (
-                                slideOutHorizontally(
-                                    targetOffsetX = { -it / 8 },
-                                    animationSpec = tween(300, easing = EaseIn)
-                                ) +
-                                    fadeOut(animationSpec = tween(260, easing = EaseIn)) +
-                                    scaleOut(
-                                        targetScale = 0.985f,
-                                        animationSpec = tween(300, easing = EaseIn)
-                                    )
-                                )
-                    } else {
-                        (
-                            slideInHorizontally(
-                                initialOffsetX = { -it / 5 },
-                                animationSpec = tween(420, easing = EaseOut)
-                            ) +
-                                fadeIn(animationSpec = tween(350, easing = EaseOut)) +
-                                scaleIn(
-                                    initialScale = 0.985f,
-                                    animationSpec = tween(420, easing = EaseOut)
-                                )
-                            ) togetherWith
-                            (
-                                slideOutHorizontally(
-                                    targetOffsetX = { it / 5 },
-                                    animationSpec = tween(340, easing = EaseIn)
-                                ) +
-                                    fadeOut(animationSpec = tween(290, easing = EaseIn)) +
-                                    scaleOut(
-                                        targetScale = 0.97f,
-                                        animationSpec = tween(340, easing = EaseIn)
-                                    )
-                                )
-                    }
+        } else if (isShelfView) {
+            // Replace only the 3D carousel shelf with the native GLES 3.0 PS1 BIOS shell
+            // without slide/scale animations that can freeze SurfaceView BLAST crop on resize.
+            Ps1ShellScreen(
+                games = uiState.games,
+                isLoadingGames = uiState.isLoading || uiState.isBootstrapping,
+                isCoverArtDisabled = uiState.isCoverArtDisabled,
+                onGamePathSelected = onGamePathClick,
+                onSaveSelected = onSaveSelected,
+                onManageGame = onManageGameClick,
+                onExitShell = {
+                    onShelfModeChanged(false)
+                    viewModel.toggleShelfMode()
                 },
-                label = "home-library-mode"
-            ) { shelfMode ->
-                if (shelfMode) {
-                    // Replace only the 3D carousel shelf with the native GLES 3.0 PS1 BIOS shell.
-                    Ps1ShellScreen(
-                        games = uiState.games,
-                        isLoadingGames = uiState.isLoading || uiState.isBootstrapping,
-                        isCoverArtDisabled = uiState.isCoverArtDisabled,
-                        onGamePathSelected = onGamePathClick,
-                        onSaveSelected = onSaveSelected,
-                        onManageGame = onManageGameClick,
-                        onExitShell = viewModel::toggleShelfMode,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    val columns = if (isListView) GridCells.Fixed(1) else GridCells.Adaptive(minSize = minCellSize)
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            val columns = if (isListView) GridCells.Fixed(1) else GridCells.Adaptive(minSize = minCellSize)
 
                     Box(
                         modifier = Modifier
@@ -579,7 +529,10 @@ fun HomeScreen(
                                     onToggleDiscGrouping = viewModel::toggleDiscGrouping,
                                     onSortSelected = viewModel::updateSortOption,
                                     onRefresh = viewModel::refreshGames,
-                                    onToggleShelfMode = viewModel::toggleShelfMode,
+                                    onToggleShelfMode = {
+                                        onShelfModeChanged(true)
+                                        viewModel.toggleShelfMode()
+                                    },
                                     onToggleLibraryViewMode = viewModel::toggleLibraryViewMode,
                                     onMenuClick = onMenuClick
                                 )
@@ -754,8 +707,6 @@ fun HomeScreen(
                                 }
                             }
                         )
-                    }
-                }
             }
         }
     }

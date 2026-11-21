@@ -21,6 +21,7 @@ import android.os.StatFs
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
@@ -647,6 +648,10 @@ fun Ps1ShellScreen(
         var longPressRunnable: Runnable? = null
 
         GLSurfaceView(context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
             setEGLContextClientVersion(3)
             preserveEGLContextOnPause = true
             setRenderer(

@@ -212,7 +212,7 @@ fun AdaptiveShell(
     val tvSafeVertical = TvUiMetrics.safeVerticalDp(configuration.screenHeightDp).dp
     val tvNavigationWidth = TvUiMetrics.navigationWidthDp(configuration.screenWidthDp).dp
 
-    if (showPermanentRail) {
+    if (isWide) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -225,27 +225,29 @@ fun AdaptiveShell(
                     }
                 )
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(
-                        when {
-                            tvUiEnabled -> tvNavigationWidth
-                            else -> when (drawerVisualStyle) {
-                            DrawerVisualStyle.COMPACT -> 272.dp
-                            DrawerVisualStyle.CONSOLE -> 348.dp
-                            else -> 320.dp
-                        }
-                        }
-                    )
-                    .padding(
-                        start = 12.dp,
-                        end = if (tvUiEnabled) 16.dp else 0.dp,
-                        top = if (tvUiEnabled) 6.dp else 12.dp,
-                        bottom = 12.dp
-                    )
-            ) {
-                navContent()
+            if (showPermanentRail) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(
+                            when {
+                                tvUiEnabled -> tvNavigationWidth
+                                else -> when (drawerVisualStyle) {
+                                DrawerVisualStyle.COMPACT -> 272.dp
+                                DrawerVisualStyle.CONSOLE -> 348.dp
+                                else -> 320.dp
+                            }
+                            }
+                        )
+                        .padding(
+                            start = 12.dp,
+                            end = if (tvUiEnabled) 16.dp else 0.dp,
+                            top = if (tvUiEnabled) 6.dp else 12.dp,
+                            bottom = 12.dp
+                        )
+                ) {
+                    navContent()
+                }
             }
             Box(
                 modifier = Modifier

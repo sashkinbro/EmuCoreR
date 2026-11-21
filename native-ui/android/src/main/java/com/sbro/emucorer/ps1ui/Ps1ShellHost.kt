@@ -196,7 +196,8 @@ object Ps1ShellHost {
         KeyEvent.KEYCODE_ENTER -> KEY_CONFIRM
         KeyEvent.KEYCODE_BUTTON_A -> if (swapConfirmButton) KEY_BACK else KEY_CONFIRM
         KeyEvent.KEYCODE_BUTTON_B -> if (swapConfirmButton) KEY_CONFIRM else KEY_BACK
-        KeyEvent.KEYCODE_BACK,
+        // KEYCODE_BACK is handled via Compose BackHandler (including Android 13-16 predictive back)
+        // so mapping it here would fire KEY_BACK twice per system Back press.
         KeyEvent.KEYCODE_ESCAPE -> KEY_BACK
         KeyEvent.KEYCODE_BUTTON_Y,
         KeyEvent.KEYCODE_MENU,
