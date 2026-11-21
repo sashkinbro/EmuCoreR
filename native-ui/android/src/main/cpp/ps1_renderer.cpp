@@ -1006,7 +1006,7 @@ void Ps1Renderer::DrawBootIntro(float alpha) {
             const float textA = textP * act1Vis;
             if (textA > 0.01f) {
                 const float slideY = (1.0f - textP) * 10.0f;
-                const std::string brand = "EMUCORE R";
+                const std::string brand = "EmuCoreR";
                 const std::string sub = TextOr("ps1ui_boot_subtitle", "PlayStation 1");
                 float bw = 0, bh = 0, sw = 0, sh = 0;
                 MeasureText(brand, 34.0f, STYLE_HEADER, 520.0f, 1, bw, bh);
@@ -1110,7 +1110,7 @@ void Ps1Renderer::DrawBootIntro(float alpha) {
 
         // Luminous PlayStation 1 wordmark + EmuCoreR badge
         const std::string psTitle = TextOr("ps1ui_boot_subtitle", "PlayStation 1");
-        const std::string subBrand = "EMUCORE R";
+        const std::string subBrand = "EmuCoreR";
         float tw = 0, th = 0, sw = 0, sh = 0;
         MeasureText(psTitle, 38.0f, STYLE_HEADER, 600.0f, 1, tw, th);
         MeasureText(subBrand, 14.5f, STYLE_MONO, 400.0f, 1, sw, sh);
