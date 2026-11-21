@@ -836,6 +836,40 @@ fun Ps1ShellScreen(
         }
 
         Ps1ShellHost.setDeleteSaveListener { index ->
+            if (index < 0) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    val cards = runCatching { cardRepo.listCards() }.getOrDefault(emptyList())
+                    val cur = runCatching { cardRepo.currentAssignments() }.getOrNull()
+                    when (index) {
+                        -101, -102 -> {
+                            val slotNum = if (index == -101) 1 else 2
+                            val curName = if (slotNum == 1) cur?.slot1 else cur?.slot2
+                            if (cards.isNotEmpty()) {
+                                val curIdx = cards.indexOfFirst { it.name.equals(curName, ignoreCase = true) }
+                                val nextCard = cards[(curIdx + 1) % cards.size]
+                                cardRepo.assignCardToSlot(slotNum, nextCard.name)
+                            }
+                        }
+                        -103 -> {
+                            if (cur != null) {
+                                cardRepo.assignCardToSlot(1, cur.slot2)
+                                cardRepo.assignCardToSlot(2, cur.slot1)
+                            }
+                        }
+                        -104, -105 -> {
+                            val slotNum = if (index == -104) 1 else 2
+                            val created = cardRepo.createPs1Card("MemoryCard")
+                            if (created.success && created.cardName != null) {
+                                cardRepo.assignCardToSlot(slotNum, created.cardName)
+                            }
+                        }
+                    }
+                    withContext(Dispatchers.Main) {
+                        savesRevision++
+                    }
+                }
+                return@setDeleteSaveListener
+            }
             val entry = currentSaves.value.getOrNull(index)
             if (entry != null) {
                 coroutineScope.launch(Dispatchers.IO) {

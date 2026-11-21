@@ -880,6 +880,10 @@ void Ps1Renderer::DrawBottomBar(float alpha) {
         if (mc_tab_ != 2) {
             btns.push_back({confirmSym, TextOr("ps1ui_mc_load", "Load"), KEY_CONFIRM, confirmCol});
             btns.push_back({"□", TextOr("ps1ui_mc_delete", "Delete"), KEY_SECONDARY, {0.96f, 0.48f, 0.36f, 1.0f}});
+        } else {
+            btns.push_back({confirmSym, TextOr("ps1ui_hint_change", "Change"), KEY_CONFIRM, confirmCol});
+            btns.push_back({"□", "Swap 1↔2", KEY_SECONDARY, {0.88f, 0.48f, 0.92f, 1.0f}});
+            btns.push_back({"△", "+128K Card", KEY_OPTIONS, {0.28f, 0.86f, 0.56f, 1.0f}});
         }
         btns.push_back({backSym, TextOr("ps1ui_hint_back", "Back"), KEY_BACK, backCol});
     } else if (screen_ == SCREEN_SETTINGS) {
@@ -2951,6 +2955,15 @@ void Ps1Renderer::OnKey(int key) {
             if (key == KEY_LEFT || key == KEY_RIGHT) {
                 mc_card_slot_idx_ = 1 - mc_card_slot_idx_;
                 HostPlaySfx(SFX_MOVE);
+            } else if (key == KEY_CONFIRM || key == KEY_START) {
+                HostPlaySfx(SFX_CONFIRM);
+                HostNotifyDeleteSave(mc_card_slot_idx_ == 0 ? -101 : -102);
+            } else if (key == KEY_SECONDARY) {
+                HostPlaySfx(SFX_CONFIRM);
+                HostNotifyDeleteSave(-103);
+            } else if (key == KEY_OPTIONS) {
+                HostPlaySfx(SFX_CONFIRM);
+                HostNotifyDeleteSave(mc_card_slot_idx_ == 0 ? -104 : -105);
             }
             return;
         }
@@ -3260,8 +3273,13 @@ void Ps1Renderer::OnTouchUp(float normX, float normY) {
         }
 
         case HIT_CARD_SLOT:
-            mc_card_slot_idx_ = hit->index;
-            HostPlaySfx(SFX_MOVE);
+            if (mc_card_slot_idx_ == hit->index) {
+                HostPlaySfx(SFX_CONFIRM);
+                HostNotifyDeleteSave(mc_card_slot_idx_ == 0 ? -101 : -102);
+            } else {
+                mc_card_slot_idx_ = hit->index;
+                HostPlaySfx(SFX_MOVE);
+            }
             break;
 
         case HIT_SETTING_LEFT:
