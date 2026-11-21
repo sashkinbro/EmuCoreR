@@ -1300,7 +1300,7 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
         const float ty = ry + (rowH - thumbS) * 0.5f;
         const auto& cov = GetOrCreateImage(games_[i].coverPath, 160);
         if (cov.tex) {
-            DrawImageAspectFit(cov, tx, ty, thumbS, thumbS, alpha, true);
+            DrawImageAspectFit(cov, tx, ty, thumbS, thumbS, alpha, false);
         } else {
             DrawOpticalDisc(tx + thumbS * 0.5f, ty + thumbS * 0.5f, thumbS * 0.46f,
                             selected ? disc_spin_angle_ : 0.4f, alpha);
@@ -1391,30 +1391,43 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
     const float caseX = rightX + (rightW - caseSize * 1.24f) * 0.5f;
     const float caseY = topY + 14.0f;
 
+    const auto& coverImg = GetOrCreateImage(g.coverPath, 512);
+    float fitBoxW = caseSize;
+    float fitBoxH = caseSize;
+    if (coverImg.tex && coverImg.w > 0 && coverImg.h > 0) {
+        const float aspect = std::clamp(
+            static_cast<float>(coverImg.w) / static_cast<float>(coverImg.h),
+            0.65f, 1.25f);
+        if (aspect >= 1.0f) {
+            fitBoxW = caseSize;
+            fitBoxH = caseSize / aspect;
+        } else {
+            fitBoxH = caseSize;
+            fitBoxW = caseSize * aspect;
+        }
+    }
+    const float fitBoxX = caseX + (caseSize - fitBoxW) * 0.5f;
+    const float fitBoxY = caseY + (caseSize - fitBoxH) * 0.5f;
+
     // Peeking spinning PS1 black-bottom optical disc on the right of the jewel case
-    const float discRadius = caseSize * 0.44f;
-    const float discCx = caseX + caseSize * 0.94f;
-    const float discCy = caseY + caseSize * 0.50f;
+    const float discRadius = std::min(fitBoxW, fitBoxH) * 0.44f;
+    const float discCx = fitBoxX + fitBoxW * 0.94f;
+    const float discCy = fitBoxY + fitBoxH * 0.50f;
     DrawOpticalDisc(discCx, discCy, discRadius, disc_spin_angle_, alpha);
 
-    // Jewel Case shadow + shell + left spine + cover art + acrylic highlight
-    DrawPanel(caseX + 4.0f, caseY + 5.0f, caseSize, caseSize, 4.0f, 0.0f,
+    // Jewel Case shadow + snug outer shell + uncropped cover art + acrylic highlight
+    DrawPanel(fitBoxX + 4.0f, fitBoxY + 5.0f, fitBoxW, fitBoxH, 4.0f, 0.0f,
               {0.0f, 0.0f, 0.04f, 0.52f * alpha}, {0.0f, 0.0f, 0.04f, 0.52f * alpha}, {0, 0, 0, 0});
-    DrawPanel(caseX, caseY, caseSize, caseSize, 3.0f, 1.4f,
+    DrawPanel(fitBoxX, fitBoxY, fitBoxW, fitBoxH, 3.0f, 1.4f,
               {0.06f, 0.08f, 0.16f, 0.96f * alpha}, {0.03f, 0.04f, 0.10f, 0.98f * alpha},
               {0.62f, 0.72f, 0.94f, 0.85f * alpha});
 
-    const float spineW = std::max(12.0f, caseSize * 0.10f);
-    DrawPanel(caseX + 2.0f, caseY + 2.0f, spineW, caseSize - 4.0f, 1.0f, 0.0f,
-              {0.08f, 0.09f, 0.14f, 0.98f * alpha}, {0.04f, 0.05f, 0.09f, 0.98f * alpha}, {0, 0, 0, 0});
-
-    const float artX = caseX + spineW + 2.0f;
-    const float artY = caseY + 3.0f;
-    const float artW = caseSize - spineW - 5.0f;
-    const float artH = caseSize - 6.0f;
-    const auto& coverImg = GetOrCreateImage(g.coverPath, 512);
+    const float artX = fitBoxX + 3.0f;
+    const float artY = fitBoxY + 3.0f;
+    const float artW = fitBoxW - 6.0f;
+    const float artH = fitBoxH - 6.0f;
     if (coverImg.tex) {
-        DrawImageAspectFit(coverImg, artX, artY, artW, artH, alpha, true);
+        DrawImageAspectFit(coverImg, artX, artY, artW, artH, alpha, false);
     } else {
         DrawPanel(artX, artY, artW, artH, 2.0f, 0.0f,
                   {0.09f, 0.14f, 0.36f, 0.95f * alpha},
@@ -2058,7 +2071,7 @@ void Ps1Renderer::DrawLaunchStage() {
               {0.06f, 0.08f, 0.18f, uiAlpha}, {0.03f, 0.04f, 0.10f, uiAlpha},
               {0.58f, 0.72f, 1.0f, uiAlpha});
     if (cov.tex) {
-        DrawImageAspectFit(cov, bx + 4.0f, by + 4.0f, boxS - 8.0f, boxS - 8.0f, uiAlpha, true);
+        DrawImageAspectFit(cov, bx + 4.0f, by + 4.0f, boxS - 8.0f, boxS - 8.0f, uiAlpha, false);
     } else {
         DrawOpticalDisc(bx + boxS * 0.5f, by + boxS * 0.5f, boxS * 0.36f, -spin * 0.5f, uiAlpha);
     }
