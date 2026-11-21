@@ -47,8 +47,7 @@ object Ps1TextRasterizer {
     private val mainPaint = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
         color = Color.WHITE
     }
-    private val shadowPaint = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG)
-    private val outlinePaint = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG)
+    private var pixelScratch = IntArray(0)
 
     /**
      * Rasterizes [text] into a byte buffer:
@@ -66,7 +65,7 @@ object Ps1TextRasterizer {
         rasterScale: Float,
     ): ByteArray? {
         if (text.isEmpty()) return null
-        val scale = rasterScale.coerceIn(1.25f, 3.75f)
+        val scale = rasterScale.coerceIn(1.25f, 2.5f)
         val pxFontSize = (virtualFontSize * scale).coerceIn(10f, 220f)
         val clampedMaxLines = maxLines.coerceIn(1, 16)
         val hasMaxWidth = maxVirtualWidth > 1f
@@ -83,6 +82,8 @@ object Ps1TextRasterizer {
                 STYLE_MONO -> monoBold
                 else -> sansRegular
             }
+            mainPaint.style = Paint.Style.FILL
+            mainPaint.color = Color.WHITE
             mainPaint.typeface = typeface
             mainPaint.textSize = pxFontSize
             mainPaint.letterSpacing = when (style) {
@@ -101,10 +102,17 @@ object Ps1TextRasterizer {
             val padTop = ceil(scale * 1.2f).toInt()
             val padBottom = ceil(shadowOffset + scale * 1.5f).toInt()
 
+            val isSingleLine = clampedMaxLines == 1 && text.indexOf('\n') < 0
+            val desiredPx = if (isSingleLine) {
+                ceil(mainPaint.measureText(text)).toInt().coerceIn(1, 3000)
+            } else {
+                ceil(StaticLayout.getDesiredWidth(text, mainPaint)).toInt().coerceIn(1, 3000)
+            }
+
             val effectiveAvailPx = if (hasMaxWidth) {
                 (pxMaxWidth - padLeft - padRight).coerceAtLeast(8)
             } else {
-                ceil(StaticLayout.getDesiredWidth(text, mainPaint)).toInt().coerceIn(4, 3000)
+                desiredPx.coerceAtLeast(4)
             }
 
             val layoutAlign = when (align) {
@@ -113,11 +121,12 @@ object Ps1TextRasterizer {
                 else -> Layout.Alignment.ALIGN_NORMAL
             }
 
-            val layoutWidth = if (hasMaxWidth && align != ALIGN_START) {
+            val layoutWidth = if (!isSingleLine && hasMaxWidth && align != ALIGN_START) {
                 effectiveAvailPx
+            } else if (hasMaxWidth) {
+                desiredPx.coerceAtMost(effectiveAvailPx)
             } else {
-                val desired = ceil(StaticLayout.getDesiredWidth(text, mainPaint)).toInt().coerceAtLeast(1)
-                if (hasMaxWidth) desired.coerceAtMost(effectiveAvailPx) else desired
+                desiredPx
             }
 
             val mainLayout = buildLayout(text, mainPaint, layoutWidth, layoutAlign, clampedMaxLines, effectiveAvailPx)
@@ -125,7 +134,7 @@ object Ps1TextRasterizer {
             for (i in 0 until mainLayout.lineCount) {
                 measuredContentW = max(measuredContentW, mainLayout.getLineWidth(i))
             }
-            val finalLayoutWidth = if (hasMaxWidth && align != ALIGN_START) {
+            val finalLayoutWidth = if (!isSingleLine && hasMaxWidth && align != ALIGN_START) {
                 effectiveAvailPx
             } else {
                 ceil(measuredContentW).toInt().coerceIn(1, effectiveAvailPx)
@@ -143,47 +152,46 @@ object Ps1TextRasterizer {
             try {
                 val canvas = Canvas(bitmap)
 
-                // Hard PS1-style drop shadow
-                shadowPaint.set(mainPaint)
-                shadowPaint.color = when (style) {
+                // Hard PS1-style drop shadow (reuse finalMainLayout by mutating mainPaint)
+                mainPaint.style = Paint.Style.FILL
+                mainPaint.color = when (style) {
                     STYLE_GRAFFITI -> Color.argb(245, 0, 0, 0)
                     STYLE_HEADER -> Color.argb(230, 0, 0, 8)
                     else -> Color.argb(190, 0, 0, 10)
                 }
-                val shadowLayout = buildLayout(
-                    text, shadowPaint, finalLayoutWidth, layoutAlign, clampedMaxLines, finalLayoutWidth
-                )
                 canvas.save()
                 canvas.translate(padLeft + shadowOffset, padTop + shadowOffset)
-                shadowLayout.draw(canvas)
+                finalMainLayout.draw(canvas)
                 canvas.restore()
 
                 // Thin dark halo stroke behind main menu graffiti labels for contrast on bright splashes
                 if (style == STYLE_GRAFFITI) {
-                    outlinePaint.set(mainPaint)
-                    outlinePaint.style = Paint.Style.STROKE
-                    outlinePaint.strokeWidth = max(1.8f, pxFontSize * 0.06f)
-                    outlinePaint.strokeJoin = Paint.Join.ROUND
-                    outlinePaint.color = Color.argb(215, 4, 6, 22)
-                    val strokeLayout = buildLayout(
-                        text, outlinePaint, finalLayoutWidth, layoutAlign, clampedMaxLines, finalLayoutWidth
-                    )
+                    mainPaint.style = Paint.Style.STROKE
+                    mainPaint.strokeWidth = max(1.8f, pxFontSize * 0.06f)
+                    mainPaint.strokeJoin = Paint.Join.ROUND
+                    mainPaint.color = Color.argb(215, 4, 6, 22)
                     canvas.save()
                     canvas.translate(padLeft.toFloat(), padTop.toFloat())
-                    strokeLayout.draw(canvas)
+                    finalMainLayout.draw(canvas)
                     canvas.restore()
                 }
 
                 // Crisp foreground glyphs
+                mainPaint.style = Paint.Style.FILL
+                mainPaint.color = Color.WHITE
                 canvas.save()
                 canvas.translate(padLeft.toFloat(), padTop.toFloat())
                 finalMainLayout.draw(canvas)
                 canvas.restore()
 
-                val pixels = IntArray(texW * texH)
+                val numPixels = texW * texH
+                if (pixelScratch.size < numPixels) {
+                    pixelScratch = IntArray(numPixels)
+                }
+                val pixels = pixelScratch
                 bitmap.getPixels(pixels, 0, texW, 0, 0, texW, texH)
 
-                val out = ByteBuffer.allocate(16 + texW * texH * 4).order(ByteOrder.LITTLE_ENDIAN)
+                val out = ByteBuffer.allocate(16 + numPixels * 4).order(ByteOrder.LITTLE_ENDIAN)
                 out.putInt(texW)
                 out.putInt(texH)
                 out.putInt(((texW / scale) * 100f).roundToInt())
@@ -191,7 +199,8 @@ object Ps1TextRasterizer {
 
                 val rawBytes = out.array()
                 var offset = 16
-                for (argb in pixels) {
+                for (i in 0 until numPixels) {
+                    val argb = pixels[i]
                     val a = (argb ushr 24) and 0xFF
                     if (a == 0) {
                         rawBytes[offset] = 0
@@ -199,12 +208,9 @@ object Ps1TextRasterizer {
                         rawBytes[offset + 2] = 0
                         rawBytes[offset + 3] = 0
                     } else {
-                        val r = (argb ushr 16) and 0xFF
-                        val g = (argb ushr 8) and 0xFF
-                        val b = argb and 0xFF
-                        rawBytes[offset] = r.toByte()
-                        rawBytes[offset + 1] = g.toByte()
-                        rawBytes[offset + 2] = b.toByte()
+                        rawBytes[offset] = ((argb ushr 16) and 0xFF).toByte()
+                        rawBytes[offset + 1] = ((argb ushr 8) and 0xFF).toByte()
+                        rawBytes[offset + 2] = (argb and 0xFF).toByte()
                         rawBytes[offset + 3] = a.toByte()
                     }
                     offset += 4

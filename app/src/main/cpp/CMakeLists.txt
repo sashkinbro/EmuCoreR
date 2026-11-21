@@ -24,6 +24,13 @@ add_compile_definitions(ECR_HOST_PAGE_SIZE=${EMUCORER_HOST_PAGE_SIZE})
 # even when a toolchain default changes.
 add_link_options("-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")
 
+# Enable ThinLTO across the Android JNI bridge and core dependencies.
+option(EMUCORER_ENABLE_LTO "Enable ThinLTO for Android native targets" ON)
+if(EMUCORER_ENABLE_LTO AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options("-flto=thin")
+    add_link_options("-flto=thin")
+endif()
+
 # Discord Social SDK is an optional local build input used by the isolated
 # :discord helper process. When absent, emucorer_discord is not built and the
 # integration reports unavailable.

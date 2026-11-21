@@ -205,12 +205,11 @@ bool Ps1Renderer::CompileShaders() {
     quad_u_texture_ = glGetUniformLocation(prog_quad_, "u_texture");
 
     bg_u_screen_ = glGetUniformLocation(prog_bg_, "u_screen");
-    bg_u_time_ = glGetUniformLocation(prog_bg_, "u_time");
-    bg_u_motion_ = glGetUniformLocation(prog_bg_, "u_motion_scale");
     bg_u_theme_ = glGetUniformLocation(prog_bg_, "u_theme");
-    bg_u_parallax_ = glGetUniformLocation(prog_bg_, "u_parallax");
+    bg_u_spheres_ = glGetUniformLocation(prog_bg_, "u_spheres");
 
     graf_u_screen_ = glGetUniformLocation(prog_graffiti_, "u_screen");
+    graf_u_rect_ = glGetUniformLocation(prog_graffiti_, "u_rect");
     graf_u_seed_ = glGetUniformLocation(prog_graffiti_, "u_seed");
     graf_u_focus_ = glGetUniformLocation(prog_graffiti_, "u_focus");
     graf_u_alpha_ = glGetUniformLocation(prog_graffiti_, "u_alpha");
@@ -218,6 +217,7 @@ bool Ps1Renderer::CompileShaders() {
     graf_u_theme_ = glGetUniformLocation(prog_graffiti_, "u_theme");
 
     pan_u_screen_ = glGetUniformLocation(prog_panel_, "u_screen");
+    pan_u_rect_ = glGetUniformLocation(prog_panel_, "u_rect");
     pan_u_size_ = glGetUniformLocation(prog_panel_, "u_size");
     pan_u_radius_ = glGetUniformLocation(prog_panel_, "u_radius");
     pan_u_border_px_ = glGetUniformLocation(prog_panel_, "u_border_px");
@@ -227,6 +227,7 @@ bool Ps1Renderer::CompileShaders() {
     pan_u_glow_col_ = glGetUniformLocation(prog_panel_, "u_glow_col");
 
     disc_u_screen_ = glGetUniformLocation(prog_disc_, "u_screen");
+    disc_u_rect_ = glGetUniformLocation(prog_disc_, "u_rect");
     disc_u_angle_ = glGetUniformLocation(prog_disc_, "u_angle");
     disc_u_alpha_ = glGetUniformLocation(prog_disc_, "u_alpha");
     disc_u_theme_ = glGetUniformLocation(prog_disc_, "u_theme");
@@ -292,11 +293,15 @@ const Ps1Renderer::TextCacheEntry& Ps1Renderer::GetOrCreateText(
     static const TextCacheEntry kEmpty{};
     if (text.empty()) return kEmpty;
 
-    const std::string key = MakeTextCacheKey(text, fontSize, style, maxWidth, maxLines, align);
+    // Single-line text bitmaps are tightly cropped to content width and aligned in DrawText,
+    // so normalizing align to 0 lets MeasureText and DrawText share the same cache entry.
+    const int effAlign = (maxLines <= 1) ? 0 : align;
+    const std::string key = MakeTextCacheKey(text, fontSize, style, maxWidth, maxLines, effAlign);
     auto it = text_cache_.find(key);
     if (it != text_cache_.end()) {
-        text_lru_.remove(key);
-        text_lru_.push_front(key);
+        if (it->second.lruIt != text_lru_.begin()) {
+            text_lru_.splice(text_lru_.begin(), text_lru_, it->second.lruIt);
+        }
         return it->second;
     }
 
@@ -306,7 +311,7 @@ const Ps1Renderer::TextCacheEntry& Ps1Renderer::GetOrCreateText(
     float logH = 0.0f;
     std::vector<uint8_t> rgba;
     if (!HostRasterizeText(
-            text, fontSize, style, maxWidth, maxLines, align, raster_scale_,
+            text, fontSize, style, maxWidth, maxLines, effAlign, raster_scale_,
             texW, texH, logW, logH, rgba)) {
         return kEmpty;
     }
@@ -323,45 +328,57 @@ const Ps1Renderer::TextCacheEntry& Ps1Renderer::GetOrCreateText(
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texW, texH, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
 
-    TextCacheEntry entry{tex, logW, logH};
-    text_cache_[key] = entry;
     text_lru_.push_front(key);
-    return text_cache_[key];
+    TextCacheEntry entry{tex, logW, logH, text_lru_.begin()};
+    auto [insIt, _] = text_cache_.emplace(key, entry);
+    return insIt->second;
 }
 
 const Ps1Renderer::ImageCacheEntry& Ps1Renderer::GetOrCreateImage(const std::string& path, int maxDim) {
     static const ImageCacheEntry kEmpty{};
     if (path.empty()) return kEmpty;
 
-    char keyBuf[32];
-    std::snprintf(keyBuf, sizeof(keyBuf), "|%d", maxDim);
-    const std::string key = path + keyBuf;
+    // Unify cover & preview textures at 320px with hardware mipmaps so row thumbnails and
+    // jewel-case / CRT previews share a single decoded GL texture instead of decoding twice.
+    const int effMaxDim = std::clamp(maxDim, 64, 320);
+    const std::string& key = path;
     auto it = image_cache_.find(key);
     if (it != image_cache_.end()) {
-        image_lru_.remove(key);
-        image_lru_.push_front(key);
+        if (it->second.lruIt != image_lru_.begin()) {
+            image_lru_.splice(image_lru_.begin(), image_lru_, it->second.lruIt);
+        }
         return it->second;
     }
+
+    // Throttle synchronous disk image decodes per frame so scrolling never drops below 60 FPS
+    // on low-end devices; uncached entries render the spinning disc placeholder until their turn.
+    const int maxDecodesPerFrame = launching_ ? 2 : 1;
+    if (image_decodes_this_frame_ >= maxDecodesPerFrame) {
+        return kEmpty;
+    }
+    ++image_decodes_this_frame_;
 
     EvictImageCacheIfNeeded();
 
     ImageCacheEntry entry{};
     entry.attempted = true;
     std::vector<uint8_t> rgba;
-    if (HostDecodeImage(path, maxDim, entry.w, entry.h, rgba) && entry.w > 0 && entry.h > 0) {
+    if (HostDecodeImage(path, effMaxDim, entry.w, entry.h, rgba) && entry.w > 0 && entry.h > 0) {
         glGenTextures(1, &entry.tex);
         glBindTexture(GL_TEXTURE_2D, entry.tex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glTexImage2D(
             GL_TEXTURE_2D, 0, GL_RGBA8, entry.w, entry.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+        glGenerateMipmap(GL_TEXTURE_2D);
     }
-    image_cache_[key] = entry;
     image_lru_.push_front(key);
-    return image_cache_[key];
+    entry.lruIt = image_lru_.begin();
+    auto [insIt, _] = image_cache_.emplace(key, entry);
+    return insIt->second;
 }
 
 void Ps1Renderer::MeasureText(
@@ -419,7 +436,6 @@ void Ps1Renderer::FlushQuadBatch() {
     glBindVertexArray(vao_);
     glBindBuffer(GL_ARRAY_BUFFER, vbo_);
     const size_t byteSize = batch_verts_.size() * sizeof(Vertex);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(byteSize), nullptr, GL_STREAM_DRAW);
     glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(byteSize), batch_verts_.data());
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(batch_verts_.size()));
     batch_verts_.clear();
@@ -474,16 +490,9 @@ void Ps1Renderer::DrawPanel(
     if (w <= 0.5f || h <= 0.5f) return;
     FlushQuadBatch();
 
-    const Vertex verts[6] = {
-        {x,     y,     0.0f, 0.0f, 1, 1, 1, 1},
-        {x + w, y,     1.0f, 0.0f, 1, 1, 1, 1},
-        {x + w, y + h, 1.0f, 1.0f, 1, 1, 1, 1},
-        {x,     y,     0.0f, 0.0f, 1, 1, 1, 1},
-        {x + w, y + h, 1.0f, 1.0f, 1, 1, 1, 1},
-        {x,     y + h, 0.0f, 1.0f, 1, 1, 1, 1},
-    };
     glUseProgram(prog_panel_);
     glUniform2f(pan_u_screen_, screen_width_, kScreenHeight);
+    glUniform4f(pan_u_rect_, x, y, w, h);
     glUniform2f(pan_u_size_, w, h);
     glUniform1f(pan_u_radius_, radius);
     glUniform1f(pan_u_border_px_, borderPx);
@@ -492,11 +501,8 @@ void Ps1Renderer::DrawPanel(
     glUniform4f(pan_u_border_col_, borderCol.r, borderCol.g, borderCol.b, borderCol.a);
     glUniform4f(pan_u_glow_col_, glowCol.r, glowCol.g, glowCol.b, glowCol.a);
 
-    glBindVertexArray(vao_);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), nullptr, GL_STREAM_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(fs_vao_);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 void Ps1Renderer::DrawGraffitiSplash(
@@ -504,27 +510,17 @@ void Ps1Renderer::DrawGraffitiSplash(
     if (w <= 1.0f || h <= 1.0f || alpha <= 0.005f) return;
     FlushQuadBatch();
 
-    const Vertex verts[6] = {
-        {x,     y,     0.0f, 0.0f, 1, 1, 1, 1},
-        {x + w, y,     1.0f, 0.0f, 1, 1, 1, 1},
-        {x + w, y + h, 1.0f, 1.0f, 1, 1, 1, 1},
-        {x,     y,     0.0f, 0.0f, 1, 1, 1, 1},
-        {x + w, y + h, 1.0f, 1.0f, 1, 1, 1, 1},
-        {x,     y + h, 0.0f, 1.0f, 1, 1, 1, 1},
-    };
     glUseProgram(prog_graffiti_);
     glUniform2f(graf_u_screen_, screen_width_, kScreenHeight);
+    glUniform4f(graf_u_rect_, x, y, w, h);
     glUniform1f(graf_u_seed_, seed);
     glUniform1f(graf_u_focus_, focus);
     glUniform1f(graf_u_alpha_, alpha);
     glUniform1f(graf_u_time_, time_sec_);
     glUniform1i(graf_u_theme_, settings_.theme);
 
-    glBindVertexArray(vao_);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), nullptr, GL_STREAM_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(fs_vao_);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 void Ps1Renderer::DrawOpticalDisc(float cx, float cy, float radius, float angleRad, float alpha) {
@@ -534,25 +530,15 @@ void Ps1Renderer::DrawOpticalDisc(float cx, float cy, float radius, float angleR
     const float x = cx - radius;
     const float y = cy - radius;
     const float d = radius * 2.0f;
-    const Vertex verts[6] = {
-        {x,     y,     0.0f, 0.0f, 1, 1, 1, 1},
-        {x + d, y,     1.0f, 0.0f, 1, 1, 1, 1},
-        {x + d, y + d, 1.0f, 1.0f, 1, 1, 1, 1},
-        {x,     y,     0.0f, 0.0f, 1, 1, 1, 1},
-        {x + d, y + d, 1.0f, 1.0f, 1, 1, 1, 1},
-        {x,     y + d, 0.0f, 1.0f, 1, 1, 1, 1},
-    };
     glUseProgram(prog_disc_);
     glUniform2f(disc_u_screen_, screen_width_, kScreenHeight);
+    glUniform4f(disc_u_rect_, x, y, d, d);
     glUniform1f(disc_u_angle_, angleRad);
     glUniform1f(disc_u_alpha_, alpha);
     glUniform1i(disc_u_theme_, settings_.theme);
 
-    glBindVertexArray(vao_);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), nullptr, GL_STREAM_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(fs_vao_);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 void Ps1Renderer::DrawTriangleCursor(float cx, float cy, float size, float alpha) {
@@ -755,7 +741,7 @@ void Ps1Renderer::DrawHeaderPlaque(const std::string& title, float alpha) {
         bx, by + (boxH - th) * 0.5f,
         24.0f, STYLE_HEADER,
         {1.0f, 1.0f, 1.0f, alpha},
-        boxW - 14.0f, 1, 1, boxW);
+        400.0f, 1, 1, boxW);
 }
 
 std::string Ps1Renderer::FormatClockText() const {
@@ -794,19 +780,34 @@ std::string Ps1Renderer::FormatCurrentDateText() const {
 
 void Ps1Renderer::DrawStatusBar(float alpha) {
     const LayoutMetrics m = ComputeMetrics();
-    const std::string clockStr = FormatClockText();
-    const std::string dateStr = FormatCurrentDateText();
+    const std::time_t nowSec = std::time(nullptr);
+    const int clampedBat = std::clamp(status_.batteryLevel, 0, 100);
+    if (nowSec != cached_status_sec_ ||
+        clampedBat != cached_status_battery_ ||
+        status_.batteryCharging != cached_status_charging_ ||
+        settings_.time24h != cached_status_time24h_ ||
+        settings_.dateFormat != cached_status_date_fmt_ ||
+        cached_status_line_.empty()) {
+        cached_status_sec_ = nowSec;
+        cached_status_battery_ = clampedBat;
+        cached_status_charging_ = status_.batteryCharging;
+        cached_status_time24h_ = settings_.time24h;
+        cached_status_date_fmt_ = settings_.dateFormat;
 
-    char statusBuf[128];
-    std::snprintf(
-        statusBuf, sizeof(statusBuf), "%s  •  %s  •  %s%d%%",
-        dateStr.c_str(),
-        clockStr.c_str(),
-        status_.batteryCharging ? "⚡ " : "",
-        std::clamp(status_.batteryLevel, 0, 100));
+        const std::string clockStr = FormatClockText();
+        const std::string dateStr = FormatCurrentDateText();
+        char statusBuf[128];
+        std::snprintf(
+            statusBuf, sizeof(statusBuf), "%s  •  %s  •  %s%d%%",
+            dateStr.c_str(),
+            clockStr.c_str(),
+            status_.batteryCharging ? "⚡ " : "",
+            clampedBat);
+        cached_status_line_ = statusBuf;
+    }
 
     float tw = 0.0f, th = 0.0f;
-    MeasureText(statusBuf, 16.0f, STYLE_MONO, 440.0f, 1, tw, th);
+    MeasureText(cached_status_line_, 16.0f, STYLE_MONO, 380.0f, 1, tw, th);
     const float pillW = std::clamp(tw + 30.0f, 190.0f, 410.0f);
     const float pillH = 34.0f;
     const float px = m.padX;
@@ -821,7 +822,7 @@ void Ps1Renderer::DrawStatusBar(float alpha) {
     RgbaColor fg = (settings_.theme == 1)
         ? RgbaColor{0.10f, 0.16f, 0.34f, alpha}
         : RgbaColor{0.92f, 0.95f, 1.0f, alpha};
-    DrawText(statusBuf, px + 15.0f, py + (pillH - th) * 0.5f, 16.0f, STYLE_MONO, fg, pillW - 24.0f, 1, 0);
+    DrawText(cached_status_line_, px + 15.0f, py + (pillH - th) * 0.5f, 16.0f, STYLE_MONO, fg, 380.0f, 1, 0);
 
     // Compact wireless / audio dot indicators to the right of the pill
     float dotX = px + pillW + 10.0f;
@@ -1185,7 +1186,7 @@ void Ps1Renderer::DrawMainMenu(float alpha) {
                 PanelBotColor(0.92f * alpha),
                 PanelBorderColor(selected ? alpha : 0.65f * alpha));
             DrawText(items[i].badge, bx, by + (pillH - bh) * 0.5f, 16.0f, STYLE_MONO,
-                     PrimaryTextColor(alpha), pillW, 1, 1, pillW);
+                     PrimaryTextColor(alpha), 80.0f, 1, 1, pillW);
         }
 
         if (selected) {
@@ -1273,6 +1274,11 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
     glEnable(GL_SCISSOR_TEST);
     glScissor(scX, scY, scW, scH);
 
+    // Prioritize decoding the currently focused game's cover art first in this frame's budget.
+    if (game_index_ >= 0 && game_index_ < static_cast<int>(games_.size())) {
+        (void)GetOrCreateImage(games_[game_index_].coverPath, 320);
+    }
+
     for (int i = 0; i < static_cast<int>(games_.size()); ++i) {
         const float ry = listTop + static_cast<float>(i) * rowStep - game_scroll_y_;
         if (ry + rowH < listTop - 4.0f || ry > listTop + listH + 4.0f) continue;
@@ -1321,7 +1327,7 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
                       {0.10f, 0.28f, 0.68f, 0.92f * alpha},
                       {0.58f, 0.82f, 1.0f, 0.90f * alpha});
             DrawText(sb, badgeRightX, ry + (rowH - bh) * 0.5f, 13.5f, STYLE_MONO,
-                     {1, 1, 1, alpha}, pw, 1, 1, pw);
+                     {1, 1, 1, alpha}, 70.0f, 1, 1, pw);
             badgeRightX -= 6.0f;
         }
         if (games_[i].discCount > 1) {
@@ -1336,7 +1342,7 @@ void Ps1Renderer::DrawGamesScreen(float alpha) {
                       {0.20f, 0.14f, 0.48f, 0.92f * alpha},
                       {0.76f, 0.68f, 1.0f, 0.90f * alpha});
             DrawText(db, badgeRightX, ry + (rowH - bh) * 0.5f, 13.5f, STYLE_MONO,
-                     {1, 1, 1, alpha}, pw, 1, 1, pw);
+                     {1, 1, 1, alpha}, 60.0f, 1, 1, pw);
             badgeRightX -= 6.0f;
         }
 
@@ -1709,6 +1715,12 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
     const float cellW = (gridW - cellGap * static_cast<float>(cols - 1)) / static_cast<float>(cols);
     const float cellH = (gridH - cellGap * static_cast<float>(rows - 1)) / static_cast<float>(rows);
 
+    // Prioritize decoding the currently focused memory card block's preview first in this frame's budget.
+    const int focusFilteredIdx = mc_page_ * 15 + mc_slot_index_;
+    if (focusFilteredIdx >= 0 && focusFilteredIdx < totalFiltered) {
+        (void)GetOrCreateImage(saves_[filtered[focusFilteredIdx]].previewPath, 320);
+    }
+
     float selCx = gridX, selCy = gridY;
     for (int slot = 0; slot < 15; ++slot) {
         const int r = slot / cols;
@@ -1747,7 +1759,7 @@ void Ps1Renderer::DrawMemoryCardScreen(float alpha) {
                       {0.02f, 0.05f, 0.16f, 0.88f * alpha}, {0.02f, 0.05f, 0.16f, 0.94f * alpha},
                       {0.58f, 0.76f, 1.0f, 0.9f * alpha});
             DrawText(slotTag, bx + cellW - tagW - 4.0f, by + cellH - tagH - 4.0f + (tagH - sh) * 0.5f,
-                     12.5f, STYLE_MONO, {1, 1, 1, alpha}, tagW, 1, 1, tagW);
+                     12.5f, STYLE_MONO, {1, 1, 1, alpha}, cellW - 8.0f, 1, 1, tagW);
         } else {
             const std::string freeStr = TextOr("ps1ui_mc_free_block", "FREE");
             float fw = 0, fh = 0;
@@ -2378,10 +2390,22 @@ void Ps1Renderer::Draw() {
     has_frame_tp_ = true;
     time_sec_ += dt;
     disc_spin_angle_ += dt * 1.45f;
+    image_decodes_this_frame_ = 0;
 
     if (image_cache_dirty_) {
         image_cache_dirty_ = false;
         ClearImageCache();
+        dirty_image_paths_.clear();
+    } else if (!dirty_image_paths_.empty()) {
+        for (const auto& dirtyPath : dirty_image_paths_) {
+            auto it = image_cache_.find(dirtyPath);
+            if (it != image_cache_.end()) {
+                if (it->second.tex) glDeleteTextures(1, &it->second.tex);
+                image_lru_.erase(it->second.lruIt);
+                image_cache_.erase(it);
+            }
+        }
+        dirty_image_paths_.clear();
     }
 
     // Responsive aspect calculation (1:1 virtual square pixels matching EmuCoreA)
@@ -2402,7 +2426,9 @@ void Ps1Renderer::Draw() {
     view_x_ = (surface_width_ - view_width_) / 2;
     view_y_ = (surface_height_ - view_height_) / 2;
 
-    raster_scale_ = std::clamp(scale, 1.35f, 3.65f);
+    // Cap text rasterization scale at 2.25x (1215p virtual height) so high-DPI screens stay
+    // razor-sharp without generating oversized text textures on memory/GPU-constrained devices.
+    raster_scale_ = std::clamp(scale, 1.25f, 2.25f);
     if (std::fabs(raster_scale_ - last_raster_scale_) > 0.25f) {
         last_raster_scale_ = raster_scale_;
         ClearTextCache();
@@ -2419,14 +2445,35 @@ void Ps1Renderer::Draw() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Draw background shader + 3D spheres (pure smooth continuous float, independent of cursor/screen)
+    // Draw background shader + 3D spheres (precompute sphere positions/radii once on CPU)
     const float motionScale = (settings_.orbsMode == 2) ? 0.0f : (settings_.orbsMode == 1 ? 0.35f : 1.0f);
+    const float t = time_sec_ * motionScale;
+    const float minDim = std::min(screen_width_, kScreenHeight);
+    const float rTL1 = minDim * 0.112f;
+    const float rTL2 = minDim * 0.082f;
+    const float rBR1 = minDim * 0.132f;
+    const float rBR2 = minDim * 0.068f;
+    const float spheres[16] = {
+        screen_width_ * 0.235f + std::sin(t * 0.45f) * 6.0f * motionScale,
+        kScreenHeight * 0.105f + std::cos(t * 0.37f) * 5.0f * motionScale,
+        rTL1, 1.0f / std::max(1.0f, rTL1),
+
+        screen_width_ * 0.332f + std::cos(t * 0.52f) * 4.5f * motionScale,
+        kScreenHeight * 0.195f + std::sin(t * 0.41f) * 4.5f * motionScale,
+        rTL2, 1.0f / std::max(1.0f, rTL2),
+
+        screen_width_ * 0.472f + std::sin(t * 0.39f + 1.2f) * 6.5f * motionScale,
+        kScreenHeight * 0.855f + std::cos(t * 0.48f + 0.7f) * 5.5f * motionScale,
+        rBR1, 1.0f / std::max(1.0f, rBR1),
+
+        screen_width_ * 0.368f + std::cos(t * 0.56f + 2.1f) * 4.0f * motionScale,
+        kScreenHeight * 0.770f + std::sin(t * 0.44f + 1.5f) * 4.0f * motionScale,
+        rBR2, 1.0f / std::max(1.0f, rBR2),
+    };
     glUseProgram(prog_bg_);
     glUniform2f(bg_u_screen_, screen_width_, kScreenHeight);
-    glUniform1f(bg_u_time_, time_sec_);
-    glUniform1f(bg_u_motion_, motionScale);
     glUniform1i(bg_u_theme_, settings_.theme);
-    glUniform2f(bg_u_parallax_, 0.0f, 0.0f);
+    glUniform4fv(bg_u_spheres_, 4, spheres);
     glBindVertexArray(fs_vao_);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -3272,13 +3319,21 @@ void Ps1Renderer::SetStrings(std::unordered_map<std::string, std::string> string
 
 void Ps1Renderer::SetGames(std::vector<GameEntry> games) {
     games_ = std::move(games);
-    image_cache_dirty_ = true;
     ClampSelectionIndices();
 }
 
 void Ps1Renderer::SetSaves(std::vector<SaveEntry> saves) {
+    for (const auto& newSave : saves) {
+        if (newSave.previewPath.empty()) continue;
+        for (const auto& oldSave : saves_) {
+            if (oldSave.previewPath == newSave.previewPath &&
+                (oldSave.dateStr != newSave.dateStr || oldSave.sizeStr != newSave.sizeStr)) {
+                dirty_image_paths_.insert(newSave.previewPath);
+                break;
+            }
+        }
+    }
     saves_ = std::move(saves);
-    image_cache_dirty_ = true;
     ClampSelectionIndices();
 }
 

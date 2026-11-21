@@ -59,22 +59,32 @@ endif()
 # COMDAT folding/remove unused functions.
 set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /OPT:REF /OPT:ICF")
 
-# Enable LTO/LTCG on Release builds.
-if(CMAKE_BUILD_TYPE MATCHES "Release")
-  cmake_policy(SET CMP0069 NEW)
-  include(CheckIPOSupported)
-  check_ipo_supported(RESULT IPO_IS_SUPPORTED)
-  if(IPO_IS_SUPPORTED)
-    message(STATUS "Enabling LTCG/IPO.")
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+# Enable LTO/ThinLTO on optimized builds (Release, RelWithDebInfo, and Android -O3 builds).
+option(ECR_ENABLE_LTO "Enable LTO/IPO for ECR core targets" ON)
+if(ECR_ENABLE_LTO AND (CMAKE_BUILD_TYPE MATCHES "Release|RelWithDebInfo" OR ANDROID))
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(STATUS "Enabling ThinLTO (-flto=thin) for ECR.")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=thin")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto=thin")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -flto=thin")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -flto=thin")
   else()
-    message(STATUS "LTCG/IPO is not supported, this will make the build slightly slower.")
+    cmake_policy(SET CMP0069 NEW)
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT IPO_IS_SUPPORTED)
+    if(IPO_IS_SUPPORTED)
+      message(STATUS "Enabling LTCG/IPO.")
+      set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    else()
+      message(STATUS "LTCG/IPO is not supported, this will make the build slightly slower.")
+    endif()
   endif()
 endif()
 
 # Default symbol visibility to hidden, that way we don't go through the PLT for intra-library calls.
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
 # -fno-semantic-interposition appears to be broken on Macs... of course.
 if((CMAKE_COMPILER_IS_GNUCC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang") AND NOT APPLE AND NOT ANDROID)

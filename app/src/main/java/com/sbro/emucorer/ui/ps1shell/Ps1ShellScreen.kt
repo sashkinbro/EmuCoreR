@@ -116,6 +116,9 @@ private object Ps1ShellSessionCache {
 
     @Volatile
     var lastBiosValid: Boolean = false
+
+    @Volatile
+    var lastSystemSnapshot: Ps1SystemSnapshot = Ps1SystemSnapshot()
 }
 
 private val PS1_STRING_BINDINGS: List<Pair<String, Int>> = listOf(
@@ -347,31 +350,37 @@ private fun pushGamesToNative(games: List<Ps1ResolvedGame>) {
 
 private fun pushSavesToNative(
     context: Context,
-    saveRepo: SaveStateRepository,
     saves: List<SaveStateEntryInfo>,
 ) {
     val autoLabel = context.getString(R.string.ps1ui_slot_auto)
-    val titles = saves.map { it.gameTitle.ifBlank { it.serial } }.toTypedArray()
-    val slots = saves.map {
-        if (it.isAutoSave) autoLabel else context.getString(R.string.ps1ui_slot_fmt, it.slot)
-    }.toTypedArray()
-    val slotNums = saves.map { it.slot }.toIntArray()
-    val dates = saves.map { formatTimestamp(it.lastModified) }.toTypedArray()
-    val sizes = saves.map { formatFileSize(it.sizeBytes) }.toTypedArray()
-    val serials = saves.map { it.serial }.toTypedArray()
-    val previews = saves.map { entry ->
-        val repoPreview = runCatching { saveRepo.getPreviewImagePath(entry) }.getOrNull()
-        val sidecar = File("${entry.absolutePath}.png")
-        when {
-            !repoPreview.isNullOrBlank() && File(repoPreview).isFile -> repoPreview
-            sidecar.isFile && sidecar.length() > 0L -> sidecar.absolutePath
-            !entry.coverArtPath.isNullOrBlank() && File(entry.coverArtPath).isFile -> entry.coverArtPath
-            else -> ""
-        }
-    }.toTypedArray()
-    val savePaths = saves.map { it.absolutePath }.toTypedArray()
-    val gamePaths = saves.map { it.gamePath.orEmpty() }.toTypedArray()
+    val titles = Array(saves.size) { i -> saves[i].gameTitle.ifBlank { saves[i].serial } }
+    val slots = Array(saves.size) { i ->
+        val s = saves[i]
+        if (s.isAutoSave) autoLabel else context.getString(R.string.ps1ui_slot_fmt, s.slot)
+    }
+    val slotNums = IntArray(saves.size) { i -> saves[i].slot }
+    val dates = Array(saves.size) { i -> formatTimestamp(saves[i].lastModified) }
+    val sizes = Array(saves.size) { i -> formatFileSize(saves[i].sizeBytes) }
+    val serials = Array(saves.size) { i -> saves[i].serial }
+    val previews = Array(saves.size) { i -> saves[i].coverArtPath.orEmpty() }
+    val savePaths = Array(saves.size) { i -> saves[i].absolutePath }
+    val gamePaths = Array(saves.size) { i -> saves[i].gamePath.orEmpty() }
     Ps1ShellNative.nativeSetSaves(titles, slots, slotNums, dates, sizes, serials, previews, savePaths, gamePaths)
+}
+
+private fun pushSystemSnapshotToNative(snap: Ps1SystemSnapshot) {
+    Ps1ShellNative.nativeSetSystemStatus(
+        batteryLevel = snap.batteryLevel,
+        batteryCharging = snap.batteryCharging,
+        wifiConnected = snap.wifiConnected,
+        bluetoothConnected = snap.bluetoothConnected,
+        audioMuted = snap.audioMuted,
+        freeStorage = snap.freeStorage,
+        deviceName = snap.deviceName,
+        appVersion = snap.appVersion,
+        biosStatus = snap.biosStatus,
+        biosValid = snap.biosValid,
+    )
 }
 
 private fun pushMemoryCardsToNative(context: Context, bundle: Ps1MemoryCardBundle) {
@@ -441,20 +450,30 @@ fun Ps1ShellScreen(
                 normalizeSerialKey(g.serial)?.let { it to g }
             }.toMap()
             firstPass.map { entry ->
-                if (!entry.gamePath.isNullOrBlank()) {
-                    entry
+                val match = if (entry.gamePath.isNullOrBlank()) {
+                    normalizeSerialKey(entry.serial)?.let { bySerial[it] }
                 } else {
-                    val match = normalizeSerialKey(entry.serial)?.let { bySerial[it] }
-                    if (match != null) {
-                        entry.copy(
-                            gamePath = match.path,
-                            gameTitle = match.title,
-                            coverArtPath = match.coverArtPath ?: entry.coverArtPath
-                        )
-                    } else {
-                        entry
-                    }
+                    null
                 }
+                val base = if (match != null) {
+                    entry.copy(
+                        gamePath = match.path,
+                        gameTitle = match.title,
+                        coverArtPath = match.coverArtPath ?: entry.coverArtPath
+                    )
+                } else {
+                    entry
+                }
+                // Resolve preview image file existence on Dispatchers.IO so the GL thread never stats files.
+                val repoPreview = runCatching { saveRepo.getPreviewImagePath(base) }.getOrNull()
+                val sidecar = File("${base.absolutePath}.png")
+                val resolvedPreview = when {
+                    !repoPreview.isNullOrBlank() && File(repoPreview).isFile -> repoPreview
+                    sidecar.isFile && sidecar.length() > 0L -> sidecar.absolutePath
+                    !base.coverArtPath.isNullOrBlank() && File(base.coverArtPath).isFile -> base.coverArtPath
+                    else -> ""
+                }
+                base.copy(coverArtPath = resolvedPreview)
             }
         }
         Ps1ShellSessionCache.lastSaves = enriched
@@ -601,19 +620,15 @@ fun Ps1ShellScreen(
     }
 
     fun pushSystemStatusOnGlThread() {
-        val snap = readSystemSnapshot(context, currentBiosValid.value)
-        Ps1ShellNative.nativeSetSystemStatus(
-            batteryLevel = snap.batteryLevel,
-            batteryCharging = snap.batteryCharging,
-            wifiConnected = snap.wifiConnected,
-            bluetoothConnected = snap.bluetoothConnected,
-            audioMuted = snap.audioMuted,
-            freeStorage = snap.freeStorage,
-            deviceName = snap.deviceName,
-            appVersion = snap.appVersion,
-            biosStatus = snap.biosStatus,
-            biosValid = snap.biosValid,
-        )
+        pushSystemSnapshotToNative(Ps1ShellSessionCache.lastSystemSnapshot)
+    }
+
+    fun refreshSystemStatusAsync(targetSurface: GLSurfaceView) {
+        coroutineScope.launch(Dispatchers.IO) {
+            val snap = readSystemSnapshot(context, currentBiosValid.value)
+            Ps1ShellSessionCache.lastSystemSnapshot = snap
+            targetSurface.queueEvent { pushSystemSnapshotToNative(snap) }
+        }
     }
 
     fun syncTouchModeOnGlThread() {
@@ -668,7 +683,7 @@ fun Ps1ShellScreen(
                     Ps1ShellNative.nativeSetGamesLoading(currentLoadingGames.value && gamesSnap.isEmpty())
                     Ps1ShellNative.nativeSetSavesLoading(!Ps1ShellSessionCache.hasLoadedSaves && savesSnap.isEmpty())
                     pushGamesToNative(gamesSnap)
-                    pushSavesToNative(context, saveRepo, savesSnap)
+                    pushSavesToNative(context, savesSnap)
                     pushMemoryCardsToNative(context, currentCardBundle.value)
 
                     Ps1ShellNative.nativeSetState(
@@ -780,7 +795,7 @@ fun Ps1ShellScreen(
     val statusReceiver = remember {
         object : BroadcastReceiver() {
             override fun onReceive(c: Context?, intent: Intent?) {
-                surface.queueEvent { pushSystemStatusOnGlThread() }
+                refreshSystemStatusAsync(surface)
             }
         }
     }
@@ -897,8 +912,8 @@ fun Ps1ShellScreen(
                     surface.requestFocus()
                     Ps1ShellAudio.resumeAudio()
                     savesRevision++
+                    refreshSystemStatusAsync(surface)
                     surface.queueEvent {
-                        pushSystemStatusOnGlThread()
                         syncTouchModeOnGlThread()
                     }
                 }
@@ -932,10 +947,10 @@ fun Ps1ShellScreen(
     LaunchedEffect(localeTag) {
         val saves = currentSaves.value
         val cards = currentCardBundle.value
+        refreshSystemStatusAsync(surface)
         surface.queueEvent {
             pushStringsToNative(context)
-            pushSystemStatusOnGlThread()
-            pushSavesToNative(context, saveRepo, saves)
+            pushSavesToNative(context, saves)
             pushMemoryCardsToNative(context, cards)
         }
     }
@@ -954,7 +969,7 @@ fun Ps1ShellScreen(
         val loading = !Ps1ShellSessionCache.hasLoadedSaves && saves.isEmpty()
         surface.queueEvent {
             Ps1ShellNative.nativeSetSavesLoading(loading)
-            pushSavesToNative(context, saveRepo, saves)
+            pushSavesToNative(context, saves)
         }
     }
 
@@ -966,9 +981,7 @@ fun Ps1ShellScreen(
     }
 
     LaunchedEffect(biosValidState) {
-        surface.queueEvent {
-            pushSystemStatusOnGlThread()
-        }
+        refreshSystemStatusAsync(surface)
     }
 
     AndroidView(

@@ -12,6 +12,9 @@ import kotlin.math.roundToInt
  * Safe RGBA8888 image decoder for game covers and quick-save PNG screenshots.
  */
 object Ps1ImageDecoder {
+    private val decodeLock = Any()
+    private var pixelScratch = IntArray(0)
+
     /**
      * Decodes [path] bounded to [maxDimension] px on the longest side.
      * Returns `[width, height]` (8 bytes LE) followed by `width * height * 4` RGBA bytes.
@@ -30,7 +33,7 @@ object Ps1ImageDecoder {
 
             var sampleSize = 1
             val longest = max(bounds.outWidth, bounds.outHeight)
-            while (longest / sampleSize > maxDim * 2) {
+            while (longest / (sampleSize * 2) >= maxDim) {
                 sampleSize *= 2
             }
 
@@ -66,22 +69,29 @@ object Ps1ImageDecoder {
 
                 val outW = bitmap.width
                 val outH = bitmap.height
-                val pixels = IntArray(outW * outH)
-                bitmap.getPixels(pixels, 0, outW, 0, 0, outW, outH)
+                val numPixels = outW * outH
+                synchronized(decodeLock) {
+                    if (pixelScratch.size < numPixels) {
+                        pixelScratch = IntArray(numPixels)
+                    }
+                    val pixels = pixelScratch
+                    bitmap.getPixels(pixels, 0, outW, 0, 0, outW, outH)
 
-                val out = ByteBuffer.allocate(8 + outW * outH * 4).order(ByteOrder.LITTLE_ENDIAN)
-                out.putInt(outW)
-                out.putInt(outH)
-                val raw = out.array()
-                var offset = 8
-                for (argb in pixels) {
-                    raw[offset] = ((argb ushr 16) and 0xFF).toByte()
-                    raw[offset + 1] = ((argb ushr 8) and 0xFF).toByte()
-                    raw[offset + 2] = (argb and 0xFF).toByte()
-                    raw[offset + 3] = ((argb ushr 24) and 0xFF).toByte()
-                    offset += 4
+                    val out = ByteBuffer.allocate(8 + numPixels * 4).order(ByteOrder.LITTLE_ENDIAN)
+                    out.putInt(outW)
+                    out.putInt(outH)
+                    val raw = out.array()
+                    var offset = 8
+                    for (i in 0 until numPixels) {
+                        val argb = pixels[i]
+                        raw[offset] = ((argb ushr 16) and 0xFF).toByte()
+                        raw[offset + 1] = ((argb ushr 8) and 0xFF).toByte()
+                        raw[offset + 2] = (argb and 0xFF).toByte()
+                        raw[offset + 3] = ((argb ushr 24) and 0xFF).toByte()
+                        offset += 4
+                    }
+                    raw
                 }
-                raw
             } finally {
                 bitmap.recycle()
             }

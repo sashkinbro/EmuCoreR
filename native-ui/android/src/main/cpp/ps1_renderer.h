@@ -3,10 +3,12 @@
 #include <GLES3/gl3.h>
 #include <chrono>
 #include <cstdint>
+#include <ctime>
 #include <list>
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace ps1ui {
@@ -208,6 +210,7 @@ private:
         GLuint tex = 0;
         float logW = 0.0f;
         float logH = 0.0f;
+        std::list<std::string>::iterator lruIt{};
     };
 
     struct ImageCacheEntry {
@@ -215,6 +218,7 @@ private:
         int w = 0;
         int h = 0;
         bool attempted = false;
+        std::list<std::string>::iterator lruIt{};
     };
 
     enum HitKind {
@@ -383,13 +387,12 @@ private:
 
     GLuint prog_bg_ = 0;
     GLint bg_u_screen_ = -1;
-    GLint bg_u_time_ = -1;
-    GLint bg_u_motion_ = -1;
     GLint bg_u_theme_ = -1;
-    GLint bg_u_parallax_ = -1;
+    GLint bg_u_spheres_ = -1;
 
     GLuint prog_graffiti_ = 0;
     GLint graf_u_screen_ = -1;
+    GLint graf_u_rect_ = -1;
     GLint graf_u_seed_ = -1;
     GLint graf_u_focus_ = -1;
     GLint graf_u_alpha_ = -1;
@@ -398,6 +401,7 @@ private:
 
     GLuint prog_panel_ = 0;
     GLint pan_u_screen_ = -1;
+    GLint pan_u_rect_ = -1;
     GLint pan_u_size_ = -1;
     GLint pan_u_radius_ = -1;
     GLint pan_u_border_px_ = -1;
@@ -408,6 +412,7 @@ private:
 
     GLuint prog_disc_ = 0;
     GLint disc_u_screen_ = -1;
+    GLint disc_u_rect_ = -1;
     GLint disc_u_angle_ = -1;
     GLint disc_u_alpha_ = -1;
     GLint disc_u_theme_ = -1;
@@ -509,6 +514,16 @@ private:
     bool games_loading_ = false;
     bool saves_loading_ = false;
     bool image_cache_dirty_ = false;
+    std::unordered_set<std::string> dirty_image_paths_;
+    int image_decodes_this_frame_ = 0;
+
+    // Cached once-per-second status bar string to avoid per-frame localtime_r syscalls
+    std::time_t cached_status_sec_ = 0;
+    int cached_status_battery_ = -1;
+    bool cached_status_charging_ = false;
+    bool cached_status_time24h_ = true;
+    int cached_status_date_fmt_ = -1;
+    std::string cached_status_line_;
 
     // LRU Texture Caches (GL thread only)
     std::unordered_map<std::string, TextCacheEntry> text_cache_;

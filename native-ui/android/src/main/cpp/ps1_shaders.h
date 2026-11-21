@@ -55,12 +55,13 @@ precision highp float;
 
 in vec2 v_uv;
 uniform vec2 u_screen;
-uniform float u_time;
-uniform float u_motion_scale;
 uniform int u_theme;
-uniform vec2 u_parallax;
+uniform vec4 u_spheres[4];
 
 out vec4 o_color;
+
+const vec3 kLightDir = vec3(-0.30949223, 0.34817876, 0.88488022);
+const vec3 kHalfVec = vec3(-0.15971914, 0.17968403, 0.97067165);
 
 float hash21(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -68,31 +69,42 @@ float hash21(vec2 p) {
     return fract(p.x * p.y);
 }
 
-// Raycast analytic 3D sphere for ultra-crisp edges and Blinn-Phong shading at any DPI
-vec4 evalSphere(vec2 px, vec2 center, float radius, vec3 baseCol, vec3 rimCol, vec3 specCol, vec3 lightDir) {
-    vec2 d = px - center;
-    float dist = length(d);
+// Raycast analytic 3D sphere with early squared-distance reject and fast polynomial specular
+vec4 evalSphere(vec2 px, vec4 sphere, vec3 baseCol, vec3 rimCol, vec3 specCol) {
+    vec2 d = px - sphere.xy;
+    float d2 = dot(d, d);
+    float radius = sphere.z;
     float aa = 1.35;
-    float mask = 1.0 - smoothstep(radius - aa, radius + aa, dist);
+    float maxR = radius + aa;
+    if (d2 >= maxR * maxR) {
+        return vec4(0.0);
+    }
+    float dist = sqrt(d2);
+    float mask = 1.0 - smoothstep(radius - aa, maxR, dist);
     if (mask <= 0.001) {
         return vec4(0.0);
     }
-    vec2 nxy = clamp(d / radius, -1.0, 1.0);
+    vec2 nxy = clamp(d * sphere.w, -1.0, 1.0);
     float r2 = dot(nxy, nxy);
     float nz = sqrt(max(0.0001, 1.0 - r2));
-    // Invert Y because screen px has Y pointing down
-    vec3 normal = normalize(vec3(nxy.x, -nxy.y, nz));
+    // Invert Y because screen px has Y pointing down; (nxy.x, -nxy.y, nz) is already unit length
+    vec3 normal = vec3(nxy.x, -nxy.y, nz);
 
-    float diff = max(dot(normal, lightDir), 0.0);
-    float wrapDiff = max(dot(normal, lightDir) * 0.65 + 0.35, 0.0);
-    vec3 viewDir = vec3(0.0, 0.0, 1.0);
-    vec3 halfVec = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfVec), 0.0), 26.0);
-    float specSoft = pow(max(dot(normal, halfVec), 0.0), 6.0);
-    float fresnel = pow(1.0 - nz, 2.6);
+    float ndotl = dot(normal, kLightDir);
+    float diff = max(ndotl, 0.0);
+    float wrapDiff = max(ndotl * 0.65 + 0.35, 0.0);
+    float nh = max(dot(normal, kHalfVec), 0.0);
+    float nh2 = nh * nh;
+    float nh4 = nh2 * nh2;
+    float specSoft = nh4 * nh2;
+    float nh8 = nh4 * nh4;
+    float spec = nh8 * nh8 * nh8 * nh2;
+    float oneMinusNz = max(0.0, 1.0 - nz);
+    float fresnel = oneMinusNz * oneMinusNz * sqrt(oneMinusNz);
 
     // Subtle quantized PS1-inspired soft shading contour without harsh pixel jaggedness
-    vec3 shade = baseCol * (0.14 + 0.88 * pow(wrapDiff, 1.25));
+    float wrapPow = wrapDiff * sqrt(sqrt(wrapDiff));
+    vec3 shade = baseCol * (0.14 + 0.88 * wrapPow);
     shade += specCol * (spec * 0.42 + specSoft * 0.22);
     shade += rimCol * (fresnel * 0.24 * (0.35 + 0.65 * diff));
 
@@ -106,12 +118,12 @@ vec4 evalSphere(vec2 px, vec2 center, float radius, vec3 baseCol, vec3 rimCol, v
 void main() {
     vec2 px = vec2(v_uv.x * u_screen.x, (1.0 - v_uv.y) * u_screen.y);
     vec2 center = u_screen * 0.5;
-    float minDim = min(u_screen.x, u_screen.y);
 
     // Radial PS1 BIOS backdrop
     vec2 rel = (px - center) / vec2(max(u_screen.x * 0.56, 1.0), max(u_screen.y * 0.56, 1.0));
-    float rad = length(rel);
-    float glow = exp(-rad * rad * 1.45);
+    float rad2 = dot(rel, rel);
+    float rad = sqrt(rad2);
+    float glow = exp(-rad2 * 1.45);
     float softBloom = smoothstep(1.18, 0.08, rad);
 
     vec3 bg = vec3(0.0);
@@ -124,8 +136,8 @@ void main() {
         vec3 outerNavy = vec3(0.0, 0.0, 0.115);
         vec3 midCobalt = vec3(0.11, 0.12, 0.48);
         vec3 innerBlue = vec3(0.47, 0.49, 0.99);
-        bg = mix(outerNavy, midCobalt, pow(softBloom, 1.35));
-        bg = mix(bg, innerBlue, pow(glow, 1.55) * 0.92);
+        bg = mix(outerNavy, midCobalt, softBloom * sqrt(sqrt(softBloom)));
+        bg = mix(bg, innerBlue, glow * sqrt(glow) * 0.92);
     } else if (u_theme == 1) {
         // Theme 1: PSone Silver (SCPH-101)
         vec3 outerSilver = vec3(0.76, 0.80, 0.88);
@@ -152,8 +164,8 @@ void main() {
         // Theme 3: Net Yaroze Black (matte stealth carbon obsidian + icy platinum-cyan glow)
         vec3 outerPitch = vec3(0.008, 0.010, 0.015);
         vec3 innerCarbon = vec3(0.055, 0.072, 0.105);
-        bg = mix(outerPitch, innerCarbon, pow(softBloom, 1.45) * 0.92);
-        bg += vec3(0.020, 0.045, 0.075) * pow(glow, 2.0);
+        bg = mix(outerPitch, innerCarbon, softBloom * sqrt(softBloom) * 0.92);
+        bg += vec3(0.020, 0.045, 0.075) * (glow * glow);
         // Ultra-subtle carbon weave micro-texture
         vec2 weave = fract(px * 0.25);
         float carbonPat = step(0.5, weave.x) * step(0.5, weave.y);
@@ -165,46 +177,22 @@ void main() {
         // Theme 4: Crimson Obsidian (pitch-black void + smoked ruby devkit glow)
         vec3 outerVoid = vec3(0.014, 0.004, 0.008);
         vec3 innerRuby = vec3(0.125, 0.022, 0.052);
-        bg = mix(outerVoid, innerRuby, pow(softBloom, 1.35) * 0.92);
-        bg += vec3(0.075, 0.012, 0.030) * pow(glow, 1.9);
+        bg = mix(outerVoid, innerRuby, softBloom * sqrt(sqrt(softBloom)) * 0.92);
+        bg += vec3(0.075, 0.012, 0.030) * (glow * glow);
         sphereBase = vec3(0.20, 0.07, 0.11);
         sphereRim = vec3(1.0, 0.28, 0.44);
         sphereSpec = vec3(1.0, 0.90, 0.92);
     }
 
-    float t = u_time * u_motion_scale;
-    float w = u_screen.x;
-    float h = u_screen.y;
-    vec3 lightDir = normalize(vec3(-0.32, 0.36, 0.87));
-
-    // Gentle floating motion matching authentic serene BIOS vibe
-    vec2 par = u_parallax * 14.0;
-    vec2 drift1 = vec2(sin(t * 0.45) * 6.0, cos(t * 0.37) * 5.0) * u_motion_scale;
-    vec2 drift2 = vec2(cos(t * 0.52) * 4.5, sin(t * 0.41) * 4.5) * u_motion_scale;
-    vec2 drift3 = vec2(sin(t * 0.39 + 1.2) * 6.5, cos(t * 0.48 + 0.7) * 5.5) * u_motion_scale;
-    vec2 drift4 = vec2(cos(t * 0.56 + 2.1) * 4.0, sin(t * 0.44 + 1.5) * 4.0) * u_motion_scale;
-
-    // Top-left sphere pair
-    vec2 cTL1 = vec2(w * 0.235, h * 0.105) + drift1 + par;
-    float rTL1 = minDim * 0.112;
-    vec2 cTL2 = vec2(w * 0.332, h * 0.195) + drift2 + par * 1.35;
-    float rTL2 = minDim * 0.082;
-
-    // Bottom-right sphere pair
-    vec2 cBR1 = vec2(w * 0.472, h * 0.855) + drift3 + par;
-    float rBR1 = minDim * 0.132;
-    vec2 cBR2 = vec2(w * 0.368, h * 0.770) + drift4 + par * 1.35;
-    float rBR2 = minDim * 0.068;
-
     // Draw back-to-front per pair so smaller front sphere overlaps cleanly like BIOS
-    vec4 s1 = evalSphere(px, cTL1, rTL1, sphereBase * 0.92, sphereRim, sphereSpec, lightDir);
+    vec4 s1 = evalSphere(px, u_spheres[0], sphereBase * 0.92, sphereRim, sphereSpec);
     bg = mix(bg, s1.rgb, s1.a);
-    vec4 s2 = evalSphere(px, cTL2, rTL2, sphereBase * 1.03, sphereRim, sphereSpec, lightDir);
+    vec4 s2 = evalSphere(px, u_spheres[1], sphereBase * 1.03, sphereRim, sphereSpec);
     bg = mix(bg, s2.rgb, s2.a);
 
-    vec4 s3 = evalSphere(px, cBR1, rBR1, sphereBase * 0.95, sphereRim, sphereSpec, lightDir);
+    vec4 s3 = evalSphere(px, u_spheres[2], sphereBase * 0.95, sphereRim, sphereSpec);
     bg = mix(bg, s3.rgb, s3.a);
-    vec4 s4 = evalSphere(px, cBR2, rBR2, sphereBase * 1.06, sphereRim, sphereSpec, lightDir);
+    vec4 s4 = evalSphere(px, u_spheres[3], sphereBase * 1.06, sphereRim, sphereSpec);
     bg = mix(bg, s4.rgb, s4.a);
 
     // Subtle dither to eliminate 8-bit gradient banding on large tablet displays
@@ -216,19 +204,21 @@ void main() {
 // Procedural PS1 Rainbow Graffiti Splash Shader
 inline constexpr const char* kGraffitiVertexShader = R"(#version 300 es
 layout(location = 0) in vec2 a_pos;
-layout(location = 1) in vec2 a_uv;
 
 uniform vec2 u_screen;
+uniform vec4 u_rect;
 
 out vec2 v_uv;
 
 void main() {
+    vec2 uv = vec2(a_pos.x * 0.5 + 0.5, 0.5 - a_pos.y * 0.5);
+    vec2 pos = u_rect.xy + uv * u_rect.zw;
     vec2 ndc = vec2(
-        (a_pos.x / u_screen.x) * 2.0 - 1.0,
-        1.0 - (a_pos.y / u_screen.y) * 2.0
+        (pos.x / u_screen.x) * 2.0 - 1.0,
+        1.0 - (pos.y / u_screen.y) * 2.0
     );
     gl_Position = vec4(ndc, 0.0, 1.0);
-    v_uv = a_uv;
+    v_uv = uv;
 }
 )";
 
@@ -273,6 +263,13 @@ float fbm(vec2 p) {
     return v;
 }
 
+float fbm2(vec2 p) {
+    float v = 0.58 * noise(p);
+    p = p * 2.07 + vec2(13.1, 7.7);
+    v += 0.29 * noise(p);
+    return v;
+}
+
 vec3 hsv2rgb(vec3 c) {
     vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
     vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
@@ -283,12 +280,15 @@ void main() {
     // Stretch noise horizontally for authentic brush-stroke / splatter silhouette
     vec2 p = v_uv * 2.0 - 1.0;
     float edgeDist = length(vec2(p.x * 0.92, p.y * 1.18));
+    if (edgeDist > 1.06) {
+        discard;
+    }
 
     // Pixel-fleck crispness blended with smooth organic paint cloud
     vec2 qUv = floor(v_uv * vec2(132.0, 44.0)) / vec2(132.0, 44.0);
     float nSmooth = fbm(vec2(v_uv.x * 5.2 + u_seed * 3.1, v_uv.y * 3.6 + u_seed * 1.7));
     float nFleck = hash2(floor(v_uv * vec2(118.0, 40.0)));
-    float nStreak = fbm(vec2(qUv.x * 11.0 - u_seed, qUv.y * 5.0));
+    float nStreak = fbm2(vec2(qUv.x * 11.0 - u_seed, qUv.y * 5.0));
 
     float body = (1.0 - smoothstep(0.32, 0.96, edgeDist)) + (nSmooth - 0.45) * 0.68 + (nStreak - 0.5) * 0.26;
     float mask = smoothstep(0.34, 0.52, body);
@@ -317,7 +317,8 @@ void main() {
         col = mix(col, vec3(0.98, 0.24, 0.42) * val, 0.26);
     }
     if (u_focus > 0.01) {
-        float sweep = exp(-pow((v_uv.x - fract(u_time * 0.35 + u_seed * 0.2)) * 5.0, 2.0));
+        float dx = (v_uv.x - fract(u_time * 0.35 + u_seed * 0.2)) * 5.0;
+        float sweep = exp(-dx * dx);
         col += vec3(0.18, 0.20, 0.25) * sweep * u_focus;
     }
 
@@ -328,18 +329,20 @@ void main() {
 // Beveled UI Panel / Plaque / Button Shader
 inline constexpr const char* kPanelVertexShader = R"(#version 300 es
 layout(location = 0) in vec2 a_pos;
-layout(location = 1) in vec2 a_uv;
 
 uniform vec2 u_screen;
+uniform vec4 u_rect;
 out vec2 v_uv;
 
 void main() {
+    vec2 uv = vec2(a_pos.x * 0.5 + 0.5, 0.5 - a_pos.y * 0.5);
+    vec2 pos = u_rect.xy + uv * u_rect.zw;
     vec2 ndc = vec2(
-        (a_pos.x / u_screen.x) * 2.0 - 1.0,
-        1.0 - (a_pos.y / u_screen.y) * 2.0
+        (pos.x / u_screen.x) * 2.0 - 1.0,
+        1.0 - (pos.y / u_screen.y) * 2.0
     );
     gl_Position = vec4(ndc, 0.0, 1.0);
-    v_uv = a_uv;
+    v_uv = uv;
 }
 )";
 
@@ -404,18 +407,20 @@ void main() {
 // Spinning Black-Bottom PS1 Optical Disc Shader
 inline constexpr const char* kDiscVertexShader = R"(#version 300 es
 layout(location = 0) in vec2 a_pos;
-layout(location = 1) in vec2 a_uv;
 
 uniform vec2 u_screen;
+uniform vec4 u_rect;
 out vec2 v_uv;
 
 void main() {
+    vec2 uv = vec2(a_pos.x * 0.5 + 0.5, 0.5 - a_pos.y * 0.5);
+    vec2 pos = u_rect.xy + uv * u_rect.zw;
     vec2 ndc = vec2(
-        (a_pos.x / u_screen.x) * 2.0 - 1.0,
-        1.0 - (a_pos.y / u_screen.y) * 2.0
+        (pos.x / u_screen.x) * 2.0 - 1.0,
+        1.0 - (pos.y / u_screen.y) * 2.0
     );
     gl_Position = vec4(ndc, 0.0, 1.0);
-    v_uv = a_uv;
+    v_uv = uv;
 }
 )";
 
