@@ -629,7 +629,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
      {"2.0", "2.0 pixels"},   {"2.5", "2.5 pixels"}, {"3.0", "3.0 pixels"}, {"3.5", "3.5 pixels"},
      {"4.0", "4.0 pixels"},   {"4.5", "4.5 pixels"}, {"5.0", "5.0 pixels"}, {"5.5", "5.5 pixels"},
      {"6.0", "6.0 pixels"},   {"6.5", "6.5 pixels"}, {"7.0", "7.0 pixels"}, {"7.5", "7.5 pixels"},
-     {"8.0", "8.0 pixels"},   {"8.5", "8.5 pixels"}, {"9.0", "9.0 pixels"}, {"9.5", "9.0 pixels"},
+     {"8.0", "8.0 pixels"},   {"8.5", "8.5 pixels"}, {"9.0", "9.0 pixels"}, {"9.5", "9.5 pixels"},
      {"10.0", "10.0 pixels"}, {NULL, NULL},
    },
    "-1.0"},

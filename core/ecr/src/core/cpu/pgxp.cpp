@@ -360,9 +360,15 @@ ALWAYS_INLINE_RELEASE double f16Sign(double in)
   // after scaling, even though only the low 16 bits of the component survive.
   if (!std::isfinite(in))
     return 0.0;
+  if (in > -65536.0 && in < 65536.0)
+  {
+    const int64_t scaled = static_cast<int64_t>(in * 65536.0);
+    const uint32_t bits = static_cast<uint32_t>(static_cast<uint64_t>(scaled) & UINT32_C(0xFFFFFFFF));
+    return static_cast<double>(static_cast<int32_t>(bits)) * (1.0 / 65536.0);
+  }
   const int64_t scaled = static_cast<int64_t>(std::fmod(in, 65536.0) * 65536.0);
   const uint32_t bits = static_cast<uint32_t>(static_cast<uint64_t>(scaled) & UINT32_C(0xFFFFFFFF));
-  return static_cast<double>(static_cast<int32_t>(bits)) / 65536.0;
+  return static_cast<double>(static_cast<int32_t>(bits)) * (1.0 / 65536.0);
 }
 ALWAYS_INLINE_RELEASE double f16Unsign(double in)
 {
@@ -372,6 +378,8 @@ ALWAYS_INLINE_RELEASE double f16Overflow(double in)
 {
   if (!std::isfinite(in))
     return 0.0;
+  if (in >= 0.0 && in < 65536.0)
+    return 0.0;
   return std::floor(std::trunc(in) / 65536.0);
 }
 
@@ -379,14 +387,15 @@ ALWAYS_INLINE_RELEASE PGXP_value* GetPtr(uint32_t addr)
 {
   if (!Mem)
     return nullptr;
-  if ((addr & CPU::DCACHE_LOCATION_MASK) == CPU::DCACHE_LOCATION)
-    return &Mem[s_mem_scratch_offset + ((addr & CPU::DCACHE_OFFSET_MASK) >> 2)];
 
   const uint32_t paddr = (addr & CPU::PHYSICAL_MEMORY_ADDRESS_MASK);
   if (paddr < Bus::RAM_MIRROR_END)
     return &Mem[(paddr & Bus::g_ram_mask) >> 2];
-  else
-    return nullptr;
+
+  if ((addr & CPU::DCACHE_LOCATION_MASK) == CPU::DCACHE_LOCATION)
+    return &Mem[s_mem_scratch_offset + ((addr & CPU::DCACHE_OFFSET_MASK) >> 2)];
+
+  return nullptr;
 }
 
 ALWAYS_INLINE_RELEASE PGXP_value* ReadMem(uint32_t addr)
@@ -397,11 +406,14 @@ ALWAYS_INLINE_RELEASE PGXP_value* ReadMem(uint32_t addr)
 ALWAYS_INLINE_RELEASE void ValidateAndCopyMem(PGXP_value* dest, uint32_t addr, uint32_t value)
 {
   PGXP_value* pMem = GetPtr(addr);
-  if (pMem != NULL)
+  if (pMem && (pMem->flags & VALID_ALL) != 0)
   {
-    Validate(pMem, value);
-    *dest = *pMem;
-    return;
+    if (pMem->value == value)
+    {
+      *dest = *pMem;
+      return;
+    }
+    pMem->flags &= INV_VALID_ALL;
   }
 
   *dest = PGXP_value_invalid;
@@ -445,7 +457,11 @@ ALWAYS_INLINE_RELEASE void WriteMem(const PGXP_value* value, uint32_t addr)
   PGXP_value* pMem = GetPtr(addr);
 
   if (pMem)
+  {
+    if (((value->flags | pMem->flags) & VALID_ALL) == 0)
+      return;
     *pMem = *value;
+  }
 }
 
 ALWAYS_INLINE_RELEASE static void WriteMem16(const PGXP_value* src, uint32_t addr)
@@ -1009,8 +1025,17 @@ bool GetPreciseVertex(uint32_t addr, uint32_t value, int x, int y, int xOffs, in
   };
 
   const bool snapshot = (addr & 0xff000000u) == GPU_VERTEX_TOKEN_BASE;
-  const auto& entry = s_gpu_vertices[addr & (GPU_VERTEX_SNAPSHOT_COUNT - 1u)];
-  const PGXP_value* vert = snapshot ? (entry.token == addr ? &entry.value : nullptr) : ReadMem(addr);
+  const PGXP_value* vert = nullptr;
+  if (snapshot)
+  {
+    const auto& entry = s_gpu_vertices[addr & (GPU_VERTEX_SNAPSHOT_COUNT - 1u)];
+    if (entry.token == addr)
+      vert = &entry.value;
+  }
+  else
+  {
+    vert = ReadMem(addr);
+  }
   if (use_vertex(vert, true))
     return (vert->flags & VALID_Z) != 0 && std::isfinite(vert->z) && vert->z > 0.f;
 
@@ -1206,53 +1231,111 @@ void CPU_LoadDelay(uint32_t instr, uint32_t value, uint32_t addr)
   const uint32_t target = rt(instr);
   if (target == 0)
     return;
-  const PGXP_value visible = CPU_reg[target];
   const uint32_t opcode = op(instr);
   // Merged loads forward a previous pending load, while ordinary readers
   // still see the old register until the following instruction finishes.
-  if ((opcode == 0x22 || opcode == 0x26) && s_load_delay.reg == target)
-    CPU_reg[target] = s_load_delay.value;
+  if (opcode == 0x22u || opcode == 0x26u)
+  {
+    const PGXP_value visible = CPU_reg[target];
+    if (s_load_delay.reg == target)
+      CPU_reg[target] = s_load_delay.value;
+    MergeLoad(instr, value, addr);
+    s_next_load_delay.reg = target;
+    s_next_load_delay.value = CPU_reg[target];
+    CPU_reg[target] = visible;
+    return;
+  }
+
+  s_next_load_delay.reg = target;
   switch (opcode)
   {
-    case 0x20: case 0x24: CPU_LBx(instr, value, addr); break;
-    case 0x21: case 0x25: CPU_LHx(instr, value, addr); break;
-    case 0x22: case 0x23: case 0x26: CPU_LW(instr, value, addr); break;
-    case 0x10:
+    case 0x20u:
+    case 0x24u:
+      s_next_load_delay.value = PGXP_value_invalid;
+      break;
+    case 0x21u:
+    case 0x25u:
+      ValidateAndCopyMem16(&s_next_load_delay.value, addr, value);
+      break;
+    case 0x23u:
+      ValidateAndCopyMem(&s_next_load_delay.value, addr, value);
+      break;
+    case 0x10u:
       if (g_settings.UsingPGXPCPUMode())
-        CPU_MFC0(instr, value);
+      {
+        const uint32_t src = rd(instr);
+        Validate(&CP0_reg[src], value);
+        s_next_load_delay.value = CP0_reg[src];
+        s_next_load_delay.value.value = value;
+      }
       else
-        CPU_reg[target] = PGXP_value_invalid;
+      {
+        s_next_load_delay.value = PGXP_value_invalid;
+      }
       break;
-    case 0x12:
-      if (rs(instr) == 2)
-        CPU_CFC2(instr, value, value);
+    case 0x12u:
+    {
+      const uint32_t src = rd(instr);
+      if (rs(instr) == 2u)
+      {
+        if (src == 31u)
+        {
+          s_next_load_delay.value = IntegerValue(value);
+        }
+        else
+        {
+          Validate(&GTE_ctrl_reg[src], value);
+          s_next_load_delay.value = GTE_ctrl_reg[src];
+          s_next_load_delay.value.value = value;
+        }
+      }
       else
-        CPU_MFC2(instr, value, value);
+      {
+        if (src == 28u || src == 29u || src == 31u)
+        {
+          s_next_load_delay.value = IntegerValue(value);
+        }
+        else
+        {
+          Validate(&GTE_data_reg[src], value);
+          s_next_load_delay.value = GTE_data_reg[src];
+          s_next_load_delay.value.value = value;
+        }
+      }
       break;
-    default: CPU_reg[target] = PGXP_value_invalid; break;
+    }
+    default:
+      s_next_load_delay.value = PGXP_value_invalid;
+      break;
   }
-  s_next_load_delay = {target, CPU_reg[target]};
-  CPU_reg[target] = visible;
 }
 
 void CPU_CommitLoadDelay()
 {
-  if (s_load_delay.reg < 32)
-    CPU_reg[s_load_delay.reg] = s_load_delay.value;
-  s_load_delay = {};
+  const uint32_t reg = s_load_delay.reg;
+  if (reg < 32)
+    CPU_reg[reg] = s_load_delay.value;
+  s_load_delay.reg = NO_LOAD_DELAY;
 }
 
 void CPU_UpdateLoadDelay()
 {
-  CPU_CommitLoadDelay();
-  s_load_delay = s_next_load_delay;
-  s_next_load_delay = {};
+  const uint32_t commit_reg = s_load_delay.reg;
+  if (commit_reg < 32)
+    CPU_reg[commit_reg] = s_load_delay.value;
+  const uint32_t next_reg = s_next_load_delay.reg;
+  s_load_delay.reg = next_reg;
+  if (next_reg < 32)
+  {
+    s_load_delay.value = s_next_load_delay.value;
+    s_next_load_delay.reg = NO_LOAD_DELAY;
+  }
 }
 
 void CPU_FlushLoadDelay()
 {
   CPU_CommitLoadDelay();
-  s_next_load_delay = {};
+  s_next_load_delay.reg = NO_LOAD_DELAY;
 }
 
 void CPU_CancelLoadDelay(uint32_t reg)
@@ -1270,7 +1353,7 @@ void CPU_SB(uint32_t instr, uint8_t rtVal, uint32_t addr)
 {
   s_gpu_write = PGXP_value_invalid;
   PGXP_value* memory = GetPtr(addr);
-  if (!memory)
+  if (!memory || (memory->flags & VALID_ALL) == 0)
     return;
   const uint32_t shift = (addr & 3u) * 8u;
   const uint32_t mask = 0xffu << shift;
@@ -1322,8 +1405,10 @@ void CPU_SW(uint32_t instr, uint32_t rtVal, uint32_t addr)
 void CPU_MOVE(uint32_t rd_and_rs, uint32_t rsVal)
 {
   const uint32_t Rs = (rd_and_rs & 0xFFu);
+  const uint32_t Rd = (rd_and_rs >> 8);
   Validate(&CPU_reg[Rs], rsVal);
-  CPU_reg[(rd_and_rs >> 8)] = CPU_reg[Rs];
+  if (Rd != Rs)
+    CPU_reg[Rd] = CPU_reg[Rs];
 }
 
 uint32_t* CPU_GetRegisterFlags(uint32_t reg)
@@ -1423,15 +1508,19 @@ void CPU_MemoryALU(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 void CPU_ADDI(uint32_t instr, uint32_t rsVal)
 {
   // Rt = Rs + Imm (signed)
+  const uint32_t dest = rt(instr);
+  if (dest == 0)
+    return;
+
   if (rs(instr) == 0)
   {
     // Adding to the hardwired zero register is a constant load; do not read
     // the tracked value of r0, which the CPU itself never writes.
-    CPU_reg[rt(instr)] = PGXP_value_zero;
-    CPU_reg[rt(instr)].x = static_cast<float>(imm_sext(instr));
-    CPU_reg[rt(instr)].y = (imm_sext(instr) < 0) ? -1.f : 0.f;
-    CPU_reg[rt(instr)].value = static_cast<uint32_t>(imm_sext(instr));
-    CPU_reg[rt(instr)].flags = VALID_01;
+    CPU_reg[dest] = PGXP_value_zero;
+    CPU_reg[dest].x = static_cast<float>(imm_sext(instr));
+    CPU_reg[dest].y = (imm_sext(instr) < 0) ? -1.f : 0.f;
+    CPU_reg[dest].value = static_cast<uint32_t>(imm_sext(instr));
+    CPU_reg[dest].flags = VALID_01;
     return;
   }
 
@@ -1440,6 +1529,12 @@ void CPU_ADDI(uint32_t instr, uint32_t rsVal)
 
   Validate(&CPU_reg[rs(instr)], rsVal);
   ret = CPU_reg[rs(instr)];
+  if ((ret.flags & VALID_ALL) == 0)
+  {
+    CPU_reg[dest] = PGXP_value_invalid;
+    return;
+  }
+
   tempImm.d = imm(instr);
   tempImm.sd = (tempImm.sd << 16) >> 16; // sign extend
 
@@ -1458,8 +1553,8 @@ void CPU_ADDI(uint32_t instr, uint32_t rsVal)
     ret.y = static_cast<float>(f16Sign(ret.y));
   }
 
-  CPU_reg[rt(instr)] = ret;
-  CPU_reg[rt(instr)].value = rsVal + imm_sext(instr);
+  CPU_reg[dest] = ret;
+  CPU_reg[dest].value = rsVal + imm_sext(instr);
 }
 
 void CPU_ANDI(uint32_t instr, uint32_t rsVal)
@@ -1590,9 +1685,18 @@ void CPU_LUI(uint32_t instr)
 void CPU_ADD(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 {
   // Rd = Rs + Rt (signed)
+  const uint32_t dest = rd(instr);
+  if (dest == 0)
+    return;
+
   PGXP_value ret;
   Validate(&CPU_reg[rs(instr)], rsVal);
   Validate(&CPU_reg[rt(instr)], rtVal);
+  if (((CPU_reg[rs(instr)].flags | CPU_reg[rt(instr)].flags) & VALID_ALL) == 0)
+  {
+    CPU_reg[dest] = PGXP_value_invalid;
+    return;
+  }
 
   if (rtVal != 0)
   {
@@ -1635,9 +1739,18 @@ void CPU_ADD(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 void CPU_SUB(uint32_t instr, uint32_t rsVal, uint32_t rtVal)
 {
   // Rd = Rs - Rt (signed)
+  const uint32_t dest = rd(instr);
+  if (dest == 0)
+    return;
+
   PGXP_value ret;
   Validate(&CPU_reg[rs(instr)], rsVal);
   Validate(&CPU_reg[rt(instr)], rtVal);
+  if (((CPU_reg[rs(instr)].flags | CPU_reg[rt(instr)].flags) & VALID_ALL) == 0)
+  {
+    CPU_reg[dest] = PGXP_value_invalid;
+    return;
+  }
 
   if (rtVal == 0)
   {
@@ -1982,12 +2095,22 @@ enum class ShiftOperation { Left, LogicalRight, ArithmeticRight };
 
 static void CPU_SHIFT(uint32_t instr, uint32_t rtVal, uint32_t shift, ShiftOperation operation)
 {
+  const uint32_t dest = rd(instr);
+  if (dest == 0)
+    return;
+
   Validate(&CPU_reg[rt(instr)], rtVal);
   const PGXP_value source = CPU_reg[rt(instr)];
   if (shift == 0)
   {
-    CPU_reg[rd(instr)] = source;
-    CPU_reg[rd(instr)].value = rtVal;
+    CPU_reg[dest] = source;
+    CPU_reg[dest].value = rtVal;
+    return;
+  }
+
+  if (shift < 16 && (source.flags & VALID_ALL) == 0)
+  {
+    CPU_reg[dest] = PGXP_value_invalid;
     return;
   }
 

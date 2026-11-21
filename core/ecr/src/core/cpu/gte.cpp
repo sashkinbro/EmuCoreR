@@ -25,9 +25,10 @@ static constexpr int32_t IR123_MIN_VALUE = -(INT64_C(1) << 15);
 static constexpr int32_t IR123_MAX_VALUE = (INT64_C(1) << 15) - 1;
 
 static DisplayAspectRatio s_aspect_ratio = DisplayAspectRatio::R4_3;
+static bool s_default_aspect_ratio = true;
 static uint32_t s_custom_aspect_ratio_numerator;
 static uint32_t s_custom_aspect_ratio_denominator;
-static float s_custom_aspect_ratio_f;
+static double s_custom_aspect_ratio_d = 1.0;
 
 #define REGS CPU::g_state.gte_regs
 
@@ -189,10 +190,14 @@ void UpdateAspectRatio()
   if (!g_settings.gpu_widescreen_hack)
   {
     s_aspect_ratio = DisplayAspectRatio::R4_3;
+    s_default_aspect_ratio = true;
     return;
   }
 
   s_aspect_ratio = g_settings.display_aspect_ratio;
+  s_default_aspect_ratio =
+    (s_aspect_ratio == DisplayAspectRatio::R4_3 || s_aspect_ratio == DisplayAspectRatio::Auto ||
+     s_aspect_ratio == DisplayAspectRatio::PAR1_1);
 
   uint32_t num, denom;
   switch (s_aspect_ratio)
@@ -203,6 +208,7 @@ void UpdateAspectRatio()
       if (!display)
       {
         s_aspect_ratio = DisplayAspectRatio::R4_3;
+        s_default_aspect_ratio = true;
         return;
       }
 
@@ -230,7 +236,7 @@ void UpdateAspectRatio()
   s_custom_aspect_ratio_numerator = x / gcd;
   s_custom_aspect_ratio_denominator = y / gcd;
 
-  s_custom_aspect_ratio_f = static_cast<float>((4.0 / 3.0) / (static_cast<double>(num) / static_cast<double>(denom)));
+  s_custom_aspect_ratio_d = (4.0 / 3.0) / (static_cast<double>(num) / static_cast<double>(denom));
 }
 
 uint32_t ReadRegister(uint32_t index)
@@ -387,6 +393,7 @@ ALWAYS_INLINE static void PushSXY(int32_t x, int32_t y)
   REGS.dr32[14] = (static_cast<uint32_t>(x) & 0xFFFFu) | (static_cast<uint32_t>(y) << 16);
 }
 
+template<bool pgxp_enable>
 ALWAYS_INLINE static void PushSZ(int32_t value)
 {
   if (value < 0)
@@ -400,7 +407,7 @@ ALWAYS_INLINE static void PushSZ(int32_t value)
     value = 0xFFFF;
   }
 
-  if (g_settings.gpu_pgxp_enable)
+  if constexpr (pgxp_enable)
     PGXP::GTE_PushDataFIFO(16, 4, static_cast<uint32_t>(value));
   REGS.dr32[16] = REGS.dr32[17];           // SZ0 <- SZ1
   REGS.dr32[17] = REGS.dr32[18];           // SZ1 <- SZ2
@@ -527,31 +534,32 @@ static void Execute_MVMVA(Instruction inst)
 {
   REGS.FLAG.Clear();
 
-  // TODO: Remove memcpy..
-  int16_t M[3][3];
+  const int16_t (*M_ptr)[3];
+  int16_t buggy_M[3][3];
   switch (inst.mvmva_multiply_matrix)
   {
     case 0:
-      std::memcpy(M, REGS.RT, sizeof(int16_t) * 3 * 3);
+      M_ptr = REGS.RT;
       break;
     case 1:
-      std::memcpy(M, REGS.LLM, sizeof(int16_t) * 3 * 3);
+      M_ptr = REGS.LLM;
       break;
     case 2:
-      std::memcpy(M, REGS.LCM, sizeof(int16_t) * 3 * 3);
+      M_ptr = REGS.LCM;
       break;
     default:
     {
       // buggy
-      M[0][0] = -static_cast<int16_t>(static_cast<uint16_t>(REGS.RGBC[0]) << 4);
-      M[0][1] = static_cast<int16_t>(static_cast<uint16_t>(REGS.RGBC[0]) << 4);
-      M[0][2] = REGS.IR0;
-      M[1][0] = REGS.RT[0][2];
-      M[1][1] = REGS.RT[0][2];
-      M[1][2] = REGS.RT[0][2];
-      M[2][0] = REGS.RT[1][1];
-      M[2][1] = REGS.RT[1][1];
-      M[2][2] = REGS.RT[1][1];
+      buggy_M[0][0] = -static_cast<int16_t>(static_cast<uint16_t>(REGS.RGBC[0]) << 4);
+      buggy_M[0][1] = static_cast<int16_t>(static_cast<uint16_t>(REGS.RGBC[0]) << 4);
+      buggy_M[0][2] = REGS.IR0;
+      buggy_M[1][0] = REGS.RT[0][2];
+      buggy_M[1][1] = REGS.RT[0][2];
+      buggy_M[1][2] = REGS.RT[0][2];
+      buggy_M[2][0] = REGS.RT[1][1];
+      buggy_M[2][1] = REGS.RT[1][1];
+      buggy_M[2][2] = REGS.RT[1][1];
+      M_ptr = buggy_M;
     }
     break;
   }
@@ -585,16 +593,16 @@ static void Execute_MVMVA(Instruction inst)
   switch (inst.mvmva_translation_vector)
   {
     case 0:
-      MulMatVec(M, REGS.TR, Vx, Vy, Vz, inst.GetShift(), inst.lm);
+      MulMatVec(M_ptr, REGS.TR, Vx, Vy, Vz, inst.GetShift(), inst.lm);
       break;
     case 1:
-      MulMatVec(M, REGS.BK, Vx, Vy, Vz, inst.GetShift(), inst.lm);
+      MulMatVec(M_ptr, REGS.BK, Vx, Vy, Vz, inst.GetShift(), inst.lm);
       break;
     case 2:
-      MulMatVecBuggy(M, REGS.FC, Vx, Vy, Vz, inst.GetShift(), inst.lm);
+      MulMatVecBuggy(M_ptr, REGS.FC, Vx, Vy, Vz, inst.GetShift(), inst.lm);
       break;
     default:
-      MulMatVec(M, zero_T, Vx, Vy, Vz, inst.GetShift(), inst.lm);
+      MulMatVec(M_ptr, zero_T, Vx, Vy, Vz, inst.GetShift(), inst.lm);
       break;
   }
 
@@ -642,6 +650,7 @@ static void Execute_OP(Instruction inst)
   REGS.FLAG.UpdateError();
 }
 
+template<bool pgxp_enable>
 static void RTPS(const int16_t V[3], uint8_t shift, bool lm, bool last)
 {
 #define dot3(i)                                                                                                        \
@@ -669,125 +678,130 @@ static void RTPS(const int16_t V[3], uint8_t shift, bool lm, bool last)
 #undef dot3
 
   // SZ3 = MAC3 SAR ((1-sf)*12)                           ;ScreenZ FIFO 0..+FFFFh
-  PushSZ(int32_t(z >> 12));
+  PushSZ<pgxp_enable>(int32_t(z >> 12));
 
   // MAC0=(((H*20000h/SZ3)+1)/2)*IR1+OFX, SX2=MAC0/10000h ;ScrX FIFO -400h..+3FFh
   // MAC0=(((H*20000h/SZ3)+1)/2)*IR2+OFY, SY2=MAC0/10000h ;ScrY FIFO -400h..+3FFh
   const int64_t result = static_cast<int64_t>(UNRDivide(REGS.H, REGS.SZ3));
+  const int64_t base_sx = result * int64_t(REGS.IR1);
 
   int64_t Sx;
-  switch (s_aspect_ratio)
+  if (s_default_aspect_ratio)
   {
-    case DisplayAspectRatio::R16_9:
-      Sx = ((((int64_t(result) * int64_t(REGS.IR1)) * int64_t(3)) / int64_t(4)) + int64_t(REGS.OFX));
-      break;
+    Sx = base_sx + int64_t(REGS.OFX);
+  }
+  else
+  {
+    switch (s_aspect_ratio)
+    {
+      case DisplayAspectRatio::R16_9:
+        Sx = ((base_sx * int64_t(3)) / int64_t(4)) + int64_t(REGS.OFX);
+        break;
 
-    case DisplayAspectRatio::R19_9:
-      Sx = ((((int64_t(result) * int64_t(REGS.IR1)) * int64_t(12)) / int64_t(19)) + int64_t(REGS.OFX));
-      break;
+      case DisplayAspectRatio::R19_9:
+        Sx = ((base_sx * int64_t(12)) / int64_t(19)) + int64_t(REGS.OFX);
+        break;
 
-    case DisplayAspectRatio::R20_9:
-      Sx = ((((int64_t(result) * int64_t(REGS.IR1)) * int64_t(3)) / int64_t(5)) + int64_t(REGS.OFX));
-      break;
+      case DisplayAspectRatio::R20_9:
+        Sx = ((base_sx * int64_t(3)) / int64_t(5)) + int64_t(REGS.OFX);
+        break;
 
-    case DisplayAspectRatio::Custom:
-    case DisplayAspectRatio::MatchWindow:
-      Sx = ((((int64_t(result) * int64_t(REGS.IR1)) * int64_t(s_custom_aspect_ratio_numerator)) /
-             int64_t(s_custom_aspect_ratio_denominator)) +
-            int64_t(REGS.OFX));
-      break;
+      case DisplayAspectRatio::Custom:
+      case DisplayAspectRatio::MatchWindow:
+        Sx = ((base_sx * int64_t(s_custom_aspect_ratio_numerator)) /
+              int64_t(s_custom_aspect_ratio_denominator)) +
+             int64_t(REGS.OFX);
+        break;
 
-    case DisplayAspectRatio::Auto:
-    case DisplayAspectRatio::R4_3:
-    case DisplayAspectRatio::PAR1_1:
-    default:
-      Sx = (int64_t(result) * int64_t(REGS.IR1) + int64_t(REGS.OFX));
-      break;
+      default:
+        Sx = base_sx + int64_t(REGS.OFX);
+        break;
+    }
   }
 
-  const int64_t Sy = int64_t(result) * int64_t(REGS.IR2) + int64_t(REGS.OFY);
+  const int64_t Sy = result * int64_t(REGS.IR2) + int64_t(REGS.OFY);
   CheckMACOverflow<0>(Sx);
   CheckMACOverflow<0>(Sy);
   PushSXY(int32_t(Sx >> 16), int32_t(Sy >> 16));
 
-  if (g_settings.gpu_pgxp_enable)
+  if constexpr (pgxp_enable)
   {
-    float precise_sz3, precise_ir1, precise_ir2;
+    double precise_sz3, precise_ir1, precise_ir2;
 
     if (g_settings.gpu_pgxp_preserve_proj_fp)
     {
-      precise_sz3 = std::clamp(float(z) / 4096.0f, 0.f, 65535.f);
-      precise_ir1 = float(x) / (static_cast<float>(1 << shift));
-      precise_ir2 = float(y) / (static_cast<float>(1 << shift));
-      const float ir_min = lm ? 0.f : float(IR123_MIN_VALUE);
-      precise_ir1 = std::clamp(precise_ir1, ir_min, float(IR123_MAX_VALUE));
-      precise_ir2 = std::clamp(precise_ir2, ir_min, float(IR123_MAX_VALUE));
+      const double inv_shift = (shift != 0) ? (1.0 / 4096.0) : 1.0;
+      const double ir_min = lm ? 0.0 : static_cast<double>(IR123_MIN_VALUE);
+      precise_sz3 = std::clamp(static_cast<double>(z) * (1.0 / 4096.0), 0.0, 65535.0);
+      precise_ir1 = std::clamp(static_cast<double>(x) * inv_shift, ir_min, static_cast<double>(IR123_MAX_VALUE));
+      precise_ir2 = std::clamp(static_cast<double>(y) * inv_shift, ir_min, static_cast<double>(IR123_MAX_VALUE));
     }
     else
     {
-      precise_sz3 = float(REGS.SZ3);
-      precise_ir1 = float(REGS.IR1);
-      precise_ir2 = float(REGS.IR2);
+      precise_sz3 = static_cast<double>(REGS.SZ3);
+      precise_ir1 = static_cast<double>(REGS.IR1);
+      precise_ir2 = static_cast<double>(REGS.IR2);
     }
 
-    // this can potentially use increased precision on Z
-    const float precise_z = std::max<float>(float(REGS.H) / 2.0f, precise_sz3);
-    const float precise_h_div_sz = (precise_z > 0.f) ? float(REGS.H) / precise_z : float(result) / 65536.f;
-    const float fofx = float(REGS.OFX) / float(1 << 16);
-    const float fofy = float(REGS.OFY) / float(1 << 16);
-    float precise_x = precise_ir1 * precise_h_div_sz;
+    // Perform projection divide and OFX/OFY addition in double to avoid float cancellation on large screen offsets.
+    const double h_d = static_cast<double>(REGS.H);
+    const double precise_z = std::max(h_d * 0.5, precise_sz3);
+    const double precise_h_div_sz =
+      (precise_z > 0.0) ? (h_d / precise_z) : (static_cast<double>(result) / 65536.0);
+    double precise_x_d = precise_ir1 * precise_h_div_sz;
 
-    switch (s_aspect_ratio)
+    if (!s_default_aspect_ratio)
     {
-      case DisplayAspectRatio::MatchWindow:
-      case DisplayAspectRatio::Custom:
-        precise_x = precise_x * s_custom_aspect_ratio_f;
-        break;
+      switch (s_aspect_ratio)
+      {
+        case DisplayAspectRatio::MatchWindow:
+        case DisplayAspectRatio::Custom:
+          precise_x_d *= s_custom_aspect_ratio_d;
+          break;
 
-      case DisplayAspectRatio::R16_9:
-        precise_x = (precise_x * 3.0f) / 4.0f;
-        break;
+        case DisplayAspectRatio::R16_9:
+          precise_x_d *= 0.75;
+          break;
 
-      case DisplayAspectRatio::R19_9:
-        precise_x = (precise_x * 12.0f) / 19.0f;
-        break;
+        case DisplayAspectRatio::R19_9:
+          precise_x_d *= (12.0 / 19.0);
+          break;
 
-      case DisplayAspectRatio::R20_9:
-        precise_x = (precise_x * 3.0f) / 5.0f;
-        break;
+        case DisplayAspectRatio::R20_9:
+          precise_x_d *= 0.6;
+          break;
 
-      case DisplayAspectRatio::Auto:
-      case DisplayAspectRatio::R4_3:
-      case DisplayAspectRatio::PAR1_1:
-      default:
-        break;
+        default:
+          break;
+      }
     }
 
-    precise_x += fofx;
+    precise_x_d += static_cast<double>(REGS.OFX) / 65536.0;
+    const double precise_y_d = (static_cast<double>(REGS.OFY) / 65536.0) + (precise_ir2 * precise_h_div_sz);
 
-    float precise_y = fofy + (precise_ir2 * precise_h_div_sz);
-
-    precise_x = std::clamp<float>(precise_x, -1024.0f, 1023.0f);
-    precise_y = std::clamp<float>(precise_y, -1024.0f, 1023.0f);
-    PGXP::GTE_PushSXYZ2f(precise_x, precise_y, precise_z, REGS.dr32[14]);
+    const float precise_x = std::clamp<float>(static_cast<float>(precise_x_d), -1024.0f, 1023.0f);
+    const float precise_y = std::clamp<float>(static_cast<float>(precise_y_d), -1024.0f, 1023.0f);
+    PGXP::GTE_PushSXYZ2f(precise_x, precise_y, static_cast<float>(precise_z), REGS.dr32[14]);
   }
 
   if (last)
   {
     // MAC0=(((H*20000h/SZ3)+1)/2)*DQA+DQB, IR0=MAC0/1000h  ;Depth cueing 0..+1000h
-    const int64_t Sz = int64_t(result) * int64_t(REGS.DQA) + int64_t(REGS.DQB);
+    const int64_t Sz = result * int64_t(REGS.DQA) + int64_t(REGS.DQB);
     TruncateAndSetMAC<0>(Sz, 0);
     TruncateAndSetIR<0>(int32_t(Sz >> 12), true);
   }
 }
 
+template<bool pgxp_enable>
 static void Execute_RTPS(Instruction inst)
 {
   REGS.FLAG.Clear();
-  RTPS(REGS.V0, inst.GetShift(), inst.lm, true);
+  RTPS<pgxp_enable>(REGS.V0, inst.GetShift(), inst.lm, true);
   REGS.FLAG.UpdateError();
 }
 
+template<bool pgxp_enable>
 static void Execute_RTPT(Instruction inst)
 {
   REGS.FLAG.Clear();
@@ -795,9 +809,9 @@ static void Execute_RTPT(Instruction inst)
   const uint8_t shift = inst.GetShift();
   const bool lm = inst.lm;
 
-  RTPS(REGS.V0, shift, lm, false);
-  RTPS(REGS.V1, shift, lm, false);
-  RTPS(REGS.V2, shift, lm, true);
+  RTPS<pgxp_enable>(REGS.V0, shift, lm, false);
+  RTPS<pgxp_enable>(REGS.V1, shift, lm, false);
+  RTPS<pgxp_enable>(REGS.V2, shift, lm, true);
 
   REGS.FLAG.UpdateError();
 }
@@ -1169,7 +1183,10 @@ void ExecuteInstruction(uint32_t inst_bits)
   {
     case 0x01:
       CPU::AddGTETicks(15);
-      Execute_RTPS(inst);
+      if (g_settings.gpu_pgxp_enable)
+        Execute_RTPS<true>(inst);
+      else
+        Execute_RTPS<false>(inst);
       break;
 
     case 0x06:
@@ -1264,7 +1281,10 @@ void ExecuteInstruction(uint32_t inst_bits)
 
     case 0x30:
       CPU::AddGTETicks(23);
-      Execute_RTPT(inst);
+      if (g_settings.gpu_pgxp_enable)
+        Execute_RTPT<true>(inst);
+      else
+        Execute_RTPT<false>(inst);
       break;
 
     case 0x3D:
@@ -1294,7 +1314,7 @@ InstructionImpl GetInstructionImpl(uint32_t inst_bits, TickCount* ticks)
   {
     case 0x01:
       *ticks = 15;
-      return &Execute_RTPS;
+      return g_settings.gpu_pgxp_enable ? &Execute_RTPS<true> : &Execute_RTPS<false>;
 
     case 0x06:
     {
@@ -1371,7 +1391,7 @@ InstructionImpl GetInstructionImpl(uint32_t inst_bits, TickCount* ticks)
 
     case 0x30:
       *ticks = 23;
-      return &Execute_RTPT;
+      return g_settings.gpu_pgxp_enable ? &Execute_RTPT<true> : &Execute_RTPT<false>;
 
     case 0x3D:
       *ticks = 5;

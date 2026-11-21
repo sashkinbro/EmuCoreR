@@ -554,7 +554,7 @@ object EcrCoreOptions {
                 Choice("8.0", "8.0 pixels"),
                 Choice("8.5", "8.5 pixels"),
                 Choice("9.0", "9.0 pixels"),
-                Choice("9.5", "9.0 pixels"),
+                Choice("9.5", "9.5 pixels"),
                 Choice("10.0", "10.0 pixels"),
             ),
             defaultValue = "-1.0",

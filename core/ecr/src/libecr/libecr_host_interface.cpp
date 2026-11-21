@@ -1361,7 +1361,7 @@ bool HostInterface::UpdateCoreOptionsDisplay(bool controller)
       .value_or(Settings::DEFAULT_GPU_RENDERER);
   const bool hardware_renderer = (gpu_renderer != GPURenderer::Software);
   const bool pgxp_enable = (hardware_renderer && si.GetBoolValue("GPU", "PGXPEnable", false));
-  const bool support_perspective = (pgxp_enable && gpu_renderer != GPURenderer::HardwareOpenGL);
+  const bool support_perspective = pgxp_enable;
 
   const MultitapMode multitap_mode =
     Settings::ParseMultitapModeName(si.GetStringValue("ControllerPorts", "MultitapMode", Settings::GetMultitapModeName(Settings::DEFAULT_MULTITAP_MODE)).c_str())

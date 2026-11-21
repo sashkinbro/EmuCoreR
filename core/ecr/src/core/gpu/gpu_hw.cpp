@@ -887,10 +887,14 @@ void GPU_HW::LoadVertices()
         if (use_depth)
           CheckForDepthClear(vertices.data(), num_vertices);
 
+        const bool disable_2d = !valid_geometry_depth && g_settings.gpu_pgxp_disable_2d;
+        const bool keep_w = valid_geometry_depth &&
+                            (g_settings.gpu_pgxp_texture_correction ||
+                             (UsesPGXPAttributeWeights(m_render_api) && g_settings.gpu_pgxp_color_correction));
         for (uint32_t i = 0; i < num_vertices; i++)
         {
           BatchVertex& v = vertices[i];
-          if (!valid_geometry_depth && g_settings.gpu_pgxp_disable_2d)
+          if (disable_2d)
           {
             v.x = static_cast<float>(native_vertex_positions[i][0]);
             v.y = static_cast<float>(native_vertex_positions[i][1]);
@@ -900,9 +904,7 @@ void GPU_HW::LoadVertices()
           // polygon can still occlude another polygon using its tracked Z.
           if (m_pgxp_depth_buffer)
             v.z = valid_geometry_depth ? std::min(v.w, 1.f) : 1.f;
-          if (!valid_geometry_depth ||
-              (!g_settings.gpu_pgxp_texture_correction &&
-               (!UsesPGXPAttributeWeights(m_render_api) || !g_settings.gpu_pgxp_color_correction)))
+          if (!keep_w)
             v.w = 1.f;
         }
       }
