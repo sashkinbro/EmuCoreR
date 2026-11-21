@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 import java.security.MessageDigest
 import java.util.Properties
 
@@ -65,7 +67,9 @@ val releaseSigningConfigured = listOf(
 android {
     namespace = "com.sbro.emucorer"
     compileSdk {
-        version = release(37)
+        version = release(37) {
+            minorApiLevel = 2
+        }
     }
     ndkVersion = emucorerNdkVersion
 
@@ -73,8 +77,8 @@ android {
         applicationId = "com.sbro.emucorer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 53
-        versionName = "0.1.8"
+        versionCode = 56
+        versionName = "0.1.9"
 
         buildConfigField("String", "FEEDBACK_ENDPOINT", buildConfigString(feedbackEndpoint))
         buildConfigField("String", "FEEDBACK_API_KEY", buildConfigString(feedbackApiKey))
@@ -181,7 +185,9 @@ android {
     sourceSets {
         getByName("main") {
             // Populated by the secondary 16 KiB core build below.
-            jniLibs.srcDir(file("build/generated/page-size-jni-libs"))
+            jniLibs.directories.add(
+                layout.buildDirectory.dir("generated/page-size-jni-libs").get().asFile.absolutePath
+            )
         }
     }
     packaging {
@@ -192,10 +198,11 @@ android {
             // /data/app/.../lib, which doubles the on-device footprint and adds
             // install-time work for a handful of megabytes.
             useLegacyPackaging = false
+            pickFirsts += "**/libc++_shared.so"
             discordSdkDirectory?.let { pickFirsts += "**/libdiscord_partner_sdk.so" }
         }
     }
-    discordSdkDirectory?.let { sdkDir -> sourceSets["main"].jniLibs.srcDir(sdkDir) }
+    discordSdkDirectory?.let { sdkDir -> sourceSets["main"].jniLibs.directories.add(sdkDir.absolutePath) }
     bundle {
         language {
             enableSplit = false
@@ -234,7 +241,7 @@ val secondary16kLibretroCore =
     secondary16kBuildDirectory.map { it.file("swanstation_libretro_android_16k.so") }
 val generated16kJniDirectory = layout.buildDirectory.dir("generated/page-size-jni-libs/arm64-v8a")
 
-val configureEmucorer16k by tasks.registering(Exec::class) {
+val configureEmucorer16k = tasks.register<Exec>("configureEmucorer16k") {
     group = "build"
     description = "Configures the secondary 16 KiB Android emulator core."
     // Both configurations generate SwanStation version.h in the source tree, so
@@ -282,7 +289,7 @@ val configureEmucorer16k by tasks.registering(Exec::class) {
     )
 }
 
-val buildEmucorer16k by tasks.registering(Exec::class) {
+val buildEmucorer16k = tasks.register<Exec>("buildEmucorer16k") {
     group = "build"
     description = "Builds the secondary 16 KiB Android emulator core."
     dependsOn(configureEmucorer16k)
@@ -304,7 +311,7 @@ val buildEmucorer16k by tasks.registering(Exec::class) {
     }
 }
 
-val stageEmucorer16k by tasks.registering(Copy::class) {
+val stageEmucorer16k = tasks.register<Copy>("stageEmucorer16k") {
     group = "build"
     description = "Stages the 16 KiB core for standard APK and AAB packaging."
     dependsOn(buildEmucorer16k)
@@ -317,6 +324,8 @@ tasks.matching { it.name == "mergeReleaseJniLibFolders" || it.name == "mergeDebu
 }
 
 dependencies {
+    val composeBom = platform(libs.androidx.compose.bom)
+    implementation(project(":native-ui:android"))
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services)
     implementation(libs.google.identity)
@@ -326,7 +335,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
+    implementation(composeBom)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
@@ -361,7 +370,7 @@ dependencies {
     // Real org.json on the JVM unit-test classpath; the android.jar stub would
     // throw "not mocked" for the per-game profile serialization tests.
     testImplementation(libs.json)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(composeBom)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)

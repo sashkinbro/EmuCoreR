@@ -76,6 +76,116 @@ class StringsLocalizationTest {
         "settings_game_menu_section_shaders"
     )
 
+    private val requiredPs1UiKeys = listOf(
+        "ps1ui_main_menu",
+        "ps1ui_menu_games",
+        "ps1ui_menu_memory_card",
+        "ps1ui_menu_settings",
+        "ps1ui_boot_subtitle",
+        "ps1ui_hint_select",
+        "ps1ui_hint_exit",
+        "ps1ui_hint_back",
+        "ps1ui_hint_tab",
+        "ps1ui_hint_change",
+        "ps1ui_btn_start",
+        "ps1ui_btn_continue",
+        "ps1ui_btn_options",
+        "ps1ui_loading_games",
+        "ps1ui_no_games",
+        "ps1ui_disc",
+        "ps1ui_discs",
+        "ps1ui_quick_saves_lbl",
+        "ps1ui_mc_tab_all",
+        "ps1ui_mc_tab_game",
+        "ps1ui_mc_tab_cards",
+        "ps1ui_mc_slot1",
+        "ps1ui_mc_slot2",
+        "ps1ui_mc_empty_slot",
+        "ps1ui_mc_available_cards",
+        "ps1ui_mc_blocks_title",
+        "ps1ui_saves_word",
+        "ps1ui_mc_free_block",
+        "ps1ui_loading_saves",
+        "ps1ui_mc_no_saves",
+        "ps1ui_mc_empty_block",
+        "ps1ui_mc_load",
+        "ps1ui_mc_delete",
+        "ps1ui_mc_exit",
+        "ps1ui_theme_classic",
+        "ps1ui_theme_psone",
+        "ps1ui_theme_slate",
+        "ps1ui_aspect_auto",
+        "ps1ui_aspect_16_9",
+        "ps1ui_aspect_4_3",
+        "ps1ui_orbs_normal",
+        "ps1ui_orbs_calm",
+        "ps1ui_orbs_static",
+        "ps1ui_scan_subtle",
+        "ps1ui_scan_classic",
+        "ps1ui_boot_full",
+        "ps1ui_boot_fast",
+        "ps1ui_on",
+        "ps1ui_off",
+        "ps1ui_btn_cross",
+        "ps1ui_btn_circle",
+        "ps1ui_time_24h",
+        "ps1ui_time_12h",
+        "ps1ui_open",
+        "ps1ui_view",
+        "ps1ui_reset",
+        "ps1ui_set_aspect",
+        "ps1ui_set_theme",
+        "ps1ui_set_orbs",
+        "ps1ui_set_scanlines",
+        "ps1ui_set_boot_anim",
+        "ps1ui_set_key_tone",
+        "ps1ui_set_ambient",
+        "ps1ui_set_confirm_btn",
+        "ps1ui_set_touch",
+        "ps1ui_set_touch_guide",
+        "ps1ui_set_time_fmt",
+        "ps1ui_set_date_fmt",
+        "ps1ui_set_keep_screen",
+        "ps1ui_set_sysinfo",
+        "ps1ui_set_restore",
+        "ps1ui_launching_save",
+        "ps1ui_launching_disc",
+        "ps1ui_exit_title",
+        "ps1ui_exit_msg",
+        "ps1ui_del_title",
+        "ps1ui_del_msg",
+        "ps1ui_restore_title",
+        "ps1ui_restore_msg",
+        "ps1ui_yes",
+        "ps1ui_no",
+        "ps1ui_opt_start",
+        "ps1ui_opt_continue",
+        "ps1ui_opt_saves",
+        "ps1ui_opt_info",
+        "ps1ui_opt_settings",
+        "ps1ui_select_disc",
+        "ps1ui_info_title",
+        "ps1ui_info_serial",
+        "ps1ui_info_size",
+        "ps1ui_info_discs",
+        "ps1ui_close",
+        "ps1ui_sys_app",
+        "ps1ui_sys_device",
+        "ps1ui_sys_bios",
+        "ps1ui_sys_storage",
+        "ps1ui_touch_guide_title",
+        "ps1ui_touch_tip_1",
+        "ps1ui_touch_tip_2",
+        "ps1ui_touch_tip_3",
+        "ps1ui_touch_tip_4",
+        "ps1ui_got_it",
+        "ps1ui_slot_auto",
+        "ps1ui_slot_fmt",
+        "ps1ui_card_formatted",
+        "ps1ui_bios_ready",
+        "ps1ui_bios_missing"
+    )
+
     @Test
     fun `keyboard and mouse strings exist in every locale`() {
         val resDir = resolveResDir()
@@ -87,6 +197,9 @@ class StringsLocalizationTest {
         localeDirs.forEach { dir ->
             val content = File(dir, "strings.xml").readText()
             requiredKeyboardMouseKeys.forEach { key ->
+                assertTrue("Missing $key in ${dir.name}/strings.xml", content.contains("name=\"$key\""))
+            }
+            requiredPs1UiKeys.forEach { key ->
                 assertTrue("Missing $key in ${dir.name}/strings.xml", content.contains("name=\"$key\""))
             }
         }
@@ -101,7 +214,8 @@ class StringsLocalizationTest {
             .filter { dir -> File(dir, "strings.xml").isFile }
         val expectedPlaceholders = mapOf(
             "emulation_shaders_pack_ready" to "%1\$d",
-            "emulation_shaders_global_value" to "%1\$s"
+            "emulation_shaders_global_value" to "%1\$s",
+            "ps1ui_slot_fmt" to "%1\$d"
         )
         assertTrue("Expected at least 18 locale string files", localeDirs.size >= 18)
         localeDirs.forEach { dir ->

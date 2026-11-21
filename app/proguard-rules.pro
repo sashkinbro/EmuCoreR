@@ -35,6 +35,13 @@
 -keepclasseswithmembers,includedescriptorclasses class com.sbro.emucorer.discord.DiscordNative {
     native <methods>;
 }
+-keepclasseswithmembers,includedescriptorclasses class com.sbro.emucorer.ps1ui.Ps1ShellNative {
+    native <methods>;
+}
+-keep class com.sbro.emucorer.ps1ui.Ps1ShellHost { *; }
+-keep class com.sbro.emucorer.ps1ui.Ps1TextRasterizer { *; }
+-keep class com.sbro.emucorer.ps1ui.Ps1ImageDecoder { *; }
+-keep class com.sbro.emucorer.ps1ui.Ps1ShellAudio { *; }
 
 # --- RetroAchievements ------------------------------------------------------
 # achievements_bridge.cpp resolves the HTTP bridge object, its static request

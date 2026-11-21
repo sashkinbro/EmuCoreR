@@ -43,6 +43,7 @@ import com.sbro.emucorer.data.AppFontChoice
 import com.sbro.emucorer.data.CustomFontRepository
 import com.sbro.emucorer.data.CustomThemeConfig
 import com.sbro.emucorer.navigation.AppNavigation
+import com.sbro.emucorer.ps1ui.Ps1ShellHost
 import com.sbro.emucorer.ui.common.GamepadUiInputRouter
 import com.sbro.emucorer.ui.theme.EmuCoreRTheme
 import com.sbro.emucorer.ui.theme.ThemeMode
@@ -70,16 +71,36 @@ open class MainActivity : ComponentActivity() {
     private var appliedDarkTheme = true
     @Volatile
     private var pointerCaptureEnabled = false
+    private var currentOrientationLock: Int = AppPreferences.ORIENTATION_LOCK_AUTO
+    private val orientationOverrides = LinkedHashMap<String, Int>()
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocaleManager.wrap(newBase))
     }
 
-    private fun applyOrientationLock(lock: Int) {
-        requestedOrientation = when (lock) {
+    private fun resolveAndApplyOrientation() {
+        if (launchedFromTv) return
+        val override = orientationOverrides.values.lastOrNull()
+        requestedOrientation = override ?: when (currentOrientationLock) {
             AppPreferences.ORIENTATION_LOCK_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             AppPreferences.ORIENTATION_LOCK_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    private fun applyOrientationLock(lock: Int) {
+        currentOrientationLock = lock
+        resolveAndApplyOrientation()
+    }
+
+    fun setOrientationOverride(token: String, orientation: Int) {
+        orientationOverrides[token] = orientation
+        resolveAndApplyOrientation()
+    }
+
+    fun clearOrientationOverride(token: String) {
+        if (orientationOverrides.remove(token) != null) {
+            resolveAndApplyOrientation()
         }
     }
 
@@ -402,6 +423,7 @@ open class MainActivity : ComponentActivity() {
 
     @SuppressLint("RestrictedApi", "GestureBackNavigation")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (Ps1ShellHost.handleKeyEvent(event)) return true
         if (KeyboardMouseManager.handleKeyBindingCapture(event)) return true
 
         if (GamepadManager.isGameController(event.device)) {
@@ -471,6 +493,7 @@ open class MainActivity : ComponentActivity() {
     }
 
     override fun onGenericMotionEvent(event: MotionEvent?): Boolean {
+        if (event != null && Ps1ShellHost.handleMotionEvent(event)) return true
         if (event != null && GamepadManager.isGameController(event.device) && !GamepadManager.isEmulationInputEnabled()) {
             if (GamepadUiInputRouter.handleMotionEvent(event)) return true
         }

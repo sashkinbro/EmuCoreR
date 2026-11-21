@@ -158,6 +158,7 @@ import com.sbro.emucorer.ui.common.rememberDebouncedClick
 import com.sbro.emucorer.ui.common.skipGamepadTextFieldFocus
 import com.sbro.emucorer.ui.common.appScreenTopPadding
 import com.sbro.emucorer.ui.customization.HomeBackgroundMedia
+import com.sbro.emucorer.ui.ps1shell.Ps1ShellScreen
 import com.sbro.emucorer.ui.theme.GradientEnd
 import com.sbro.emucorer.ui.theme.GradientStart
 import com.sbro.emucorer.ui.theme.ScreenHorizontalPadding
@@ -180,6 +181,18 @@ fun HomeScreen(
     onLoadSaveClick: (GameItem) -> Unit,
     onManageGameClick: (GameItem) -> Unit,
     onCreateShortcutClick: (GameItem) -> Unit,
+    onGamePathClick: (String) -> Unit = { path ->
+        onGameClick(
+            GameItem(
+                title = path.substringAfterLast('/'),
+                path = path,
+                fileName = path.substringAfterLast('/'),
+                fileSize = 0L,
+                lastModified = 0L
+            )
+        )
+    },
+    onSaveSelected: (gamePath: String, slot: Int) -> Unit = { _, _ -> },
     onMenuClick: (() -> Unit)? = null,
     onShelfModeChanged: (Boolean) -> Unit = {},
     viewModel: HomeViewModel = viewModel()
@@ -520,30 +533,16 @@ fun HomeScreen(
                 label = "home-library-mode"
             ) { shelfMode ->
                 if (shelfMode) {
-                    HomeShelfMode(
+                    // Replace only the 3D carousel shelf with the native GLES 3.0 PS1 BIOS shell.
+                    Ps1ShellScreen(
                         games = uiState.games,
-                        recentGames = uiState.recentGames,
+                        isLoadingGames = uiState.isLoading || uiState.isBootstrapping,
                         isCoverArtDisabled = uiState.isCoverArtDisabled,
-                        // Keep the outgoing shelf edge-to-edge until its exit animation finishes.
-                        // The parent state already points at the standard Home layout at that time.
-                        topInset = 0.dp,
-                        bottomInset = 0.dp,
-                        horizontalInset = horizontalInset,
-                        modifier = Modifier.fillMaxSize(),
-                        onExitShelfMode = viewModel::toggleShelfMode,
-                        onEnable3dCoverArt = viewModel::enable3dCoverArt,
-                        onGameClick = { performDiscAction(it, onGameClick) },
-                        onLongClickStart = { performDiscAction(it, onGameClick) },
-                        onLongClickContinue = { performDiscAction(it, onContinueGame) },
-                        onLongClickLoadSave = { performDiscAction(it, onLoadSaveClick) },
-                        onLongClickManage = { performDiscAction(it, onManageGameClick) },
-                        onLongClickCreateShortcut = { performDiscAction(it, onCreateShortcutClick) },
-                        onLongClickCustomCover = { game ->
-                            performDiscAction(game) { gameAwaitingPickerLaunch = it }
-                        },
-                        onLongClickRestoreCover = { game ->
-                            performDiscAction(game) { restoreCustomCover(it) }
-                        }
+                        onGamePathSelected = onGamePathClick,
+                        onSaveSelected = onSaveSelected,
+                        onManageGame = onManageGameClick,
+                        onExitShell = viewModel::toggleShelfMode,
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     val columns = if (isListView) GridCells.Fixed(1) else GridCells.Adaptive(minSize = minCellSize)

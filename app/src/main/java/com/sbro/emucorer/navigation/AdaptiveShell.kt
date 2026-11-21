@@ -65,9 +65,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
@@ -196,14 +198,21 @@ fun AdaptiveShell(
             onCloseDrawer = { }
         )
     }
+    val latestContent = rememberUpdatedState(content)
+    val movableContent = remember {
+        movableContentOf<(() -> Unit)?> { openDrawer ->
+            latestContent.value(openDrawer)
+        }
+    }
     val configuration = LocalConfiguration.current
     val isTabletClass = configuration.smallestScreenWidthDp >= 600
     val isWide = tvUiEnabled || (isTabletClass && configuration.screenWidthDp >= 900)
+    val showPermanentRail = isWide && drawerEnabled
     val tvSafeHorizontal = TvUiMetrics.safeHorizontalDp(configuration.screenWidthDp).dp
     val tvSafeVertical = TvUiMetrics.safeVerticalDp(configuration.screenHeightDp).dp
     val tvNavigationWidth = TvUiMetrics.navigationWidthDp(configuration.screenWidthDp).dp
 
-    if (isWide) {
+    if (showPermanentRail) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -243,7 +252,7 @@ fun AdaptiveShell(
                     .weight(1f)
                     .fillMaxHeight()
             ) {
-                content(null)
+                movableContent(null)
             }
         }
     } else {
@@ -272,7 +281,7 @@ fun AdaptiveShell(
             onBackClick = onBackClick,
             onLaunchGame = onLaunchGame,
             onLaunchBios = onLaunchBios,
-            content = content
+            content = movableContent
         )
     }
 }
@@ -383,6 +392,11 @@ private fun CompactAdaptiveShell(
             drawerState.snapTo(DrawerValue.Closed)
         }
         destinationSettled = true
+    }
+    LaunchedEffect(drawerEnabled) {
+        if (!drawerEnabled) {
+            drawerState.snapTo(DrawerValue.Closed)
+        }
     }
     LaunchedEffect(drawerState.isOpen, mobileLeadingAction, selected) {
         if (drawerState.isOpen && mobileLeadingAction == MobileLeadingAction.Drawer) {

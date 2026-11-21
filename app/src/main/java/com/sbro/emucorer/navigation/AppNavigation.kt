@@ -507,6 +507,16 @@ onNavigateAchievements = navigateAchievements,
                         onCreateShortcutClick = { game ->
                             GameLaunchShortcut.requestPinnedShortcut(context, game)
                         },
+                        onGamePathClick = { gamePath ->
+                            navController.navigate(EmulationRoute(gamePath = gamePath)) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onSaveSelected = { gamePath, saveSlot ->
+                            navController.navigate(EmulationRoute(gamePath = gamePath, saveSlot = saveSlot)) {
+                                launchSingleTop = true
+                            }
+                        },
                         onMenuClick = openDrawer,
                         onShelfModeChanged = { isShelfMode ->
                             homeDrawerEnabled = !isShelfMode
