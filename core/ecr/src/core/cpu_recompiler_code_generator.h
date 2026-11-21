@@ -266,6 +266,9 @@ private:
 
   bool m_fastmem_load_base_in_register = false;
   bool m_fastmem_store_base_in_register = false;
+  bool m_cop2_enabled_checked = false;
+
+  void EmitCOP2EnabledCheck(const CodeBlockInstruction& cbi);
 
   //////////////////////////////////////////////////////////////////////////
   // Speculative Constants

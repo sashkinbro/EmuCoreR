@@ -695,6 +695,7 @@ void CodeGenerator::OrValueInPlace(Value& lhs, const Value& rhs)
         lhs = Value();
         break;
     }
+    return;
   }
 
   // unlikely
@@ -739,7 +740,22 @@ Value CodeGenerator::AndValues(const Value& lhs, const Value& rhs)
     }
   }
 
-  // TODO: and with -1 -> noop
+  const uint64_t all_ones = (lhs.size == RegSize_8) ? UINT64_C(0xFF) :
+                            (lhs.size == RegSize_16) ? UINT64_C(0xFFFF) :
+                            (lhs.size == RegSize_32) ? UINT64_C(0xFFFFFFFF) : UINT64_C(0xFFFFFFFFFFFFFFFF);
+  if (lhs.HasConstantValue(all_ones))
+  {
+    Value res = m_register_cache.AllocateScratch(lhs.size);
+    EmitCopyValue(res.host_reg, rhs);
+    return res;
+  }
+  if (rhs.HasConstantValue(all_ones))
+  {
+    Value res = m_register_cache.AllocateScratch(lhs.size);
+    EmitCopyValue(res.host_reg, lhs);
+    return res;
+  }
+
   Value res = m_register_cache.AllocateScratch(lhs.size);
   if (lhs.HasConstantValue(0) || rhs.HasConstantValue(0))
   {
@@ -787,12 +803,21 @@ void CodeGenerator::AndValueInPlace(Value& lhs, const Value& rhs)
         lhs = Value();
         break;
     }
+    return;
   }
 
-  // TODO: and with -1 -> noop
+  const uint64_t all_ones = (lhs.size == RegSize_8) ? UINT64_C(0xFF) :
+                            (lhs.size == RegSize_16) ? UINT64_C(0xFFFF) :
+                            (lhs.size == RegSize_32) ? UINT64_C(0xFFFFFFFF) : UINT64_C(0xFFFFFFFFFFFFFFFF);
+  if (rhs.HasConstantValue(all_ones))
+    return;
+
   if (lhs.HasConstantValue(0) || rhs.HasConstantValue(0))
   {
-    EmitXor(lhs.host_reg, lhs.host_reg, lhs);
+    if (lhs.IsInHostRegister())
+      EmitXor(lhs.host_reg, lhs.host_reg, lhs);
+    else
+      lhs.constant_value = 0;
     return;
   }
 
@@ -835,7 +860,6 @@ Value CodeGenerator::XorValues(const Value& lhs, const Value& rhs)
   }
 
   Value res = m_register_cache.AllocateScratch(lhs.size);
-  EmitCopyValue(res.host_reg, lhs);
   if (lhs.HasConstantValue(0))
   {
     EmitCopyValue(res.host_reg, rhs);
@@ -916,6 +940,8 @@ void CodeGenerator::GenerateExceptionExit(const CodeBlockInstruction& cbi, Excep
   EmitBranch(GetCurrentFarCodePointer());
 
   SwitchToFarCode();
+  m_register_cache.FlushAllGuestRegisters(true, true);
+  m_register_cache.FlushLoadDelay(true);
   EmitFunctionCall(nullptr, static_cast<void (*)(uint32_t, uint32_t)>(&CPU::RaiseException), CAUSE_bits,
                    GetCurrentInstructionPC());
   EmitExceptionExit();
@@ -942,6 +968,7 @@ void CodeGenerator::BlockPrologue()
   m_current_instruction_was_branch_taken_dirty = false;
   m_load_delay_dirty = true;
   m_gte_busy_cycles_dirty = true;
+  m_cop2_enabled_checked = false;
 }
 
 void CodeGenerator::BlockEpilogue()
@@ -2760,7 +2787,10 @@ bool CodeGenerator::Compile_cop0(const CodeBlockInstruction& cbi)
             }
 
             if (reg == Cop0Reg::SR)
+            {
               m_speculative_constants.cop0_sr = SpeculativeReadReg(cbi.instruction.r.rt);
+              m_cop2_enabled_checked = false;
+            }
 
             // changing SR[Isc] needs to update fastmem views
             if (reg == Cop0Reg::SR && g_settings.IsUsingFastmem())
@@ -3007,12 +3037,25 @@ void CodeGenerator::DoGTERegisterWrite(uint32_t index, const Value& value)
   }
 }
 
+void CodeGenerator::EmitCOP2EnabledCheck(const CodeBlockInstruction& cbi)
+{
+  if (m_cop2_enabled_checked)
+    return;
+
+  Value sr = m_register_cache.AllocateScratch(RegSize_32);
+  EmitLoadCPUStructField(sr.host_reg, RegSize_32, offsetof(State, cop0_regs.sr.bits));
+  EmitTest(sr.host_reg, Value::FromConstantU32(UINT32_C(1) << 30));
+  GenerateExceptionExit(cbi, Exception::CpU, Condition::Zero);
+  m_cop2_enabled_checked = true;
+}
+
 bool CodeGenerator::Compile_cop2(const CodeBlockInstruction& cbi)
 {
   if (cbi.instruction.op == InstructionOp::lwc2 || cbi.instruction.op == InstructionOp::swc2)
   {
     StallUntilGTEComplete();
     InstructionPrologue(cbi, 1);
+    EmitCOP2EnabledCheck(cbi);
 
     const uint32_t reg = static_cast<uint32_t>(cbi.instruction.i.rt.GetValue());
     Value address = AddValues(m_register_cache.ReadGuestRegister(cbi.instruction.i.rs),
@@ -3056,6 +3099,7 @@ bool CodeGenerator::Compile_cop2(const CodeBlockInstruction& cbi)
 
         StallUntilGTEComplete();
         InstructionPrologue(cbi, 1);
+        EmitCOP2EnabledCheck(cbi);
 
         Value value = DoGTERegisterRead(reg);
 
@@ -3081,6 +3125,7 @@ bool CodeGenerator::Compile_cop2(const CodeBlockInstruction& cbi)
 
         StallUntilGTEComplete();
         InstructionPrologue(cbi, 1);
+        EmitCOP2EnabledCheck(cbi);
 
         Value value = m_register_cache.ReadGuestRegister(cbi.instruction.r.rt);
         DoGTERegisterWrite(reg, value);
@@ -3108,6 +3153,7 @@ bool CodeGenerator::Compile_cop2(const CodeBlockInstruction& cbi)
     // forward everything to the GTE.
     StallUntilGTEComplete();
     InstructionPrologue(cbi, 1);
+    EmitCOP2EnabledCheck(cbi);
 
     Value instruction_bits = Value::FromConstantU32(cbi.instruction.bits & GTE::Instruction::REQUIRED_BITS_MASK);
     EmitFunctionCall(nullptr, func, instruction_bits);
