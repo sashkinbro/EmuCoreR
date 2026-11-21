@@ -796,7 +796,7 @@ class RetroAchievementsRepository private constructor(context: Context) {
             if (file.isFile && file.canRead()) return file.absolutePath
         }
 
-        val directory = File(appContext.cacheDir, "swanstation-cue/${prepared.hashCode()}")
+        val directory = File(appContext.cacheDir, "ecr-cue/${prepared.hashCode()}")
         DocumentPathResolver.materializeHashableCue(prepared, directory)?.let { return it }
 
         val displayName = DocumentPathResolver.getDisplayName(appContext, prepared)

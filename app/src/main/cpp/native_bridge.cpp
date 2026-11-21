@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2026 SBRO
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// EmuCoreR libretro frontend for the SwanStation PlayStation 1 core.
+// EmuCoreR libecr frontend for the ECR PlayStation 1 core (derived from SwanStation).
 //
-// The core is linked directly (libswanstation_libretro_android.so) and driven
+// The core is linked directly (libecr_android.so) and driven
 // through the libretro API. This file owns:
 //   * environment negotiation (options, directories, logging, AV info),
 //   * software framebuffer presentation into an ANativeWindow,
@@ -63,14 +63,14 @@ namespace crash = emucorer::crash;
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 // ---------------------------------------------------------------------------
-// Core option keys understood by the SwanStation libretro core.
+// Core option keys understood by the ECR (libecr) PlayStation 1 core.
 // ---------------------------------------------------------------------------
 namespace option_key {
-constexpr const char* kRenderer = "swanstation_GPU_Renderer";
-constexpr const char* kAspectRatio = "swanstation_Display_AspectRatio";
-constexpr const char* kBiosNtscJ = "swanstation_BIOS_PathNTSCJ";
-constexpr const char* kBiosNtscU = "swanstation_BIOS_PathNTSCU";
-constexpr const char* kBiosPal = "swanstation_BIOS_PathPAL";
+constexpr const char* kRenderer = "ecr_GPU_Renderer";
+constexpr const char* kAspectRatio = "ecr_Display_AspectRatio";
+constexpr const char* kBiosNtscJ = "ecr_BIOS_PathNTSCJ";
+constexpr const char* kBiosNtscU = "ecr_BIOS_PathNTSCU";
+constexpr const char* kBiosPal = "ecr_BIOS_PathPAL";
 }  // namespace option_key
 
 // The core only recognizes the DualShock subclass of RETRO_DEVICE_ANALOG; the
@@ -620,7 +620,7 @@ void DestroyGlEffectProgram() {
 
 
 // True when the user selected the frontend "Stretch" (fill) mode. The
-// SwanStation core does not understand this value and falls back to Auto, so
+// ECR core does not understand this value and falls back to Auto, so
 // the presenter honours it directly by disabling aspect correction.
 bool AspectRatioStretchRequested() {
     std::lock_guard<std::mutex> lock(g_frontend.mutex);
@@ -1750,7 +1750,7 @@ std::string RendererOptionForInteger(int renderer) {
 
 extern "C" {
 
-// Implemented by the bundled SwanStation core (libretro_host_interface.cpp);
+// Implemented by the bundled ECR core (libecr_host_interface.cpp);
 // lets the app bind explicit memory-card images to the emulated slots.
 extern void EmuCoreRSetMemoryCardPathOverride(unsigned slot, const char* path);
 
@@ -1775,7 +1775,7 @@ extern void EmuCoreRAchievementsOnSessionEnd();
 // JNI: lifecycle.
 // ---------------------------------------------------------------------------
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
-    LOGI("SwanStation libretro frontend loaded (api=%u)", RETRO_API_VERSION);
+    LOGI("ECR (libecr) frontend loaded (api=%u)", RETRO_API_VERSION);
     EmuCoreRAchievementsSetJavaVm(vm);
     JNIEnv* env = nullptr;
     if (vm != nullptr && vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) == JNI_OK) {
@@ -1999,7 +1999,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_loadBios(JNIEnv* env, jobject, jlon
     return 0;
 }
 
-// Boots the core with no content. SwanStation treats an empty/none path as a
+// Boots the core with no content. ECR treats an empty/none path as a
 // BIOS-only boot (System::Boot handles an empty filename), which creates the
 // GPU and display so retro_run() is safe. Without this the frame loop runs
 // before retro_load_game and segfaults on the null GPU.
@@ -2418,9 +2418,9 @@ JNIEXPORT jstring JNICALL
 Java_com_sbro_emucorer_core_NativeCoreBridge_getSystemInfo(JNIEnv* env, jobject) {
     retro_system_info info{};
     retro_get_system_info(&info);
-    std::string name = info.library_name != nullptr ? info.library_name : "SwanStation";
+    std::string name = info.library_name != nullptr ? info.library_name : "ECR";
     // AGP's debug native build defines _DEBUG, which the core surfaces as
-    // "SwanStation Debug"/"SwanStation DebugFast". Present the stable name.
+    // "ECR Debug"/"ECR DebugFast". Present the stable name.
     const size_t debug_suffix = name.find(" Debug");
     if (debug_suffix != std::string::npos) name.erase(debug_suffix);
     std::string text = name;
@@ -2434,7 +2434,7 @@ Java_com_sbro_emucorer_core_NativeCoreBridge_getDiagnostics(JNIEnv* env, jobject
     std::lock_guard<std::mutex> lock(g_frontend.mutex);
     char buffer[512];
     snprintf(buffer, sizeof(buffer),
-             "{\"core\":\"SwanStation\",\"initialized\":%d,\"game\":%d,\"renderer\":%d,\"w\":%u,\"h\":%u}",
+             "{\"core\":\"ECR\",\"initialized\":%d,\"game\":%d,\"renderer\":%d,\"w\":%u,\"h\":%u}",
              g_frontend.core_initialized ? 1 : 0, g_frontend.game_loaded ? 1 : 0,
              g_frontend.requested_renderer, g_frontend.frame_width, g_frontend.frame_height);
     return env->NewStringUTF(buffer);

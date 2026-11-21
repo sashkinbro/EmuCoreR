@@ -78,7 +78,7 @@ class PerGameSettingsMemoryCardPersistenceTest {
         val profile = baseProfile(
             "providedKeys" to setOf("coreOptions"),
             "memoryCardSlot1" to "Tekken 3.mcd",
-            "coreOptions" to mapOf("swanstation_GPU_TextureFilter" to "xBR")
+            "coreOptions" to mapOf("ecr_GPU_TextureFilter" to "xBR")
         )
 
         val json = profile.toJson()
@@ -105,24 +105,27 @@ class PerGameSettingsMemoryCardPersistenceTest {
 
         assertEquals("", parsed.memoryCardSlot1)
         assertEquals("", parsed.memoryCardSlot2)
-        assertEquals(mapOf("swanstation_GPU_TextureFilter" to "xBR"), parsed.coreOptions)
+        assertEquals(mapOf("ecr_GPU_TextureFilter" to "xBR"), parsed.coreOptions)
     }
 
     @Test
     fun `legacy file types migrate to the global assignment and are stripped`() {
         for (legacyType in listOf("Libretro", "Shared", "PerGame", "PerGameTitle", "PerGameFileTitle")) {
-            val parsed = JSONObject(
-                """
-                {
-                  "gameKey": "tekken.cue",
-                  "gameTitle": "Tekken 3",
-                  "coreOptions": {"swanstation_MemoryCards_Card1Type": "$legacyType"}
-                }
-                """.trimIndent()
-            ).toPerGameSettings()
+            for (legacyKey in listOf("swanstation_MemoryCards_Card1Type", "ecr_MemoryCards_Card1Type")) {
+                val parsed = JSONObject(
+                    """
+                    {
+                      "gameKey": "tekken.cue",
+                      "gameTitle": "Tekken 3",
+                      "coreOptions": {"$legacyKey": "$legacyType"}
+                    }
+                    """.trimIndent()
+                ).toPerGameSettings()
 
-            assertNull("legacy type $legacyType must fall back to global", parsed.memoryCardSlot1)
-            assertFalse(parsed.coreOptions.containsKey("swanstation_MemoryCards_Card1Type"))
+                assertNull("legacy type $legacyType must fall back to global", parsed.memoryCardSlot1)
+                assertFalse(parsed.coreOptions.containsKey(legacyKey))
+                assertFalse(parsed.coreOptions.containsKey("ecr_MemoryCards_Card1Type"))
+            }
         }
     }
 
@@ -134,13 +137,13 @@ class PerGameSettingsMemoryCardPersistenceTest {
               "gameKey": "tekken.cue",
               "gameTitle": "Tekken 3",
               "memoryCardSlot1": "Tekken 3.mcd",
-              "coreOptions": {"swanstation_MemoryCards_Card1Type": "None"}
+              "coreOptions": {"ecr_MemoryCards_Card1Type": "None"}
             }
             """.trimIndent()
         ).toPerGameSettings()
 
         assertEquals("Tekken 3.mcd", parsed.memoryCardSlot1)
-        assertFalse(parsed.coreOptions.containsKey("swanstation_MemoryCards_Card1Type"))
+        assertFalse(parsed.coreOptions.containsKey("ecr_MemoryCards_Card1Type"))
     }
 
     @Test
@@ -160,7 +163,9 @@ class PerGameSettingsMemoryCardPersistenceTest {
         assertEquals("", rewritten.getString("memoryCardSlot1"))
         val rewrittenCoreOptions = rewritten.optJSONObject("coreOptions")
         assertTrue(
-            rewrittenCoreOptions == null || !rewrittenCoreOptions.has("swanstation_MemoryCards_Card1Type")
+            rewrittenCoreOptions == null ||
+                (!rewrittenCoreOptions.has("swanstation_MemoryCards_Card1Type") &&
+                    !rewrittenCoreOptions.has("ecr_MemoryCards_Card1Type"))
         )
     }
 
@@ -183,16 +188,18 @@ class PerGameSettingsMemoryCardPersistenceTest {
     fun `legacy type keys never leak back into the written core options`() {
         val profile = baseProfile(
             "coreOptions" to mapOf(
-                "swanstation_MemoryCards_Card1Type" to "Libretro",
+                "ecr_MemoryCards_Card1Type" to "Libretro",
                 "swanstation_MemoryCards_Card2Type" to "Shared",
-                "swanstation_GPU_TextureFilter" to "Nearest"
+                "ecr_GPU_TextureFilter" to "Nearest"
             )
         )
 
         val json = profile.toJson().getJSONObject("coreOptions")
 
+        assertFalse(json.has("ecr_MemoryCards_Card1Type"))
         assertFalse(json.has("swanstation_MemoryCards_Card1Type"))
         assertFalse(json.has("swanstation_MemoryCards_Card2Type"))
-        assertEquals("Nearest", json.getString("swanstation_GPU_TextureFilter"))
+        assertFalse(json.has("ecr_MemoryCards_Card2Type"))
+        assertEquals("Nearest", json.getString("ecr_GPU_TextureFilter"))
     }
 }

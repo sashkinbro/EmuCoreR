@@ -213,7 +213,7 @@ android {
     }
 }
 
-// SwanStation bakes the host page size into its fastmem implementation and code cache,
+// ECR bakes the host page size into its fastmem implementation and code cache,
 // so Android needs two native cores. AGP builds the normal 4 KiB core above; these tasks
 // build the 16 KiB core in an isolated CMake tree and expose it as generated jniLibs
 // before packaging, keeping the APK compatible with both page sizes.
@@ -235,16 +235,16 @@ val ninjaExecutable = androidSdkDirectory.resolve(
 val secondary16kBuildDirectory = layout.buildDirectory.dir("native-secondary/16k/arm64-v8a")
 val secondary16kObjectDirectory = layout.buildDirectory.dir("native-secondary/16k/obj/arm64-v8a")
 val secondary16kCore = secondary16kObjectDirectory.map { it.file("libemucorer_jni_16k.so") }
-// SwanStation forces its own output into the CMake binary dir; the 16 KiB build
+// ECR forces its own output into the CMake binary dir; the 16 KiB build
 // renames the core library so both page-size variants can be packaged together.
-val secondary16kLibretroCore =
-    secondary16kBuildDirectory.map { it.file("swanstation_libretro_android_16k.so") }
+val secondary16kEcrCore =
+    secondary16kBuildDirectory.map { it.file("libecr_android_16k.so") }
 val generated16kJniDirectory = layout.buildDirectory.dir("generated/page-size-jni-libs/arm64-v8a")
 
 val configureEmucorer16k = tasks.register<Exec>("configureEmucorer16k") {
     group = "build"
     description = "Configures the secondary 16 KiB Android emulator core."
-    // Both configurations generate SwanStation version.h in the source tree, so
+    // Both configurations generate ECR version.h in the source tree, so
     // they must not overlap. Match AGP's CMake configure task by type instead of
     // by name: `tasks.matching { it.name.startsWith("configureCMake") }` realizes
     // every task in the project, and realizing AGP's Compose Preview task fails
@@ -253,7 +253,7 @@ val configureEmucorer16k = tasks.register<Exec>("configureEmucorer16k") {
     inputs.files(fileTree("src/main/cpp") {
         include("**/CMakeLists.txt", "**/*.cmake")
     })
-    inputs.files(fileTree("../../third_party/swanstation") {
+    inputs.files(fileTree("../../core/ecr") {
         include("**/CMakeLists.txt", "**/*.cmake")
     })
     inputs.property("cmakeVersion", emucorerCmakeVersion)
@@ -294,7 +294,7 @@ val buildEmucorer16k = tasks.register<Exec>("buildEmucorer16k") {
     description = "Builds the secondary 16 KiB Android emulator core."
     dependsOn(configureEmucorer16k)
     outputs.file(secondary16kCore)
-    outputs.file(secondary16kLibretroCore)
+    outputs.file(secondary16kEcrCore)
     outputs.upToDateWhen { false }
     commandLine(
         cmakeExecutable.absolutePath,
@@ -315,7 +315,7 @@ val stageEmucorer16k = tasks.register<Copy>("stageEmucorer16k") {
     group = "build"
     description = "Stages the 16 KiB core for standard APK and AAB packaging."
     dependsOn(buildEmucorer16k)
-    from(secondary16kCore, secondary16kLibretroCore)
+    from(secondary16kCore, secondary16kEcrCore)
     into(generated16kJniDirectory)
 }
 

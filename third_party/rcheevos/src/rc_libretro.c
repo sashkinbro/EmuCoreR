@@ -155,6 +155,11 @@ static const rc_disallowed_setting_t _rc_disallowed_snes9x_settings[] = {
   { NULL, NULL }
 };
 
+static const rc_disallowed_setting_t _rc_disallowed_ecr_settings[] = {
+  { "ecr_CPU_Overclock", "<100" },
+  { NULL, NULL }
+};
+
 static const rc_disallowed_setting_t _rc_disallowed_swanstation_settings[] = {
   { "swanstation_CPU_Overclock", "<100" },
   { NULL, NULL }
@@ -179,6 +184,7 @@ static const rc_disallowed_core_settings_t rc_disallowed_core_settings[] = {
   { "dolphin-emu", _rc_disallowed_dolphin_settings, 0 },
   { "DOSBox-pure", _rc_disallowed_dosbox_pure_settings, 0 },
   { "DuckStation", _rc_disallowed_duckstation_settings, 0 },
+  { "ECR", _rc_disallowed_ecr_settings, 0 },
   { "ecwolf", _rc_disallowed_ecwolf_settings, 0 },
   { "FCEUmm", _rc_disallowed_fceumm_settings, 0 },
   { "FinalBurn Neo", _rc_disallowed_fbneo_settings, 0 },

@@ -5,7 +5,7 @@ package com.sbro.emucorer.core
 import android.view.Surface
 
 /**
- * JNI surface over the bundled SwanStation libretro frontend.
+ * JNI surface over the bundled ECR (libecr) frontend.
  *
  * The native side drives the core through the libretro API (video, audio,
  * input, environment); the frame loop and pad state stay on the Kotlin side.
@@ -126,8 +126,8 @@ class NativeCoreBridge {
     external fun getFrameRate(handle: Long): Double
 
     /** Human-readable core name/version used by statistics and the About screen. */
-    fun coreName(): String? = "SwanStation"
-    fun coreVersion(): String? = getSystemInfo().removePrefix("SwanStation ").trim()
+    fun coreName(): String? = "ECR"
+    fun coreVersion(): String? = getSystemInfo().removePrefix("ECR ").trim()
 
     /** Loads active GameShark-style codes from a PCSX `.cht` container. */
     external fun loadCheats(path: String)

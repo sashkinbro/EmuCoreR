@@ -43,7 +43,7 @@ class DiscSwapInstrumentedTest {
         val tree = DocumentsContract.buildTreeDocumentUri(authority, "root")
         val cueUri = DocumentsContract.buildDocumentUriUsingTree(tree, "root/cue")
         val document = DocumentsContract.buildDocumentUri(authority, "root")
-        val copiedCue = File(context.cacheDir, "swanstation-cue/${cueUri.toString().hashCode()}")
+        val copiedCue = File(context.cacheDir, "ecr-cue/${cueUri.toString().hashCode()}")
         copiedCue.deleteRecursively()
         fun save(): ByteArray {
             assertTrue(CoreRuntime.saveState(state.absolutePath))
@@ -75,7 +75,7 @@ class DiscSwapInstrumentedTest {
                     instrumentation.runOnMainSync { CoreRuntime.attachSurface(reader.surface, 320, 240) }
                     try {
                         assertTrue(CoreRuntime.start(first.absolutePath, biosOnly = false))
-                        CoreRuntime.applyCoreOption("swanstation_Main_SaveStateCompression", "Uncompressed")
+                        CoreRuntime.applyCoreOption("ecr_Main_SaveStateCompression", "Uncompressed")
                         // Shader/context startup can delay the first guest frame.
                         // Wait for the owned BIOS and the compression option to run.
                         var initial: ByteArray? = null

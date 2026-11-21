@@ -99,7 +99,7 @@ Desktop.ini
 # Local catalog worker (Cloudflare)
 /worker/
 
-# Legacy PS1 core trees replaced by third_party/swanstation
+# Legacy PS1 core trees replaced by core/ecr
 /deps/
 /.github/
 /.gitlab-ci.yml

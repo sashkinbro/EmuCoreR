@@ -5,7 +5,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/c5EBeNRpz2)
 [![Support on Patreon](https://img.shields.io/badge/Patreon-Support%20EmuCore-ff424d?logo=patreon&logoColor=white)](https://www.patreon.com/c/emucore/membership)
 
-EmuCoreR is a PlayStation 1 emulator and game library for Android, built around the [SwanStation](https://github.com/libretro/swanstation) libretro PS1 core and a purpose-built Compose interface for phones, tablets, and Android TV.
+EmuCoreR is a PlayStation 1 emulator and game library for Android, built around the **ECR (`libecr`)** PlayStation 1 core (derived from [SwanStation](https://github.com/libretro/swanstation)) and a purpose-built Compose interface for phones, tablets, and Android TV.
 
 ## Website and Releases
 
@@ -18,7 +18,7 @@ Builds are published on the project website at **[emucorer.web.app](https://emuc
 
 ## Highlights
 
-- [SwanStation libretro core](https://github.com/libretro/swanstation) with an ARM64 CPU recompiler/JIT and interpreter fallback
+- **ECR (`libecr`) PlayStation 1 core** (derived from [SwanStation](https://github.com/libretro/swanstation)) with an ARM64 CPU recompiler/JIT and interpreter fallback
 - OpenGL ES, Vulkan, and software renderers with up to 10x internal resolution and texture filtering (Nearest, Bilinear, JINC2, xBR)
 - True color rendering, scaled dithering, deinterlacing, and NTSC timing controls
 - PGXP geometry precision, widescreen hacks, fast boot, and software renderer readbacks
@@ -54,14 +54,14 @@ In-game captures running on a Snapdragon 8 Elite Gen 5 device with the Vulkan re
 
 ## What This Repository Contains
 
-This repository contains the Android application, its Compose UI, settings and data layers, the JNI libretro frontend, and the vendored [SwanStation](https://github.com/libretro/swanstation) emulation core.
+This repository contains the Android application, its Compose UI, settings and data layers, the JNI `libecr` frontend, and the **ECR** emulation core (`core/ecr`, derived from [SwanStation](https://github.com/libretro/swanstation)).
 
 ## Tech Stack
 
 - Kotlin + Jetpack Compose
 - Android DataStore and Room
-- JNI bridge to a native C++ libretro frontend
-- [SwanStation](https://github.com/libretro/swanstation) libretro core vendored under `third_party/swanstation`
+- JNI bridge to a native C++ `libecr` frontend
+- **ECR (`libecr`)** PlayStation 1 core in `core/ecr` (derived from [SwanStation](https://github.com/libretro/swanstation))
 - [rcheevos](https://github.com/RetroAchievements/rcheevos) vendored under `third_party/rcheevos` for RetroAchievements tracking and hashing
 - Coil and WorkManager for library artwork and background jobs
 - Discord Social SDK for Rich Presence and party features
@@ -101,10 +101,10 @@ EmuCoreR version `0.0.9` currently targets Android with:
 
 - `app/` Android application module
 - `app/src/main/java/com/sbro/emucorer` Kotlin app code
-- `app/src/main/cpp` JNI libretro frontend that drives the SwanStation core
+- `app/src/main/cpp` JNI `libecr` frontend that drives the ECR core
 - `app/src/main/res` Android resources and translations
 - `app/src/main/assets/catalog` game catalog, cover index, and PS1 serial/title index
-- `third_party/swanstation` vendored [SwanStation](https://github.com/libretro/swanstation) libretro core and its in-tree dependencies
+- `core/ecr` **ECR (`libecr`)** PlayStation 1 core (derived from [SwanStation](https://github.com/libretro/swanstation)) and its in-tree dependencies
 - `third_party/rcheevos` vendored [rcheevos](https://github.com/RetroAchievements/rcheevos) client for RetroAchievements
 - `tools/` local release scripts; ignored by git
 
@@ -117,7 +117,7 @@ EmuCoreR version `0.0.9` currently targets Android with:
 
 ## Credits
 
-EmuCoreR builds on the open-source [SwanStation](https://github.com/libretro/swanstation) project together with its own Android interface, library system, runtime controls, and handheld-focused UX. The Kotlin bridge, game library, libretro frontend, and renderer integration are maintained in this repository.
+EmuCoreR's **ECR** core builds on the open-source [SwanStation](https://github.com/libretro/swanstation) project together with its own Android interface, library system, runtime controls, and handheld-focused UX. The ECR core adaptations, Kotlin bridge, game library, `libecr` frontend, and renderer integration are maintained in this repository.
 
 Thanks to the SwanStation developers, to the libretro team, to the RetroAchievements team for rcheevos, and to everyone who contributes to keeping PlayStation emulation open and alive.
 
@@ -132,6 +132,6 @@ If you want to support ongoing development:
 
 ## License
 
-The bundled emulation core derives from [SwanStation](https://github.com/libretro/swanstation), which is distributed under the GNU General Public License v3.0 or later. The core sources, including EmuCoreR adaptations, are published with the app at https://github.com/sashkinbro/EmuCoreR.
+The bundled **ECR** emulation core derives from [SwanStation](https://github.com/libretro/swanstation), which is distributed under the GNU General Public License v3.0 or later. The core sources in `core/ecr`, including EmuCoreR adaptations, are published with the app under GPL-3.0-or-later at https://github.com/sashkinbro/EmuCoreR.
 
 The EmuCoreR Android application code is not open source and is distributed under its own terms.

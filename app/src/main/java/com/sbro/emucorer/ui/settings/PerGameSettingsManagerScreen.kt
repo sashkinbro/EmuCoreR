@@ -56,9 +56,9 @@ import com.sbro.emucorer.core.RendererDefaults
 import com.sbro.emucorer.core.buildUpscaleOptions
 import com.sbro.emucorer.core.upscaleKeyToMultiplier
 import com.sbro.emucorer.core.upscaleMultiplierKey
-import com.sbro.emucorer.core.SwanStationCoreOptions
-import com.sbro.emucorer.core.SwanStationCoreOptionStrings
-import com.sbro.emucorer.core.SwanStationOptions
+import com.sbro.emucorer.core.EcrCoreOptions
+import com.sbro.emucorer.core.EcrCoreOptionStrings
+import com.sbro.emucorer.core.EcrOptions
 import androidx.compose.material.icons.rounded.Tune
 import com.sbro.emucorer.ui.common.AppAlertDialog as AlertDialog
 import androidx.compose.material3.Button
@@ -959,7 +959,7 @@ private fun GameSettingsTabContent(
                     // Internal resolution is the app-level per-game setting
                     // (draft.upscaleMultiplier) - the same value the in-game
                     // resolution selector edits. Exposing the raw core option
-                    // (swanstation_GPU_ResolutionScale) here duplicated the
+                    // (ecr_GPU_ResolutionScale) here duplicated the
                     // setting: the manager showed the catalogue default (1x)
                     // while the game ran the in-game value, and a single edit
                     // here pinned a core-option override that shadowed the
@@ -998,7 +998,7 @@ private fun GameSettingsTabContent(
                         }
                     )
                     CoreOptionManagerRows(
-                        options = listOfNotNull(SwanStationCoreOptions.option("swanstation_Display_CropMode")),
+                        options = listOfNotNull(EcrCoreOptions.option("ecr_Display_CropMode")),
                         draft = draft,
                         onDraftChange = onDraftChange
                     )
@@ -1006,7 +1006,7 @@ private fun GameSettingsTabContent(
                         title = stringResource(R.string.settings_display_crop),
                         options = DisplayCrop.EdgePresets.map { pixels ->
                             pixels to if (pixels == 0) {
-                                stringResource(R.string.ss_choice_off)
+                                stringResource(R.string.ecr_choice_off)
                             } else {
                                 pixels.toString()
                             }
@@ -1019,7 +1019,7 @@ private fun GameSettingsTabContent(
                         }
                     )
                     CoreOptionManagerRows(
-                        options = SwanStationCoreOptions.graphicsOptions(),
+                        options = EcrCoreOptions.graphicsOptions(),
                         draft = draft,
                         onDraftChange = onDraftChange
                     )
@@ -1144,7 +1144,7 @@ private fun GameSettingsTabContent(
                         onResetToDefault = { onDraftChange(draft.copy(enableIcacheEmulation = defaultProfile.enableIcacheEmulation)) }
                     )
                     CoreOptionManagerRows(
-                        options = SwanStationCoreOptions.emulationOptions(),
+                        options = EcrCoreOptions.emulationOptions(),
                         draft = draft,
                         onDraftChange = onDraftChange
                     )
@@ -1213,7 +1213,7 @@ private fun GameSettingsTabContent(
                         onResetToDefault = { onDraftChange(draft.copy(enableCddaAudio = defaultProfile.enableCddaAudio)) }
                     )
                     CoreOptionManagerRows(
-                        options = SwanStationCoreOptions.audioOptions(),
+                        options = EcrCoreOptions.audioOptions(),
                         draft = draft,
                         onDraftChange = onDraftChange
                     )
@@ -1454,7 +1454,7 @@ private fun GameSettingsTabContent(
                         onResetToDefault = { onDraftChange(draft.copy(multitapMode = defaultProfile.multitapMode)) }
                     )
                     CoreOptionManagerRows(
-                        options = SwanStationCoreOptions.controlsOptions(),
+                        options = EcrCoreOptions.controlsOptions(),
                         draft = draft,
                         onDraftChange = onDraftChange
                     )
@@ -1650,19 +1650,19 @@ private fun EditorSection(
 
 @Composable
 private fun CoreOptionManagerRows(
-    options: List<SwanStationCoreOptions.Option>,
+    options: List<EcrCoreOptions.Option>,
     draft: PerGameSettings,
     onDraftChange: (PerGameSettings) -> Unit
 ) {
     options.forEach { option ->
         val values = option.choices.map { it.value }
         val current = draft.coreOptions[option.key]
-            ?: SwanStationOptions.value(option.key)
+            ?: EcrOptions.value(option.key)
             ?: option.defaultValue
         val index = values.indexOf(current).let { if (it >= 0) it else 0 }
-        val titleRes = SwanStationCoreOptionStrings.optionLabelRes[option.key]
+        val titleRes = EcrCoreOptionStrings.optionLabelRes[option.key]
         val title = if (titleRes != null) stringResource(titleRes) else option.label
-        val descRes = SwanStationCoreOptionStrings.optionDescriptionRes[option.key]
+        val descRes = EcrCoreOptionStrings.optionDescriptionRes[option.key]
         val help = if (descRes != null) {
             stringResource(descRes)
         } else {
@@ -1684,7 +1684,7 @@ private fun CoreOptionManagerRows(
             SelectionRow(
                 title = title,
                 options = option.choices.mapIndexed { choiceIndex, choice ->
-                    val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
+                    val choiceRes = EcrCoreOptionStrings.choiceLabelRes[choice.label]
                     choiceIndex to (if (choiceRes != null) stringResource(choiceRes) else choice.label)
                 },
                 selectedValue = index,

@@ -27,9 +27,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Process-wide owner of the native libretro session.
+ * Process-wide owner of the native libecr session.
  *
- * The bundled SwanStation core is a libretro singleton; [sessionLock] serialises
+ * The bundled ECR core is a libecr singleton; [sessionLock] serialises
  * every call that touches it. The Kotlin layer keeps the same per-frame PCM and
  * pad contract as before, so the rest of the app is unchanged.
  */
@@ -145,24 +145,46 @@ internal object CoreRuntime {
 
     fun initialize(context: Context) {
         this.context = context.applicationContext
-        val root = File(context.filesDir, "swanstation")
+        val legacyRoot = File(context.filesDir, "swanstation")
+        val root = File(context.filesDir, "ecr")
+        migrateLegacyCoreDirectory(legacyRoot, root)
         systemDirectory = File(root, "system").apply { mkdirs() }.absolutePath
         val memoryCardsDirectory = EmulatorStorage.memoryCardsDir(
             context.applicationContext,
             AppPreferences(context.applicationContext).getEmulatorDataPathSync()
         )
         migrateLegacyMemoryCards(File(root, "save"), memoryCardsDirectory)
+        migrateLegacyMemoryCards(File(legacyRoot, "save"), memoryCardsDirectory)
         saveDirectory = memoryCardsDirectory.absolutePath
         coreAssetsDirectory = File(root, "assets").apply { mkdirs() }.absolutePath
-        SwanStationOptions.initialize(context.applicationContext)
+        EcrOptions.initialize(context.applicationContext)
         // Memory-card types are derived from the assigned card files by the
         // bridge now; stale values persisted by earlier versions (including the
         // in-memory "Libretro" default) must never reach the core.
-        LEGACY_MEMORY_CARD_CORE_OPTION_KEYS.forEach { key -> SwanStationOptions.remove(key) }
+        LEGACY_MEMORY_CARD_CORE_OPTION_KEYS.forEach { key -> EcrOptions.remove(key) }
         runCatching {
             bridge.nativeInit(systemDirectory, saveDirectory, coreAssetsDirectory)
             bridge.apiVersion()
-        }.onFailure { Log.e(TAG, "Unable to initialise libretro frontend", it) }
+        }.onFailure { Log.e(TAG, "Unable to initialise libecr frontend", it) }
+    }
+
+    private fun migrateLegacyCoreDirectory(legacyRoot: File, targetRoot: File) {
+        if (!legacyRoot.isDirectory) return
+        if (!targetRoot.exists() && legacyRoot.renameTo(targetRoot)) return
+        targetRoot.mkdirs()
+        legacyRoot.walkTopDown().forEach { entry ->
+            val rel = entry.relativeTo(legacyRoot).path
+            if (rel.isEmpty()) return@forEach
+            val dest = File(targetRoot, rel)
+            if (entry.isDirectory) {
+                dest.mkdirs()
+            } else if (!dest.exists()) {
+                runCatching {
+                    dest.parentFile?.mkdirs()
+                    entry.copyTo(dest, overwrite = false)
+                }
+            }
+        }
     }
 
     fun setSaveDirectory(path: String) {
@@ -419,49 +441,49 @@ internal object CoreRuntime {
     }
 
     private fun applyStartOptions(coreRenderer: Int) {
-        // The libretro GPU renderer option is read while the core boots; the
+        // The core GPU renderer option is read while the core boots; the
         // frontend negotiates the matching hardware context per selection.
-        bridge.nativeSetOption("swanstation_GPU_Renderer", rendererOptionName(coreRenderer))
+        bridge.nativeSetOption("ecr_GPU_Renderer", rendererOptionName(coreRenderer))
         val upscale = settings["EmuCoreR/Display:Upscale"]?.toFloatOrNull()
             ?: settings["EmuCoreR:UpscaleMultiplier"]?.toFloatOrNull()
         upscale?.let {
             val scale = Math.round(it).coerceIn(1, 16)
-            bridge.nativeSetOption("swanstation_GPU_ResolutionScale", scale.toString())
+            bridge.nativeSetOption("ecr_GPU_ResolutionScale", scale.toString())
         }
         settings["EmuCore:EnableFastBoot"]?.toBooleanStrictOrNull()?.let { fastBoot ->
-            bridge.nativeSetOption("swanstation_BIOS_PatchFastBoot", fastBoot.toString())
+            bridge.nativeSetOption("ecr_BIOS_PatchFastBoot", fastBoot.toString())
         }
         settings["EmuCore:EnableWideScreenPatches"]?.toBooleanStrictOrNull()?.let { widescreen ->
-            bridge.nativeSetOption("swanstation_GPU_WidescreenHack", widescreen.toString())
+            bridge.nativeSetOption("ecr_GPU_WidescreenHack", widescreen.toString())
         }
         settings["InputSources:PadVibration"]?.toBooleanStrictOrNull()?.let { rumble ->
-            bridge.nativeSetOption("swanstation_Controller_EnableRumble", rumble.toString())
+            bridge.nativeSetOption("ecr_Controller_EnableRumble", rumble.toString())
         }
-        // Shader-based upscaling. The libretro core does not expose SwanStation
+        // Shader-based upscaling. The libecr core does not expose desktop
         // post-processing chains, but its texture filters (JINC2/xBR) are the
         // equivalent GPU shaders. A selected shader preset selects the closest
         // filter; otherwise the app's texture filtering mode is translated.
-        bridge.nativeSetOption("swanstation_GPU_TextureFilter", swanStationTextureFilter())
+        bridge.nativeSetOption("ecr_GPU_TextureFilter", ecrTextureFilter())
         // Warm the batch pipeline matrix on background workers while the
         // game boots; user overrides from the core option store win below.
-        bridge.nativeSetOption("swanstation_GPU_ShaderPrecompile", "Lazy")
+        bridge.nativeSetOption("ecr_GPU_ShaderPrecompile", "Lazy")
         pushShaderEffect()
         pushShaderPreset()
         settings["EmuCore/GS:LoadTextureReplacements"]?.toBooleanStrictOrNull()?.let { replacements ->
-            bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements",
+            bridge.nativeSetOption("ecr_TextureReplacements_EnableVRAMWriteReplacements",
                 replacements.toString())
         }
         settings["EmuCore/GS:PrecacheTextureReplacements"]?.toBooleanStrictOrNull()?.let { preload ->
-            bridge.nativeSetOption("swanstation_TextureReplacements_PreloadTextures", preload.toString())
+            bridge.nativeSetOption("ecr_TextureReplacements_PreloadTextures", preload.toString())
         }
         // Sensible defaults for a handheld.
-        bridge.nativeSetOption("swanstation_GPU_UseThread", "true")
-        bridge.nativeSetOption("swanstation_CDROM_ReadThread", "true")
-        bridge.nativeSetOption("swanstation_Main_ApplyGameSettings", "true")
+        bridge.nativeSetOption("ecr_GPU_UseThread", "true")
+        bridge.nativeSetOption("ecr_CDROM_ReadThread", "true")
+        bridge.nativeSetOption("ecr_Main_ApplyGameSettings", "true")
         // Explicit user choices from the settings screen, game manager and
         // in-game menu (curated and full catalogue share one persisted store)
         // win over every derived default.
-        SwanStationOptions.persistedEntries().forEach { (key, value) ->
+        EcrOptions.persistedEntries().forEach { (key, value) ->
             bridge.nativeSetOption(key, value)
         }
         // The core's internal defaults for these PGXP options differ from the
@@ -470,47 +492,50 @@ internal object CoreRuntime {
         // silently enables perspective-correct textures/culling while the
         // settings screen claims they are disabled.
         for (key in PGXP_UI_DEFAULT_KEYS) {
-            if (SwanStationOptions.value(key) == null) {
-                SwanStationCoreOptions.option(key)?.defaultValue?.let { bridge.nativeSetOption(key, it) }
+            if (EcrOptions.value(key) == null) {
+                EcrCoreOptions.option(key)?.defaultValue?.let { bridge.nativeSetOption(key, it) }
             }
         }
         // The core's internal default Crop Mode is "Overscan", which hides the
         // inactive rows games commonly leave at the top and bottom of their
-        // display range. The libretro option table advertises "Borders"
+        // display range. The option table advertises "Borders"
         // instead, and Borders keeps those rows, showing black strips. Seed
         // "Overscan" here; an explicit user choice still wins, and stale
         // invalid values (e.g. the removed "All") are migrated rather than
         // silently falling back inside the core.
-        val cropModeKey = "swanstation_Display_CropMode"
-        val storedCropMode = SwanStationOptions.value(cropModeKey)
-        if (storedCropMode != null && storedCropMode !in SWANSTATION_CROP_MODES) {
-            SwanStationOptions.set(cropModeKey, SWANSTATION_CROP_MODES_DEFAULT)
+        val cropModeKey = "ecr_Display_CropMode"
+        val storedCropMode = EcrOptions.value(cropModeKey)
+        if (storedCropMode != null && storedCropMode !in ECR_CROP_MODES) {
+            EcrOptions.set(cropModeKey, ECR_CROP_MODES_DEFAULT)
         }
         val cropMode = coreOptionValue(cropModeKey)
-            ?.takeIf { it in SWANSTATION_CROP_MODES }
-            ?: SWANSTATION_CROP_MODES_DEFAULT
+            ?.takeIf { it in ECR_CROP_MODES }
+            ?: ECR_CROP_MODES_DEFAULT
         bridge.nativeSetOption(cropModeKey, cropMode)
         // Internal resolution is owned by the app's per-game upscale setting,
         // so re-assert it after the persisted core-option store so a legacy
-        // swanstation_GPU_ResolutionScale entry cannot shadow it.
+        // ecr_GPU_ResolutionScale entry cannot shadow it.
         upscale?.let { preference ->
             val scale = Math.round(preference).coerceIn(1, 16)
-            bridge.nativeSetOption("swanstation_GPU_ResolutionScale", scale.toString())
+            bridge.nativeSetOption("ecr_GPU_ResolutionScale", scale.toString())
         }
         // Aspect ratio is owned by the app's display setting, so push it last so
-        // it cannot be overridden by a stale SwanStationOptions entry.
+        // it cannot be overridden by a stale EcrOptions entry.
         displayAspectRatioPreference()?.let { pushAspectRatio(it) }
     }
 
-    /** Persists and forwards a single SwanStation core option. */
+    /** Persists and forwards a single ECR core option. */
     fun setCoreOption(key: String, value: String) {
-        SwanStationOptions.set(key, value)
-        bridge.nativeSetOption(key, value)
+        val normalized = EcrOptions.normalizeOptionKey(key)
+        EcrOptions.set(normalized, value)
+        bridge.nativeSetOption(normalized, value)
     }
 
     /** Effective value of a core option (user override or core default). */
-    fun coreOptionValue(key: String): String? =
-        SwanStationOptions.value(key) ?: SwanStationCoreOptions.option(key)?.defaultValue
+    fun coreOptionValue(key: String): String? {
+        val normalized = EcrOptions.normalizeOptionKey(key)
+        return EcrOptions.value(normalized) ?: EcrCoreOptions.option(normalized)?.defaultValue
+    }
 
     /**
      * Forwards a core option without persisting it. Used for per-game overrides
@@ -535,7 +560,7 @@ internal object CoreRuntime {
     private fun pushAspectRatio(type: Int) {
         val normalized = if (type in ASPECT_RATIO_STRETCH..ASPECT_RATIO_CUSTOM) type else ASPECT_RATIO_AUTO
         bridge.nativeSetOption(
-            "swanstation_Display_AspectRatio",
+            "ecr_Display_AspectRatio",
             when (normalized) {
                 ASPECT_RATIO_STRETCH -> "Stretch"
                 ASPECT_RATIO_AUTO -> "Auto"
@@ -545,12 +570,12 @@ internal object CoreRuntime {
             }
         )
         if (normalized == ASPECT_RATIO_CUSTOM) {
-            bridge.nativeSetOption("swanstation_Display_CustomAspectRatioNumerator", "10")
-            bridge.nativeSetOption("swanstation_Display_CustomAspectRatioDenominator", "7")
+            bridge.nativeSetOption("ecr_Display_CustomAspectRatioNumerator", "10")
+            bridge.nativeSetOption("ecr_Display_CustomAspectRatioDenominator", "7")
         }
     }
 
-    private fun swanStationTextureFilter(): String {
+    private fun ecrTextureFilter(): String {
         val filter = settings["EmuCore/GS:filter"]?.toIntOrNull() ?: 0
         val enabled = settings["EmuCore/GS:ShaderChainEnabled"]?.toBooleanStrictOrNull() == true
         val preset = settings["EmuCore/GS:ShaderChainPreset"].orEmpty().lowercase()
@@ -900,43 +925,43 @@ internal object CoreRuntime {
     }
 
     /**
-     * Translates the app's existing settings into the real SwanStation
-     * libretro option keys and forwards them to the core at runtime. Options the
+     * Translates the app's existing settings into the real ECR
+     * core option keys and forwards them to the core at runtime. Options the
      * PS1 core does not understand are simply ignored.
      */
     private fun forwardCoreSetting(section: String, key: String, value: String) {
         val bool = value.toBooleanStrictOrNull()
         val target: Pair<String, String>? = when ("$section:$key") {
             "EmuCore/GS:filter" -> value.toIntOrNull()?.let {
-                "swanstation_GPU_TextureFilter" to textureFilterName(it)
+                "ecr_GPU_TextureFilter" to textureFilterName(it)
             }
             // The selected RetroArch shader preset is applied through the core's
             // GPU texture filter (its real hardware "shader" stage), at runtime.
             "EmuCore/GS:ShaderChainEnabled", "EmuCore/GS:ShaderChainPreset" ->
-                "swanstation_GPU_TextureFilter" to swanStationTextureFilter()
-            "EmuCore:EnableFastBoot" -> bool?.let { "swanstation_BIOS_PatchFastBoot" to it.toString() }
+                "ecr_GPU_TextureFilter" to ecrTextureFilter()
+            "EmuCore:EnableFastBoot" -> bool?.let { "ecr_BIOS_PatchFastBoot" to it.toString() }
             "EmuCore:EnableWideScreenPatches" ->
-                bool?.let { "swanstation_GPU_WidescreenHack" to it.toString() }
+                bool?.let { "ecr_GPU_WidescreenHack" to it.toString() }
             "InputSources:PadVibration" ->
-                bool?.let { "swanstation_Controller_EnableRumble" to it.toString() }
+                bool?.let { "ecr_Controller_EnableRumble" to it.toString() }
             "EmuCoreR/CPU:enableIcacheEmulation" ->
-                bool?.let { "swanstation_CPU_RecompilerICache" to it.toString() }
+                bool?.let { "ecr_CPU_RecompilerICache" to it.toString() }
             "EmuCoreR/CPU:cdReadAhead" -> value.toIntOrNull()?.let {
-                "swanstation_CDROM_ReadaheadSectors" to it.coerceAtLeast(0).toString()
+                "ecr_CDROM_ReadaheadSectors" to it.coerceAtLeast(0).toString()
             }
             "EmuCoreR/Audio:enableCddaAudio" ->
-                bool?.let { "swanstation_CDROM_MuteCDAudio" to (!it).toString() }
+                bool?.let { "ecr_CDROM_MuteCDAudio" to (!it).toString() }
             "EmuCoreR/Display:Upscale" -> value.toFloatOrNull()?.let {
-                "swanstation_GPU_ResolutionScale" to Math.round(it).coerceIn(1, 16).toString()
+                "ecr_GPU_ResolutionScale" to Math.round(it).coerceIn(1, 16).toString()
             }
             "EmuCoreR/Input:multitapMode" -> value.toIntOrNull()?.let {
                 val modes = listOf("Disabled", "Port1Only", "Port2Only", "BothPorts")
-                "swanstation_ControllerPorts_MultitapMode" to modes[it.coerceIn(0, modes.lastIndex)]
+                "ecr_ControllerPorts_MultitapMode" to modes[it.coerceIn(0, modes.lastIndex)]
             }
             "EmuCore/GS:LoadTextureReplacements" ->
-                bool?.let { "swanstation_TextureReplacements_EnableVRAMWriteReplacements" to it.toString() }
+                bool?.let { "ecr_TextureReplacements_EnableVRAMWriteReplacements" to it.toString() }
             "EmuCore/GS:PrecacheTextureReplacements" ->
-                bool?.let { "swanstation_TextureReplacements_PreloadTextures" to it.toString() }
+                bool?.let { "ecr_TextureReplacements_PreloadTextures" to it.toString() }
             "EmuCoreR/Display:AspectRatio" -> value.toIntOrNull()?.let { type ->
                 setDisplayAspectRatio(type)
                 null
@@ -1206,7 +1231,7 @@ internal object CoreRuntime {
         if (!gamePath.startsWith("content://")) return PreparedDisc(gamePath)
         val appContext = context
         if (appContext != null) {
-            val directory = File(appContext.cacheDir, "swanstation-cue/${gamePath.hashCode()}")
+            val directory = File(appContext.cacheDir, "ecr-cue/${gamePath.hashCode()}")
             if (discExtensionFor(gamePath) == "cue") {
                 if (DocumentPathResolver.getPreparedCueLaunch(gamePath) == null) {
                     val resolved = DocumentPathResolver.prepareGameLaunchPath(appContext, gamePath) ?: return null
@@ -1229,7 +1254,7 @@ internal object CoreRuntime {
         // live SAF descriptor through a cache symlink that keeps the original
         // extension ("/proc/self/fd/N" alone would be rejected as unknown).
         val link = runCatching {
-            val directory = File(appContext!!.cacheDir, "swanstation-disc").apply { mkdirs() }
+            val directory = File(appContext!!.cacheDir, "ecr-disc").apply { mkdirs() }
             File.createTempFile("disc-", ".$extension", directory)
         }.getOrNull()
         if (link != null && createDiscSymlink(link, descriptor.fd)) {
@@ -1349,15 +1374,15 @@ internal object CoreRuntime {
     private const val ASPECT_RATIO_16_9 = 3
     private const val ASPECT_RATIO_CUSTOM = 4
 
-    // Crop modes understood by the SwanStation core; anything else is silently
+    // Crop modes understood by the ECR core; anything else is silently
     // treated as Overscan, so invalid persisted values must be migrated.
-    private val SWANSTATION_CROP_MODES = setOf("None", "Overscan", "Borders")
-    private const val SWANSTATION_CROP_MODES_DEFAULT = "Overscan"
+    private val ECR_CROP_MODES = setOf("None", "Overscan", "Borders")
+    private const val ECR_CROP_MODES_DEFAULT = "Overscan"
 
     // PGXP options whose core-side defaults (true) disagree with the curated
     // catalogue defaults (false) shown in the settings UI.
     private val PGXP_UI_DEFAULT_KEYS = listOf(
-        "swanstation_GPU_PGXPCulling",
-        "swanstation_GPU_PGXPTextureCorrection",
+        "ecr_GPU_PGXPCulling",
+        "ecr_GPU_PGXPTextureCorrection",
     )
 }

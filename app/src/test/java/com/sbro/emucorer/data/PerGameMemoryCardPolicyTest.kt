@@ -273,11 +273,11 @@ class PerGameMemoryCardPolicyTest {
 
     @Test
     fun `a bound card path forces the shared core type`() {
-        assertEquals("Shared", swanStationCardTypeForPath("/data/memcards/MemoryCard1.mcd"))
+        assertEquals("Shared", ecrCardTypeForPath("/data/memcards/MemoryCard1.mcd"))
     }
 
     @Test
     fun `an empty slot forces the no-card core type`() {
-        assertEquals("None", swanStationCardTypeForPath(null))
+        assertEquals("None", ecrCardTypeForPath(null))
     }
 }

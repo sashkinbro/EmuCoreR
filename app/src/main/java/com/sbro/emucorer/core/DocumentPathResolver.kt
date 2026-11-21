@@ -333,7 +333,7 @@ object DocumentPathResolver {
 
     /**
      * Copies the open SAF CUE track descriptors into [targetDir] as real files
-     * and rewrites the cuesheet to reference them. SwanStation resolves content
+     * and rewrites the cuesheet to reference them. ECR resolves content
      * through real paths, and the copied files stay valid for the whole session
      * (unlike `/proc/self/fd/N`, which the core may open after the descriptors
      * are released). Existing files with the expected size are reused.
@@ -426,7 +426,7 @@ object DocumentPathResolver {
 
     /**
      * Copies a single-file disc image opened through SAF into [targetDir] under
-     * a real path with its original extension. SwanStation picks the container
+     * a real path with its original extension. ECR picks the container
      * from the path extension and reopens the image by path, which scoped
      * storage denies for `/proc/self/fd` symlinks, so CHD/ISO/PBP images must
      * be streamed once into app-owned storage. Existing copies with the same

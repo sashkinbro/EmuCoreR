@@ -1377,7 +1377,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     private companion object {
-        const val CORE_NAME = "SwanStation"
+        const val CORE_NAME = "ECR"
         const val CORE_VERSION = "1.0.0"
     }
 }

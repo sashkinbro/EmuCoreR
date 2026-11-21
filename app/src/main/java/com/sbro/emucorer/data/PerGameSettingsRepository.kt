@@ -2,6 +2,7 @@ package com.sbro.emucorer.data
 
 import android.content.Context
 import com.sbro.emucorer.core.AudioDefaults
+import com.sbro.emucorer.core.EcrOptions
 import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.core.EmulatorStorage
 import com.sbro.emucorer.core.RendererDefaults
@@ -74,7 +75,7 @@ data class PerGameSettings(
     val memoryCardSlot2: String? = null,
     /** Cards created for this game; hidden from other games' selectors. */
     val dedicatedMemoryCards: List<String> = emptyList(),
-    /** Per-game SwanStation libretro core option overrides (key -> value). */
+    /** Per-game ECR core option overrides (key -> value). */
     val coreOptions: Map<String, String> = emptyMap(),
     val providedKeys: Set<String>? = null,
     val updatedAt: Long = System.currentTimeMillis()
@@ -187,7 +188,12 @@ internal fun JSONObject.toPerGameSettings(): PerGameSettings {
     val rawCoreOptions = optJSONObject("coreOptions")?.let { obj ->
         buildMap {
             obj.keys().forEach { optionKey ->
-                obj.optString(optionKey).takeIf { it.isNotBlank() }?.let { put(optionKey, it) }
+                val normalizedKey = EcrOptions.normalizeOptionKey(optionKey)
+                obj.optString(optionKey).takeIf { it.isNotBlank() }?.let { value ->
+                    if (normalizedKey == optionKey || !containsKey(normalizedKey)) {
+                        put(normalizedKey, value)
+                    }
+                }
             }
         }
     } ?: emptyMap()
@@ -290,9 +296,15 @@ internal fun JSONObject.toPerGameSettings(): PerGameSettings {
         multitapMode = optInt("multitapMode", 0).coerceIn(0, 3),
         cdReadAhead = optInt("cdReadAhead", 0).coerceIn(0, 333000),
         memoryCardSlot1 = optionalCardOverride("memoryCardSlot1")
-            ?: legacyMemoryCardSlotOverride(rawCoreOptions["swanstation_MemoryCards_Card1Type"]),
+            ?: legacyMemoryCardSlotOverride(
+                rawCoreOptions["ecr_MemoryCards_Card1Type"]
+                    ?: rawCoreOptions["swanstation_MemoryCards_Card1Type"]
+            ),
         memoryCardSlot2 = optionalCardOverride("memoryCardSlot2")
-            ?: legacyMemoryCardSlotOverride(rawCoreOptions["swanstation_MemoryCards_Card2Type"]),
+            ?: legacyMemoryCardSlotOverride(
+                rawCoreOptions["ecr_MemoryCards_Card2Type"]
+                    ?: rawCoreOptions["swanstation_MemoryCards_Card2Type"]
+            ),
         dedicatedMemoryCards = optJSONArray("dedicatedMemoryCards")?.let { array ->
             buildList {
                 for (index in 0 until array.length()) {

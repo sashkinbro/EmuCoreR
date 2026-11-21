@@ -11,7 +11,7 @@ import android.view.PixelCopy
 import android.view.Surface
 import com.sbro.emucorer.BuildConfig
 import com.sbro.emucorer.data.AppPreferences
-import com.sbro.emucorer.data.swanStationCardTypeForPath
+import com.sbro.emucorer.data.ecrCardTypeForPath
 import com.sbro.emucorer.data.DisplayCrop
 import com.sbro.emucorer.ui.common.invalidateCoverImage
 import kotlinx.coroutines.CoroutineScope
@@ -195,18 +195,18 @@ object EmulatorBridge {
                                 succeeded = false
                             if (!NativeApp.setSetting("MemoryCards", "Slot${slotIndex}_Filename", "string", fileName))
                                 succeeded = false
-                            // The bundled SwanStation core opens memory cards through
-                            // the libretro host interface only in shared-card mode.
+                            // The bundled ECR core opens memory cards through
+                            // the libecr host interface only in shared-card mode.
                             // Bind the resolved image path and force the matching type
                             // option so the core reads and writes the exact file the
                             // memory card manager shows (Libretro's in-memory card
                             // would silently ignore it).
                             val resolvedPath = resolveMemoryCardPath(fileName)
                             NativeApp.setMemoryCardPath(slotIndex - 1, resolvedPath)
-                            val cardTypeKey = "swanstation_MemoryCards_Card${slotIndex}Type"
+                            val cardTypeKey = "ecr_MemoryCards_Card${slotIndex}Type"
                             NativeApp.setCoreOption(
                                 cardTypeKey,
-                                swanStationCardTypeForPath(resolvedPath)
+                                ecrCardTypeForPath(resolvedPath)
                             )
                         }
                     }

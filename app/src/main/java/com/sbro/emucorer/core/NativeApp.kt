@@ -567,7 +567,7 @@ object NativeApp {
     }
 
     /**
-     * Mirrors the SwanStation "Use Analog Sticks for D-Pad in Digital Mode"
+     * Mirrors the ECR "Use Analog Sticks for D-Pad in Digital Mode"
      * option in the frontend input layer. The core option only applies to an
      * emulated DualShock in digital mode, while the app attaches a plain
      * digital pad unless analog mode is requested, so the left stick needs to
@@ -602,15 +602,16 @@ object NativeApp {
     private fun isAnalogDpadInDigitalModeEnabled(padIndex: Int): Boolean {
         if (padAnalogMode[padIndex]) return false
         analogDpadOptionCache[padIndex]?.let { return it }
-        val key = "swanstation_Controller${padIndex + 1}_AnalogDPadInDigitalMode"
+        val key = "ecr_Controller${padIndex + 1}_AnalogDPadInDigitalMode"
         val enabled = CoreRuntime.coreOptionValue(key)?.toBooleanStrictOrNull() ?: true
         analogDpadOptionCache[padIndex] = enabled
         return enabled
     }
 
     private fun invalidateAnalogDpadOptionCache(key: String, value: String) {
+        val normalized = EcrOptions.normalizeOptionKey(key)
         for (index in 0..1) {
-            if (key == "swanstation_Controller${index + 1}_AnalogDPadInDigitalMode") {
+            if (normalized == "ecr_Controller${index + 1}_AnalogDPadInDigitalMode") {
                 analogDpadOptionCache[index] = value.toBooleanStrictOrNull()
             }
         }

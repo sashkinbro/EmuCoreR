@@ -149,7 +149,7 @@ class PgxpPerspectiveInstrumentedTest {
                                     "Main_ApplyGameSettings" to "false",
                                     "Main_RunaheadFrameCount" to if (submission == "DMAQueuedRunahead") "2" else "0",
                                     "Console_Enable8MBRAM" to "false"
-                                ).forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
+                                ).forEach { (key, value) -> bridge.nativeSetOption("ecr_$key", value) }
                                 val session = bridge.createSession()
                                 assertTrue(session != 0L)
                                 ImageReader.newInstance(320, 240, PixelFormat.RGBA_8888, 3).use { reader ->

@@ -121,7 +121,7 @@ class TextureReplacementInstrumentedTest {
                 "BIOS_PatchFastBoot" to "false", "Console_Region" to "NTSC-U",
                 "TextureReplacements_EnableVRAMWriteReplacements" to "false",
                 "TextureReplacements_PreloadTextures" to preload.toString()
-            ).forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
+            ).forEach { (key, value) -> bridge.nativeSetOption("ecr_$key", value) }
             val session = bridge.createSession()
             assertTrue(session != 0L)
             try {
@@ -185,12 +185,12 @@ class TextureReplacementInstrumentedTest {
                         fail("$stage: ${RendererDefaults.coreRendererName(renderer)} preload=$preload MSAA=$multisamples wrap=$wrappedUpload expected channel=$channel, RGB counts=${counts.toList()}")
                     }
                     awaitColor(0, "native texture")
-                    bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements", "true")
+                    bridge.nativeSetOption("ecr_TextureReplacements_EnableVRAMWriteReplacements", "true")
                     awaitColor(1, "initial replacement")
                     writeImage(Color.BLUE)
-                    bridge.nativeSetOption("swanstation_TextureReplacements_PreloadTextures", (!preload).toString())
+                    bridge.nativeSetOption("ecr_TextureReplacements_PreloadTextures", (!preload).toString())
                     awaitColor(2, "updated replacement")
-                    bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements", "false")
+                    bridge.nativeSetOption("ecr_TextureReplacements_EnableVRAMWriteReplacements", "false")
                     awaitColor(0, "replacement disabled")
                     Log.i("TextureReplacementProbe", "PASS ${RendererDefaults.coreRendererName(renderer)} preload=$preload sampled=$sampleTexture reload")
                 }
@@ -245,7 +245,7 @@ class TextureReplacementInstrumentedTest {
                 "BIOS_PatchFastBoot" to "false", "Console_Region" to "NTSC-U",
                 "TextureReplacements_EnableVRAMWriteReplacements" to "false",
                 "TextureReplacements_PreloadTextures" to "false"
-            ).forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
+            ).forEach { (key, value) -> bridge.nativeSetOption("ecr_$key", value) }
             val session = bridge.createSession()
             assertTrue(session != 0L)
             try {
@@ -253,7 +253,7 @@ class TextureReplacementInstrumentedTest {
                     assertEquals(0, bridge.setSurface(session, reader.surface, renderer))
                     assertEquals(0, bridge.loadBios(session, bios.absolutePath))
                     assertEquals(0, bridge.loadBiosOnly(session))
-                    bridge.nativeSetOption("swanstation_TextureReplacements_EnableVRAMWriteReplacements", "true")
+                    bridge.nativeSetOption("ecr_TextureReplacements_EnableVRAMWriteReplacements", "true")
                     val counts = IntArray(3)
                     repeat(if (slowDecode) 50 else 20) { index ->
                         if (runaheadFrames > 0) bridge.setPadButtons(session, 0, if (index % 2 == 0) 0xffff else 0xbfff)

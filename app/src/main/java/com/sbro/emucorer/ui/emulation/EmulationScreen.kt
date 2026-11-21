@@ -222,8 +222,8 @@ import com.sbro.emucorer.ui.common.tvFocusGroup
 import com.sbro.emucorer.ui.settings.ControlsEditorScreen
 import com.sbro.emucorer.ui.settings.KeyboardMouseSettingsDialog
 import com.sbro.emucorer.ui.settings.toControlsEditorState
-import com.sbro.emucorer.core.SwanStationCoreOptions
-import com.sbro.emucorer.core.SwanStationCoreOptionStrings
+import com.sbro.emucorer.core.EcrCoreOptions
+import com.sbro.emucorer.core.EcrCoreOptionStrings
 import com.sbro.emucorer.data.AchievementItem
 import com.sbro.emucorer.data.RetroAchievementsEvent
 import com.sbro.emucorer.data.RetroAchievementsRepository
@@ -3610,7 +3610,7 @@ private fun EmulationSidebarMenu(
                         )
 
                         CoreOptionRows(
-                            options = SwanStationCoreOptions.gameMenuControlsOptions(),
+                            options = EcrCoreOptions.gameMenuControlsOptions(),
                             version = coreOptionsVersion,
                             perGameOverrides = uiState.perGameCoreOptions,
                             onValueChange = onCoreOptionChange
@@ -4104,7 +4104,7 @@ private fun EmulationSidebarMenu(
 
                         // Internal resolution belongs to the app-level per-game
                         // upscale setting (uiState.upscale). Binding this row to
-                        // the raw core option (swanstation_GPU_ResolutionScale)
+                        // the raw core option (ecr_GPU_ResolutionScale)
                         // persisted changes to the global core-option store, so
                         // they leaked into every game and never appeared in the
                         // game manager.
@@ -4147,7 +4147,7 @@ private fun EmulationSidebarMenu(
                                 LiveSelectionOption(
                                     value = pixels,
                                     label = if (pixels == 0) {
-                                        stringResource(R.string.ss_choice_off)
+                                        stringResource(R.string.ecr_choice_off)
                                     } else {
                                         pixels.toString()
                                     }
@@ -4162,7 +4162,7 @@ private fun EmulationSidebarMenu(
                         )
 
                         CoreOptionRows(
-                            options = SwanStationCoreOptions.gameMenuGraphicsOptions(),
+                            options = EcrCoreOptions.gameMenuGraphicsOptions(),
                             version = coreOptionsVersion,
                             perGameOverrides = uiState.perGameCoreOptions,
                             onValueChange = onCoreOptionChange
@@ -5368,7 +5368,7 @@ private fun RaAchievementCard(item: AchievementItem) {
 @Suppress("UNUSED_EXPRESSION")
 @Composable
 private fun CoreOptionRows(
-    options: List<SwanStationCoreOptions.Option>,
+    options: List<EcrCoreOptions.Option>,
     version: Int,
     perGameOverrides: Map<String, String>,
     onValueChange: (String, String) -> Unit
@@ -5380,16 +5380,16 @@ private fun CoreOptionRows(
             ?: NativeApp.getCoreOption(option.key)
             ?: option.defaultValue
         val currentIndex = values.indexOf(current).let { if (it >= 0) it else 0 }
-        val titleRes = SwanStationCoreOptionStrings.optionLabelRes[option.key]
+        val titleRes = EcrCoreOptionStrings.optionLabelRes[option.key]
         val title = if (titleRes != null) stringResource(titleRes) else option.label
-        val descRes = SwanStationCoreOptionStrings.optionDescriptionRes[option.key]
+        val descRes = EcrCoreOptionStrings.optionDescriptionRes[option.key]
         val help = if (descRes != null) {
             stringResource(descRes)
         } else {
             option.description.takeIf { it.isNotBlank() }
         }
         val choiceLabels = option.choices.map { choice ->
-            val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
+            val choiceRes = EcrCoreOptionStrings.choiceLabelRes[choice.label]
             if (choiceRes != null) stringResource(choiceRes) else choice.label
         }
         // Equal-width chips clip long labels; fall back to a horizontally

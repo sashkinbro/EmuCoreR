@@ -37,7 +37,7 @@ class RealGameBootInstrumentedTest {
         mapOf("GPU_Renderer" to "Vulkan", "GPU_ResolutionScale" to "1", "GPU_UseThread" to "false",
             "MemoryCards_Card1Type" to "None", "MemoryCards_Card2Type" to "None",
             "BIOS_PatchFastBoot" to "true", "Main_ApplyGameSettings" to "false")
-            .forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
+            .forEach { (key, value) -> bridge.nativeSetOption("ecr_$key", value) }
         val mountedPath = if (archiveName != null) {
             ParcelFileDescriptor.open(disc, ParcelFileDescriptor.MODE_READ_ONLY).use { bridge.nativeMountArchive(it.fd) }
                 ?: error("Could not mount $archiveName")

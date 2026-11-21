@@ -317,7 +317,7 @@ class ShaderChainInstrumentedTest {
                 "Main_RunaheadFrameCount" to runaheadFrames.toString(), "Main_ApplyGameSettings" to "false",
                 "BIOS_PatchFastBoot" to "false", "Console_Region" to "NTSC-U",
                 "TextureReplacements_EnableVRAMWriteReplacements" to "false"
-            ).forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
+            ).forEach { (key, value) -> bridge.nativeSetOption("ecr_$key", value) }
             val session = bridge.createSession()
             assertTrue(session != 0L)
             try {

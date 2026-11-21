@@ -38,7 +38,7 @@ data class TextureImportResult(
  * Installs and manages PlayStation 1 replacement texture packs.
  *
  * Packs live under `<emulator data root>/textures/<SERIAL>/` and contain the
- * `vram-write-<hash>.<png|jpg|tga|bmp>` files the bundled SwanStation core
+ * `vram-write-<hash>.<png|jpg|tga|bmp>` files the bundled ECR core
  * loads. The core receives this root through the native texture path override,
  * so the manager and the emulator always agree on the directory.
  */

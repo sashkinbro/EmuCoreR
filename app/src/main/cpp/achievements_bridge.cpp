@@ -484,7 +484,7 @@ void LoadGameCallback(int result, const char* error_message, rc_client_t* client
 // ---------------------------------------------------------------------------
 // Client lifecycle
 // ---------------------------------------------------------------------------
-// Implemented by the libretro core (libretro_host_interface.cpp): a CD reader
+// Implemented by the ECR core (libecr_host_interface.cpp): a CD reader
 // on top of the core's CDImage so rcheevos can hash CHD and every other
 // container the core can mount.
 extern "C" void* EmuCoreRDiscReaderOpen(const char* path, uint32_t track);

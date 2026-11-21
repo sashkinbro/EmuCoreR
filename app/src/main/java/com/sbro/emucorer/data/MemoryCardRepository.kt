@@ -154,7 +154,7 @@ class MemoryCardRepository(
         return result.cardName?.takeIf { result.success }
     }
 
-    /** Imports raw DuckStation, SwanStation, or EmuCoreR cards only when byte-compatible. */
+    /** Imports raw DuckStation, SwanStation, ECR, or EmuCoreR cards only when byte-compatible. */
     fun importCard(uri: Uri, displayName: String? = null): MemoryCardWriteResult {
         val resolvedName = displayName?.takeIf(String::isNotBlank)
             ?: DocumentPathResolver.getDisplayName(context, uri.toString())

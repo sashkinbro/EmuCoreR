@@ -27,7 +27,7 @@ import com.sbro.emucorer.core.KeyboardMouseManager
 import com.sbro.emucorer.core.MobileSocNameMapper
 import com.sbro.emucorer.core.NativeApp
 import com.sbro.emucorer.core.RuntimeFailure
-import com.sbro.emucorer.core.SwanStationCoreOptions
+import com.sbro.emucorer.core.EcrCoreOptions
 import com.sbro.emucorer.core.resolveAndroidGamePhase
 import com.sbro.emucorer.core.normalizeUpscale
 import com.sbro.emucorer.data.ActivePatchNotice
@@ -1226,7 +1226,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                         existingProfile
                             ?: safePath.takeIf { it.isNotBlank() }?.let(perGameSettingsRepository::get)
                         )?.coreOptions.orEmpty()
-                        .filterKeys { !SwanStationCoreOptions.isManagedKey(it) }
+                        .filterKeys { !EcrCoreOptions.isManagedKey(it) }
                     refreshCurrentGameCheats(metadata, config.enableCheats)
                     _uiState.value = _uiState.value.copy(
                         currentGameTitle = currentGameTitle,
@@ -1585,7 +1585,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     /**
-     * Applies a SwanStation core option while a game session is running.
+     * Applies a ECR core option while a game session is running.
      *
      * Core options edited in-game belong to the running game, so they are stored
      * in that game's profile instead of the global core-option store. A change
@@ -1611,7 +1611,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             perGameSettingsRepository.save(profile)
             pendingPerGameCoreOptions =
-                coreOptions.filterKeys { !SwanStationCoreOptions.isManagedKey(it) }
+                coreOptions.filterKeys { !EcrCoreOptions.isManagedKey(it) }
             _uiState.value = _uiState.value.copy(
                 gameSettingsProfileActive = true,
                 perGameCoreOptions = pendingPerGameCoreOptions
@@ -3249,10 +3249,10 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             widescreen = state.widescreenPatches
         )
         if (patchDirectives.disableWidescreenHack) {
-            NativeApp.applyCoreOption("swanstation_GPU_WidescreenHack", "false")
+            NativeApp.applyCoreOption("ecr_GPU_WidescreenHack", "false")
         }
         if (patchDirectives.aspectRatioOverride?.equals("16:9", ignoreCase = true) == true) {
-            NativeApp.applyCoreOption("swanstation_Display_AspectRatio", "16:9")
+            NativeApp.applyCoreOption("ecr_Display_AspectRatio", "16:9")
         }
         cheatRepository.syncActiveCheats(
             gameKey = gameKey,

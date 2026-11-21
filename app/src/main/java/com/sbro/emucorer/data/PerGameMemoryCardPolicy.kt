@@ -31,16 +31,18 @@ const val GAME_CARD_NAME_MAX_LENGTH = 48
  * the app now, so stored values are ignored and migrated on profile load.
  */
 val LEGACY_MEMORY_CARD_CORE_OPTION_KEYS = setOf(
+    "ecr_MemoryCards_Card1Type",
+    "ecr_MemoryCards_Card2Type",
     "swanstation_MemoryCards_Card1Type",
     "swanstation_MemoryCards_Card2Type"
 )
 
 /**
- * The bundled SwanStation core only opens the bound memcards image in shared
+ * The bundled ECR core only opens the bound memcards image in shared
  * mode; every other type (Libretro/PerGame/...) bypasses the path override.
  * A bound path therefore always maps to a shared card, an empty slot to none.
  */
-fun swanStationCardTypeForPath(resolvedPath: String?): String =
+fun ecrCardTypeForPath(resolvedPath: String?): String =
     if (resolvedPath != null) "Shared" else "None"
 
 /**

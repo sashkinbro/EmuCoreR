@@ -192,8 +192,8 @@ import com.sbro.emucorer.core.NativeApp
 import com.sbro.emucorer.core.buildUpscaleOptions
 import com.sbro.emucorer.core.upscaleKeyToMultiplier
 import com.sbro.emucorer.core.upscaleMultiplierKey
-import com.sbro.emucorer.core.SwanStationCoreOptions
-import com.sbro.emucorer.core.SwanStationCoreOptionStrings
+import com.sbro.emucorer.core.EcrCoreOptions
+import com.sbro.emucorer.core.EcrCoreOptionStrings
 import com.sbro.emucorer.core.LocalTvUiEnvironment
 
 import com.sbro.emucorer.core.RendererDefaults
@@ -1646,7 +1646,7 @@ private fun SettingsContent(
                         )
                         var coreAudioOptionsVersion by remember { mutableIntStateOf(0) }
                         CoreOptionSettingsRows(
-                            options = remember { SwanStationCoreOptions.audioOptions() },
+                            options = remember { EcrCoreOptions.audioOptions() },
                             version = coreAudioOptionsVersion,
                             onValueChange = { key, value ->
                                 NativeApp.setCoreOption(key, value)
@@ -2160,7 +2160,7 @@ private fun SettingsContent(
                         )
                         var coreControlsVersion by remember { mutableIntStateOf(0) }
                         CoreOptionSettingsRows(
-                            options = remember { SwanStationCoreOptions.controlsOptions() },
+                            options = remember { EcrCoreOptions.controlsOptions() },
                             version = coreControlsVersion,
                             onValueChange = { key, value ->
                                 NativeApp.setCoreOption(key, value)
@@ -2372,7 +2372,7 @@ private fun SettingsContent(
                             title = stringResource(R.string.settings_display_crop),
                             options = DisplayCrop.EdgePresets.map { pixels ->
                                 pixels to if (pixels == 0) {
-                                    stringResource(R.string.ss_choice_off)
+                                    stringResource(R.string.ecr_choice_off)
                                 } else {
                                     pixels.toString()
                                 }
@@ -2386,7 +2386,7 @@ private fun SettingsContent(
                         CoreOptionSettingsRows(
                             options = remember {
                                 listOfNotNull(
-                                    SwanStationCoreOptions.option("swanstation_Display_CropMode")
+                                    EcrCoreOptions.option("ecr_Display_CropMode")
                                 )
                             },
                             version = coreGraphicsVersion,
@@ -2425,7 +2425,7 @@ private fun SettingsContent(
                             onClick = launchShaderPackPicker
                         )
                         CoreOptionSettingsRows(
-                            options = remember { SwanStationCoreOptions.graphicsOptions() },
+                            options = remember { EcrCoreOptions.graphicsOptions() },
                             version = coreGraphicsVersion,
                             onValueChange = { key, value ->
                                 NativeApp.setCoreOption(key, value)
@@ -2616,7 +2616,7 @@ private fun SettingsContent(
                         )
                         var coreEmulationVersion by remember { mutableIntStateOf(0) }
                         CoreOptionSettingsRows(
-                            options = remember { SwanStationCoreOptions.emulationOptions() },
+                            options = remember { EcrCoreOptions.emulationOptions() },
                             version = coreEmulationVersion,
                             onValueChange = { key, value ->
                                 NativeApp.setCoreOption(key, value)
@@ -4817,7 +4817,7 @@ private fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         entry(SettingsTab.Audio, R.string.settings_audio_output_latency),
         entry(SettingsTab.Audio, R.string.settings_audio_minimal_latency),
         entry(SettingsTab.Audio, R.string.settings_enable_cdda_audio),
-        entry(SettingsTab.Audio, R.string.ss_core_audio_fasthook),
+        entry(SettingsTab.Audio, R.string.ecr_core_audio_fasthook),
         entry(SettingsTab.Controls, R.string.settings_overlay_scale),
         entry(SettingsTab.Controls, R.string.settings_overlay_opacity),
         entry(SettingsTab.Controls, R.string.settings_touchscreen_left_stick),
@@ -6151,16 +6151,16 @@ internal fun ChoiceSection(
 @Suppress("UNUSED_EXPRESSION")
 @Composable
 internal fun CoreOptionSettingsRows(
-    options: List<SwanStationCoreOptions.Option>,
+    options: List<EcrCoreOptions.Option>,
     version: Int,
     onValueChange: (String, String) -> Unit
 ) {
     version
     options.forEach { option ->
         val current = NativeApp.getCoreOption(option.key) ?: option.defaultValue
-        val titleRes = SwanStationCoreOptionStrings.optionLabelRes[option.key]
+        val titleRes = EcrCoreOptionStrings.optionLabelRes[option.key]
         val title = if (titleRes != null) stringResource(titleRes) else option.label
-        val descRes = SwanStationCoreOptionStrings.optionDescriptionRes[option.key]
+        val descRes = EcrCoreOptionStrings.optionDescriptionRes[option.key]
         val help = if (descRes != null) {
             stringResource(descRes)
         } else {
@@ -6180,7 +6180,7 @@ internal fun CoreOptionSettingsRows(
             CoreStringChoiceSection(
                 title = title,
                 options = option.choices.map { choice ->
-                    val choiceRes = SwanStationCoreOptionStrings.choiceLabelRes[choice.label]
+                    val choiceRes = EcrCoreOptionStrings.choiceLabelRes[choice.label]
                     choice.value to (if (choiceRes != null) stringResource(choiceRes) else choice.label)
                 },
                 selectedValue = current,

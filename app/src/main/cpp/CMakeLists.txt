@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Android ships devices with 4 KiB and 16 KiB host pages. The host page size is baked
-# into the SwanStation fastmem and code cache, so the whole core is compiled twice and
+# into the ECR fastmem and code cache, so the whole core is compiled twice and
 # the app loads the variant matching the runtime page size.
 set(EMUCORER_HOST_PAGE_SIZE "4096" CACHE STRING "Android runtime page size expected by the emulator core")
 set(EMUCORER_NATIVE_LIBRARY_NAME "emucorer_jni" CACHE STRING "Output name of the Android emulator core library")
@@ -18,7 +18,7 @@ endif()
 if(NOT EMUCORER_NATIVE_LIBRARY_NAME MATCHES "^[A-Za-z0-9_]+$")
     message(FATAL_ERROR "EMUCORER_NATIVE_LIBRARY_NAME contains unsupported characters")
 endif()
-add_compile_definitions(SWANSTATION_HOST_PAGE_SIZE=${EMUCORER_HOST_PAGE_SIZE})
+add_compile_definitions(ECR_HOST_PAGE_SIZE=${EMUCORER_HOST_PAGE_SIZE})
 
 # Google Play requires 16 KiB page size support: keep every ELF load segment aligned
 # even when a toolchain default changes.
@@ -46,44 +46,44 @@ else()
 endif()
 
 # -----------------------------------------------------------------------------
-# SwanStation libretro core (vendored, in-tree dependencies).
+# ECR PlayStation 1 (libecr) core (derived from SwanStation, in-tree deps).
 # -----------------------------------------------------------------------------
-set(SWANSTATION_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/swanstation")
-set(SWANSTATION_BIN_DIR "${CMAKE_BINARY_DIR}/swanstation")
-add_subdirectory("${SWANSTATION_DIR}" "${SWANSTATION_BIN_DIR}")
+set(ECR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../core/ecr")
+set(ECR_BIN_DIR "${CMAKE_BINARY_DIR}/ecr")
+add_subdirectory("${ECR_DIR}" "${ECR_BIN_DIR}")
 
 # The host page size is compiled into the core itself, so the 16 KiB build needs
 # its own copy of the core library. Both copies are packaged together, which
 # means they must have distinct SONAMEs.
-if(EMUCORER_HOST_PAGE_SIZE STREQUAL "16384" AND TARGET swanstation_libretro)
-    set_target_properties(swanstation_libretro PROPERTIES
-        OUTPUT_NAME "swanstation_libretro_android_16k")
+if(EMUCORER_HOST_PAGE_SIZE STREQUAL "16384" AND TARGET libecr)
+    set_target_properties(libecr PROPERTIES
+        OUTPUT_NAME "libecr_android_16k")
 endif()
 
 # RetroAchievements client (rcheevos), driven by the Android frontend.
 set(RCHEEVOS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/rcheevos")
 add_subdirectory("${RCHEEVOS_DIR}" "${CMAKE_BINARY_DIR}/rcheevos")
 target_include_directories(rcheevos PRIVATE
-    "${SWANSTATION_DIR}/dep/libretro-common/include"
+    "${ECR_DIR}/dep/libecr-common/include"
 )
 
 # libchdr ships a benchmark executable that is not part of the core and does
-# not link the libretro VFS. Android's externalNativeBuild builds the `all`
+# not link the libecr VFS. Android's externalNativeBuild builds the `all`
 # target, so exclude it and, defensively, satisfy its filestream_* symbols.
 if(TARGET chdr-benchmark)
     set_target_properties(chdr-benchmark PROPERTIES EXCLUDE_FROM_ALL TRUE)
-    if(TARGET libretro-common)
-        target_link_libraries(chdr-benchmark PRIVATE libretro-common)
+    if(TARGET libecr-common)
+        target_link_libraries(chdr-benchmark PRIVATE libecr-common)
     endif()
 endif()
 if(TARGET chdr-fuzz)
     set_target_properties(chdr-fuzz PROPERTIES EXCLUDE_FROM_ALL TRUE)
-    if(TARGET libretro-common)
-        target_link_libraries(chdr-fuzz PRIVATE libretro-common)
+    if(TARGET libecr-common)
+        target_link_libraries(chdr-fuzz PRIVATE libecr-common)
     endif()
 endif()
 
-# JNI bridge that drives the core through the libretro API.
+# JNI bridge that drives the core through the libecr frontend API.
 add_subdirectory(third_party/archive)
 add_library(emucorer_jni SHARED
     native_bridge.cpp
@@ -95,8 +95,8 @@ add_library(emucorer_jni SHARED
 )
 
 target_include_directories(emucorer_jni PRIVATE
-    "${SWANSTATION_DIR}/dep/libretro-common/include"
-    "${SWANSTATION_DIR}/src"
+    "${ECR_DIR}/dep/libecr-common/include"
+    "${ECR_DIR}/src"
     "${RCHEEVOS_DIR}/src"
 )
 
@@ -108,7 +108,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/librashader/CMakeLists.txt")
 endif()
 
 target_link_libraries(emucorer_jni PRIVATE
-    swanstation_libretro
+    libecr
     rcheevos
     android
     log

@@ -65,7 +65,7 @@ class PgxpInstrumentedTest {
                             "Main_RunaheadFrameCount" to if (runahead) "2" else "0",
                             "Console_Enable8MBRAM" to (cpu == "Recompiler" && depth).toString()
                         )
-                        options.forEach { (key, value) -> bridge.nativeSetOption("swanstation_$key", value) }
+                        options.forEach { (key, value) -> bridge.nativeSetOption("ecr_$key", value) }
                         val session = bridge.createSession()
                         assertTrue(session != 0L)
                         ImageReader.newInstance(320, 240, PixelFormat.RGBA_8888, 3).use { reader ->
