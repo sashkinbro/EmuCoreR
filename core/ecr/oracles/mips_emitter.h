@@ -7,6 +7,8 @@
 
 #include <libretro.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -30,9 +32,15 @@ struct BiosBuilder {
   std::vector<uint32_t> words;
   uint32_t cursor = 0;  // word index
 
+  struct Label {
+    uint32_t target = UINT32_MAX;  // word index
+    std::vector<uint32_t> fixups;  // word index of branch instruction
+  };
+
   BiosBuilder() : words(kBiosWords, 0u) {}
 
   void Seek(uint32_t byte_offset) { cursor = byte_offset / 4u; }
+  uint32_t CurrentWord() const { return cursor; }
   uint32_t CurrentAddr() const { return kBiosBase + cursor * 4u; }
 
   void Emit(uint32_t insn) {
@@ -48,6 +56,25 @@ struct BiosBuilder {
   static constexpr uint32_t I(uint32_t op, uint32_t rs, uint32_t rt, int32_t imm) {
     return ((op & 63u) << 26) | ((rs & 31u) << 21) | ((rt & 31u) << 16) |
            (static_cast<uint32_t>(imm) & 0xFFFFu);
+  }
+
+  void Bind(Label& lbl) {
+    lbl.target = cursor;
+    for (uint32_t branch_word : lbl.fixups) {
+      const int32_t rel = static_cast<int32_t>(lbl.target) - static_cast<int32_t>(branch_word + 1u);
+      words[branch_word] = (words[branch_word] & 0xFFFF0000u) | (static_cast<uint32_t>(rel) & 0xFFFFu);
+    }
+    lbl.fixups.clear();
+  }
+
+  void EmitBranchToLabel(uint32_t op, uint32_t rs, uint32_t rt, Label& lbl) {
+    if (lbl.target != UINT32_MAX) {
+      const int32_t rel = static_cast<int32_t>(lbl.target) - static_cast<int32_t>(cursor + 1u);
+      Emit(I(op, rs, rt, rel));
+    } else {
+      lbl.fixups.push_back(cursor);
+      Emit(I(op, rs, rt, 0));
+    }
   }
 
   void Lui(uint32_t rt, uint32_t imm16) { Emit(I(0x0Fu, 0u, rt, static_cast<int32_t>(imm16))); }
@@ -105,6 +132,9 @@ struct BiosBuilder {
   void Sw(uint32_t rt, int32_t off, uint32_t base) { Emit(I(0x2Bu, base, rt, off)); }
   void Swr(uint32_t rt, int32_t off, uint32_t base) { Emit(I(0x2Eu, base, rt, off)); }
 
+  void Lwc2(uint32_t rt, int32_t off, uint32_t base) { Emit(I(0x32u, base, rt, off)); }
+  void Swc2(uint32_t rt, int32_t off, uint32_t base) { Emit(I(0x3Au, base, rt, off)); }
+
   void J(uint32_t addr) { Emit((0x02u << 26) | ((addr >> 2) & 0x03FFFFFFu)); }
   void Jal(uint32_t addr) { Emit((0x03u << 26) | ((addr >> 2) & 0x03FFFFFFu)); }
   void Jr(uint32_t rs) { Emit(R(rs, 0u, 0u, 0u, 0x08u)); }
@@ -119,6 +149,13 @@ struct BiosBuilder {
   void Bltzal(uint32_t rs, int32_t rel_words) { Emit(I(0x01u, rs, 0x10u, rel_words)); }
   void Bgezal(uint32_t rs, int32_t rel_words) { Emit(I(0x01u, rs, 0x11u, rel_words)); }
 
+  void Beq(uint32_t rs, uint32_t rt, Label& lbl) { EmitBranchToLabel(0x04u, rs, rt, lbl); }
+  void Bne(uint32_t rs, uint32_t rt, Label& lbl) { EmitBranchToLabel(0x05u, rs, rt, lbl); }
+  void Blez(uint32_t rs, Label& lbl) { EmitBranchToLabel(0x06u, rs, 0u, lbl); }
+  void Bgtz(uint32_t rs, Label& lbl) { EmitBranchToLabel(0x07u, rs, 0u, lbl); }
+  void Bltz(uint32_t rs, Label& lbl) { EmitBranchToLabel(0x01u, rs, 0u, lbl); }
+  void Bgez(uint32_t rs, Label& lbl) { EmitBranchToLabel(0x01u, rs, 1u, lbl); }
+
   void Syscall(uint32_t code = 0u) { Emit(((code & 0xFFFFFu) << 6) | 0x0Cu); }
   void Break(uint32_t code = 0u) { Emit(((code & 0xFFFFFu) << 6) | 0x0Du); }
 
@@ -131,6 +168,12 @@ struct BiosBuilder {
   void Mtc2(uint32_t rt, uint32_t rd) { Emit((0x12u << 26) | (4u << 21) | ((rt & 31u) << 16) | ((rd & 31u) << 11)); }
   void Ctc2(uint32_t rt, uint32_t rd) { Emit((0x12u << 26) | (6u << 21) | ((rt & 31u) << 16) | ((rd & 31u) << 11)); }
   void GteCmd(uint32_t cmd25) { Emit((0x12u << 26) | (1u << 25) | (cmd25 & 0x01FFFFFFu)); }
+
+  void SwImm32(uint32_t addr, uint32_t val, uint32_t addr_reg = AT, uint32_t val_reg = T8) {
+    Li32(addr_reg, addr);
+    Li32(val_reg, val);
+    Sw(val_reg, 0, addr_reg);
+  }
 
   void HaltLoop() {
     Beq(ZERO, ZERO, -1);
@@ -154,6 +197,91 @@ inline uint64_t Fnv1a64(const void* data, size_t size) {
     hash *= 1099511628211ULL;
   }
   return hash;
+}
+
+inline uint32_t Crc32(const uint8_t* data, size_t len) {
+  uint32_t crc = 0xFFFFFFFFu;
+  for (size_t i = 0; i < len; i++) {
+    crc ^= data[i];
+    for (int b = 0; b < 8; b++) {
+      crc = (crc >> 1) ^ ((crc & 1u) ? 0xEDB88320u : 0u);
+    }
+  }
+  return crc ^ 0xFFFFFFFFu;
+}
+
+// Writes an uncompressed RGBA/RGB PNG using zlib stored blocks (no external libs).
+inline bool WriteRgbPng(const std::string& path, unsigned width, unsigned height, const uint8_t* rgb) {
+  if (width == 0 || height == 0 || !rgb) return false;
+  FILE* f = std::fopen(path.c_str(), "wb");
+  if (!f) return false;
+
+  auto put_be32 = [](std::vector<uint8_t>& out, uint32_t v) {
+    out.push_back(static_cast<uint8_t>((v >> 24) & 0xFFu));
+    out.push_back(static_cast<uint8_t>((v >> 16) & 0xFFu));
+    out.push_back(static_cast<uint8_t>((v >> 8) & 0xFFu));
+    out.push_back(static_cast<uint8_t>(v & 0xFFu));
+  };
+  auto write_chunk = [&](const char type[4], const uint8_t* data, uint32_t len) {
+    std::vector<uint8_t> buf;
+    buf.reserve(len + 12u);
+    put_be32(buf, len);
+    buf.insert(buf.end(), type, type + 4);
+    if (len > 0 && data) buf.insert(buf.end(), data, data + len);
+    const uint32_t crc = Crc32(buf.data() + 4, len + 4u);
+    put_be32(buf, crc);
+    return std::fwrite(buf.data(), 1, buf.size(), f) == buf.size();
+  };
+
+  static const uint8_t sig[8] = {137, 80, 78, 71, 13, 10, 26, 10};
+  bool ok = (std::fwrite(sig, 1, 8, f) == 8);
+
+  std::vector<uint8_t> ihdr;
+  put_be32(ihdr, width);
+  put_be32(ihdr, height);
+  ihdr.push_back(8);  // bit depth
+  ihdr.push_back(2);  // color type RGB
+  ihdr.push_back(0);  // compression
+  ihdr.push_back(0);  // filter
+  ihdr.push_back(0);  // interlace
+  ok = ok && write_chunk("IHDR", ihdr.data(), static_cast<uint32_t>(ihdr.size()));
+
+  const size_t row_bytes = static_cast<size_t>(width) * 3u;
+  const size_t raw_size = static_cast<size_t>(height) * (1u + row_bytes);
+  std::vector<uint8_t> raw(raw_size);
+  uint32_t s1 = 1u, s2 = 0u;
+  for (unsigned y = 0; y < height; y++) {
+    uint8_t* dst = raw.data() + y * (1u + row_bytes);
+    dst[0] = 0u;  // filter None
+    std::memcpy(dst + 1, rgb + y * row_bytes, row_bytes);
+    for (size_t i = 0; i < 1u + row_bytes; i++) {
+      s1 = (s1 + dst[i]) % 65521u;
+      s2 = (s2 + s1) % 65521u;
+    }
+  }
+  const uint32_t adler = (s2 << 16) | s1;
+
+  std::vector<uint8_t> z;
+  z.push_back(0x78);  // CMF: deflate 32K window
+  z.push_back(0x01);  // FLG: no dict, check bits
+  size_t off = 0;
+  while (off < raw.size()) {
+    const uint16_t chunk_len = static_cast<uint16_t>(std::min<size_t>(65535u, raw.size() - off));
+    const bool final_block = (off + chunk_len >= raw.size());
+    z.push_back(final_block ? 0x01u : 0x00u);
+    z.push_back(static_cast<uint8_t>(chunk_len & 0xFFu));
+    z.push_back(static_cast<uint8_t>((chunk_len >> 8) & 0xFFu));
+    const uint16_t nlen = static_cast<uint16_t>(~chunk_len);
+    z.push_back(static_cast<uint8_t>(nlen & 0xFFu));
+    z.push_back(static_cast<uint8_t>((nlen >> 8) & 0xFFu));
+    z.insert(z.end(), raw.data() + off, raw.data() + off + chunk_len);
+    off += chunk_len;
+  }
+  put_be32(z, adler);
+  ok = ok && write_chunk("IDAT", z.data(), static_cast<uint32_t>(z.size()));
+  ok = ok && write_chunk("IEND", nullptr, 0u);
+  std::fclose(f);
+  return ok;
 }
 
 struct EcrApi {

@@ -3,6 +3,8 @@ param(
     [string]$CoreLibrary,
     [string]$BiosPath = '',
     [int]$Frames = 120,
+    [string]$GamePath = '',
+    [int]$GameFrames = 180,
     [string]$Sdk = "$env:LOCALAPPDATA/Android/Sdk"
 )
 $ErrorActionPreference = 'Stop'
@@ -39,19 +41,32 @@ try {
     & $adb -s $Serial shell chmod 755 "$remoteRoot/cpu_oracle"
 
     $extraArgs = ''
+    $shQuote = { param([string]$s) "'" + ($s -replace "'", "'`"`'`"`'") + "'" }
     if (-not [string]::IsNullOrWhiteSpace($BiosPath)) {
         if ($BiosPath.StartsWith('/')) {
-            $extraArgs = "--bios `"$BiosPath`" --frames $Frames"
+            $extraArgs = '--bios ' + (& $shQuote $BiosPath) + " --frames $Frames"
         } elseif (Test-Path -LiteralPath $BiosPath) {
             & $adb -s $Serial push $BiosPath "$remoteRoot/real_bios.bin" | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "Failed uploading BIOS $BiosPath" }
-            $extraArgs = "--bios `"$remoteRoot/real_bios.bin`" --frames $Frames"
+            $extraArgs = '--bios ' + (& $shQuote "$remoteRoot/real_bios.bin") + " --frames $Frames"
         } else {
             throw "BIOS path not found: $BiosPath"
         }
     }
+    if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
+        if ($GamePath.StartsWith('/')) {
+            $extraArgs += ' --game ' + (& $shQuote $GamePath) + " --game-frames $GameFrames"
+        } elseif (Test-Path -LiteralPath $GamePath) {
+            $gameName = [IO.Path]::GetFileName($GamePath)
+            & $adb -s $Serial push $GamePath "$remoteRoot/$gameName" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Failed uploading game $GamePath" }
+            $extraArgs += ' --game ' + (& $shQuote "$remoteRoot/$gameName") + " --game-frames $GameFrames"
+        } else {
+            throw "Game path not found: $GamePath"
+        }
+    }
 
-    & $adb -s $Serial shell "LD_LIBRARY_PATH=$remoteRoot timeout 60 $remoteRoot/cpu_oracle $remoteRoot/libecr_android.so $extraArgs"
+    & $adb -s $Serial shell "LD_LIBRARY_PATH=$remoteRoot timeout 240 $remoteRoot/cpu_oracle $remoteRoot/libecr_android.so $extraArgs"
     if ($LASTEXITCODE -ne 0) { throw "CPU accuracy oracle failed (exit $LASTEXITCODE)." }
 } finally {
     Pop-Location
