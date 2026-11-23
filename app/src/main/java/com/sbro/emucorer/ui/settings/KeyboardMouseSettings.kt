@@ -16,7 +16,7 @@ import androidx.compose.material.icons.rounded.SettingsSuggest
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
+import com.sbro.emucorer.ui.common.SyncedSlider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -737,7 +737,7 @@ private fun KeyboardMouseSliderItem(
                 color = MaterialTheme.colorScheme.primary
             )
         }
-        Slider(
+        SyncedSlider(
             value = sliderValue,
             onValueChange = { sliderValue = it },
             onValueChangeFinished = { onValueChange(sliderValue.toInt()) },

@@ -40,6 +40,8 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.material3.ListItemDefaults
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
@@ -141,9 +143,12 @@ internal fun DriveBackupPanel(viewModel: DriveBackupViewModel = sharedDriveViewM
             }
             if (settings.lastBackupMs > 0) {
                 Surface(shape = neonShape(18.dp), border = profileCardBorder()) {
-                ListItem(headlineContent = { Text(stringResource(R.string.drive_last_backup)) },
+                ListItem(
+                    shapes = ListItemDefaults.shapes(shape = RectangleShape),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     supportingContent = { Text("${date(settings.lastBackupMs)} · ${Formatter.formatFileSize(context, settings.lastSize)}") },
-                    leadingContent = { Icon(Icons.Default.CloudDone, null) })
+                    leadingContent = { Box(Modifier.padding(end = 4.dp)) { Icon(Icons.Default.CloudDone, null) } }
+                ) { Text(stringResource(R.string.drive_last_backup)) }
                 }
             }
             if (state.queued || state.operation.phase.isNotBlank()) {

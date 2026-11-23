@@ -91,6 +91,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -121,7 +124,6 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -624,7 +626,8 @@ private fun AuthContent(
     modifier: Modifier = Modifier
 ) {
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
+    val passwordState = rememberTextFieldState()
+    val password = passwordState.text.toString()
     var displayName by rememberSaveable { mutableStateOf("") }
     var createMode by rememberSaveable { mutableStateOf(false) }
 
@@ -696,14 +699,13 @@ private fun AuthContent(
                         label = { Text(stringResource(R.string.profile_email)) },
                         leadingIcon = { Icon(Icons.Rounded.Email, contentDescription = null) }
                     )
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
+                    OutlinedSecureTextField(
+                        state = passwordState,
+                        textObfuscationMode = TextObfuscationMode.Hidden,
+                        keyboardOptions = KeyboardOptions.Default,
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
                         shape = neonShape(20.dp),
                         label = { Text(stringResource(R.string.profile_password)) },
-                        visualTransformation = PasswordVisualTransformation(),
                         leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Login, contentDescription = null) }
                     )
                     Button(

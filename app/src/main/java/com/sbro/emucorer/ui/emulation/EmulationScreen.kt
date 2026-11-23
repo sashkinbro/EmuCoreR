@@ -92,7 +92,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
+import com.sbro.emucorer.ui.common.SyncedSlider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -5817,7 +5817,7 @@ private fun LiveSliderRow(
             )
         }
         Box(modifier = Modifier.then(resetModifier)) {
-            Slider(
+            SyncedSlider(
                 value = sliderValue,
                 onValueChange = { sliderValue = it },
                 onValueChangeFinished = {

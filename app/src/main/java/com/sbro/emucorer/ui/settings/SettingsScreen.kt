@@ -135,7 +135,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
+import com.sbro.emucorer.ui.common.SyncedSlider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -5351,7 +5351,7 @@ private fun SliderItem(
                     )
                 }
             }
-            Slider(
+            SyncedSlider(
                 value = sliderValue,
                 onValueChange = {
                     sliderValue = it
