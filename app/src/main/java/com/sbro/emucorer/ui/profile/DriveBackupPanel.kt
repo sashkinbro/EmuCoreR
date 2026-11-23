@@ -144,6 +144,8 @@ internal fun DriveBackupPanel(viewModel: DriveBackupViewModel = sharedDriveViewM
             if (settings.lastBackupMs > 0) {
                 Surface(shape = neonShape(18.dp), border = profileCardBorder()) {
                 ListItem(
+                    modifier = Modifier.heightIn(min = 72.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                     shapes = ListItemDefaults.shapes(shape = RectangleShape),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     supportingContent = { Text("${date(settings.lastBackupMs)} · ${Formatter.formatFileSize(context, settings.lastSize)}") },
