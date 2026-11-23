@@ -116,3 +116,7 @@ ui-debug.log
 
 # Local website workspace
 /public/
+
+# SQLite side files created when a catalog DB is opened locally
+*.db-shm
+*.db-wal
