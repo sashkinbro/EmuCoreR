@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.app.Application
 import android.os.Build
 import android.os.Process
+import com.sbro.emucorer.core.AppAnalytics
 import com.sbro.emucorer.core.AppIconManager
 import com.sbro.emucorer.core.BackupSessionGate
 import com.sbro.emucorer.core.CrashLogger
@@ -37,6 +38,7 @@ class EmuCoreRApp : Application() {
         if (processName?.endsWith(":discord") == true) return
         // CrashLogger must be the very first thing — it catches crashes in all subsequent init steps
         CrashLogger.init(this)
+        AppAnalytics.initialize(this)
         if (DriveBackupArchive.hasPendingRecovery(this)) applicationScope.launch {
             try { BackupSessionGate.whileStopped { DriveBackupArchive(this@EmuCoreRApp).recoverPending() } }
             catch (cancelled: CancellationException) { throw cancelled }

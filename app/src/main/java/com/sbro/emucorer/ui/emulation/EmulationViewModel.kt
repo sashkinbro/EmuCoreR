@@ -14,6 +14,7 @@ import com.sbro.emucorer.discord.DiscordIntegration
 import com.sbro.emucorer.core.AndroidGamePerformance
 import com.sbro.emucorer.core.AndroidGamePhase
 import com.sbro.emucorer.core.AudioDefaults
+import com.sbro.emucorer.core.AppAnalytics
 import com.sbro.emucorer.core.BiosValidator
 import com.sbro.emucorer.core.CrashLogger
 import com.sbro.emucorer.core.DocumentPathResolver
@@ -961,6 +962,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
             actionLabel = if (showActionProgress) null else after.actionLabel
         )
         refreshSaveStateMetadata()
+        AppAnalytics.logSaveStateAction(action = "save", automatic = true, success = success)
         return success
     }
 
@@ -1079,6 +1081,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     val biosDirExists = !resolvedBiosPath.isNullOrBlank() && File(resolvedBiosPath).exists()
                     val biosLooksUsable = BiosValidator.hasUsableBiosFiles(getApplication(), config.biosPath)
                     if (!biosDirExists || !biosLooksUsable) {
+                        AppAnalytics.logEmulationStartFailed(analyticsLaunchType, "bios_missing")
                         _uiState.value = _uiState.value.copy(
                             isStarting = false,
                             statusMessage = null,
@@ -1146,6 +1149,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 if (!bootToBios && launchPath.isNullOrBlank()) {
+                    AppAnalytics.logEmulationStartFailed(analyticsLaunchType, "path_unavailable")
                     _uiState.value = _uiState.value.copy(
                         isStarting = false,
                         statusMessage = null,
@@ -1364,6 +1368,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
 
                     delay(500.milliseconds)
                     val loaded = EmulatorBridge.loadState(normalizedSlotToLoad)
+                    AppAnalytics.logSaveStateAction(action = "load", automatic = false, success = loaded)
                     _uiState.value = _uiState.value.copy(
                         isRunning = true,
                         isPaused = false,
@@ -1427,6 +1432,16 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 false
             }
             Log.i(TAG, "EmulatorBridge.startEmulation returned $started path=$pathToLaunch")
+            if (started) {
+                AppAnalytics.logEmulationStarted(
+                    launchType = analyticsLaunchType,
+                    renderer = _uiState.value.renderer,
+                    upscaleMultiplier = _uiState.value.upscale,
+                    saveStateLoad = hasPendingStateLoad
+                )
+            } else {
+                AppAnalytics.logEmulationStartFailed(analyticsLaunchType, "native_start")
+            }
             if (started) {
                 RetroAchievementsRepository.get(getApplication()).onGameStarted(pathToLaunch)
                 syncCheatsForCurrentGame()
@@ -3584,6 +3599,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 actionLabel = null,
                 toastMessage = if (success) "saved" else "save_failed"
             )
+            AppAnalytics.logSaveStateAction(action = "save", automatic = false, success = success)
             // Refresh even on failure: whatever is on disk is the truth, and a
             // silent failure used to leave the slot looking empty.
             refreshSaveStateMetadata()
@@ -3608,6 +3624,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     } catch (_: Exception) { false }
                 }
             }
+            AppAnalytics.logSaveStateAction(action = "load", automatic = false, success = success)
             _uiState.value = _uiState.value.copy(
                 isActionInProgress = false,
                 actionLabel = null,
@@ -3633,6 +3650,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                     } catch (_: Exception) { false }
                 }
             }
+            AppAnalytics.logSaveStateAction(action = "load", automatic = true, success = success)
             _uiState.value = _uiState.value.copy(
                 isActionInProgress = false,
                 actionLabel = null,
@@ -3664,6 +3682,7 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
         }
+        AppAnalytics.logSaveStateAction(action = "load", automatic = true, success = success)
         _uiState.value = _uiState.value.copy(
             isActionInProgress = false,
             actionLabel = null,
@@ -3790,6 +3809,12 @@ class EmulationViewModel(application: Application) : AndroidViewModel(applicatio
                 syncNativePerformanceOverlayState(_uiState.value)
                 clearCrashContext()
                 RetroAchievementsRepository.get(getApplication()).onGameStopped()
+                if (completedRunningSession) {
+                    AppAnalytics.logEmulationEnded(
+                        activePlayTimeMs = analyticsState.activePlayTimeMs,
+                        renderer = analyticsState.renderer
+                    )
+                }
             } finally {
                 isShuttingDown = false
             }

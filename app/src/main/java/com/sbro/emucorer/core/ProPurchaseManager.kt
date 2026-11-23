@@ -94,6 +94,12 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var productDetailsById: Map<String, ProductDetails> = emptyMap()
 
+    // Source/tier of the billing flow started by purchase(); analytics only. Restores and
+    // startup queries never set it, so they never log a purchase result.
+    private val pendingLock = Any()
+    private var pendingSource: String? = null
+    private var pendingTier: ProPurchaseTier? = null
+
     private val billingClient = BillingClient.newBuilder(appContext)
         .setListener(this)
         .enablePendingPurchases(
@@ -145,7 +151,8 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
 
     fun purchase(
         activity: Activity,
-        tier: ProPurchaseTier = ProPurchaseTier.BASE
+        tier: ProPurchaseTier = ProPurchaseTier.BASE,
+        source: String = "other"
     ) {
         val currentState = _state.value
         if (currentState.isPurchaseInProgress) return
@@ -186,8 +193,13 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
             purchaseProductId = tier.productId,
             messageResId = null
         )
+        synchronized(pendingLock) {
+            pendingSource = source
+            pendingTier = tier
+        }
         val result = billingClient.launchBillingFlow(activity, flowParams)
         if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+            logPendingResult("failed")
             _state.value = _state.value.copy(
                 isPurchaseInProgress = false,
                 purchaseProductId = null,
@@ -224,6 +236,11 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
                     .flatMap { it.products }
                     .filterTo(linkedSetOf(), ProPurchaseTier.productIds::contains)
                 val hasPro = activePurchases.isNotEmpty()
+                // A purchase that was PENDING when it was started completes later; it shows up here.
+                val awaited = synchronized(pendingLock) { pendingTier?.productId }
+                if (awaited != null && activePurchases.any { awaited in it.products }) {
+                    logPendingResult("completed")
+                }
                 _state.value = _state.value.copy(
                     isPurchaseStatusVerified = true,
                     ownedProductIds = ownedProductIds
@@ -250,16 +267,23 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
         when (billingResult.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
                 if (!purchases.isNullOrEmpty()) {
+                    if (purchases.any(::isActiveProPurchase)) {
+                        logPendingResult("completed")
+                    } else if (purchases.any { it.purchaseState == Purchase.PurchaseState.PENDING }) {
+                        logPendingResult("pending", clear = false)
+                    }
                     handlePurchases(purchases, showUnlockMessage = true)
                 }
             }
             BillingClient.BillingResponseCode.USER_CANCELED -> {
+                logPendingResult("canceled")
                 _state.value = _state.value.copy(
                     isPurchaseInProgress = false,
                     purchaseProductId = null
                 )
             }
             else -> {
+                logPendingResult("failed")
                 _state.value = _state.value.copy(
                     isPurchaseInProgress = false,
                     purchaseProductId = null,
@@ -267,6 +291,21 @@ class ProPurchaseManager private constructor(context: Context) : PurchasesUpdate
                 )
             }
         }
+    }
+
+    /** Logs the result of the flow started by [purchase] once, then clears it. No-op otherwise. */
+    private fun logPendingResult(result: String, clear: Boolean = true) {
+        val source: String
+        val tier: ProPurchaseTier
+        synchronized(pendingLock) {
+            source = pendingSource ?: return
+            tier = pendingTier ?: return
+            if (clear) {
+                pendingSource = null
+                pendingTier = null
+            }
+        }
+        AppAnalytics.logProPurchaseResult(source, tier.name.lowercase(), result)
     }
 
     private fun queryProductDetails(showMessage: Boolean) {

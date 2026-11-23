@@ -3,6 +3,7 @@ package com.sbro.emucorer.ui.common
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.SystemClock
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -61,6 +62,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sbro.emucorer.R
+import com.sbro.emucorer.core.AppAnalytics
 import com.sbro.emucorer.core.ProPurchaseManager
 import com.sbro.emucorer.core.ProPurchaseTier
 import com.sbro.emucorer.data.AppPreferences
@@ -93,6 +95,27 @@ object ProReminderPolicy {
         if (lastShownAtMs == 0L) return false
         if (reviewAttemptAtMs > 0L && nowMs - reviewAttemptAtMs < REVIEW_COOLDOWN_MS) return false
         return nowMs - lastShownAtMs >= intervalMs(dismissStreak)
+    }
+}
+
+/**
+ * Limits promo impression analytics to one event per placement per [intervalMs] so recomposition,
+ * scrolling and screen revisits do not inflate the funnel. Pure (takes the clock value) for tests.
+ */
+class ProPromoImpressionThrottle(private val intervalMs: Long = DEFAULT_INTERVAL_MS) {
+    private val lastLoggedAt = HashMap<String, Long>()
+
+    @Synchronized
+    fun shouldLog(placement: String, nowMs: Long): Boolean {
+        val last = lastLoggedAt[placement]
+        if (last != null && nowMs - last in 0 until intervalMs) return false
+        lastLoggedAt[placement] = nowMs
+        return true
+    }
+
+    companion object {
+        const val DEFAULT_INTERVAL_MS = 10L * 60 * 1000
+        val shared = ProPromoImpressionThrottle()
     }
 }
 
@@ -137,6 +160,12 @@ fun ProPromoCard(
     if (state.isProUnlocked) return
     if (!(state.isProductAvailable || state.isProductLoading)) return
     if (hiddenUntil > System.currentTimeMillis()) return
+
+    LaunchedEffect(variant) {
+        if (ProPromoImpressionThrottle.shared.shouldLog(variant.id, SystemClock.elapsedRealtime())) {
+            AppAnalytics.logProPromoImpression(variant.id)
+        }
+    }
 
     val price = state.productPrice
     val colors = MaterialTheme.colorScheme
@@ -205,8 +234,13 @@ fun ProPromoCard(
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
             enabled = !state.isPurchaseInProgress,
             onClick = {
-                scope.launch { preferences.resetProPromoDismissStreak(variant.id) }
-                context.findActivity()?.let { manager.purchase(it, ProPurchaseTier.BASE) }
+                scope.launch {
+                    AppAnalytics.logProPromoAction(
+                        variant.id, "get_pro", preferences.proPromoDismissStreak(variant.id).first()
+                    )
+                    preferences.resetProPromoDismissStreak(variant.id)
+                }
+                context.findActivity()?.let { manager.purchase(it, ProPurchaseTier.BASE, "promo_" + variant.id) }
             }
         ) {
             Icon(
@@ -233,6 +267,9 @@ fun ProPromoCard(
                         System.currentTimeMillis(),
                         ProReminderPolicy::intervalMs
                     )
+                    AppAnalytics.logProPromoAction(
+                        variant.id, "dismiss", preferences.proPromoDismissStreak(variant.id).first()
+                    )
                 }
             },
             modifier = Modifier.size(28.dp)
@@ -256,7 +293,14 @@ fun ProPromoCard(
             modifier = Modifier
                 .clip(shape)
                 .then(
-                    if (onLearnMore != null) Modifier.clickable(role = Role.Button, onClick = onLearnMore)
+                    if (onLearnMore != null) Modifier.clickable(role = Role.Button, onClick = {
+                        scope.launch {
+                            AppAnalytics.logProPromoAction(
+                                variant.id, "learn_more", preferences.proPromoDismissStreak(variant.id).first()
+                            )
+                        }
+                        onLearnMore()
+                    })
                     else Modifier
                 )
                 .background(backgroundBrush, shape)
@@ -426,6 +470,7 @@ fun ProReminderHost(isHomeVisible: Boolean) {
         )
         if (show) {
             preferences.markProReminderShown(now)
+            AppAnalytics.logProReminderShown(preferences.proReminderDismissStreak.first())
             showDialog = true
         }
     }
@@ -437,13 +482,18 @@ fun ProReminderHost(isHomeVisible: Boolean) {
             purchaseInProgress = state.isPurchaseInProgress,
             onGetPro = {
                 showDialog = false
-                scope.launch { preferences.setProReminderDismissStreak(0) }
-                context.findActivity()?.let { manager.purchase(it, ProPurchaseTier.BASE) }
+                scope.launch {
+                    AppAnalytics.logProReminderAction("get_pro", preferences.proReminderDismissStreak.first())
+                    preferences.setProReminderDismissStreak(0)
+                }
+                context.findActivity()?.let { manager.purchase(it, ProPurchaseTier.BASE, "reminder") }
             },
             onLater = {
                 showDialog = false
                 scope.launch {
-                    preferences.setProReminderDismissStreak(preferences.proReminderDismissStreak.first() + 1)
+                    val streak = preferences.proReminderDismissStreak.first() + 1
+                    preferences.setProReminderDismissStreak(streak)
+                    AppAnalytics.logProReminderAction("later", streak)
                 }
             }
         )

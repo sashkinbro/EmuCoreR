@@ -5,6 +5,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.sbro.emucorer.core.AppAnalytics
 import com.sbro.emucorer.core.BiosValidator
 import com.sbro.emucorer.core.EmulatorBridge
 import com.sbro.emucorer.core.EmulatorDataLocation
@@ -106,9 +107,10 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
 
     fun purchasePro(
         activity: Activity,
-        tier: ProPurchaseTier = ProPurchaseTier.BASE
+        tier: ProPurchaseTier = ProPurchaseTier.BASE,
+        source: String = "other"
     ) {
-        proPurchaseManager.purchase(activity, tier)
+        proPurchaseManager.purchase(activity, tier, source)
     }
 
     fun clearProPurchaseMessage() {
@@ -207,6 +209,7 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         if (!_uiState.value.canContinue) return
         viewModelScope.launch {
             preferences.setOnboardingCompleted(true)
+            AppAnalytics.logOnboardingCompleted()
             onFinished()
         }
     }

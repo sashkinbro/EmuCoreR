@@ -732,7 +732,7 @@ fun HomeScreen(
                 showWelcomeSupportOptions = false
                 viewModel.dismissWelcomeDialog()
                 (context as? Activity)?.let { activity ->
-                    viewModel.purchasePro(activity, tier)
+                    viewModel.purchasePro(activity, tier, "welcome")
                 }
             },
             onDismiss = { showWelcomeSupportOptions = false }
@@ -752,7 +752,7 @@ fun HomeScreen(
             onDismiss = viewModel::dismissWelcomeDialog,
             onPurchase = {
                 viewModel.dismissWelcomeDialog()
-                (context as? Activity)?.let(viewModel::purchasePro)
+                (context as? Activity)?.let { viewModel.purchasePro(it, source = "welcome") }
             },
             onShowSupportOptions = if (supportOffers.isNotEmpty()) {
                 { showWelcomeSupportOptions = true }
