@@ -73,19 +73,29 @@ open class MainActivity : ComponentActivity() {
     private var pointerCaptureEnabled = false
     private var currentOrientationLock: Int = AppPreferences.ORIENTATION_LOCK_AUTO
     private val orientationOverrides = LinkedHashMap<String, Int>()
+    private val pendingOrientationClears = HashMap<String, Runnable>()
+    private var lastAppliedOrientation: Int = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    // Matches android:screenOrientation="landscape" of TvActivity in the manifest.
+    private val tvBaseOrientation: Int = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocaleManager.wrap(newBase))
     }
 
     private fun resolveAndApplyOrientation() {
-        if (launchedFromTv) return
         val override = orientationOverrides.values.lastOrNull()
-        requestedOrientation = override ?: when (currentOrientationLock) {
-            AppPreferences.ORIENTATION_LOCK_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            AppPreferences.ORIENTATION_LOCK_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        val target = if (launchedFromTv) {
+            // TV keeps its manifest orientation unless a screen (emulation) explicitly asks.
+            override ?: tvBaseOrientation
+        } else {
+            override ?: when (currentOrientationLock) {
+                AppPreferences.ORIENTATION_LOCK_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                AppPreferences.ORIENTATION_LOCK_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
         }
+        requestedOrientation = target
+        lastAppliedOrientation = target
     }
 
     private fun applyOrientationLock(lock: Int) {
@@ -94,14 +104,38 @@ open class MainActivity : ComponentActivity() {
     }
 
     fun setOrientationOverride(token: String, orientation: Int) {
+        pendingOrientationClears.remove(token)?.let { window.decorView.removeCallbacks(it) }
         orientationOverrides[token] = orientation
         resolveAndApplyOrientation()
     }
 
     fun clearOrientationOverride(token: String) {
+        pendingOrientationClears.remove(token)?.let { window.decorView.removeCallbacks(it) }
         if (orientationOverrides.remove(token) != null) {
             resolveAndApplyOrientation()
         }
+    }
+
+    /**
+     * Releases an orientation override a moment later instead of immediately, so a landscape
+     * screen handing over to another one (XMB -> game, game -> XMB, leaving the XMB) does not
+     * flash through portrait/auto in between. Re-setting the same token cancels the release.
+     */
+    fun clearOrientationOverrideDeferred(token: String, delayMs: Long = 800L) {
+        if (!orientationOverrides.containsKey(token)) return
+        pendingOrientationClears.remove(token)?.let { window.decorView.removeCallbacks(it) }
+        val release = Runnable {
+            pendingOrientationClears.remove(token)
+            if (orientationOverrides.remove(token) != null) {
+                // If another screen has taken over requestedOrientation meanwhile, leave it alone;
+                // otherwise fall back to the normal lock/override.
+                if (requestedOrientation == lastAppliedOrientation) {
+                    resolveAndApplyOrientation()
+                }
+            }
+        }
+        pendingOrientationClears[token] = release
+        window.decorView.postDelayed(release, delayMs)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

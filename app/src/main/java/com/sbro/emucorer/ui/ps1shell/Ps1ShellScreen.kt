@@ -788,7 +788,7 @@ fun Ps1ShellScreen(
             ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         )
         onDispose {
-            mainActivity?.clearOrientationOverride(orientationToken)
+            mainActivity?.clearOrientationOverrideDeferred(orientationToken)
         }
     }
 
@@ -925,7 +925,7 @@ fun Ps1ShellScreen(
             saveShellNavigationState()
             Ps1ShellAudio.pauseAudio()
             UiSoundManager.setNativeShellActive(false)
-            mainActivity?.clearOrientationOverride(orientationToken)
+            mainActivity?.clearOrientationOverrideDeferred(orientationToken)
             currentExit.value()
         }
 

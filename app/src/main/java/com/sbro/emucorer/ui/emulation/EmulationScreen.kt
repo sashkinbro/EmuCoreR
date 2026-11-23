@@ -400,9 +400,17 @@ fun EmulationScreen(
     val originalRequestedOrientation = remember(activity) {
         activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
+    // Route the game orientation through MainActivity's override stack. Writing
+    // requestedOrientation directly lost to the PS1 shell releasing its own override when it
+    // left composition, which reset a game started from the shell to the global lock (auto).
+    val hostActivity = activity as? com.sbro.emucorer.MainActivity
     val restoreHostUi = remember(activity, originalRequestedOrientation) {
         {
-            activity?.requestedOrientation = originalRequestedOrientation
+            if (hostActivity != null) {
+                hostActivity.clearOrientationOverrideDeferred(EMULATION_ORIENTATION_TOKEN)
+            } else {
+                activity?.requestedOrientation = originalRequestedOrientation
+            }
             activity?.window?.let { window ->
                 val controller = WindowCompat.getInsetsController(window, window.decorView)
                 controller.show(WindowInsetsCompat.Type.navigationBars())
@@ -720,7 +728,11 @@ fun EmulationScreen(
 
     if (emulationOrientation != null) {
         DisposableEffect(activity, originalRequestedOrientation, emulationOrientation) {
-            activity?.requestedOrientation = emulationOrientation
+            if (hostActivity != null) {
+                hostActivity.setOrientationOverride(EMULATION_ORIENTATION_TOKEN, emulationOrientation)
+            } else {
+                activity?.requestedOrientation = emulationOrientation
+            }
             activity?.window?.let { window ->
                 val controller = WindowCompat.getInsetsController(window, window.decorView)
                 controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -6110,6 +6122,7 @@ private fun QuickIconActionButton(
     }
 }
 
+private const val EMULATION_ORIENTATION_TOKEN = "emulation"
 private const val FLOATING_QUICK_ACTION_SIZE_DP = 54
 
 @Composable
