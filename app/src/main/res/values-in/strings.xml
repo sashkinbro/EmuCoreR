@@ -2194,6 +2194,17 @@
     <string name="settings_pro_locked_title">Tingkatkan ke Pro</string>
     <string name="settings_pro_not_active">Tidak aktif</string>
     <string name="settings_pro_patron_desc">Semua fitur Pro dengan dukungan maksimal untuk proyek.</string>
+    <string name="pro_promo_library_title">Jadikan EmuCoreR milikmu</string>
+    <string name="pro_promo_library_body">Tema, Crimson, ikon emas, statistik, dan Kartu Pemain. Selamanya.</string>
+    <string name="pro_promo_themes_title">Buat tema sendiri</string>
+    <string name="pro_promo_themes_body">Buat dan simpan tema sendiri dengan pratinjau langsung.</string>
+    <string name="pro_promo_controls_title">Tombol layar milikmu</string>
+    <string name="pro_promo_controls_body">Tombol dengan aksi, bentuk, dan warna sendiri.</string>
+    <string name="pro_promo_profile_title">Statistik lanjutan dan Kartu Pemain</string>
+    <string name="pro_promo_profile_body">Statistik mingguan dan bulanan, streak, peringkat, dan Kartu Pemain.</string>
+    <string name="pro_promo_hide">Sembunyikan dulu</string>
+    <string name="pro_reminder_title">Buka EmuCoreR Pro</string>
+    <string name="pro_reminder_later">Nanti</string>
     <string name="settings_pro_patron_title">Pro Patron</string>
     <string name="settings_pro_price_label">Harga</string>
     <string name="settings_pro_purchase_label">Beli</string>

@@ -2179,6 +2179,17 @@
     <string name="settings_pro_locked_title">Pro로 업그레이드</string>
     <string name="settings_pro_not_active">비활성</string>
     <string name="settings_pro_patron_desc">모든 Pro 기능과 최대 프로젝트 지원.</string>
+    <string name="pro_promo_library_title">나만의 EmuCoreR 만들기</string>
+    <string name="pro_promo_library_body">테마, Crimson, 골드 아이콘, 통계, 플레이어 카드. 영구 사용.</string>
+    <string name="pro_promo_themes_title">나만의 테마 만들기</string>
+    <string name="pro_promo_themes_body">실시간 미리보기로 나만의 테마를 만들고 저장하세요.</string>
+    <string name="pro_promo_controls_title">나만의 화면 버튼</string>
+    <string name="pro_promo_controls_body">동작, 모양, 색상을 직접 정하는 버튼.</string>
+    <string name="pro_promo_profile_title">고급 통계와 플레이어 카드</string>
+    <string name="pro_promo_profile_body">주간·월간 통계, 연속 기록, 랭크, 플레이어 카드.</string>
+    <string name="pro_promo_hide">지금은 숨기기</string>
+    <string name="pro_reminder_title">EmuCoreR Pro 잠금 해제</string>
+    <string name="pro_reminder_later">나중에</string>
     <string name="settings_pro_patron_title">Pro 패트론</string>
     <string name="settings_pro_price_label">가격</string>
     <string name="settings_pro_purchase_label">구매</string>

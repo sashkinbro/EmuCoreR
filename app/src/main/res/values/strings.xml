@@ -2220,6 +2220,17 @@
     <string name="settings_pro_locked_title">Upgrade to Pro</string>
     <string name="settings_pro_not_active">Not active</string>
     <string name="settings_pro_patron_desc">All Pro features with maximum project support.</string>
+    <string name="pro_promo_library_title">Make EmuCoreR yours</string>
+    <string name="pro_promo_library_body">Themes, Crimson, a gold icon, stats and a Player Card. Yours forever.</string>
+    <string name="pro_promo_themes_title">Build your own themes</string>
+    <string name="pro_promo_themes_body">Create and save your own themes with a live preview.</string>
+    <string name="pro_promo_controls_title">Your own on-screen buttons</string>
+    <string name="pro_promo_controls_body">Buttons with your own actions, shapes and colors.</string>
+    <string name="pro_promo_profile_title">Advanced stats and Player Card</string>
+    <string name="pro_promo_profile_body">Weekly and monthly stats, streaks, rank and a shareable Player Card.</string>
+    <string name="pro_promo_hide">Hide for now</string>
+    <string name="pro_reminder_title">Unlock EmuCoreR Pro</string>
+    <string name="pro_reminder_later">Later</string>
     <string name="settings_pro_patron_title">Pro Patron</string>
     <string name="settings_pro_price_label">Price</string>
     <string name="settings_pro_purchase_label">Purchase</string>

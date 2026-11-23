@@ -2182,6 +2182,17 @@
     <string name="settings_pro_locked_title">Auf Pro upgraden</string>
     <string name="settings_pro_not_active">Nicht aktiv</string>
     <string name="settings_pro_patron_desc">Alle Pro-Funktionen mit maximaler Projektunterstützung.</string>
+    <string name="pro_promo_library_title">Mach EmuCoreR zu deinem</string>
+    <string name="pro_promo_library_body">Themes, Crimson, goldenes Symbol, Statistiken und Spielerkarte. Für immer.</string>
+    <string name="pro_promo_themes_title">Gestalte eigene Themes</string>
+    <string name="pro_promo_themes_body">Erstelle und speichere eigene Themes mit Live-Vorschau.</string>
+    <string name="pro_promo_controls_title">Eigene Bildschirmtasten</string>
+    <string name="pro_promo_controls_body">Tasten mit eigenen Aktionen, Formen und Farben.</string>
+    <string name="pro_promo_profile_title">Erweiterte Statistiken und Spielerkarte</string>
+    <string name="pro_promo_profile_body">Wochen- und Monatsstatistik, Serien, Rang und Spielerkarte.</string>
+    <string name="pro_promo_hide">Vorerst ausblenden</string>
+    <string name="pro_reminder_title">EmuCoreR Pro freischalten</string>
+    <string name="pro_reminder_later">Später</string>
     <string name="settings_pro_patron_title">Pro Patron</string>
     <string name="settings_pro_price_label">Preis</string>
     <string name="settings_pro_purchase_label">Kaufen</string>

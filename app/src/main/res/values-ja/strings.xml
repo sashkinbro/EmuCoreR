@@ -2179,6 +2179,17 @@
     <string name="settings_pro_locked_title">Proにアップグレード</string>
     <string name="settings_pro_not_active">非アクティブ</string>
     <string name="settings_pro_patron_desc">すべてのPro機能と最大限のプロジェクト支援。</string>
+    <string name="pro_promo_library_title">EmuCoreR を自分好みに</string>
+    <string name="pro_promo_library_body">テーマ、Crimson、ゴールドアイコン、統計、プレイヤーカード。ずっと使えます。</string>
+    <string name="pro_promo_themes_title">自分だけのテーマを作成</string>
+    <string name="pro_promo_themes_body">ライブプレビューで自分のテーマを作成・保存。</string>
+    <string name="pro_promo_controls_title">自分だけの画面ボタン</string>
+    <string name="pro_promo_controls_body">アクション・形・色を自由に決められるボタン。</string>
+    <string name="pro_promo_profile_title">詳細な統計とプレイヤーカード</string>
+    <string name="pro_promo_profile_body">週・月の統計、連続記録、ランク、プレイヤーカード。</string>
+    <string name="pro_promo_hide">今は非表示</string>
+    <string name="pro_reminder_title">EmuCoreR Pro を解放</string>
+    <string name="pro_reminder_later">あとで</string>
     <string name="settings_pro_patron_title">Proパトロン</string>
     <string name="settings_pro_price_label">価格</string>
     <string name="settings_pro_purchase_label">購入</string>

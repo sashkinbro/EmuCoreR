@@ -83,6 +83,7 @@ import com.sbro.emucorer.ui.textures.TextureManagerScreen
 import com.sbro.emucorer.ui.theme.ThemeManagerScreen
 import com.sbro.emucorer.ui.common.EmuCoreLoadingAnimation
 import com.sbro.emucorer.ui.common.FeatureUnavailableScreen
+import com.sbro.emucorer.ui.common.ProReminderHost
 import com.sbro.emucorer.ui.common.ProvideGamepadUiNavigation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -406,6 +407,9 @@ fun AppNavigation(
                 }
             }
         )
+        ProReminderHost(
+            isHomeVisible = currentBackStackEntry?.destination?.hasRoute<HomeRoute>() == true
+        )
         NavHost(
             navController = navController,
             startDestination = startDestination,
@@ -518,6 +522,11 @@ onNavigateAchievements = navigateAchievements,
                             }
                         },
                         onMenuClick = openDrawer,
+                        onOpenProSettings = {
+                            navController.navigate(SettingsRoute(tab = "pro")) {
+                                launchSingleTop = true
+                            }
+                        },
                         onShelfModeChanged = { isShelfMode ->
                             homeDrawerEnabled = !isShelfMode
                         }
@@ -1084,6 +1093,11 @@ onNavigateAchievements = navigateAchievements,
                 ) {
                     ProfileScreen(
                         onBackClick = { navController.popBackStack() },
+                        onOpenProSettings = {
+                            navController.navigate(SettingsRoute(tab = "pro")) {
+                                launchSingleTop = true
+                            }
+                        },
                         onOpenGameDetails = { catalogGameId ->
                             navController.navigate(GameDetailRoute(catalogGameId = catalogGameId)) {
                                 launchSingleTop = true

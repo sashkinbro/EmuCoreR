@@ -2185,6 +2185,17 @@
     <string name="settings_pro_locked_title">Улучшить до Pro</string>
     <string name="settings_pro_not_active">Неактивно</string>
     <string name="settings_pro_patron_desc">Все функции Pro и максимальная поддержка проекта.</string>
+    <string name="pro_promo_library_title">Сделайте EmuCoreR своим</string>
+    <string name="pro_promo_library_body">Темы, Crimson, золотая иконка, статистика и карточка игрока. Навсегда.</string>
+    <string name="pro_promo_themes_title">Создавайте свои темы</string>
+    <string name="pro_promo_themes_body">Создавайте и сохраняйте свои темы с живым предпросмотром.</string>
+    <string name="pro_promo_controls_title">Свои экранные кнопки</string>
+    <string name="pro_promo_controls_body">Кнопки со своими действиями, формой и цветом.</string>
+    <string name="pro_promo_profile_title">Расширенная статистика и карточка игрока</string>
+    <string name="pro_promo_profile_body">Статистика за неделю и месяц, серии, ранг и карточка игрока.</string>
+    <string name="pro_promo_hide">Пока скрыть</string>
+    <string name="pro_reminder_title">Откройте EmuCoreR Pro</string>
+    <string name="pro_reminder_later">Позже</string>
     <string name="settings_pro_patron_title">Pro Patron</string>
     <string name="settings_pro_price_label">Цена</string>
     <string name="settings_pro_purchase_label">Купить</string>

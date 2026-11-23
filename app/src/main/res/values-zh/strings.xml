@@ -2181,6 +2181,17 @@
     <string name="settings_pro_locked_title">升级至 Pro</string>
     <string name="settings_pro_not_active">未激活</string>
     <string name="settings_pro_patron_desc">全部 Pro 功能，并为项目提供最大支持。</string>
+    <string name="pro_promo_library_title">打造属于你的 EmuCoreR</string>
+    <string name="pro_promo_library_body">主题、Crimson、金色图标、统计与玩家卡片。永久拥有。</string>
+    <string name="pro_promo_themes_title">创建你自己的主题</string>
+    <string name="pro_promo_themes_body">实时预览，创建并保存你的主题。</string>
+    <string name="pro_promo_controls_title">自定义屏幕按键</string>
+    <string name="pro_promo_controls_body">自定义动作、形状和颜色的按键。</string>
+    <string name="pro_promo_profile_title">高级统计与玩家卡片</string>
+    <string name="pro_promo_profile_body">每周和每月统计、连续天数、排名与玩家卡片。</string>
+    <string name="pro_promo_hide">暂时隐藏</string>
+    <string name="pro_reminder_title">解锁 EmuCoreR Pro</string>
+    <string name="pro_reminder_later">稍后</string>
     <string name="settings_pro_patron_title">Pro 赞助者</string>
     <string name="settings_pro_price_label">价格</string>
     <string name="settings_pro_purchase_label">购买</string>
