@@ -68,6 +68,7 @@ import com.sbro.emucorer.ui.discord.DiscordScreen
 import com.sbro.emucorer.ui.emulation.EmulationScreen
 import com.sbro.emucorer.ui.formats.SupportedFormatsScreen
 import com.sbro.emucorer.ui.feedback.FeedbackScreen
+import com.sbro.emucorer.ui.projects.OurProjectsScreen
 import com.sbro.emucorer.ui.home.HomeScreen
 import com.sbro.emucorer.ui.hub.HubScreen
 import com.sbro.emucorer.ui.hub.detail.HubDetailScreen
@@ -174,6 +175,9 @@ object CheatManagerRoute
 
 @Serializable
 object FeedbackRoute
+
+@Serializable
+object ProjectsRoute
 
 @Serializable
 data class GameSettingsManagerRoute(val gamePath: String? = null)
@@ -374,6 +378,11 @@ fun AppNavigation(
             launchSingleTop = true
         }
     }
+    val navigateProjects: () -> Unit = {
+        navController.navigate(ProjectsRoute) {
+            launchSingleTop = true
+        }
+    }
     val navigateHub: () -> Unit = {
         navController.navigate(HubRoute) {
             launchSingleTop = true
@@ -456,6 +465,7 @@ fun AppNavigation(
                     },
                         onNavigateDiscord = navigateDiscord,
                         onNavigateFeedback = navigateFeedback,
+                    onNavigateProjects = navigateProjects,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -566,6 +576,7 @@ onNavigateAchievements = navigateAchievements,
                     },
                     onNavigateDiscord = navigateDiscord,
                     onNavigateFeedback = navigateFeedback,
+                    onNavigateProjects = navigateProjects,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -639,6 +650,7 @@ onNavigateAchievements = navigateAchievements,
                         },
                     onNavigateDiscord = navigateDiscord,
                     onNavigateFeedback = navigateFeedback,
+                    onNavigateProjects = navigateProjects,
                         onNavigateGameSettingsManager = navigateGameSettingsManager,
                         onNavigateDataTransfer = navigateDataTransfer,
                         onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -740,6 +752,7 @@ onNavigateAchievements = navigateAchievements,
                     },
                     onNavigateDiscord = navigateDiscord,
                     onNavigateFeedback = navigateFeedback,
+                    onNavigateProjects = navigateProjects,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -784,6 +797,7 @@ onNavigateAchievements = navigateAchievements,
                     },
                     onNavigateDiscord = { },
                     onNavigateFeedback = navigateFeedback,
+                    onNavigateProjects = navigateProjects,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -824,6 +838,7 @@ onNavigateAchievements = navigateAchievements,
                     onNavigateSettings = { },
                     onNavigateDiscord = navigateDiscord,
                     onNavigateFeedback = navigateFeedback,
+                    onNavigateProjects = navigateProjects,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -983,6 +998,7 @@ onNavigateAchievements = navigateAchievements,
                     },
                     onNavigateDiscord = navigateDiscord,
                     onNavigateFeedback = { },
+                    onNavigateProjects = navigateProjects,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
@@ -1000,6 +1016,55 @@ onNavigateAchievements = navigateAchievements,
                     onLaunchGame = launchGamePickerAction
                 ) {
                     FeedbackScreen(onBackClick = { navController.popBackStack() })
+                }
+            }
+
+            composable<ProjectsRoute> {
+                AdaptiveShell(
+                    selected = PrimaryDestination.Projects,
+                    isProUnlocked = settingsUiState.isProUnlocked,
+                    onNavigateHub = navigateHub,
+                    onNavigateHome = {
+                        navController.navigate(HomeRoute) {
+                            launchSingleTop = true
+                            popUpTo(HomeRoute) { inclusive = false }
+                        }
+                    },
+                    onNavigateSearch = {
+                        navController.navigate(CatalogSearchRoute) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateFormats = {
+                        navController.navigate(SupportedFormatsRoute) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateSettings = {
+                        navController.navigate(SettingsRoute()) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateDiscord = navigateDiscord,
+                    onNavigateFeedback = navigateFeedback,
+                    onNavigateProjects = { },
+                    onNavigateGameSettingsManager = navigateGameSettingsManager,
+                    onNavigateDataTransfer = navigateDataTransfer,
+                    onResetAllSettings = resetAllSettingsAndOpenOnboarding,
+                    onNavigateSaveManager = {
+                        navController.navigate(SaveManagerRoute()) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateMemoryCardManager = navigateMemoryCardManager,
+                    onNavigateTextureManager = navigateTextureManager,
+                    onNavigateCheatManager = navigateCheatManager,
+onNavigateAchievements = navigateAchievements,
+                     onNavigateProfile = navigateProfile,
+                    onBackClick = { navController.popBackStack() },
+                    onLaunchGame = launchGamePickerAction
+                ) {
+                    OurProjectsScreen(onBackClick = { navController.popBackStack() })
                 }
             }
 
@@ -1077,6 +1142,7 @@ onNavigateAchievements = navigateAchievements,
                     onNavigateProfile = { },
                     onNavigateDiscord = navigateDiscord,
                     onNavigateFeedback = navigateFeedback,
+                    onNavigateProjects = navigateProjects,
                     onNavigateGameSettingsManager = navigateGameSettingsManager,
                     onNavigateDataTransfer = navigateDataTransfer,
                     onResetAllSettings = resetAllSettingsAndOpenOnboarding,
