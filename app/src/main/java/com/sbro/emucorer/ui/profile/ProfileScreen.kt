@@ -79,25 +79,25 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.WorkspacePremium
-import androidx.compose.material3.Button
+import com.sbro.emucorer.ui.theme.style.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
+import com.sbro.emucorer.ui.theme.style.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.FilterChip
+import com.sbro.emucorer.ui.theme.style.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import com.sbro.emucorer.ui.theme.style.OutlinedButton
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import com.sbro.emucorer.ui.theme.style.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.sbro.emucorer.ui.theme.style.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -3347,7 +3347,7 @@ private fun LeaderboardRow(
 @Composable
 private fun TopGameMetaPill(icon: ImageVector, text: String) {
     Surface(
-        shape = RoundedCornerShape(999.dp),
+        shape = neonShape(999.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
     ) {
         Row(
@@ -3374,7 +3374,7 @@ private fun TopGameMetaPill(icon: ImageVector, text: String) {
 private fun TopGameTimeBadge(text: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(999.dp),
+        shape = neonShape(999.dp),
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
     ) {

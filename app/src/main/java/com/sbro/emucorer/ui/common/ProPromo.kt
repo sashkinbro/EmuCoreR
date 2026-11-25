@@ -1,5 +1,6 @@
 package com.sbro.emucorer.ui.common
 
+import com.sbro.emucorer.ui.theme.LocalThemeExtras
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -31,13 +32,13 @@ import androidx.compose.material.icons.rounded.Gamepad
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material3.Button
+import com.sbro.emucorer.ui.theme.style.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import com.sbro.emucorer.ui.theme.style.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.sbro.emucorer.ui.theme.style.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -69,8 +70,6 @@ import com.sbro.emucorer.core.ProPurchaseTier
 import com.sbro.emucorer.data.AppPreferences
 import com.sbro.emucorer.ui.theme.neon.neonButtonShape
 import com.sbro.emucorer.ui.theme.neon.LocalNeonTheme
-import com.sbro.emucorer.ui.theme.neon.NeonRed
-import com.sbro.emucorer.ui.theme.neon.NeonYellow
 import com.sbro.emucorer.ui.theme.neon.neonChipShape
 import com.sbro.emucorer.ui.theme.neon.neonCornerAccent
 import com.sbro.emucorer.ui.theme.neon.neonShape
@@ -180,7 +179,7 @@ fun ProPromoCard(
     // Neon theme: cut corners, neon yellow/red frame, corner marks, uppercase title.
     val neon = LocalNeonTheme.current
     val primary = colors.primary
-    val gold = Color(0xFFE9B949)
+    val gold = LocalThemeExtras.current.gold
     val shape = neonShape(20.dp)
     val backgroundBrush = Brush.linearGradient(
         colors = listOf(
@@ -190,7 +189,7 @@ fun ProPromoCard(
         )
     )
     val borderBrush = if (neon) {
-        Brush.linearGradient(listOf(NeonYellow.copy(alpha = 0.70f), NeonRed.copy(alpha = 0.55f)))
+        Brush.linearGradient(listOf(LocalThemeExtras.current.accent1.copy(alpha = 0.70f), LocalThemeExtras.current.accent3.copy(alpha = 0.55f)))
     } else {
         Brush.linearGradient(listOf(gold.copy(alpha = 0.60f), primary.copy(alpha = 0.35f)))
     }
@@ -199,8 +198,8 @@ fun ProPromoCard(
         Row(
             modifier = Modifier
                 .height(22.dp)
-                .clip(if (neon) neonChipShape() else RoundedCornerShape(50))
-                .background(if (neon) Brush.horizontalGradient(listOf(NeonYellow, NeonYellow))
+                .clip(if (neon) neonChipShape() else neonShape(999.dp))
+                .background(if (neon) Brush.horizontalGradient(listOf(LocalThemeExtras.current.accent1, LocalThemeExtras.current.accent1))
                     else Brush.horizontalGradient(listOf(Color(0xFFF6D06B), Color(0xFFD99A2B))))
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -231,7 +230,7 @@ fun ProPromoCard(
                 // The gold app icon brings its own round badge, so it gets no backing tile.
                 .then(
                     if (variant.image == null) {
-                        Modifier.clip(RoundedCornerShape(12.dp)).background(Brush.linearGradient(listOf(primary.copy(alpha = 0.38f), primary.copy(alpha = 0.10f))))
+                        Modifier.clip(neonShape(12.dp)).background(Brush.linearGradient(listOf(primary.copy(alpha = 0.38f), primary.copy(alpha = 0.10f))))
                     } else {
                         Modifier
                     }
@@ -316,7 +315,7 @@ fun ProPromoCard(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .neonCornerAccent(NeonYellow, markSize = 10.dp, bracket = true),
+            .neonCornerAccent(LocalThemeExtras.current.accent1, markSize = 10.dp, bracket = true),
         shape = shape,
         color = Color.Transparent,
         border = BorderStroke(1.dp, borderBrush)

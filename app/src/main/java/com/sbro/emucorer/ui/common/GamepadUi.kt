@@ -40,7 +40,8 @@ fun Modifier.gamepadFocusableCard(
     shape: Shape? = null,
     interactionSource: MutableInteractionSource? = null,
     addFocusTarget: Boolean = true,
-    focusHighlightMode: GamepadFocusHighlightMode = GamepadFocusHighlightMode.ConnectedGamepadOnly
+    focusHighlightMode: GamepadFocusHighlightMode = GamepadFocusHighlightMode.ConnectedGamepadOnly,
+    showIdleBorder: Boolean = false
 ): Modifier = composed {
     val effectiveShape = shape ?: neonShape(18.dp)
     val focusInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
@@ -58,10 +59,10 @@ fun Modifier.gamepadFocusableCard(
         targetValue = if (shouldShowFocusHighlight && !tvUiEnabled) 1.02f else 1f,
         label = "gamepadFocusScale"
     )
-    val focusBorder = if (shouldShowFocusHighlight) {
-        BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.95f))
-    } else {
-        null
+    val focusBorder = when {
+        shouldShowFocusHighlight -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.95f))
+        showIdleBorder -> BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+        else -> null
     }
 
     var focusedModifier = if (tvUiEnabled) {

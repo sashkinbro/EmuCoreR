@@ -1,5 +1,7 @@
 package com.sbro.emucorer.ui.settings
 
+import kotlinx.coroutines.flow.Flow
+import androidx.compose.runtime.Immutable
 import android.app.Activity
 import android.app.Application
 import android.net.Uri
@@ -459,6 +461,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         if (mode == ThemeMode.NEON) {
             preferences.setTouchControlVisualStyle(TouchControlVisualStyle.MODERN)
         }
+    }
+    val themePackageId: Flow<String?> = preferences.themePackageId
+
+    fun applyThemePackage(id: String, requiresPro: Boolean) = viewModelScope.launch {
+        preferences.applyThemePackage(id, requiresPro)
+    }
+
+    fun saveCustomTheme(config: CustomThemeConfig, activate: Boolean) = viewModelScope.launch {
+        if (!_uiState.value.isProUnlocked) return@launch
+        if (activate) preferences.applyCustomTheme(config) else preferences.setCustomTheme(config)
     }
     fun saveCustomThemeLibrary(library: CustomThemeLibrary, activate: Boolean) {
         if (!_uiState.value.isProUnlocked) return
